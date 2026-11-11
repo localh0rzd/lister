@@ -1,6 +1,10 @@
 # Lister
 
-Nx monorepo with an Angular 22 web app and a NestJS API sharing TypeScript contracts.
+Lister keeps reusable, composable checklists — packing lists first — that several people can edit
+and check off together in real time, also offline, as an installable PWA. The design and all
+decisions are in [docs/design.md](docs/design.md).
+
+Nx monorepo with an Angular 22 web app and a NestJS API sharing TypeScript libraries.
 
 | Project                             | Path                            | What                                                                 |
 | ----------------------------------- | ------------------------------- | -------------------------------------------------------------------- |
@@ -36,6 +40,7 @@ npx nx format:write
 
 ## Working with Claude Code
 
+- `docs/design.md` — design, decisions, and the **open decisions** (answer them in chat or edit the file).
 - `CLAUDE.md` — stack, layout, conventions, definition of done.
 - `TASKS.md` — the backlog. Add tasks there and ask Claude to "work on the next task".
 - `.claude/skills/` — project skills: `tasks`, `fullstack-feature`, `angular-feature`, `nest-feature`, `verify`.

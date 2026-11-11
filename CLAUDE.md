@@ -1,7 +1,11 @@
 # Lister
 
-Nx monorepo: **Angular** web app + **NestJS** API, sharing TypeScript contracts.
-Work items live in [TASKS.md](TASKS.md) — use the `tasks` skill to pick one up.
+Reusable, composable checklists (packing lists first), edited together in real time, usable offline as a PWA.
+Nx monorepo: **Angular** web app + **NestJS** API, sharing TypeScript libraries.
+
+- **Design and decisions:** [docs/design.md](docs/design.md). Read the relevant sections before touching data, sync, composition or checklists. If a change would contradict it, update the doc first and tell the user.
+- **Open decisions:** listed near the top of `docs/design.md`, each naming the first task that needs it. Before starting such a task, check whether it has been answered; if not, ask the user once and propose the default. Record answers in the doc's Decisions table.
+- **Work items:** [TASKS.md](TASKS.md) — use the `tasks` skill to pick one up.
 
 ## Stack (installed versions — check `package.json` before assuming APIs)
 
@@ -11,6 +15,7 @@ Work items live in [TASKS.md](TASKS.md) — use the `tasks` skill to pick one up
 - **Vitest for every unit and API e2e test** (no Jest anywhere), Playwright for web e2e
 - TypeScript 6, ESLint 9 flat config, Prettier
 - Node from `.nvmrc` (managed with fnm), npm as package manager. `.npmrc` sets `legacy-peer-deps=false` and `strict-peer-deps=true`: installs fail on peer conflicts
+- Planned, each added by its task (don't swap in alternatives; reasons in docs/design.md §4): Angular Material 22 + CDK, `@angular/service-worker`, Dexie 4, Socket.IO 4 (`@nestjs/platform-socket.io` 11.x), Drizzle 0.45 + `better-sqlite3` 13, Zod 4, `fractional-indexing`, `uuid` (v7), `@simplewebauthn/server` + `@simplewebauthn/browser` 14
 
 ## Layout
 
@@ -26,6 +31,18 @@ packages/
 
 New libraries go in `packages/<scope>/<name>`, where scope is `web`, `api` or `shared`, with import path `@lister/<scope>/<name>`.
 Apps stay thin: they wire routes, modules and config. Features go in libraries once an app grows past a couple of features.
+The planned libraries and their tags are in docs/design.md §5; create each one when its task comes up.
+
+## Domain and architecture (summary of docs/design.md)
+
+- **List**: reusable, composable, no check state. **Item**: belongs to exactly one list. **Include**: list A contains list B, any depth, never a cycle; a list reached twice appears once. A live reference: editing a list changes every list that includes it (D2).
+- **Run**: a one-off checklist, started from a list (its items are copied in when it starts, D2) or empty (ad-hoc); identical items are merged into one (D16). Holds checked/skipped state; when every item is checked or skipped it finishes and is never listed again (D10). The UI says "run" too (destination "Runs").
+- **Users and spaces**: admins create and manage all accounts (no self-registration); sign-in with username and password, or with passkeys. A **space** owns lists and runs, and all its members can edit them (D14: a personal space per user, plus shared spaces whose owner adds members).
+- **Local-first:** the web app reads synced data from IndexedDB (Dexie) and changes it only through **mutations** via the sync engine. The server applies each mutation in a SQLite transaction and pokes the changed rows to the space over Socket.IO. REST is only for sign-in, passkeys, user administration, spaces, bootstrap, export and health.
+- **Production:** one Docker container behind Traefik, which terminates HTTPS. The app speaks plain HTTP and takes its public URL from `PUBLIC_URL` (used for the WebSocket `Origin` check, `Secure` cookies and passkeys).
+- **Conflicts:** per field, the change that reaches the server last wins; deletes win (rows become tombstones); a mutation that breaks a rule (cycle, permission, validation) is rejected and rolled back on the client.
+- The sync infrastructure is built by T-004 – T-014. Don't build synced features on REST CRUD as a stopgap before it exists.
+- UI text is English only.
 
 ## Commands
 
@@ -53,8 +70,8 @@ Defaults live in `nx.json > generators` (scss, `lister` prefix, OnPush, vitest-a
 ```bash
 npx nx g @nx/angular:library packages/web/feature-lists --tags=scope:web,type:feature --dry-run
 npx nx g @nx/angular:component packages/web/feature-lists/src/lib/list-page/list-page --dry-run
-npx nx g @nx/nest:library packages/api/lists --tags=scope:api,type:feature --dry-run
-npx nx g @nx/nest:resource apps/lister-api/src/app/lists/lists --dry-run
+npx nx g @nx/nest:library packages/api/feature-sync --tags=scope:api,type:feature --dry-run
+npx nx g @nx/nest:resource apps/lister-api/src/app/users/users --dry-run   # REST only for non-synced data
 npx nx g @nx/js:library packages/shared/<name> --tags=scope:shared,type:util --dry-run
 ```
 
@@ -76,10 +93,12 @@ Every project needs one `scope:*` and one `type:*` tag.
 
 ## Conventions
 
-### Shared contracts (`@lister/shared/api-contracts`)
+### Shared libraries (`packages/shared/*`)
 
-- Every request/response shape that crosses HTTP is a TypeScript interface here. Both sides import it, so a contract change breaks both at compile time.
-- Plain TS only: no Angular, NestJS, `class-validator` or Node imports. Route paths are built with `apiPath(...)`.
+- `api-contracts`: every request/response shape that crosses HTTP, as TypeScript interfaces. Both sides import it, so a contract change breaks both at compile time. Route paths are built with `apiPath(...)`.
+- `domain` (from T-005): entity types, positions, flattening, cycle check, mutation apply rules — pure functions used by client and server alike.
+- `sync-protocol` (from T-005): Zod schemas for mutations and socket messages, and the protocol version.
+- Allowed: plain TypeScript and Zod. Not allowed: Angular, NestJS, `class-validator`, Node or browser-only APIs.
 
 ### Angular (`lister-web`)
 
@@ -87,7 +106,11 @@ Every project needs one `scope:*` and one `type:*` tag.
 - State: `signal`, `computed`, `linkedSignal`, `input()`, `output()`, `model()`. Avoid `@Input`/`@Output` decorators and manual subscriptions.
 - DI via `inject()`, not constructor params.
 - Templates: built-in control flow (`@if`, `@for` with `track`, `@switch`, `@defer`). No `*ngIf`/`*ngFor`.
-- HTTP reads: `httpResource()` / `resource()`. Writes: `HttpClient` in a data-access service. Use `apiPath()` for URLs; the dev proxy (`apps/lister-web/proxy.conf.json`) forwards `/api` to `:3000`.
+- Synced data (lists, items, includes, runs): read through the local-database repositories (signals), change through sync-engine mutations. Never `HttpClient` or `httpResource()` for it.
+- Other HTTP (sign-in, passkeys, user administration, spaces, export, health): `httpResource()` for reads, `HttpClient` in a data-access service for writes, URLs via `apiPath()`. The dev proxy (`apps/lister-web/proxy.conf.json`) forwards `/api` to `:3000`, and `/socket.io` once T-007 is done.
+- UI: Angular Material 3 components and `--mat-sys-*` tokens. The navigation bar and rail are our own components in `packages/web/ui` (Material has none). Fonts and icons are self-hosted — never add Google Fonts links.
+- Drag and drop (CDK) always has a keyboard alternative ("Move up / down"). Destructive actions offer Undo in a snackbar.
+- PWA: the service worker only runs in production builds; test offline behaviour against the production build.
 - Forms: Signal Forms (`@angular/forms/signals`) for new forms.
 - Routes are lazy (`loadComponent` / `loadChildren`). Router inputs are bound to component inputs (`withComponentInputBinding`).
 - Tests: Vitest + `TestBed`; mock HTTP with `provideHttpClientTesting()` + `HttpTestingController`.
@@ -97,6 +120,8 @@ Every project needs one `scope:*` and one `type:*` tag.
 - One Nest module per feature (`<feature>.module.ts`, `.controller.ts`, `.service.ts`), imported into `AppModule`.
 - Global prefix `api` (from `API_PREFIX`). A global `ValidationPipe` with `whitelist` + `transform` is on: request bodies are DTO **classes** with `class-validator` decorators that `implements` the shared interface.
 - Controllers stay thin; logic lives in services. Throw Nest HTTP exceptions (`NotFoundException`, …), don't build error responses by hand.
+- Synced data has no REST CRUD endpoints. It changes only through mutation handlers in the sync feature: authorize → validate (Zod schema from `sync-protocol`) → apply → bump the space version, all inside one synchronous SQLite transaction — never `await` inside it. Mutations set values; they never toggle or increment.
+- Database (from T-004): SQLite via Drizzle + `better-sqlite3`. Every schema change is a Drizzle migration **and** a matching Dexie version bump on the client, in the same change.
 - Config comes from env vars (`PORT`, …). No secrets in the repo.
 - Tests: Vitest + `@nestjs/testing` for units (decorator metadata works out of the box, no SWC plugin needed); `apps/lister-api-e2e` (Vitest + axios) for HTTP-level tests.
 
@@ -106,13 +131,14 @@ Every project needs one `scope:*` and one `type:*` tag.
 2. `npx nx format:check` is clean.
 3. New behaviour has tests next to the code (`*.spec.ts`).
 4. If the work came from `TASKS.md`, the task is updated there.
+5. If the change departs from `docs/design.md`, the doc is updated in the same change.
 
 Use the `verify` skill to run this.
 
 ## Project skills (`.claude/skills/`)
 
 - `tasks` — pick up, implement and close items from `TASKS.md`
-- `fullstack-feature` — end-to-end feature: contract → Nest endpoint → Angular UI → tests
+- `fullstack-feature` — feature across API and web: synced data via mutations, or plain HTTP
 - `angular-feature` — Angular components, routes, libraries, data access
 - `nest-feature` — Nest modules, controllers, DTOs, validation
 - `verify` — the definition-of-done checks

@@ -1,17 +1,22 @@
 # Lister — Tasks
 
-Backlog for Lister. Add tasks under **Backlog**; Claude picks them up with the `tasks` skill
-(e.g. "work on the next task" or "do T-003").
+Backlog for Lister. Claude picks tasks up with the `tasks` skill ("work on the next task", "do T-007").
+The design behind them is [docs/design.md](docs/design.md). Ideas deliberately left out of v1 are in
+its §8; decisions still open are under its **Open decisions**.
 
 How to write a task:
 
-- Give it the next free ID (`T-001`, `T-002`, …) and a short title.
+- Give it the next free ID (highest existing ID + 1) and a short title.
 - Say what should be true when it's done, from the user's point of view. Bullets are fine.
-- Optional: `Area:` (web / api / shared / infra), `Priority:` (high / normal / low), `Depends on:` T-xxx, `Notes:`.
+- Fields: `Milestone:`, `Area:` (web / api / shared / infra), `Priority:` (high / normal / low),
+  `Depends on:` T-xxx, `Decisions:` open decisions from `docs/design.md` it needs, `Notes:`.
 - Order the backlog by priority — the top unblocked task is "next".
 
 Statuses: tasks move **Backlog → In progress → Done**. Claude moves them and adds a one-line
 summary when it finishes. Anything blocked or needing a decision goes back with a `Blocked:` note.
+
+Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composition · **M4** Runs ·
+**M5** Accounts and spaces · **M6** Collaboration polish · **M7** Deployment
 
 ---
 
@@ -21,14 +26,530 @@ _Nothing in progress._
 
 ## Backlog
 
-### T-001 — Example: show all lists on the home page
+### T-001 — Material 3 theme, self-hosted fonts, light and dark
 
-- Area: web, api, shared
-- Priority: normal
+- Milestone: M1 Foundations
+- Area: web
+- Priority: high
 - Done when:
-  - `GET /api/lists` returns the user's lists (in-memory store is fine for now)
-  - The home page shows the lists, with an empty state when there are none
-- Notes: This is an example task — edit or delete it.
+  - Angular Material and CDK 22 are installed, and `lister-web` uses one Material 3 theme
+    (`mat.theme`) defined in the global styles, generated from the deep teal seed colour
+    `#00796B` (D11).
+  - Light and dark follow the system setting; a manual choice (system / light / dark) is
+    remembered on the device.
+  - Roboto and Material Symbols are bundled from npm packages, and the app makes no requests to
+    Google Fonts (checked in an e2e test).
+  - `<meta name="theme-color">` matches the theme in light and dark.
+- Notes: Generate the palettes with Angular Material's `theme-color` schematic. Material's `ng-add`
+  adds Google Fonts links to `index.html`; remove them. Design §2.7.
+
+### T-002 — App shell with navigation bar and navigation rail
+
+- Milestone: M1 Foundations
+- Area: web
+- Priority: high
+- Depends on: T-001
+- Done when:
+  - A `packages/web/ui` library (scope:web, type:ui) has a navigation bar and a navigation rail
+    built with the M3 tokens (`--mat-sys-*`): keyboard accessible, `aria-current` on the active
+    destination, unit tested.
+  - Below 600 px width the shell shows a top app bar and the bottom navigation bar; from 600 px it
+    shows the navigation rail.
+  - Destinations Lists, Runs and Space are lazy routes with placeholder pages; `/` opens Lists.
+  - The API status from the current home page moves to the Space page, so the existing proxy e2e
+    test keeps passing.
+  - E2E: switching destinations works at 375 px and at 1280 px width.
+
+### T-003 — Installable PWA with offline app shell and update prompt
+
+- Milestone: M1 Foundations
+- Area: web
+- Priority: high
+- Depends on: T-001
+- Done when:
+  - `@angular/service-worker` is set up for `lister-web` (via the `@angular/pwa` schematic) and
+    registers only in production builds.
+  - `ngsw-config.json` prefetches the app shell, caches assets including fonts and icons, has no
+    data groups, and excludes `/api/**` and `/socket.io/**` from the navigation fallback.
+  - Manifest: name and short name "Lister", standalone, `start_url` and `scope` `/`, theme and
+    background colours from the theme, and 192 px and 512 px icons including maskable ones: the
+    Material Symbols "checklist" glyph on the theme colour (D11).
+  - When a new version is ready, a snackbar offers "New version available — Reload".
+  - E2E against the production build: after one online visit, the app loads with the browser
+    offline.
+- Notes: The update logic lives in a `packages/web/util-pwa` library (scope:web, type:util). The
+  dev server has no service worker; use the production build (`serve-static`).
+
+### T-004 — SQLite database layer with Drizzle and migrations
+
+- Milestone: M1 Foundations
+- Area: api
+- Priority: high
+- Done when:
+  - A `packages/api/data-access-db` library (scope:api, type:data-access) provides a Nest module
+    with Drizzle on `better-sqlite3`, configured by `DATABASE_PATH` (default `data/lister.db`;
+    tests use `:memory:`).
+  - On connect: `journal_mode=WAL`, `foreign_keys=ON`, `busy_timeout=5000`, `synchronous=NORMAL`.
+  - Migrations are generated with drizzle-kit through a documented Nx target, committed, and
+    applied when the API starts.
+  - `GET /api/health` also reports the database (`db: 'ok'`), and the API e2e test checks it.
+  - A test helper gives each test a fresh, migrated in-memory database.
+  - `data/` is git-ignored, and `DATABASE_PATH` is in the README's environment table.
+- Notes: Make sure the webpack build keeps `better-sqlite3` external and the built `main.js`
+  starts.
+
+### T-005 — Shared `domain` and `sync-protocol` libraries
+
+- Milestone: M1 Foundations
+- Area: shared
+- Priority: high
+- Done when:
+  - `packages/shared/domain` (scope:shared, type:util) exports the entity types for spaces, lists
+    and items with the sync metadata from design §3, a UUIDv7 id helper, and position helpers on
+    `fractional-indexing` (between two neighbours, append; equal keys ordered by id).
+  - `packages/shared/sync-protocol` (scope:shared, type:util) exports `PROTOCOL_VERSION` and Zod
+    schemas with inferred types for the socket messages (hello, welcome, pull, rows, push, ack,
+    reject, poke) and for the list and item mutations (create, update, move, delete, restore).
+  - Item quantity is optional free text; empty means 1 (D6).
+  - Unit tests: schemas accept valid and reject invalid examples; positions sort correctly,
+    including two clients inserting at the same spot.
+- Notes: No Angular, Nest, Node or browser-only imports. Includes and runs are added by T-015 and
+  T-019.
+
+### T-006 — Server: lists and items as mutations
+
+- Milestone: M2 Sync walking skeleton
+- Area: api
+- Priority: high
+- Depends on: T-004, T-005
+- Done when:
+  - Drizzle tables and a migration for `spaces` (with a version counter), `lists`, `items` and
+    `processed_mutations`.
+  - In development, startup makes sure a dev user and a dev space exist (removed by T-024).
+  - Mutation handlers for list and item create, update, move, delete and restore live in
+    `packages/api/feature-sync` (scope:api, type:feature). Each mutation runs in one synchronous
+    transaction with per-field patches; the space version goes up by one per mutation and is
+    stored on every changed row.
+  - An update to a deleted row is ignored (delete wins); a repeated mutation id is applied once and
+    gets the same answer; invalid arguments are rejected with a reason.
+  - Integration tests on in-memory SQLite cover each rule.
+
+### T-007 — Server: Socket.IO sync gateway
+
+- Milestone: M2 Sync walking skeleton
+- Area: api
+- Priority: high
+- Depends on: T-006
+- Done when:
+  - A Socket.IO gateway (WebSocket transport only) implements hello/welcome, pull, push and poke as
+    in design §4.2; an unsupported protocol version gets an "update required" answer.
+  - Pull returns every row of the space changed after the given version, tombstones included;
+    `since: 0` returns a full snapshot.
+  - Push handles mutations in order and answers each with an ack (new version) or a rejection
+    (reason); changed rows are poked to the space's room.
+  - The handshake checks the `Origin` header against `PUBLIC_URL` (in development, the dev
+    server's origin).
+  - The web dev proxy forwards `/socket.io` with WebSockets enabled.
+  - API e2e (Vitest + `socket.io-client`): A pushes and B gets the poke; B reconnects after missing
+    changes and catches up by pulling; a resent mutation isn't applied twice; a foreign origin is
+    refused.
+
+### T-008 — Web: local database with Dexie
+
+- Milestone: M2 Sync walking skeleton
+- Area: web
+- Priority: high
+- Depends on: T-005
+- Done when:
+  - `packages/web/data-access-local-db` (scope:web, type:data-access) defines a versioned Dexie
+    database with tables for spaces, lists, items, the outbox and sync metadata.
+  - A helper turns Dexie `liveQuery` results into Angular signals.
+  - Repository queries: the lists of a space (by title) and the items of a list (by position),
+    without tombstoned rows.
+  - Tests with `fake-indexeddb` show the signals update when rows change.
+
+### T-009 — Web: sync engine with offline outbox
+
+- Milestone: M2 Sync walking skeleton
+- Area: web
+- Priority: high
+- Depends on: T-007, T-008
+- Done when:
+  - `packages/web/data-access-sync` (scope:web, type:data-access) offers `mutate(...)`: the change
+    is applied to the local database at once, using the shared rules, and queued in the outbox.
+  - The engine connects with `socket.io-client`, says hello, pulls, then pushes the outbox in
+    order. A mutation leaves the outbox once its version has arrived; a rejected one is rolled back
+    and reported.
+  - Pokes are applied; a version gap triggers a pull; pending mutations are re-applied on top of
+    incoming server rows.
+  - Signals: `online`, `syncing`, `pendingCount`, `lastSyncedAt`, `errors`.
+  - Only one tab syncs at a time (Web Locks); other tabs see changes through the local database.
+  - Unit tests with a fake socket cover offline queueing, flushing on reconnect, rejection
+    rollback, gap pull and rebase.
+- Notes: Uses the dev user and space until T-025.
+
+### T-010 — Web: Lists page
+
+- Milestone: M2 Sync walking skeleton
+- Area: web
+- Priority: high
+- Depends on: T-002, T-009
+- Done when:
+  - A `packages/web/feature-lists` library (scope:web, type:feature) provides the Lists
+    destination: all lists of the space with their item counts, and an empty state.
+  - A FAB creates a list (title dialog). Lists can be renamed and deleted; deleting offers Undo in
+    a snackbar.
+  - Every change goes through the sync engine, works offline, and appears on another open device
+    without a reload.
+  - The app bar shows a small sync indicator: offline, or "N changes not synced".
+
+### T-011 — Web: list editor
+
+- Milestone: M2 Sync walking skeleton
+- Area: web
+- Priority: high
+- Depends on: T-010
+- Done when:
+  - Opening a list shows its items in order; an inline field adds an item.
+  - Pasting several lines into that field creates one item per line.
+  - An item's title, quantity and note can be edited; deleting an item offers Undo.
+  - Items can be reordered by drag and drop, and with "Move up" / "Move down" in the item menu.
+  - Component tests cover adding, pasting, editing, deleting with undo, and reordering.
+
+### T-012 — Serve the web app from the API (one origin)
+
+- Milestone: M2 Sync walking skeleton
+- Area: api, web
+- Priority: high
+- Depends on: T-003, T-007
+- Done when:
+  - The production API serves the built web app (`dist/apps/lister-web/browser`) with SPA
+    fallback; `/api/**` and `/socket.io/**` are never answered with `index.html`.
+  - One documented command builds both and starts the production setup locally.
+  - Playwright can run against this setup, with the service worker active.
+- Notes: This is the deployment topology (design §2.9), and the offline e2e tests need it.
+
+### T-013 — E2E: real-time and offline sync
+
+- Milestone: M2 Sync walking skeleton
+- Area: web, api
+- Priority: high
+- Depends on: T-011, T-012
+- Done when:
+  - Specs with two browser contexts: an item added, edited, reordered or deleted in A shows up in B
+    without a reload.
+  - Offline: A goes offline (`context.setOffline(true)`) and makes changes while B changes other
+    items; once A is back online, both show the same content.
+  - Reloading while offline (production build) still shows the data and the pending changes, which
+    sync once online.
+  - The specs run in CI.
+
+### T-014 — Write down the synced-feature recipe
+
+- Milestone: M2 Sync walking skeleton
+- Area: infra
+- Priority: normal
+- Depends on: T-013
+- Done when:
+  - The `fullstack-feature` skill's synced-data path names the real files, APIs and commands
+    (mutation schema, migration command, handler registration, Dexie version bump, local apply,
+    repository, e2e helpers) instead of the outline it has now.
+  - `angular-feature`, `nest-feature` and `CLAUDE.md` match the code.
+  - The recipe matches how lists and items were actually built in T-006 – T-013.
+
+### T-015 — Composition model: includes, flattening, cycle rejection
+
+- Milestone: M3 Composition
+- Area: shared, api, web
+- Priority: normal
+- Depends on: T-013
+- Done when:
+  - Includes exist in the domain, in SQLite (migration) and in Dexie (version bump), with mutations
+    to add, move and remove one.
+  - Shared `flatten(listId)` returns a list's items in position order across its own items and its
+    included lists. It recurses into nested lists and visits each list once, so diamonds appear
+    once and cycles can't loop.
+  - Shared `wouldCreateCycle(parent, child)`. The server rejects an include that would create a
+    cycle, including when two offline clients each add one half of a loop (the second is rejected).
+  - Unit tests for flattening (nesting, order, diamonds) and cycles; an API e2e test for the
+    two-client loop.
+
+### T-016 — Composition UI
+
+- Milestone: M3 Composition
+- Area: web
+- Priority: normal
+- Depends on: T-015, T-011
+- Done when:
+  - In the list editor, "Add list" opens a searchable picker that leaves out the list itself, lists
+    already included and lists that would create a loop.
+  - Included lists appear as collapsible sections named after the list, with their items and
+    nested includes. Sections can be reordered among the items and removed.
+  - Editing an item inside a section edits its source list, and the UI says how many other lists
+    use that list.
+  - An included list that is in the trash shows as a "deleted list" placeholder.
+  - A rejected include (someone else created the other half of a loop) shows a snackbar with the
+    reason.
+
+### T-017 — Trash and restore
+
+- Milestone: M3 Composition
+- Area: web, api
+- Priority: normal
+- Depends on: T-011
+- Done when:
+  - A Trash page (reached from Space) lists lists and items deleted in the last 30 days (D15), with
+    who deleted them and when.
+  - Restore brings back a list or an item and syncs like any other change.
+  - Deleting a list doesn't delete its items, so restoring the list brings them back too.
+
+### T-018 — Duplicate a list
+
+- Milestone: M3 Composition
+- Area: web
+- Priority: normal
+- Depends on: T-016
+- Done when:
+  - "Duplicate" on a list creates "Copy of <title>" with copies of its items (same order, new ids)
+    and the same includes (still references).
+  - It works offline (the ids come from the client).
+
+### T-019 — Run model, including ad-hoc runs
+
+- Milestone: M4 Runs
+- Area: shared, api, web
+- Priority: normal
+- Depends on: T-015
+- Done when:
+  - Runs and run items exist in the domain, in SQLite (migration) and in Dexie (version bump), with
+    mutations:
+    - start: from a list — the client copies the list's flattened items into the run, so starting
+      works offline — or empty, for an ad-hoc run;
+    - rename; add, edit, move and remove run items; add a whole list, whose flattened items are
+      copied in as a new section;
+    - set an item's state: unchecked, checked or skipped (always a set, never a toggle).
+  - Identical items are merged whenever items enter a run (start, adding a list, adding an item by
+    hand), with one shared rule (D16): titles match ignoring case and surrounding spaces; the
+    larger quantity wins (empty = 1) and different text quantities are joined; notes are joined;
+    the item lists every source list; a checked item whose quantity rises is unchecked again.
+  - A run counts as finished while every item is checked or skipped and it has at least one item.
+    The server recomputes this in the same transaction as each run-item change, and the client
+    applies the same shared rule; unchecking or adding an item reopens the run.
+  - Editing a list doesn't change active runs.
+  - Unit and integration tests for each rule, including the merge cases and two people finishing and
+    reopening a run at the same time.
+- Notes: Finished runs are purged by T-033.
+
+### T-020 — Runs UI
+
+- Milestone: M4 Runs
+- Area: web
+- Priority: normal
+- Depends on: T-019, T-016
+- Done when:
+  - A `packages/web/feature-runs` library (scope:web, type:feature). "Start run" on a list creates a
+    run (title prefilled with the list name and date) and opens it.
+  - "New run" on the Runs page creates an empty ad-hoc run; items are typed or pasted straight in.
+  - The Runs destination shows the active runs with their progress. Finished runs appear nowhere:
+    not there, and not where runs are started (D10).
+  - A run shows its items grouped by the list they came from (merged items also say which other
+    lists they come from), with check, uncheck and skip, and a progress bar.
+  - Checked items stay in place, struck through. A toggle, remembered on the device, moves them into
+    a "Done" section while it's on (D12).
+  - Items can be added, edited and removed, and a whole list can be added — all only in this run.
+  - When everything is checked or skipped, the run disappears and the snackbar offers Undo, which
+    reverts the last check.
+  - E2E: two people checking items in the same run see each other's checks live, and both see the
+    run disappear when it's finished.
+
+### T-021 — Save a run as a list
+
+- Milestone: M4 Runs
+- Area: web
+- Priority: normal
+- Depends on: T-020
+- Done when:
+  - "Save as list" in a run's menu creates a new reusable list with copies of the run's items, in
+    order. The run itself is unchanged.
+  - The app never suggests it (not when a run finishes, not for ad-hoc runs) and never requires it
+    (D13).
+
+### T-022 — Accounts, sessions and the admin role
+
+- Milestone: M5 Accounts and spaces
+- Area: api
+- Priority: normal
+- Depends on: T-004
+- Done when:
+  - `users` (username, display name, password hash, admin flag, must-change-password flag) and
+    `sessions` tables, in `packages/api/feature-auth` (scope:api, type:feature). Passwords are
+    hashed with Node's built-in `crypto.argon2`.
+  - `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me` and
+    `POST /api/auth/password` (change your own password), using an httpOnly session cookie
+    (SameSite=Lax, `Secure` when `PUBLIC_URL` is https) that lasts 90 days and renews on use (D15).
+  - A user flagged "must change password" can do nothing else until they've changed it.
+  - First start: while no account exists, the server logs a one-time setup token, and
+    `POST /api/auth/setup` with it creates the first account, as an admin.
+  - A server command resets a user's password, for when no admin can sign in.
+  - Sign-in attempts are rate-limited per client IP (behind Traefik, taken from
+    `X-Forwarded-For`).
+  - Tests cover sign-in, sign-out, expiry, the forced password change, the setup token, the reset
+    command and the rate limit.
+
+### T-023 — User administration
+
+- Milestone: M5 Accounts and spaces
+- Area: api
+- Priority: normal
+- Depends on: T-022
+- Done when:
+  - Admin-only endpoints to list, create (username, display name, temporary password), edit and
+    delete users, reset a password (to a temporary one), and grant or revoke admin.
+  - The last admin can't be deleted or demoted.
+  - Non-admins get 403 from all of them.
+  - Deleting a user or resetting their password ends their sessions.
+  - Tests for each endpoint and for the last-admin rule.
+
+### T-024 — Spaces and memberships
+
+- Milestone: M5 Accounts and spaces
+- Area: api
+- Priority: normal
+- Depends on: T-023, T-006
+- Done when:
+  - Spaces and memberships (D14): every user has a personal space; any user can create a shared
+    space and add existing users; the creator owns it and manages its members.
+  - Endpoints to create, rename and delete spaces, add and remove members, and leave a space.
+  - Deleting a user also deletes their personal space; shared spaces keep their content.
+  - The dev user and space from T-006 are removed.
+  - Tests for the membership and ownership rules.
+
+### T-025 — Authenticated and authorized sync
+
+- Milestone: M5 Accounts and spaces
+- Area: api, web
+- Priority: normal
+- Depends on: T-024, T-009
+- Done when:
+  - The socket handshake authenticates with the session cookie; connections without a valid
+    session are refused.
+  - Welcome lists the user's spaces with their members' display names; pull, push and poke work
+    only for spaces the user belongs to.
+  - Mutations are stamped with the real user; a member who is removed is disconnected from that
+    space at once.
+  - The web sync engine syncs all of the user's spaces.
+  - API e2e: a non-member can neither read nor change a space.
+
+### T-026 — Web: sign-in, profile, user administration and spaces
+
+- Milestone: M5 Accounts and spaces
+- Area: web
+- Priority: normal
+- Depends on: T-025
+- Done when:
+  - A `packages/web/feature-auth` library with sign-in, first-run setup, the forced password
+    change, and a profile page (display name, password).
+  - A `packages/web/feature-admin` library, shown to admins only: the user list; creating, editing
+    and deleting users; resetting passwords; granting and revoking admin.
+  - A `packages/web/feature-space` library: a space switcher; creating and renaming spaces; adding
+    and removing members; leaving a space.
+  - If the session expired while offline, the app keeps working, keeps pending changes, and asks
+    for sign-in once online.
+  - Signing out warns about unsynced changes and clears the local data.
+
+### T-027 — Passkeys
+
+- Milestone: M5 Accounts and spaces
+- Area: api, web
+- Priority: normal
+- Depends on: T-026
+- Done when:
+  - Passkeys (WebAuthn) via `@simplewebauthn/server` and `@simplewebauthn/browser` 14, stored in a
+    `passkeys` table (credential id, public key, sign counter, transports, name, created and last
+    used).
+  - On their profile, users add a passkey, name it, and remove it; they only ever see their own.
+  - The sign-in page offers "Sign in with a passkey", using discoverable credentials, so no
+    username is needed.
+  - The relying-party id and origin come from `PUBLIC_URL`; `localhost` works in development.
+  - E2E with a virtual authenticator (Chromium): add a passkey, sign out, sign in with it, remove
+    it.
+
+### T-028 — "Checked by" attribution
+
+- Milestone: M6 Collaboration polish
+- Area: web, api
+- Priority: normal
+- Depends on: T-026, T-020
+- Done when:
+  - Run items show who checked or skipped them and when ("Anna · 14:02").
+  - Item details show who edited them last.
+
+### T-029 — Rejection notices, deleted-while-editing, undo
+
+- Milestone: M6 Collaboration polish
+- Area: web
+- Priority: normal
+- Depends on: T-026
+- Done when:
+  - Every rejected change shows a snackbar with a readable reason.
+  - Editing an item that someone else just deleted shows "Deleted by Ben", with Restore.
+  - Undo is offered after deleting lists and items and after removing includes.
+
+### T-030 — Sync status and update handling
+
+- Milestone: M6 Collaboration polish
+- Area: web
+- Priority: normal
+- Depends on: T-009, T-003
+- Done when:
+  - Offline state, the number of unsynced changes, the last sync time and a "Sync now" action are
+    visible.
+  - Sync errors can be inspected.
+  - An "update required" answer from the server starts the service worker update flow instead of
+    failing silently.
+
+### T-031 — Install hint and persistent storage
+
+- Milestone: M6 Collaboration polish
+- Area: web
+- Priority: low
+- Depends on: T-003
+- Done when:
+  - On Chromium, an "Install app" action opens the browser's install prompt.
+  - On iOS Safari, a one-time hint explains "Share → Add to Home Screen".
+  - After the first real use, the app requests persistent storage (`navigator.storage.persist()`),
+    and the Space page shows whether it was granted.
+
+### T-032 — Docker image for running behind Traefik
+
+- Milestone: M7 Deployment
+- Area: infra
+- Priority: normal
+- Depends on: T-012
+- Done when:
+  - A multi-stage Dockerfile builds web and API. The image runs as a non-root user, listens on
+    plain HTTP (`PORT`), keeps the database at `DATABASE_PATH=/data/lister.db` on a volume, and has
+    a health check.
+  - The API trusts Traefik's `X-Forwarded-*` headers, and `PUBLIC_URL` drives the `Origin` check,
+    `Secure` cookies and the passkey relying party.
+  - The README has an example `docker-compose.yml` with Traefik labels (router, entrypoint, TLS)
+    and lists every environment variable.
+  - The image builds for linux/amd64 and linux/arm64.
+- Notes: TLS stays in Traefik (D4); the app never handles certificates.
+
+### T-033 — Backups and purge
+
+- Milestone: M7 Deployment
+- Area: api
+- Priority: normal
+- Depends on: T-017, T-032
+- Done when:
+  - Nightly backups with `VACUUM INTO` go to `/data/backups`; the last 14 are kept (D15).
+  - Tombstones and finished runs older than 30 days (D15) are purged daily, and each space
+    remembers its purge point.
+  - A client whose last version is older than the purge point gets a full snapshot on pull (API
+    e2e test).
+  - Restoring from a backup is documented.
 
 ## Done
 

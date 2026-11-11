@@ -5,7 +5,7 @@ description: Pick up, implement and close work items from TASKS.md, the Lister b
 
 # Working the TASKS.md backlog
 
-`TASKS.md` at the repo root is the single backlog. Sections: **In progress**, **Backlog** (ordered by priority), **Done**. Each task is a `### T-NNN — Title` heading with bullets (`Area`, `Priority`, `Depends on`, `Done when`, `Notes`).
+`TASKS.md` at the repo root is the single backlog. Sections: **In progress**, **Backlog** (ordered by priority), **Done**. Each task is a `### T-NNN — Title` heading with bullets (`Milestone`, `Area`, `Priority`, `Depends on`, `Decisions`, `Done when`, `Notes`). The design behind the tasks is `docs/design.md`.
 
 ## Picking a task
 
@@ -16,10 +16,12 @@ description: Pick up, implement and close work items from TASKS.md, the Lister b
 
 ## Doing it
 
-1. Move the task block to **In progress** (cut and paste the whole block; keep the ID).
-2. Restate the "done when" criteria as your plan. If the task touches more than one area, follow the `fullstack-feature` skill; otherwise `angular-feature` or `nest-feature`.
-3. Implement, with tests for each "done when" bullet.
-4. Run the `verify` skill. Don't close a task while verify fails.
+1. Read the parts of `docs/design.md` the task touches. If the task and the design disagree, ask before writing code.
+2. If the task lists `Decisions:`, look them up under **Open decisions** in `docs/design.md`. For any still _open_, ask the user once and propose the default. Record each answer in the doc's Decisions table and remove it from Open decisions. If the answer differs from the default, also update whatever in `CLAUDE.md`, the skills and `TASKS.md` assumed the default.
+3. Move the task block to **In progress** (cut and paste the whole block; keep the ID).
+4. Restate the "done when" criteria as your plan. If the task touches more than one area, follow the `fullstack-feature` skill; otherwise `angular-feature` or `nest-feature`.
+5. Implement, with tests for each "done when" bullet.
+6. Run the `verify` skill. Don't close a task while verify fails.
 
 ## Closing it
 
