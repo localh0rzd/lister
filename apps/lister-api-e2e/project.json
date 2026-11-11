@@ -1,0 +1,16 @@
+{
+  "name": "lister-api-e2e",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "implicitDependencies": ["lister-api"],
+  "targets": {
+    "e2e": {
+      "command": "vitest run",
+      "dependsOn": ["lister-api:build", "lister-api:serve"],
+      "options": {
+        "cwd": "apps/lister-api-e2e"
+      }
+    }
+  },
+  "tags": ["scope:api", "type:e2e"]
+}
