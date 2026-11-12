@@ -94,7 +94,15 @@ export type Ack = z.infer<typeof ackSchema>;
 export type Reject = z.infer<typeof rejectSchema>;
 export type Poke = z.infer<typeof pokeSchema>;
 
-/** Socket.IO event map, client → server (`Socket<ServerToClientEvents, ClientToServerEvents>`). */
+/**
+ * Socket.IO event map, client → server (`Socket<ServerToClientEvents, ClientToServerEvents>`).
+ *
+ * Failure behaviour (design §4.2): the server disconnects (reason `io server disconnect`) after
+ * `updateRequired`, on a protocol violation (invalid or out-of-order message, a space the user
+ * isn't in), and when storage fails while pulling or pushing. A storage failure sends **no**
+ * reject, so the mutation stays in the outbox. Socket.IO doesn't reconnect after a server
+ * disconnect on its own, so the client reconnects itself, with backoff, then starts with hello.
+ */
 export interface ClientToServerEvents {
   hello(message: Hello): void;
   pull(message: Pull): void;

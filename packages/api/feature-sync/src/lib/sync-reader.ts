@@ -21,7 +21,9 @@ export class SyncReader {
 
   /**
    * Every row of the space changed after `since`, tombstones included, read in one transaction
-   * so `version` matches the rows. `since: 0` is a full snapshot (purge points: T-033).
+   * so `version` matches the rows. `since: 0` is a full snapshot (purge points: T-033). So is a
+   * `since` ahead of the server (its database was restored or reset): the client must replace
+   * its copy, or it would never converge.
    */
   rowsSince(spaceId: string, since: number): Rows | undefined {
     return this.database.db.transaction((tx) => {
@@ -31,12 +33,14 @@ export class SyncReader {
         .where(eq(spaces.id, spaceId))
         .get();
       if (!space) return undefined;
+      const snapshot = since === 0 || since > space.version;
+      const from = snapshot ? 0 : since;
       const changed = <T extends typeof lists | typeof items>(table: T) =>
-        and(eq(table.spaceId, spaceId), gt(table.version, since));
+        and(eq(table.spaceId, spaceId), gt(table.version, from));
       return {
         spaceId,
         version: space.version,
-        snapshot: since === 0,
+        snapshot,
         rows: {
           lists: tx.select().from(lists).where(changed(lists)).all(),
           items: tx.select().from(items).where(changed(items)).all(),

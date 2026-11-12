@@ -415,6 +415,13 @@ client                                     server
   restores the server state and shows a snackbar.
 - **Shared rules:** mutation schemas (Zod) and the apply logic live in a shared library used on
   both sides, so the client's prediction and the server's result agree.
+- **Failures:** the server disconnects the socket after `updateRequired`, on a protocol violation
+  (invalid message, pull or push before hello, a space the user isn't in) and when storage fails
+  during a pull or push. A storage failure sends **no** reject, so the mutation stays in the
+  outbox and is retried; a `reject` is only ever a final verdict on that mutation. After a
+  server disconnect Socket.IO doesn't reconnect by itself: the client reconnects with backoff and
+  starts again with hello and a pull. A pull whose `since` is ahead of the server (restored or
+  reset database) gets a full snapshot, which replaces the client's copy.
 - **Rooms:** one Socket.IO room per space. A space's data is small, and offline use needs all of it
   anyway. Per-list rooms only for presence, later.
 

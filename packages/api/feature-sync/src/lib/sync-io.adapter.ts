@@ -19,6 +19,8 @@ export class SyncIoAdapter extends IoAdapter {
     return super.createIOServer(port, {
       ...options,
       transports: ['websocket'],
+      // The web app bundles socket.io-client; don't serve /socket.io/socket.io.js.
+      serveClient: false,
       allowRequest: (
         request: IncomingMessage,
         callback: (error: string | null | undefined, allowed: boolean) => void,

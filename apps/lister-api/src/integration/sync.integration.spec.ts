@@ -1,6 +1,11 @@
 import { eq } from 'drizzle-orm';
 import { schema } from '@lister/api/data-access-db';
-import { DEV_SPACE_ID, DEV_WEB_ORIGIN } from '@lister/api/feature-sync';
+import {
+  DEV_SPACE_ID,
+  DEV_WEB_ORIGIN,
+  MutationService,
+  SyncReader,
+} from '@lister/api/feature-sync';
 import { newId } from '@lister/shared/domain';
 import {
   type ClientToServerEvents,
@@ -111,16 +116,28 @@ describe('sync gateway', () => {
       expect(client.connected).toBe(false);
     });
 
-    it('disconnects a client that pulls or pushes before hello', async () => {
+    it.each([
+      ['pulls before hello', 'pull', { spaceId: DEV_SPACE_ID, since: 0 }],
+      ['pushes before hello', 'push', { mutations: [] }],
+      ['sends an invalid hello', 'hello', { protocolVersion: 'one' }],
+    ] as const)('disconnects a client that %s', async (_, event, body) => {
       const client = connect();
       await new Promise<void>((resolve) =>
         client.once('connect', () => resolve()),
       );
-      const gone = new Promise((resolve) => client.once('disconnect', resolve));
+      const reason = new Promise<string>((resolve) =>
+        client.once('disconnect', resolve),
+      );
 
-      client.emit('pull', { spaceId: DEV_SPACE_ID, since: 0 });
+      (client.emit as (e: string, b: unknown) => void)(event, body);
 
-      await gone;
+      expect(await reason).toBe('io server disconnect');
+    });
+
+    it('does not serve the Socket.IO browser bundle', async () => {
+      const response = await fetch(`${api.url}/socket.io/socket.io.js`);
+
+      expect(response.status).not.toBe(200);
     });
   });
 
@@ -231,7 +248,99 @@ describe('sync gateway', () => {
     });
   });
 
+  describe('failures', () => {
+    const disconnected = (client: Client) =>
+      new Promise<string>((resolve) => client.once('disconnect', resolve));
+
+    it.each([
+      ['an empty push', { mutations: [] }],
+      [
+        'a push with too many mutations',
+        {
+          mutations: Array.from({ length: 101 }, () =>
+            mutation('list.delete', { id: newId() }),
+          ),
+        },
+      ],
+      ['a push without mutation ids', { mutations: [{ name: 'list.delete' }] }],
+    ])('disconnects on %s', async (_, body) => {
+      const { client } = await helloed();
+      const reason = disconnected(client);
+
+      (client.emit as (e: string, b: unknown) => void)('push', body);
+
+      expect(await reason).toBe('io server disconnect');
+    });
+
+    it('disconnects on a pull for a space the client is not in', async () => {
+      const { client } = await helloed();
+      const reason = disconnected(client);
+
+      client.emit('pull', { spaceId: newId(), since: 0 });
+
+      expect(await reason).toBe('io server disconnect');
+    });
+
+    it('keeps a mutation (no reject) when storage fails, so the client retries it', async () => {
+      const { client } = await helloed();
+      const service = api.app.get(MutationService);
+      const real = service.apply.bind(service);
+      vi.spyOn(service, 'apply')
+        .mockImplementationOnce(real)
+        .mockImplementationOnce(() => {
+          throw new Error('SQLITE_BUSY: database is locked');
+        });
+      const acks = collect(client, 'ack');
+      const rejects = collect(client, 'reject');
+      const reason = disconnected(client);
+      const batch = [
+        mutation('list.create', { id: newId(), title: 'Camping' }),
+        mutation('list.create', { id: newId(), title: 'Hiking' }),
+        mutation('list.create', { id: newId(), title: 'Biking' }),
+      ];
+
+      client.emit('push', { mutations: batch });
+
+      expect(await reason).toBe('io server disconnect');
+      expect(acks.map((a) => a.mutationId)).toEqual([batch[0].mutationId]);
+      expect(rejects).toEqual([]);
+      const recorded = api.database.db
+        .select({ id: schema.processedMutations.mutationId })
+        .from(schema.processedMutations)
+        .all()
+        .map((r) => r.id);
+      expect(recorded).toEqual([batch[0].mutationId]);
+    });
+
+    it('disconnects instead of leaving the client waiting when a pull fails', async () => {
+      const { client } = await helloed();
+      vi.spyOn(api.app.get(SyncReader), 'rowsSince').mockImplementation(() => {
+        throw new Error('disk I/O error');
+      });
+      const reason = disconnected(client);
+
+      client.emit('pull', { spaceId: DEV_SPACE_ID, since: 0 });
+
+      expect(await reason).toBe('io server disconnect');
+    });
+  });
+
   describe('pull', () => {
+    it('sends a snapshot to a client ahead of the server (restored database)', async () => {
+      const { client } = await helloed();
+      const acked = next(client, 'ack');
+      client.emit('push', {
+        mutations: [mutation('list.create', { id: newId(), title: 'Camping' })],
+      });
+      await acked;
+
+      const rows = next(client, 'rows');
+      client.emit('pull', { spaceId: DEV_SPACE_ID, since: 57 });
+
+      expect(await rows).toMatchObject({ version: 1, snapshot: true });
+      expect((await rows).rows.lists).toHaveLength(1);
+    });
+
     it('sends a full snapshot from version 0, tombstones included', async () => {
       const { client } = await helloed();
       const listId = newId();

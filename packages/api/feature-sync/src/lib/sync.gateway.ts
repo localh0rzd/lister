@@ -101,7 +101,14 @@ export class SyncGateway {
     if (!socket.data.spaceIds?.includes(pull.data.spaceId)) {
       return this.drop(socket, 'pull for a space the user is not in');
     }
-    const rows = this.reader.rowsSince(pull.data.spaceId, pull.data.since);
+    let rows;
+    try {
+      rows = this.reader.rowsSince(pull.data.spaceId, pull.data.since);
+    } catch (error) {
+      this.logger.error(`Pull for ${pull.data.spaceId} failed`, error as Error);
+      socket.disconnect(true);
+      return;
+    }
     if (rows) socket.emit('rows', rows);
   }
 

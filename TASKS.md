@@ -23,25 +23,7 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-007 — Server: Socket.IO sync gateway
-
-- Milestone: M2 Sync walking skeleton
-- Area: api
-- Priority: high
-- Depends on: T-006
-- Done when:
-  - A Socket.IO gateway (WebSocket transport only) implements hello/welcome, pull, push and poke as
-    in design §4.2; an unsupported protocol version gets an "update required" answer.
-  - Pull returns every row of the space changed after the given version, tombstones included;
-    `since: 0` returns a full snapshot.
-  - Push handles mutations in order and answers each with an ack (new version) or a rejection
-    (reason); changed rows are poked to the space's room.
-  - The handshake checks the `Origin` header against `PUBLIC_URL` (in development, the dev
-    server's origin).
-  - The web dev proxy forwards `/socket.io` with WebSockets enabled.
-  - Integration tests (`socket.io-client` against `createTestApp()`): A pushes and B gets the
-    poke; B reconnects after missing changes and catches up by pulling; a resent mutation isn't
-    applied twice; a foreign origin is refused.
+_Nothing in progress._
 
 ## Backlog
 
@@ -481,6 +463,32 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 - Notes: Found in T-001. Until then the full variable font is bundled.
 
 ## Done
+
+### T-007 — Server: Socket.IO sync gateway
+
+- Completed: 2026-11-12 — `SyncGateway`, `SyncReader` and `SyncIoAdapter` in `packages/api/feature-sync` (hello/welcome/updateRequired, pull, push with ack/reject and pokes, WebSocket only, Origin from `PUBLIC_URL`); dev proxy for `/socket.io`; integration tests with socket.io-client; e2e through the proxy.
+- Review: Changes requested (1 major, 2 minor, 2 nit); all fixed: tests for every failure path (storage failure keeps the mutation without a reject, invalid/out-of-order messages, foreign space, failing pull), a `since` ahead of the server gets a snapshot, pull failures disconnect like push failures, failure behaviour documented in design §4.2 and the protocol, no served client bundle, `PUBLIC_URL` must be http(s).
+- Milestone: M2 Sync walking skeleton
+- Area: api
+- Priority: high
+- Depends on: T-006
+- Done when:
+  - A Socket.IO gateway (WebSocket transport only) implements hello/welcome, pull, push and poke as
+    in design §4.2; an unsupported protocol version gets an "update required" answer.
+  - Pull returns every row of the space changed after the given version, tombstones included;
+    `since: 0` returns a full snapshot.
+  - Push handles mutations in order and answers each with an ack (new version) or a rejection
+    (reason); changed rows are poked to the space's room.
+  - The handshake checks the `Origin` header against `PUBLIC_URL` (in development, the dev
+    server's origin).
+  - The web dev proxy forwards `/socket.io` with WebSockets enabled.
+  - Integration tests (`socket.io-client` against `createTestApp()`): A pushes and B gets the
+    poke; B reconnects after missing changes and catches up by pulling; a resent mutation isn't
+    applied twice; a foreign origin is refused.
+- Blocked: 2026-11-12 06:00 scheduled resume — implementation committed (5b40d9f), but the
+  review session could not be started (`mcp__ccd_session__start_session` is not available in
+  the scheduled run). Review range `22271c8..5b40d9f`. Needs the user to start the review (or
+  approve another way to run it) before T-035 / T-008 begin.
 
 ### T-006 — Server: lists and items as mutations
 

@@ -30,5 +30,8 @@ describe('allowedOrigins', () => {
     expect(() => allowedOrigins({ PUBLIC_URL: 'not a url' })).toThrow(
       /not a URL/,
     );
+    expect(() => allowedOrigins({ PUBLIC_URL: 'file:///srv/lister' })).toThrow(
+      /http\(s\)/,
+    );
   });
 });

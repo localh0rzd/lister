@@ -19,11 +19,16 @@ export function allowedOrigins(
     }
     return [DEV_WEB_ORIGIN];
   }
-  let origin: string;
+  let url: URL;
   try {
-    origin = new URL(publicUrl).origin;
+    url = new URL(publicUrl);
   } catch {
     throw new Error(`PUBLIC_URL is not a URL: ${publicUrl}`);
   }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+    // Other schemes have the opaque origin "null", which sandboxed iframes also send.
+    throw new Error(`PUBLIC_URL must be an http(s) URL: ${publicUrl}`);
+  }
+  const origin = url.origin;
   return production ? [origin] : [...new Set([origin, DEV_WEB_ORIGIN])];
 }
