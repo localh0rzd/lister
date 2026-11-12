@@ -23,19 +23,7 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-008 — Web: local database with Dexie
-
-- Milestone: M2 Sync walking skeleton
-- Area: web
-- Priority: high
-- Depends on: T-005
-- Done when:
-  - `packages/web/data-access-local-db` (scope:web, type:data-access) defines a versioned Dexie
-    database with tables for spaces, lists, items, the outbox and sync metadata.
-  - A helper turns Dexie `liveQuery` results into Angular signals.
-  - Repository queries: the lists of a space (by title) and the items of a list (by position),
-    without tombstoned rows.
-  - Tests with `fake-indexeddb` show the signals update when rows change.
+_Nothing in progress._
 
 ## Backlog
 
@@ -461,6 +449,22 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 - Notes: Found in T-001. Until then the full variable font is bundled.
 
 ## Done
+
+### T-008 — Web: local database with Dexie
+
+- Completed: 2026-11-12 — `packages/web/data-access-local-db`: `LocalDb` (Dexie 4, schema version 1), `liveQuerySignal` (loading/ready/error state) and `Repositories` (lists by title, items by position), tested with fake-indexeddb.
+- Review: Approve with minor fixes (4 minor, 2 nit); all fixed: failed queries show as `error`, no sleep in tests, direct helper tests (error, stale results), schema ready for T-009 (server copies `serverLists`/`serverItems` for rebase and rollback, recorded in design §4.2; outbox indexed by mutation id and space with `ackedVersion`; space members), list order documented in design §3, redundant code removed.
+- Milestone: M2 Sync walking skeleton
+- Area: web
+- Priority: high
+- Depends on: T-005
+- Done when:
+  - `packages/web/data-access-local-db` (scope:web, type:data-access) defines a versioned Dexie
+    database with tables for spaces, lists, items, the outbox and sync metadata.
+  - A helper turns Dexie `liveQuery` results into Angular signals.
+  - Repository queries: the lists of a space (by title) and the items of a list (by position),
+    without tombstoned rows.
+  - Tests with `fake-indexeddb` show the signals update when rows change.
 
 ### T-007 — Server: Socket.IO sync gateway
 

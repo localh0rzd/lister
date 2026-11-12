@@ -1,8 +1,9 @@
 import { Service, type Signal, inject } from '@angular/core';
 import { type Item, type List, sortByPosition } from '@lister/shared/domain';
 import { LOCAL_DB } from './local-db';
-import { liveQuerySignal } from './live-query-signal';
+import { type QueryState, liveQuerySignal } from './live-query-signal';
 
+/** Case- and accent-insensitive, numbers by value ("List 9" before "List 10"); design §3. */
 const byTitle = new Intl.Collator('en', { sensitivity: 'base', numeric: true });
 
 /**
@@ -15,7 +16,7 @@ export class Repositories {
   private readonly db = inject(LOCAL_DB);
 
   /** The lists of a space, by title (design §3), without deleted ones. */
-  listsOfSpace(spaceId: () => string | undefined): Signal<List[] | undefined> {
+  listsOfSpace(spaceId: () => string | undefined): Signal<QueryState<List[]>> {
     return liveQuerySignal(() => {
       const id = spaceId();
       if (!id) return undefined;
@@ -30,7 +31,7 @@ export class Repositories {
   }
 
   /** The items of a list, by position, without deleted ones. */
-  itemsOfList(listId: () => string | undefined): Signal<Item[] | undefined> {
+  itemsOfList(listId: () => string | undefined): Signal<QueryState<Item[]>> {
     return liveQuerySignal(() => {
       const id = listId();
       if (!id) return undefined;

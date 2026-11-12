@@ -6,14 +6,34 @@ import type { MutationInput } from '@lister/shared/sync-protocol';
 /** A mutation waiting to be pushed, in the order it was made (`seq`). */
 export interface OutboxEntry {
   seq?: number;
+  mutationId: string;
+  spaceId: string;
   mutation: MutationInput;
   createdAt: number;
+  /**
+   * Set when the server acked it. The entry leaves the outbox once this device has the space's
+   * rows up to this version (design §4.2).
+   */
+  ackedVersion?: number;
 }
 
-/** How far this device has synced each space. */
+/** A member of a space, as `welcome` sends it. */
+export interface LocalMember {
+  userId: string;
+  displayName: string;
+}
+
+/** A space with its members (`version` is the server's version as of the last welcome). */
+export interface LocalSpace extends Space {
+  members: LocalMember[];
+}
+
+/**
+ * How far this device has synced a space: it holds the space's server rows up to `version`.
+ * Not the same as `LocalSpace.version`, which is what the server had at the last welcome.
+ */
 export interface SyncState {
   spaceId: string;
-  /** The last space version whose rows are in the local database. */
   version: number;
   lastSyncedAt: number | null;
 }
@@ -25,17 +45,24 @@ export interface MetaEntry {
 }
 
 /**
- * The local database (IndexedDB via Dexie): server rows plus the outbox (design §2.5).
+ * The local database (IndexedDB via Dexie), design §2.5 and §4.2:
+ *
+ * - `serverLists` / `serverItems`: rows exactly as the server last sent them.
+ * - `lists` / `items`: what the UI shows, i.e. the server rows with the pending outbox mutations
+ *   re-applied on top. The sync engine rebuilds affected rows from the server copy whenever
+ *   server rows arrive or a mutation is rejected (rebase and rollback).
+ * - `outbox`: pending mutations in order; `syncState`: synced version per space; `meta`.
  *
  * Every server schema change (a Drizzle migration) comes with a new `this.version(n)` here, in
- * the same change (CLAUDE.md). Version 1 matches server migrations 0000–0001 (spaces, lists,
- * items). Tombstones are stored like other rows; queries leave them out (`deletedAt` can't be
- * indexed while it's null).
+ * the same change (CLAUDE.md). Version 1 matches server migrations 0000–0001. Tombstones are
+ * stored like other rows; queries leave them out (`deletedAt` can't be indexed while it's null).
  */
 export class LocalDb extends Dexie {
-  spaces!: EntityTable<Space, 'id'>;
+  spaces!: EntityTable<LocalSpace, 'id'>;
   lists!: EntityTable<List, 'id'>;
   items!: EntityTable<Item, 'id'>;
+  serverLists!: EntityTable<List, 'id'>;
+  serverItems!: EntityTable<Item, 'id'>;
   outbox!: EntityTable<OutboxEntry, 'seq'>;
   syncState!: Table<SyncState, string>;
   meta!: Table<MetaEntry, string>;
@@ -46,7 +73,9 @@ export class LocalDb extends Dexie {
       spaces: 'id',
       lists: 'id, spaceId',
       items: 'id, listId, spaceId',
-      outbox: '++seq',
+      serverLists: 'id, spaceId',
+      serverItems: 'id, listId, spaceId',
+      outbox: '++seq, &mutationId, spaceId',
       syncState: 'spaceId',
       meta: 'key',
     });

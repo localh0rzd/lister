@@ -327,7 +327,8 @@ clients only get the display names of the members of their spaces.
 | `run_items`             | run, title, quantity, note, position, sources (the lists it came from; the first decides its section), state, changed by, at |
 | `processed_mutations`   | mutation id, client id, result (fast path for retries)                                                                       |
 
-**Ordering:** lists are shown by title (case-insensitive), so they have no position and no
+**Ordering:** lists are shown by title (ignoring case and accents, numbers by value: "List 9"
+before "List 10"; ties by id), so they have no position and no
 `list.move`. Items and includes of a list share one position key space (fractional-index strings),
 so an included list can sit between items. Run items have their own positions.
 
@@ -409,6 +410,10 @@ client                                     server
   applied strictly one at a time. Handlers must not `await` inside the transaction. Each
   transaction gets the next version of its space, and pokes go out in version order. A client that
   sees a gap (version > last + 1) pulls.
+- **Local copies:** the client keeps the server's rows as last received (`serverLists`,
+  `serverItems`) apart from what the UI shows (`lists`, `items`): server rows with the pending
+  outbox mutations re-applied. Rebase and rollback rebuild the affected visible rows from the
+  server copy, so they never need a re-pull.
 - **Optimistic UI:** the client applies its own mutation locally at once. When server rows arrive,
   it stores them and re-applies its still-pending mutations on top (rebase). A mutation leaves the
   outbox once the client has seen its version. If the server rejects it, the client drops it,

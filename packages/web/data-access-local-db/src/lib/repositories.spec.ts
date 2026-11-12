@@ -2,6 +2,7 @@ import { type Signal, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { type Item, type List, newId } from '@lister/shared/domain';
 import { LOCAL_DB, LocalDb } from './local-db';
+import { type QueryState, valueOf } from './live-query-signal';
 import { Repositories } from './repositories';
 
 const SPACE = newId();
@@ -54,16 +55,19 @@ afterEach(async () => {
   await db.delete();
 });
 
-/** Waits until the signal shows `expected` (liveQuery answers asynchronously). */
-async function expectEventually<T>(value: Signal<T>, expected: unknown) {
+/** Waits until the query shows `expected` (liveQuery answers asynchronously). */
+async function expectEventually<T>(
+  state: Signal<QueryState<T>>,
+  expected: unknown,
+) {
   await vi.waitFor(() => {
     TestBed.tick();
-    expect(value()).toEqual(expected);
+    expect(valueOf(state())).toEqual(expected);
   });
 }
 
-const titles = (rows: { title: string }[] | undefined) =>
-  rows?.map((r) => r.title);
+const titles = (state: QueryState<{ title: string }[]>) =>
+  valueOf(state)?.map((r) => r.title);
 
 describe('LocalDb', () => {
   it('has the tables of schema version 1', () => {
@@ -73,9 +77,31 @@ describe('LocalDb', () => {
       'lists',
       'meta',
       'outbox',
+      'serverItems',
+      'serverLists',
       'spaces',
       'syncState',
     ]);
+  });
+
+  it('finds outbox entries by mutation id, which must be unique', async () => {
+    const entry = {
+      mutationId: newId(),
+      spaceId: SPACE,
+      mutation: {
+        mutationId: '',
+        spaceId: SPACE,
+        name: 'list.delete',
+        args: { id: newId() },
+      },
+      createdAt: 0,
+    } as const;
+    await db.outbox.add({ ...entry });
+
+    expect(
+      await db.outbox.where('mutationId').equals(entry.mutationId).count(),
+    ).toBe(1);
+    await expect(db.outbox.add({ ...entry })).rejects.toThrow();
   });
 });
 
@@ -84,7 +110,7 @@ describe('Repositories.listsOfSpace', () => {
     const lists = TestBed.runInInjectionContext(() =>
       repositories.listsOfSpace(() => SPACE),
     );
-    expect(lists()).toBeUndefined();
+    expect(lists()).toEqual({ status: 'loading' });
     await expectEventually(lists, []);
 
     const camping = list('Camping');
@@ -130,7 +156,7 @@ describe('Repositories.listsOfSpace', () => {
 
     await db.lists.put({ ...camping, deletedAt: 5 });
 
-    await vi.waitFor(() => expect(lists()).toEqual([]));
+    await vi.waitFor(() => expect(valueOf(lists())).toEqual([]));
   });
 
   it('follows a changing space and is undefined without one', async () => {
@@ -144,7 +170,7 @@ describe('Repositories.listsOfSpace', () => {
     );
 
     TestBed.tick();
-    expect(lists()).toBeUndefined();
+    expect(lists()).toEqual({ status: 'loading' });
 
     spaceId.set(SPACE);
     await vi.waitFor(() => {
@@ -164,12 +190,23 @@ describe('Repositories.listsOfSpace', () => {
       repositories.listsOfSpace(() => SPACE),
     );
     await expectEventually(lists, []);
-
     TestBed.resetTestingModule();
-    await db.lists.put(list('Late'));
-    await new Promise((resolve) => setTimeout(resolve, 50));
 
-    expect(lists()).toEqual([]);
+    // A live observer of the same table: once it sees the change, the destroyed one would have
+    // seen it too.
+    TestBed.configureTestingModule({
+      providers: [{ provide: LOCAL_DB, useValue: db }],
+    });
+    const witness = TestBed.runInInjectionContext(() =>
+      TestBed.inject(Repositories).listsOfSpace(() => SPACE),
+    );
+    await db.lists.put(list('Late'));
+    await vi.waitFor(() => {
+      TestBed.tick();
+      expect(titles(witness())).toEqual(['Late']);
+    });
+
+    expect(valueOf(lists())).toEqual([]);
   });
 });
 
