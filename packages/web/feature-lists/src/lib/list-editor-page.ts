@@ -48,6 +48,7 @@ import {
   type ItemFields,
   ListPickerDialog,
   type ListPickerData,
+  LoadingHint,
 } from '@lister/web/ui';
 import { SpaceChanges } from '@lister/web/data-access-sync';
 import { firstValueFrom } from 'rxjs';
@@ -101,6 +102,7 @@ function reachableFrom(space: SpaceComposition, root: string): Set<string> {
 @Component({
   selector: 'lister-list-editor-page',
   imports: [
+    LoadingHint,
     CdkDrag,
     CdkDragHandle,
     CdkDropList,

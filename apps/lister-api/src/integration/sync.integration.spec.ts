@@ -418,6 +418,90 @@ describe('sync gateway', () => {
     });
   });
 
+  describe('restore', () => {
+    /** The ack or reject this client gets for `sent`. */
+    function answerTo(client: Client, sent: MutationInput) {
+      return new Promise<Payload<'ack'> | Payload<'reject'>>((resolve) => {
+        const mine = (payload: Payload<'ack'> | Payload<'reject'>) =>
+          payload.mutationId === sent.mutationId && resolve(payload);
+        client.on('ack', mine);
+        client.on('reject', mine);
+      });
+    }
+
+    it('restores a list with its items and an item, poking the other member', async () => {
+      const anna = await helloed();
+      const ben = await helloed();
+      const pokes = collect(ben.client, 'poke');
+      const listId = newId();
+      const tentId = newId();
+      const mapId = newId();
+      const steps = [
+        mutation('list.create', { id: listId, title: 'Camping' }),
+        mutation('item.create', {
+          id: tentId,
+          listId,
+          title: 'Tent',
+          position: 'a0',
+        }),
+        mutation('item.create', {
+          id: mapId,
+          listId,
+          title: 'Map',
+          position: 'a1',
+        }),
+        mutation('item.delete', { id: mapId }),
+        mutation('list.delete', { id: listId }),
+        // While the list is deleted, restoring one of its items changes nothing.
+        mutation('item.restore', { id: mapId }),
+        mutation('list.restore', { id: listId }),
+        mutation('item.restore', { id: mapId }),
+      ];
+      const answers = steps.map((step) => answerTo(anna.client, step));
+      anna.client.emit('push', { mutations: steps });
+      const versions = (await Promise.all(answers)).map((a) =>
+        'version' in a ? a.version : a.reason,
+      );
+
+      expect(versions).toEqual([1, 2, 3, 4, 5, 5, 6, 7]);
+      await vi.waitFor(() => expect(pokes).toHaveLength(7));
+      expect(pokes[5].rows.lists).toEqual([
+        expect.objectContaining({ id: listId, deletedAt: null, version: 6 }),
+      ]);
+      expect(pokes[6].rows.items).toEqual([
+        expect.objectContaining({ id: mapId, deletedAt: null, version: 7 }),
+      ]);
+
+      // The list's own items were never touched: Tent is still live, as before.
+      const rows = next(ben.client, 'rows');
+      ben.client.emit('pull', { spaceId: DEV_SPACE_ID, since: 0 });
+      const snapshot = await rows;
+      expect(
+        snapshot.rows.items
+          .filter((item) => item.listId === listId)
+          .map((item) => [item.title, item.deletedAt]),
+      ).toEqual(
+        expect.arrayContaining([
+          ['Tent', null],
+          ['Map', null],
+        ]),
+      );
+    });
+
+    it("refuses restoring a list or an item that doesn't exist", async () => {
+      const { client } = await helloed();
+      const list = mutation('list.restore', { id: newId() });
+      const item = mutation('item.restore', { id: newId() });
+      const answers = [answerTo(client, list), answerTo(client, item)];
+      client.emit('push', { mutations: [list, item] });
+
+      expect(await Promise.all(answers)).toEqual([
+        { mutationId: list.mutationId, reason: "This list doesn't exist" },
+        { mutationId: item.mutationId, reason: "This item doesn't exist" },
+      ]);
+    });
+  });
+
   describe('includes', () => {
     /** The ack or reject this client gets for `sent`. */
     function answer(client: Client, sent: MutationInput) {

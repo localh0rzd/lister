@@ -93,7 +93,7 @@ async function render(listId = camping.id) {
   const element = fixture.nativeElement as HTMLElement;
   await vi.waitFor(async () => {
     await fixture.whenStable();
-    expect(element.textContent).not.toContain('Loading');
+    expect(element.querySelector('lister-loading-hint')).toBeNull();
   });
   const input = () => element.querySelector('input') as HTMLInputElement;
   return {

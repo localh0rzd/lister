@@ -383,10 +383,10 @@ describe('Repositories.trashOfSpace', () => {
       expect(
         valueOf(trash())?.map((entry) =>
           entry.kind === 'list'
-            ? `list ${entry.row.title} (${entry.itemCount})`
+            ? `list ${entry.row.title} (${entry.itemCount}, ${entry.deletedItemCount} deleted)`
             : `item ${entry.row.title} in ${entry.listTitle}`,
         ),
-      ).toEqual(['list Camping (1)', 'item Towel in Beach']);
+      ).toEqual(['list Camping (1, 1 deleted)', 'item Towel in Beach']);
     });
   });
 

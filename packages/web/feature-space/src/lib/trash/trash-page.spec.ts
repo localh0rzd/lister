@@ -91,6 +91,7 @@ describe('TrashPage', () => {
     await db.items.bulkPut([
       item(camping.id, 'Tent'),
       item(camping.id, 'Stove'),
+      item(camping.id, 'Lamp', { deletedAt: now - 5000 }), // deleted on its own, earlier
       item(beach.id, 'Towel', { deletedAt: now - 2000, updatedBy: BEN }),
       item(beach.id, 'Hat', { deletedAt: now - 3000, updatedBy: newId() }),
     ]);
@@ -99,7 +100,7 @@ describe('TrashPage', () => {
     await vi.waitFor(async () => {
       await page.fixture.whenStable();
       expect(page.rows()).toEqual([
-        `Camping | List · 2 items · deleted by you, ${whenDeleted(now - 1000)}`,
+        `Camping | List · 2 items · 1 more deleted item · deleted by you, ${whenDeleted(now - 1000)}`,
         `Towel | Item in Beach · deleted by Ben, ${whenDeleted(now - 2000)}`,
         `Hat | Item in Beach · deleted by someone, ${whenDeleted(now - 3000)}`,
       ]);
@@ -142,6 +143,52 @@ describe('TrashPage', () => {
       expect(page.element.textContent).toContain('The trash is empty.');
     });
   });
+
+  it('hands the focus to the next Restore after a restore', async () => {
+    const now = Date.now();
+    const [a, b] = [
+      list('A', { deletedAt: now - 1000 }),
+      list('B', { deletedAt: now - 2000 }),
+    ];
+    await db.lists.bulkPut([a, b]);
+    mutate.mockImplementation(async (request: { args: { id: string } }) => {
+      await db.lists.update(request.args.id, { deletedAt: null });
+      return { ok: true };
+    });
+    const page = await render();
+    document.body.append(page.element);
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(page.rows()).toHaveLength(2);
+    });
+
+    const restoreA = page.element.querySelector(
+      '[aria-label="Restore A"]',
+    ) as HTMLButtonElement;
+    restoreA.focus();
+    restoreA.click();
+
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(page.rows()).toHaveLength(1);
+      expect(document.activeElement?.getAttribute('aria-label')).toBe(
+        'Restore B',
+      );
+    });
+    page.element.remove();
+  });
+
+  it('says so before the first connection, instead of claiming the trash is empty', async () => {
+    await db.spaces.clear();
+    const page = await render();
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(page.element.textContent).toContain(
+        'once Lister has connected to the server',
+      );
+    });
+    expect(page.element.textContent).not.toContain('The trash is empty');
+  });
 });
 
 describe('whenDeleted', () => {
@@ -155,5 +202,17 @@ describe('whenDeleted', () => {
     [at(3, 18), 'Nov 3 18:05'],
   ])('%s → %s', (time, expected) => {
     expect(whenDeleted(time, now)).toBe(expected);
+  });
+
+  it('counts calendar days across a daylight-saving change', () => {
+    // Whatever the time zone: just after midnight yesterday is still "yesterday", and
+    // just before midnight two days ago isn't.
+    const today = new Date(2026, 9, 26, 12); // the day after the EU autumn change
+    expect(
+      whenDeleted(new Date(2026, 9, 25, 0, 30).getTime(), today.getTime()),
+    ).toBe('yesterday 00:30');
+    expect(
+      whenDeleted(new Date(2026, 9, 24, 23, 30).getTime(), today.getTime()),
+    ).toBe('Oct 24 23:30');
   });
 });

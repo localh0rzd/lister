@@ -3,6 +3,7 @@ import { httpResource } from '@angular/common/http';
 import { apiPath, type HealthResponse } from '@lister/shared/api-contracts';
 import { MatIcon } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
+import { TRASH_KEEP_DAYS } from '@lister/shared/domain';
 import { ThemePicker } from '@lister/web/ui';
 import { Theme } from '@lister/web/util-theme';
 
@@ -27,7 +28,9 @@ import { Theme } from '@lister/web/util-theme';
         <mat-icon aria-hidden="true">delete</mat-icon>
         <span class="row-text">
           <span>Trash</span>
-          <span class="row-hint">Deleted lists and items, for 30 days</span>
+          <span class="row-hint"
+            >Deleted lists and items, for {{ keepDays }} days</span
+          >
         </span>
         <mat-icon aria-hidden="true">chevron_right</mat-icon>
       </a>
@@ -84,6 +87,7 @@ import { Theme } from '@lister/web/util-theme';
   `,
 })
 export class SpacePage {
+  protected readonly keepDays = TRASH_KEEP_DAYS;
   protected readonly theme = inject(Theme);
   protected readonly health = httpResource<HealthResponse>(() =>
     apiPath('health'),

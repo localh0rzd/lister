@@ -8,4 +8,5 @@ export const LIMITS = {
 } as const;
 
 /** How long deleted lists and items stay in the trash before they're purged (D15). */
-export const TRASH_KEEP_MS = 30 * 24 * 60 * 60 * 1000;
+export const TRASH_KEEP_DAYS = 30;
+export const TRASH_KEEP_MS = TRASH_KEEP_DAYS * 24 * 60 * 60 * 1000;

@@ -5,6 +5,8 @@ import {
   itemMenu,
   itemTitles,
   openList,
+  otherDevice,
+  synced,
   unique,
 } from './support/app';
 
@@ -17,6 +19,7 @@ for (const [device, viewport] of [
 
     test('restore a deleted list with its items, and a deleted item', async ({
       page,
+      browser,
       expectAccessible,
     }) => {
       // A long flow of many steps; under the full suite's parallel load it needs more than 30 s.
@@ -47,9 +50,10 @@ for (const [device, viewport] of [
           .getByRole('link', { name: 'Space' })
           .click();
         await page.getByRole('link', { name: /Trash/ }).click();
-        await expect(
-          page.getByRole('heading', { level: 1, name: 'Trash' }),
-        ).toBeVisible();
+        const heading = page.getByRole('heading', { level: 1, name: 'Trash' });
+        await expect(heading).toBeVisible();
+        // Really on screen, also on a phone (not only for screen readers).
+        expect((await heading.boundingBox())?.height ?? 0).toBeGreaterThan(10);
         const entries = page.getByRole('list', {
           name: 'Deleted lists and items',
         });
@@ -74,6 +78,16 @@ for (const [device, viewport] of [
         await expect(itemTitles(page)).toHaveText(['Tent', 'Stove']);
         await openList(page, beach);
         await expect(itemTitles(page)).toHaveText(['Towel', hat]);
+      });
+
+      await test.step('the restores reached the server: another device has them', async () => {
+        await synced(page);
+        const other = await otherDevice(browser);
+        await openList(other, camping);
+        await expect(itemTitles(other)).toHaveText(['Tent', 'Stove']);
+        await openList(other, beach);
+        await expect(itemTitles(other)).toHaveText(['Towel', hat]);
+        await other.context().close();
       });
     });
   });

@@ -510,7 +510,7 @@ packages/
     feature-sync           gateway, push/pull/poke, MutationService                     scope:api type:feature
   web/
     data-access-local-db   Dexie schema, repositories → signals                         scope:web type:data-access
-    data-access-sync       sync engine, outbox, socket client, status                   scope:web type:data-access
+    data-access-sync       sync engine, outbox, socket, status, SpaceChanges           scope:web type:data-access
     feature-lists          list library, list editor, composition                       scope:web type:feature
     feature-runs           runs: start, ad-hoc, check/skip, progress, finishing         scope:web type:feature
     feature-auth           sign-in, first-run setup, profile with passkeys              scope:web type:feature

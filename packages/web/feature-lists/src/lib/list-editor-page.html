@@ -4,7 +4,7 @@
 </a>
 
 @let v = view(); @if (v.kind === 'loading') {
-<p class="hint">Loading…</p>
+<lister-loading-hint />
 } @else if (v.kind === 'error') {
 <p class="hint" role="alert">
   Lister can't open its storage on this device. Check that the browser allows

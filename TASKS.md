@@ -23,18 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-017 — Trash and restore
-
-- Milestone: M3 Composition
-- Area: web, api
-- Priority: normal
-- Depends on: T-011
-- Done when:
-  - A Trash page (reached from Space) lists lists and items deleted in the last 30 days (D15), with
-    who deleted them and when.
-  - Restore brings back a list or an item and syncs like any other change.
-  - Deleting a list doesn't delete its items, so restoring the list brings them back too.
-
 ## Backlog
 
 ### T-018 — Duplicate a list
@@ -335,6 +323,21 @@ nosniff`, `Referrer-Policy`, `frame-ancestors` in the CSP, and `app.disable('x-p
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
 
 ## Done
+
+### T-017 — Trash and restore
+
+- Completed: 2026-11-12 — Trash page (Space › Trash) with lists and items deleted in the last 30 days, who deleted them and when; Restore syncs (`list.restore`/`item.restore`) and a restored list brings its items back; `SpaceChanges` moved to `data-access-sync`; `LoadingHint` (delayed "Loading…") for every page.
+- Review: Changes requested (4 major, 3 minor, 4 nit; first review with `ui-review`); all fixed: visible "Trash" heading on phones; focus moves to the next Restore; no "Loading…" flash; socket integration tests for list/item restore and a second device in the e2e; items deleted inside a deleted list are mentioned; "not connected yet" state; calendar-day "yesterday"; date comment; single-pass counts; days from `TRASH_KEEP_DAYS`; library descriptions. Non-member restores are tested with memberships (T-025).
+
+- Milestone: M3 Composition
+- Area: web, api
+- Priority: normal
+- Depends on: T-011
+- Done when:
+  - A Trash page (reached from Space) lists lists and items deleted in the last 30 days (D15), with
+    who deleted them and when.
+  - Restore brings back a list or an item and syncs like any other change.
+  - Deleting a list doesn't delete its items, so restoring the list brings them back too.
 
 ### T-016 — Composition UI
 

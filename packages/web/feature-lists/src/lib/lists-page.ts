@@ -6,7 +6,7 @@ import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
 import { RouterLink } from '@angular/router';
 import { type List, flattenEntries, newId } from '@lister/shared/domain';
 import { CurrentSpace, Repositories } from '@lister/web/data-access-local-db';
-import { TitleDialog, type TitleDialogData } from '@lister/web/ui';
+import { TitleDialog, type TitleDialogData, LoadingHint } from '@lister/web/ui';
 import { SpaceChanges } from '@lister/web/data-access-sync';
 import { firstValueFrom } from 'rxjs';
 
@@ -24,6 +24,7 @@ export interface ListCounts {
 @Component({
   selector: 'lister-lists-page',
   imports: [
+    LoadingHint,
     MatFabButton,
     MatIcon,
     MatIconButton,

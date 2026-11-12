@@ -15,7 +15,14 @@ const byTitle = new Intl.Collator('en', { sensitivity: 'base', numeric: true });
 
 /** Something in the trash: a deleted list (its items come back with it) or a deleted item. */
 export type TrashEntry =
-  | { kind: 'list'; row: List; itemCount: number }
+  | {
+      kind: 'list';
+      row: List;
+      /** Items that come back with the list. */
+      itemCount: number;
+      /** Items of the list that were deleted on their own: they stay deleted. */
+      deletedItemCount: number;
+    }
   | { kind: 'item'; row: Item; listTitle: string };
 
 /** A space's lists, items and includes (tombstones included), for flattening and loop checks. */
@@ -155,15 +162,20 @@ export class Repositories {
         const lists = await this.db.lists.where('spaceId').equals(id).toArray();
         const items = await this.db.items.where('spaceId').equals(id).toArray();
         const listsById = new Map(lists.map((list) => [list.id, list]));
+        const live = new Map<string, number>();
+        const deleted = new Map<string, number>();
+        for (const item of items) {
+          const counts = item.deletedAt === null ? live : deleted;
+          counts.set(item.listId, (counts.get(item.listId) ?? 0) + 1);
+        }
         const recent = (row: { deletedAt: number | null }) =>
           row.deletedAt !== null && row.deletedAt >= since;
         const entries: TrashEntry[] = [
           ...lists.filter(recent).map((row) => ({
             kind: 'list' as const,
             row,
-            itemCount: items.filter(
-              (item) => item.listId === row.id && item.deletedAt === null,
-            ).length,
+            itemCount: live.get(row.id) ?? 0,
+            deletedItemCount: deleted.get(row.id) ?? 0,
           })),
           ...items.flatMap((row) => {
             const list = listsById.get(row.listId);

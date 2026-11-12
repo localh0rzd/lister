@@ -75,7 +75,7 @@ async function render(options: { space?: boolean } = {}) {
   const settle = () =>
     vi.waitFor(async () => {
       await fixture.whenStable();
-      expect(element.textContent).not.toContain('Loading');
+      expect(element.querySelector('lister-loading-hint')).toBeNull();
     });
   await settle();
   return {
