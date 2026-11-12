@@ -23,22 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-035 — Type-check every project in CI
-
-- Milestone: M2 Sync walking skeleton
-- Area: infra
-- Priority: normal
-- Done when:
-  - Every project has a `typecheck` target (`tsc --noEmit`) for its library or app tsconfig
-    **and** its spec tsconfig, and `nx affected -t typecheck` runs in CI and in the `verify`
-    skill.
-  - The generated `vitest.config.mts` / `vite.config.mts` files type-check too (today they fail
-    under the spec tsconfigs with TS1343), or are excluded on purpose.
-- Notes: Found in T-006. App builds type-check only through the app's tsconfig, and Vitest
-  doesn't type-check, so a library's stricter options (e.g. `noPropertyAccessFromIndexSignature`)
-  and stale types in specs went unnoticed. One spec still built a `HealthResponse` without `db`
-  after T-004 changed the contract.
-
 ## Backlog
 
 ### T-014 — Write down the synced-feature recipe
@@ -397,6 +381,25 @@ nosniff`, `Referrer-Policy`, `frame-ancestors` in the CSP, and `app.disable('x-p
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
 
 ## Done
+
+### T-035 — Type-check every project in CI
+
+- Completed: 2026-11-12 — `tools/typecheck-plugin.mjs` infers a cached `typecheck` target (`tsc --noEmit` per app/lib and spec tsconfig) for every project; spec and e2e tsconfigs use ESM so the Vitest/Playwright configs type-check; CI, `verify`, docs run `affected -t lint typecheck test build`.
+- Review: Approve with minor fixes (1 minor, 1 nit); both fixed: `drizzle.config.ts` is type-checked through the data-access-db spec tsconfig; the plugin's comment says its `@ts-check` is editor-only.
+
+- Milestone: M2 Sync walking skeleton
+- Area: infra
+- Priority: normal
+- Done when:
+  - Every project has a `typecheck` target (`tsc --noEmit`) for its library or app tsconfig
+    **and** its spec tsconfig, and `nx affected -t typecheck` runs in CI and in the `verify`
+    skill.
+  - The generated `vitest.config.mts` / `vite.config.mts` files type-check too (today they fail
+    under the spec tsconfigs with TS1343), or are excluded on purpose.
+- Notes: Found in T-006. App builds type-check only through the app's tsconfig, and Vitest
+  doesn't type-check, so a library's stricter options (e.g. `noPropertyAccessFromIndexSignature`)
+  and stale types in specs went unnoticed. One spec still built a `HealthResponse` without `db`
+  after T-004 changed the contract.
 
 ### T-013 — E2E: real-time and offline sync
 

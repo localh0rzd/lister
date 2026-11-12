@@ -7,6 +7,8 @@
  * `tsc --noEmit` on each `tsconfig.*.json` of the project (lib/app and spec), or on its
  * `tsconfig.json` when there are no others (e.g. the Playwright project). New libraries get it
  * without any configuration.
+ *
+ * `// @ts-check` is for editors only: `tools/` isn't a project, so CI doesn't type-check this file.
  */
 import { readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
