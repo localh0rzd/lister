@@ -23,7 +23,20 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-_Nothing in progress._
+### T-013 — E2E: real-time and offline sync
+
+- Milestone: M2 Sync walking skeleton
+- Area: web, api
+- Priority: high
+- Depends on: T-011, T-012
+- Done when:
+  - Specs with two browser contexts: an item added, edited, reordered or deleted in A shows up in B
+    without a reload.
+  - Offline: A goes offline (`context.setOffline(true)`) and makes changes while B changes other
+    items; once A is back online, both show the same content.
+  - Reloading while offline (production build) still shows the data and the pending changes, which
+    sync once online.
+  - The specs run in CI.
 
 ## Backlog
 
@@ -42,21 +55,6 @@ _Nothing in progress._
   doesn't type-check, so a library's stricter options (e.g. `noPropertyAccessFromIndexSignature`)
   and stale types in specs went unnoticed. One spec still built a `HealthResponse` without `db`
   after T-004 changed the contract.
-
-### T-013 — E2E: real-time and offline sync
-
-- Milestone: M2 Sync walking skeleton
-- Area: web, api
-- Priority: high
-- Depends on: T-011, T-012
-- Done when:
-  - Specs with two browser contexts: an item added, edited, reordered or deleted in A shows up in B
-    without a reload.
-  - Offline: A goes offline (`context.setOffline(true)`) and makes changes while B changes other
-    items; once A is back online, both show the same content.
-  - Reloading while offline (production build) still shows the data and the pending changes, which
-    sync once online.
-  - The specs run in CI.
 
 ### T-014 — Write down the synced-feature recipe
 
