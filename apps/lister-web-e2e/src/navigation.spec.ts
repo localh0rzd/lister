@@ -11,7 +11,7 @@ test.describe('navigation on a phone (375 px)', () => {
   }) => {
     await page.goto('/');
     await expect(page).toHaveURL(/\/lists$/);
-    await expect(page.getByRole('banner')).toContainText('Lister');
+    await expect(page.getByRole('banner')).toContainText('Lists');
     const nav = page.locator('lister-navigation-bar').getByRole('navigation', {
       name: 'Main',
     });
@@ -29,6 +29,7 @@ test.describe('navigation on a phone (375 px)', () => {
           nav.getByRole('link', { name: destination }),
         ).toHaveAttribute('aria-current', 'page');
         await expect(page).toHaveTitle(`${destination} · Lister`);
+        await expect(page.getByRole('banner')).toContainText(destination);
         await expectAccessible();
       });
     }

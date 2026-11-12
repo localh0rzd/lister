@@ -9,7 +9,7 @@ import { Theme } from '@lister/web/util-theme';
   selector: 'lister-space-page',
   imports: [ThemePicker],
   template: `
-    <h1>Space</h1>
+    <h1 class="page-title">Space</h1>
 
     <section aria-labelledby="appearance-heading">
       <h2 id="appearance-heading">Appearance</h2>

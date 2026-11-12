@@ -1,4 +1,4 @@
-<h1>Lists</h1>
+<h1 class="page-title">Lists</h1>
 
 @let v = view(); @if (v.kind === 'loading') {
 <p class="hint">Loading…</p>
@@ -11,10 +11,20 @@
 <p class="hint">
   Your lists appear here once Lister has connected to the server.
 </p>
+} @else if (v.lists.length === 0) {
+<div class="empty">
+  <mat-icon class="empty-icon" aria-hidden="true">checklist</mat-icon>
+  <p class="empty-title">No lists yet</p>
+  <p class="hint">Create your first list with “New list”.</p>
+</div>
+<ng-container *ngTemplateOutlet="fab" />
 } @else {
 <ul class="lists" aria-label="Lists">
   @for (entry of v.lists; track entry.list.id) {
   <li class="row">
+    <span class="avatar" aria-hidden="true"
+      >{{ initial(entry.list.title) }}</span
+    >
     <div class="text">
       <span class="title">{{ entry.list.title }}</span>
       <span class="count">{{ itemCount(entry.count) }}</span>
@@ -38,22 +48,15 @@
       </button>
     </mat-menu>
   </li>
-  } @empty {
-  <li class="empty">
-    <mat-icon class="empty-icon" aria-hidden="true">checklist</mat-icon>
-    <p class="empty-title">No lists yet</p>
-    <p class="hint">Create your first list with the + button.</p>
-  </li>
   }
 </ul>
+<ng-container *ngTemplateOutlet="fab" />
 }
 
-<button
-  matFab
-  class="fab"
-  type="button"
-  aria-label="New list"
-  (click)="create()"
->
-  <mat-icon>add</mat-icon>
-</button>
+<!-- Only where lists can be created, i.e. once a space is there. -->
+<ng-template #fab>
+  <button matFab extended class="fab" type="button" (click)="create()">
+    <mat-icon>add</mat-icon>
+    New list
+  </button>
+</ng-template>

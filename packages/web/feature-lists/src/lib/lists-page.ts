@@ -1,14 +1,11 @@
 import { Component, computed, inject } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { MatFabButton, MatIconButton } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
 import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
 import { type List, newId } from '@lister/shared/domain';
-import {
-  CurrentSpace,
-  Repositories,
-  valueOf,
-} from '@lister/web/data-access-local-db';
+import { CurrentSpace, Repositories } from '@lister/web/data-access-local-db';
 import { type MutationRequest, SyncEngine } from '@lister/web/data-access-sync';
 import { TitleDialog, type TitleDialogData } from '@lister/web/ui';
 import { NOTICE_DURATION_MS, Notifier } from '@lister/web/util-notify';
@@ -24,6 +21,7 @@ import { firstValueFrom } from 'rxjs';
     MatMenu,
     MatMenuItem,
     MatMenuTrigger,
+    NgTemplateOutlet,
   ],
   templateUrl: './lists-page.html',
   styleUrl: './lists-page.scss',
@@ -47,12 +45,14 @@ export class ListsPage {
     const lists = this.lists();
     if (lists.status === 'error') return { kind: 'error' as const };
     if (lists.status === 'loading') return { kind: 'loading' as const };
-    const counts = valueOf(this.counts());
+    // Counts are extra: if their query fails, the lists still show (with "–").
+    const counts = this.counts();
     return {
       kind: 'lists' as const,
       lists: lists.value.map((list) => ({
         list,
-        count: counts?.get(list.id) ?? 0,
+        count:
+          counts.status === 'ready' ? (counts.value.get(list.id) ?? 0) : null,
       })),
     };
   });
@@ -93,8 +93,13 @@ export class ListsPage {
     }
   }
 
-  protected itemCount(count: number): string {
+  protected itemCount(count: number | null): string {
+    if (count === null) return '–';
     return count === 1 ? '1 item' : `${count} items`;
+  }
+
+  protected initial(title: string): string {
+    return [...title.trim()][0]?.toLocaleUpperCase() ?? '';
   }
 
   private async askTitle(data: TitleDialogData): Promise<string | undefined> {

@@ -11,22 +11,42 @@ async function render(online: boolean, pendingCount: number, compact = false) {
   return {
     element,
     label: element.querySelector('.label')?.textContent?.trim() ?? '',
+    spoken:
+      element.querySelector('.cdk-visually-hidden')?.textContent?.trim() ?? '',
   };
 }
 
 describe('SyncBadge', () => {
   it.each([
-    [true, 0, false, ''],
-    [true, 1, false, '1 change not synced'],
-    [true, 3, false, '3 changes not synced'],
-    [false, 0, false, 'Offline'],
-    [false, 2, false, 'Offline · 2 changes not synced'],
-    [true, 3, true, '3'],
-    [false, 0, true, 'Offline'],
+    [true, 0, false, '', ''],
+    [true, 1, false, '1 change not synced', '1 change not synced'],
+    [true, 3, false, '3 changes not synced', '3 changes not synced'],
+    [false, 0, false, 'Offline', 'Offline'],
+    [
+      false,
+      2,
+      false,
+      'Offline · 2 changes not synced',
+      'Offline · 2 changes not synced',
+    ],
+    [true, 3, true, '3', '3 changes not synced'],
+    [false, 0, true, 'Offline', 'Offline'],
+    [false, 2, true, '2', 'Offline · 2 changes not synced'],
   ])(
-    'online=%s pending=%i compact=%s shows %j',
-    async (online, pending, compact, text) => {
-      expect((await render(online, pending, compact)).label).toBe(text);
+    'online=%s pending=%i compact=%s shows %j and says %j',
+    async (online, pending, compact, shown, spoken) => {
+      const badge = await render(online, pending, compact);
+
+      expect(badge.label).toBe(shown);
+      expect(badge.spoken).toBe(spoken);
+      if (spoken) {
+        expect(
+          badge.element.querySelector('.label')?.getAttribute('aria-hidden'),
+        ).toBe('true');
+        expect(
+          badge.element.querySelector('.badge')?.getAttribute('title'),
+        ).toBe(spoken);
+      }
     },
   );
 

@@ -4,7 +4,7 @@ import { Component } from '@angular/core';
 @Component({
   selector: 'lister-runs-page',
   template: `
-    <h1>Runs</h1>
+    <h1 class="page-title">Runs</h1>
     <p>Your runs will appear here.</p>
   `,
 })

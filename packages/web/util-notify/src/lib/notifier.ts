@@ -16,37 +16,69 @@ export interface Notice {
 export type NoticeOutcome = 'action' | 'dismissed';
 
 interface Queued extends Notice {
-  resolve: (outcome: NoticeOutcome) => void;
+  settle: (outcome: NoticeOutcome) => void;
 }
 
 /** Default duration for timed notices such as Undo. */
 export const NOTICE_DURATION_MS = 6000;
 
+/** A timed notice shows at least this long before a newer one replaces it. */
+export const MIN_NOTICE_MS = 1500;
+
 /**
  * The one way to show snackbars. MatSnackBar shows one at a time and a new one replaces the
  * current one, so an Undo could wipe out another Undo or the update prompt. The notifier queues
- * notices instead: timed ones show one after another; a sticky one shows when nothing else is
- * waiting and returns after interruptions until it's acted on.
+ * notices instead:
+ *
+ * - Timed notices show in order. A newer one cuts the current one short once that has shown for
+ *   `MIN_NOTICE_MS`, so the latest action's Undo or a refusal arrives quickly and no notice is
+ *   lost.
+ * - A sticky notice shows when nothing else is waiting and comes back after interruptions until
+ *   it's acted on or swiped away. A newer sticky notice replaces an older one at once.
  */
 @Service()
 export class Notifier {
   private readonly snackBar = inject(MatSnackBar);
   private readonly timed: Queued[] = [];
   private sticky: Queued | undefined;
-  private current: { notice: Queued; dismiss: () => void } | undefined;
+  private current:
+    { notice: Queued; shownAt: number; interrupt: () => void } | undefined;
+  private cutShort?: ReturnType<typeof setTimeout>;
 
   /** Shows a notice; resolves when it ends. */
   notify(notice: Notice): Promise<NoticeOutcome> {
     return new Promise((resolve) => {
-      const queued: Queued = { ...notice, resolve };
+      let settled = false;
+      const queued: Queued = {
+        ...notice,
+        settle: (outcome) => {
+          if (settled) return;
+          settled = true;
+          resolve(outcome);
+        },
+      };
+
       if (notice.duration === undefined) {
-        this.sticky?.resolve('dismissed');
+        const replaced = this.sticky;
         this.sticky = queued;
+        replaced?.settle('dismissed');
+        if (replaced && this.current?.notice === replaced)
+          this.current.interrupt();
       } else {
         this.timed.push(queued);
-        // A sticky notice makes way, and comes back when the queue is empty.
-        if (this.current?.notice.duration === undefined)
-          this.current?.dismiss();
+        const current = this.current;
+        if (current?.notice.duration === undefined) {
+          current?.interrupt(); // a sticky notice makes way and comes back later
+        } else {
+          const wait = Math.max(
+            0,
+            MIN_NOTICE_MS - (Date.now() - current.shownAt),
+          );
+          clearTimeout(this.cutShort);
+          this.cutShort = setTimeout(() => {
+            if (this.current === current) current.interrupt();
+          }, wait);
+        }
       }
       if (!this.current) this.showNext();
     });
@@ -62,7 +94,8 @@ export class Notifier {
     let interrupted = false;
     this.current = {
       notice: next,
-      dismiss: () => {
+      shownAt: Date.now(),
+      interrupt: () => {
         interrupted = true;
         ref.dismiss();
       },
@@ -70,13 +103,12 @@ export class Notifier {
     ref.onAction().subscribe(() => (actedOn = true));
     ref.afterDismissed().subscribe(() => {
       this.current = undefined;
-      if (next === this.sticky) {
-        if (actedOn || !interrupted) {
-          this.sticky = undefined;
-          next.resolve(actedOn ? 'action' : 'dismissed');
-        }
-      } else {
-        next.resolve(actedOn ? 'action' : 'dismissed');
+      if (next !== this.sticky) {
+        next.settle(actedOn ? 'action' : 'dismissed');
+      } else if (actedOn || !interrupted) {
+        // Acted on or swiped away: done. Interrupted: it stays and shows again later.
+        this.sticky = undefined;
+        next.settle(actedOn ? 'action' : 'dismissed');
       }
       this.showNext();
     });

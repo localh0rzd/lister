@@ -1,3 +1,4 @@
+@use '@angular/cdk' as cdk;
 @use '@angular/material' as mat;
 @use './theme-colors' as lister;
 
@@ -37,4 +38,25 @@ body {
   background: var(--mat-sys-surface);
   color: var(--mat-sys-on-surface);
   font: var(--mat-sys-body-large);
+}
+
+// `.cdk-visually-hidden`: text for screen readers only.
+@include cdk.a11y-visually-hidden();
+
+// A page's h1. On phones the top app bar shows the destination, so the heading is only for
+// screen readers there.
+.page-title {
+  font: var(--mat-sys-headline-small);
+  margin: 0 0 16px;
+}
+
+@media (max-width: 599.98px) {
+  .page-title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
 }

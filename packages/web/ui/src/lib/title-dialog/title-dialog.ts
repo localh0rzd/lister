@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import {
   FormField,
   form,
+  submit,
   validateStandardSchema,
 } from '@angular/forms/signals';
 import { MatButton } from '@angular/material/button';
@@ -44,7 +45,7 @@ export interface TitleDialogData {
   ],
   template: `
     <h2 mat-dialog-title>{{ data.heading }}</h2>
-    <form (submit)="$event.preventDefault(); save()">
+    <form novalidate (submit)="save($event)">
       <mat-dialog-content>
         <mat-form-field class="field">
           <mat-label>Title</mat-label>
@@ -80,9 +81,11 @@ export class TitleDialog {
     validateStandardSchema(path.title, titleSchema);
   });
 
-  protected save(): void {
-    this.titleForm.title().markAsTouched();
-    if (this.titleForm().invalid()) return;
-    this.dialog.close(this.model().title.trim());
+  /** `submit` marks every field touched and runs the action only when the form is valid. */
+  protected save(event: Event): void {
+    event.preventDefault();
+    void submit(this.titleForm, async () => {
+      this.dialog.close(this.model().title.trim());
+    });
   }
 }

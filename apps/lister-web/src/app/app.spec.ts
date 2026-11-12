@@ -44,7 +44,7 @@ describe('App shell', () => {
     setup(false);
     const el = await render();
 
-    expect(el.querySelector('header')?.textContent).toContain('Lister');
+    expect(el.querySelector('header')?.textContent).toContain('Lists');
     expect(el.querySelector('lister-navigation-bar')).not.toBeNull();
     expect(el.querySelector('lister-navigation-rail')).toBeNull();
   });

@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Subject } from 'rxjs';
-import { NOTICE_DURATION_MS, Notifier } from './notifier';
+import { MIN_NOTICE_MS, NOTICE_DURATION_MS, Notifier } from './notifier';
 
 /** A MatSnackBar stand-in that shows one snackbar at a time, like the real one. */
 class FakeSnackBar {
@@ -55,7 +55,11 @@ beforeEach(() => {
 });
 
 describe('Notifier', () => {
-  it('shows timed notices one after another, none lost', async () => {
+  it('shows timed notices in order, none lost, the newer one soon', async () => {
+    vi.useFakeTimers();
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
     const first = notifier.notify({
       message: 'Deleted A',
       action: 'Undo',
@@ -68,13 +72,34 @@ describe('Notifier', () => {
     });
     expect(snackBar.visible).toBe('Deleted A');
 
+    // A is cut short once it has shown for the minimum time.
+    vi.advanceTimersByTime(MIN_NOTICE_MS - 1);
+    expect(snackBar.visible).toBe('Deleted A');
+    vi.advanceTimersByTime(1);
+    expect(snackBar.visible).toBe('Deleted B');
+    expect(await first).toBe('dismissed');
+
     snackBar.act();
+    expect(await second).toBe('action');
+    expect(snackBar.visible).toBeUndefined();
+  });
+
+  it('settles a notice the user acts on before it is cut short', async () => {
+    const first = notifier.notify({
+      message: 'Deleted A',
+      action: 'Undo',
+      duration: NOTICE_DURATION_MS,
+    });
+    void notifier.notify({
+      message: 'Deleted B',
+      action: 'Undo',
+      duration: NOTICE_DURATION_MS,
+    });
+
+    snackBar.act();
+
     expect(await first).toBe('action');
     expect(snackBar.visible).toBe('Deleted B');
-
-    snackBar.expire();
-    expect(await second).toBe('dismissed');
-    expect(snackBar.visible).toBeUndefined();
   });
 
   it('lets a sticky notice make way and brings it back afterwards', async () => {
@@ -111,12 +136,21 @@ describe('Notifier', () => {
     expect(snackBar.visible).toBe('New version available');
   });
 
-  it('replaces an older sticky notice with a newer one', async () => {
-    const old = notifier.notify({ message: 'Old prompt' });
-    void notifier.notify({ message: 'New prompt' });
-    snackBar.expire();
+  it('replaces a visible sticky notice at once; the new one takes the action', async () => {
+    const old = notifier.notify({
+      message: 'New version available',
+      action: 'Reload',
+    });
+    const replacement = notifier.notify({
+      message: 'Lister needs to reload',
+      action: 'Reload',
+    });
 
     expect(await old).toBe('dismissed');
-    expect(snackBar.shown.map((s) => s.message)).toContain('New prompt');
+    expect(snackBar.visible).toBe('Lister needs to reload');
+
+    snackBar.act();
+    expect(await replacement).toBe('action');
+    expect(snackBar.visible).toBeUndefined();
   });
 });

@@ -508,6 +508,22 @@ describe('SyncEngine', () => {
       expect(await outbox()).toEqual([]);
     });
 
+    it('goes offline and back with the browser, without waiting for a timeout', async () => {
+      setup();
+      engine.start();
+      await settle();
+
+      window.dispatchEvent(new Event('offline'));
+      await settle();
+      expect(server.connected).toBe(false);
+      await eventually(() => expect(engine.online()).toBe(false));
+
+      window.dispatchEvent(new Event('online'));
+      await settle();
+      expect(server.connectCalls).toBe(2);
+      await eventually(() => expect(engine.online()).toBe(true));
+    });
+
     it('reconnects with backoff after the server disconnects it', async () => {
       setup();
       engine.start();

@@ -5,10 +5,10 @@ import { expect, test } from './support/fixtures';
 const unique = (title: string) =>
   `${title} ${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
-/** Opens Lists and waits until the space has arrived from the server. */
+/** Opens Lists and waits until the space has arrived from the server ("New list" appears). */
 async function openLists(page: Page) {
   await page.goto('/lists');
-  await expect(page.getByRole('list', { name: 'Lists' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'New list' })).toBeVisible();
 }
 
 const row = (page: Page, title: string) =>
@@ -85,7 +85,52 @@ test.describe('lists on a phone (375 px)', () => {
   });
 });
 
+test.describe('offline on a phone (375 px)', () => {
+  test.use({ viewport: { width: 375, height: 812 } });
+
+  test('a list made offline shows as not synced, then syncs', async ({
+    page,
+    context,
+    browser,
+  }) => {
+    const title = unique('Offline');
+    await openLists(page);
+    const status = page.getByRole('banner').getByRole('status');
+
+    await context.setOffline(true);
+    await expect(status).toContainText('Offline');
+    await createList(page, title);
+    await expect(row(page, title)).toBeVisible();
+    await expect(status).toContainText('Offline · 1 change not synced');
+
+    await context.setOffline(false);
+    await expect(status).not.toContainText('Offline');
+    await expect(status).not.toContainText('not synced');
+
+    const other = await (await browser.newContext()).newPage();
+    await openLists(other);
+    await expect(row(other, title)).toBeVisible();
+    await other.context().close();
+  });
+});
+
 test.describe('lists on a desktop (1280 px)', () => {
+  test('the rail tells screen readers the whole sync state', async ({
+    page,
+    context,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await openLists(page);
+
+    await context.setOffline(true);
+    const status = page.locator('lister-navigation-rail').getByRole('status');
+    await expect(status).toContainText('Offline');
+    await createList(page, unique('Rail'));
+    await expect(status).toContainText('Offline · 1 change not synced');
+    await context.setOffline(false);
+    await expect(status).not.toContainText('not synced');
+  });
+
   test.use({ viewport: { width: 1280, height: 800 } });
 
   test('a change appears on another device without a reload', async ({

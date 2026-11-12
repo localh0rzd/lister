@@ -1,4 +1,10 @@
-import { Component, type ElementRef, inject, viewChild } from '@angular/core';
+import {
+  Component,
+  type ElementRef,
+  computed,
+  inject,
+  viewChild,
+} from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
@@ -32,6 +38,20 @@ export class App {
   );
   private readonly content =
     viewChild.required<ElementRef<HTMLElement>>('content');
+  private readonly router = inject(Router);
+  private readonly url = toSignal(
+    this.router.events.pipe(
+      filter((event) => event instanceof NavigationEnd),
+      map(() => this.router.url),
+    ),
+    { initialValue: this.router.url },
+  );
+  /** The top app bar's title on phones: the current destination. */
+  protected readonly title = computed(
+    () =>
+      DESTINATIONS.find((d) => this.url().startsWith(d.path))?.label ??
+      'Lister',
+  );
 
   // Focus on a nav link is lost when the layout switches at 600 px (one navigation replaces the
   // other). Accepted: it only happens while resizing or rotating.
@@ -39,8 +59,8 @@ export class App {
   constructor() {
     // <main> is the scroll container, and the router only resets the window's scroll position,
     // so each new page is scrolled to the top here.
-    inject(Router)
-      .events.pipe(
+    this.router.events
+      .pipe(
         filter((event) => event instanceof NavigationEnd),
         takeUntilDestroyed(),
       )

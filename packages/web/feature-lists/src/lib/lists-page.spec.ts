@@ -84,6 +84,15 @@ afterEach(async () => {
   await db.delete();
 });
 
+/** The extended FAB, found by its visible text. */
+const newListButton = (element: HTMLElement) => {
+  const button = [...element.querySelectorAll('button')].find((b) =>
+    b.textContent?.includes('New list'),
+  );
+  if (!button) throw new Error('no New list button');
+  return button;
+};
+
 const rows = (element: HTMLElement) =>
   [...element.querySelectorAll('.row')].map(
     (row) =>
@@ -91,16 +100,19 @@ const rows = (element: HTMLElement) =>
   );
 
 describe('ListsPage', () => {
-  it('says so before the first connection, when there is no space yet', async () => {
+  it('says so before the first connection, without offering New list', async () => {
     const { element } = await render({ space: false });
 
     expect(element.textContent).toContain('once Lister has connected');
+    expect(element.textContent).not.toContain('New list');
   });
 
-  it('shows an empty state', async () => {
+  it('shows an empty state outside any list, with New list', async () => {
     const { element } = await render();
 
     expect(element.textContent).toContain('No lists yet');
+    expect(element.querySelector('ul')).toBeNull();
+    expect(newListButton(element)).toBeTruthy();
   });
 
   it('shows the lists by title with their item counts, and follows changes', async () => {
@@ -125,11 +137,7 @@ describe('ListsPage', () => {
     const { element } = await render();
     dialogAnswer = 'Camping';
 
-    (
-      element.querySelector(
-        'button[aria-label="New list"]',
-      ) as HTMLButtonElement
-    ).click();
+    newListButton(element).click();
 
     await vi.waitFor(() =>
       expect(mutate).toHaveBeenCalledWith({
@@ -144,11 +152,7 @@ describe('ListsPage', () => {
     const { element } = await render();
     dialogAnswer = undefined;
 
-    (
-      element.querySelector(
-        'button[aria-label="New list"]',
-      ) as HTMLButtonElement
-    ).click();
+    newListButton(element).click();
     await new Promise((resolve) => setTimeout(resolve));
 
     expect(mutate).not.toHaveBeenCalled();
@@ -207,11 +211,7 @@ describe('ListsPage', () => {
     });
     dialogAnswer = 'x';
 
-    (
-      element.querySelector(
-        'button[aria-label="New list"]',
-      ) as HTMLButtonElement
-    ).click();
+    newListButton(element).click();
 
     await vi.waitFor(() =>
       expect(notify).toHaveBeenCalledWith(

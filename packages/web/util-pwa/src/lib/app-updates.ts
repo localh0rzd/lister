@@ -40,6 +40,8 @@ export class AppUpdates {
   /** The message of a reload that is waiting for the user, if any. */
   private readonly pendingReload = signal<string | null>(null);
   private showing = false;
+  /** Counts prompts, so only the latest one's outcome counts. */
+  private calls = 0;
 
   constructor() {
     if (!this.updates.isEnabled) return;
@@ -78,8 +80,11 @@ export class AppUpdates {
   private offerReload(message: string): void {
     this.pendingReload.set(message);
     this.showing = true;
+    const call = ++this.calls;
     // Sticky: the notifier lets Undo and other notices go first, then shows it again.
     void this.notifier.notify({ message, action: 'Reload' }).then((outcome) => {
+      // A newer prompt replaced this one: it decides from now on.
+      if (call !== this.calls) return;
       this.showing = false;
       if (outcome === 'action') this.reload();
     });

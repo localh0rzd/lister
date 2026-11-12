@@ -10,12 +10,14 @@ import { MatIcon } from '@angular/material/icon';
   imports: [MatIcon],
   host: { role: 'status', 'aria-live': 'polite' },
   template: `
-    @if (text(); as label) {
-      <span class="badge" [class.offline]="!online()">
+    @if (description(); as full) {
+      <span class="badge" [class.offline]="!online()" [attr.title]="full">
         <mat-icon aria-hidden="true">{{
           online() ? 'sync' : 'cloud_off'
         }}</mat-icon>
-        <span class="label">{{ label }}</span>
+        <!-- The short label is for the eye; screen readers get the whole sentence. -->
+        <span class="label" aria-hidden="true">{{ label() }}</span>
+        <span class="cdk-visually-hidden">{{ full }}</span>
       </span>
     }
   `,
@@ -47,14 +49,19 @@ export class SyncBadge {
   /** Narrow places (the rail) show only the offline state and the count. */
   readonly compact = input(false);
 
-  protected readonly text = computed(() => {
+  /** The whole sentence: "Offline", "Offline · 2 changes not synced", "1 change not synced". */
+  protected readonly description = computed(() => {
     const pending = this.pendingCount();
     const changes = pending === 1 ? '1 change' : `${pending} changes`;
-    if (!this.online()) {
-      if (this.compact()) return pending > 0 ? String(pending) : 'Offline';
+    if (!this.online())
       return pending > 0 ? `Offline · ${changes} not synced` : 'Offline';
-    }
-    if (pending === 0) return '';
-    return this.compact() ? String(pending) : `${changes} not synced`;
+    return pending > 0 ? `${changes} not synced` : '';
+  });
+
+  /** What fits: the whole sentence, or in compact mode just "Offline" or the count. */
+  protected readonly label = computed(() => {
+    if (!this.compact()) return this.description();
+    const pending = this.pendingCount();
+    return pending > 0 ? String(pending) : 'Offline';
   });
 }

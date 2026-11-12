@@ -247,6 +247,13 @@ Consequences:
   from Google Fonts, which breaks offline use and sends visitors' IPs to Google (a GDPR concern
   in the EU).
 - **Snackbar with Undo** after deletes and after a run finishes; progress bar for packing progress.
+  Snackbars go through one queue (`Notifier`): a newer notice cuts the current one short after
+  1.5 s, so none is lost and the latest Undo comes quickly.
+- **Decided in T-010 (differs from the mock-ups):** the page's FAB stays at the bottom right of
+  the content from 600 px too, instead of moving into the rail, because the action belongs to the
+  page and the rail is the shell's. It's an extended FAB ("New list") at every width. List rows
+  are cards with an initial avatar, at most 720 px wide. On phones the top app bar shows the
+  destination's name and the page heading is only for screen readers.
 - CDK drag-drop has no built-in keyboard reordering, so items also get "Move up / down" in their
   menu.
 
@@ -499,6 +506,7 @@ packages/
     feature-space          spaces and members                                           scope:web type:feature
     ui                     nav bar/rail, item row, section header, sync status, dialogs scope:web type:ui
     util-pwa               SW updates, install hint, storage persistence, online signal scope:web type:util
+    util-notify            Notifier: the snackbar queue (Undo, rejections, prompts)     scope:web type:util
     util-theme             theme preference (system/light/dark), theme-color meta tags  scope:web type:util
 ```
 

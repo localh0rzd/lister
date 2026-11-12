@@ -1,4 +1,5 @@
 import {
+  DOCUMENT,
   DestroyRef,
   ErrorHandler,
   Service,
@@ -88,6 +89,7 @@ export class SyncEngine {
   private readonly now = inject(SYNC_CLOCK);
   private readonly errorHandler = inject(ErrorHandler);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly window = inject(DOCUMENT).defaultView;
 
   private readonly status = liveQuerySignal(() => async () => {
     const row = await this.db.meta.get(STATUS_KEY);
@@ -234,11 +236,21 @@ export class SyncEngine {
       this.setStatus({ ...this.connection, updateRequired: true }),
     );
 
+    // The browser knows about lost networks long before Socket.IO's ping timeout (up to 45 s).
+    const goOffline = () => socket.disconnect();
+    const goOnline = () => {
+      if (!socket.connected) socket.connect();
+    };
+    this.window?.addEventListener('offline', goOffline);
+    this.window?.addEventListener('online', goOnline);
+
     // Push whatever any tab adds to the outbox.
     const outbox = liveQuery(() => this.db.outbox.count()).subscribe(
       () => void this.enqueue(() => this.flush()),
     );
     this.destroyRef.onDestroy(() => {
+      this.window?.removeEventListener('offline', goOffline);
+      this.window?.removeEventListener('online', goOnline);
       outbox.unsubscribe();
       clearTimeout(this.reconnectTimer);
       socket.disconnect();
