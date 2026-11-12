@@ -138,7 +138,7 @@ Every project needs exactly one `scope:*` tag and one `type:*` tag. The details,
 - Drag and drop (CDK) always has a keyboard alternative ("Move up / down"). Destructive actions offer Undo in a snackbar.
 - Snackbars only through `Notifier` (`@lister/web/util-notify`), never `MatSnackBar` directly: it queues them, so an Undo never wipes out another notice.
 - Keep the initial bundle small: code that isn't needed for the first paint (sync engine, update prompt) is loaded with a dynamic import or `@defer`.
-- PWA: the service worker only runs in production builds (`providePwa()` in `@lister/web/util-pwa`, config in `apps/lister-web/ngsw-config.json`). Offline and PWA e2e specs are named `*.pwa.spec.ts` and run against the production build on port 4300. App icons are generated with `npm run icons`.
+- PWA: the service worker only runs in production builds (`providePwa()` in `@lister/web/util-pwa`, config in `apps/lister-web/ngsw-config.json`). Offline and PWA e2e specs are named `*.pwa.spec.ts` and run against the production setup: the API serving the production web build on one origin (`lister-api:serve-prod-e2e`, port 3100). Locally: `npm run start:prod`. App icons are generated with `npm run icons`.
 - Forms: Signal Forms (`@angular/forms/signals`) for new forms.
 - Routes are lazy (`loadComponent` / `loadChildren`). Router inputs are bound to component inputs (`withComponentInputBinding`).
 - Tests: Vitest + `TestBed`; mock HTTP with `provideHttpClientTesting()` + `HttpTestingController`.

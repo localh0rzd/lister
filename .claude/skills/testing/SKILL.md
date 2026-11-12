@@ -87,8 +87,9 @@ migrated in-memory SQLite database.
 - **Accessibility:** run an axe check (`@axe-core/playwright`) on every screen in the flow. The
   first task that adds a screen also adds that dependency and a small fixture for it.
 - **Offline and PWA behaviour** runs against the production build, not the dev server: name the
-  spec `*.pwa.spec.ts`. It then runs in the `pwa` Playwright project against
-  `lister-web:serve-static` (port 4300, with the service worker), which the e2e target starts.
+  spec `*.pwa.spec.ts`. It then runs in the `pwa` Playwright project against the
+  production setup (`lister-api:serve-prod-e2e`: the API serving the production web build on one
+  origin, port 3100, service worker active), which Playwright starts.
 
 ## Quality bar
 

@@ -63,6 +63,50 @@
         "runBuildTargetDependencies": false,
         "watch": false
       }
+    },
+    "serve-prod": {
+      "continuous": true,
+      "executor": "nx:run-commands",
+      "dependsOn": [
+        "build",
+        {
+          "projects": ["lister-web"],
+          "target": "build"
+        }
+      ],
+      "options": {
+        "command": "node dist/apps/lister-api/main.js",
+        "cwd": "{workspaceRoot}",
+        "env": {
+          "NODE_ENV": "production",
+          "PORT": "3100",
+          "PUBLIC_URL": "http://localhost:3100",
+          "DATABASE_PATH": "data/lister-prod.db",
+          "LISTER_DEV_SEED": "true"
+        }
+      }
+    },
+    "serve-prod-e2e": {
+      "continuous": true,
+      "executor": "nx:run-commands",
+      "dependsOn": [
+        "build",
+        {
+          "projects": ["lister-web"],
+          "target": "build"
+        }
+      ],
+      "options": {
+        "command": "node dist/apps/lister-api/main.js",
+        "cwd": "{workspaceRoot}",
+        "env": {
+          "NODE_ENV": "production",
+          "PORT": "3100",
+          "PUBLIC_URL": "http://localhost:3100",
+          "DATABASE_PATH": "tmp/e2e/prod.db",
+          "LISTER_DEV_SEED": "true"
+        }
+      }
     }
   }
 }

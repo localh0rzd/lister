@@ -1,12 +1,19 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { Logger } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { NestFactory } from '@nestjs/core';
 import { API_PREFIX } from '@lister/shared/api-contracts';
 import { AppModule } from './app/app.module';
 import { configureApp } from './app/configure-app';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  configureApp(app);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // The production build sits next to ours (dist/apps/lister-web/browser); WEB_ROOT overrides.
+  const webRoot =
+    process.env.WEB_ROOT || join(__dirname, '../lister-web/browser');
+  const servesWeb = existsSync(join(webRoot, 'index.html'));
+  configureApp(app, { webRoot: servesWeb ? webRoot : undefined });
 
   const port = Number(process.env.PORT ?? 3000);
   await app.listen(port);
@@ -25,6 +32,7 @@ async function bootstrap() {
   }
 
   Logger.log(`🚀 lister-api running on http://localhost:${port}/${API_PREFIX}`);
+  if (servesWeb) Logger.log(`Serving the web app from ${webRoot}`);
 }
 
 bootstrap();

@@ -147,3 +147,49 @@ test.describe('installable PWA (production build)', () => {
     }
   });
 });
+
+test.describe('one origin (production setup)', () => {
+  test('the app, the API and the sync socket share the origin', async ({
+    page,
+    baseURL,
+  }) => {
+    const title = `Prod ${Date.now().toString(36)}`;
+    const origins = new Set<string>();
+    page.on('request', (request) => origins.add(new URL(request.url()).origin));
+
+    await page.goto('/lists');
+    await expect(page.getByRole('button', { name: 'New list' })).toBeVisible();
+    await page.getByRole('button', { name: 'New list' }).click();
+    const dialog = page.getByRole('dialog', { name: 'New list' });
+    await dialog.getByLabel('Title').fill(title);
+    await dialog.getByRole('button', { name: 'Create' }).click();
+    await expect(page.getByRole('link', { name: title })).toBeVisible();
+
+    // It reached the server: a reload (served by the API) still shows it once synced.
+    await expect(
+      page
+        .getByRole('banner')
+        .or(page.locator('lister-navigation-rail'))
+        .getByRole('status'),
+    ).not.toContainText('not synced');
+    await page.reload();
+    await expect(page.getByRole('link', { name: title })).toBeVisible();
+    expect([...origins]).toEqual([new URL(String(baseURL)).origin]);
+  });
+
+  test('deep links load the app, and the API is not the app', async ({
+    page,
+    request,
+  }) => {
+    await page.goto('/lists/0190a000-0000-7000-8000-000000000001');
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'List not found' }),
+    ).toBeVisible();
+
+    const api = await request.get('/api/nope', {
+      headers: { accept: 'text/html' },
+    });
+    expect(api.status()).toBe(404);
+    expect(await api.text()).not.toContain('<lister-root');
+  });
+});

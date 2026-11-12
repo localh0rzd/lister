@@ -23,7 +23,18 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-_Nothing in progress._
+### T-012 — Serve the web app from the API (one origin)
+
+- Milestone: M2 Sync walking skeleton
+- Area: api, web
+- Priority: high
+- Depends on: T-003, T-007
+- Done when:
+  - The production API serves the built web app (`dist/apps/lister-web/browser`) with SPA
+    fallback; `/api/**` and `/socket.io/**` are never answered with `index.html`.
+  - One documented command builds both and starts the production setup locally.
+  - Playwright can run against this setup, with the service worker active.
+- Notes: This is the deployment topology (design §2.9), and the offline e2e tests need it.
 
 ## Backlog
 
@@ -42,19 +53,6 @@ _Nothing in progress._
   doesn't type-check, so a library's stricter options (e.g. `noPropertyAccessFromIndexSignature`)
   and stale types in specs went unnoticed. One spec still built a `HealthResponse` without `db`
   after T-004 changed the contract.
-
-### T-012 — Serve the web app from the API (one origin)
-
-- Milestone: M2 Sync walking skeleton
-- Area: api, web
-- Priority: high
-- Depends on: T-003, T-007
-- Done when:
-  - The production API serves the built web app (`dist/apps/lister-web/browser`) with SPA
-    fallback; `/api/**` and `/socket.io/**` are never answered with `index.html`.
-  - One documented command builds both and starts the production setup locally.
-  - Playwright can run against this setup, with the service worker active.
-- Notes: This is the deployment topology (design §2.9), and the offline e2e tests need it.
 
 ### T-013 — E2E: real-time and offline sync
 

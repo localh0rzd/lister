@@ -20,6 +20,7 @@ Node version is pinned in `.nvmrc` (use `fnm use` or `nvm use`).
 ```bash
 npm install
 npm start          # API + web together; web proxies /api to the API
+npm run start:prod # production builds; the API serves the web app on one origin: http://localhost:3100
 ```
 
 ## Common commands
@@ -37,11 +38,13 @@ npx nx format:write
 
 ## Environment variables
 
-| Var             | Used by    | Default                                                                                                                               |
-| --------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `PORT`          | lister-api | `3000`                                                                                                                                |
-| `PUBLIC_URL`    | lister-api | none (development allows `http://localhost:4200`); required in production. Its origin is the only one allowed to open the sync socket |
-| `DATABASE_PATH` | lister-api | `data/lister.db` (relative to the working directory; the folder is created)                                                           |
+| Var               | Used by    | Default                                                                                                                               |
+| ----------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`            | lister-api | `3000`                                                                                                                                |
+| `WEB_ROOT`        | lister-api | the production web build next to the API (`dist/apps/lister-web/browser`); served when it exists                                      |
+| `LISTER_DEV_SEED` | lister-api | off in production; `true` creates the dev space there too (local production setup, until accounts exist)                              |
+| `PUBLIC_URL`      | lister-api | none (development allows `http://localhost:4200`); required in production. Its origin is the only one allowed to open the sync socket |
+| `DATABASE_PATH`   | lister-api | `data/lister.db` (relative to the working directory; the folder is created)                                                           |
 
 ## Working with Claude Code
 

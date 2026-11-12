@@ -1,14 +1,14 @@
-import type { INestApplication } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import {
   DatabaseConnection,
   createTestDatabase,
 } from '@lister/api/data-access-db';
 import { AppModule } from '../app/app.module';
-import { configureApp } from '../app/configure-app';
+import { type AppOptions, configureApp } from '../app/configure-app';
 
 export interface TestApp {
-  app: INestApplication;
+  app: NestExpressApplication;
   /** Base URL, e.g. `http://127.0.0.1:41234`; the API is under `${url}/api`. */
   url: string;
   /** The app's own fresh in-memory database, for arranging and checking data. */
@@ -20,14 +20,18 @@ export interface TestApp {
  * The real `AppModule` with `main.ts`'s setup, on a fresh migrated in-memory database and a
  * random port, for integration tests (`testing` skill). Close it in `afterEach`.
  */
-export async function createTestApp(): Promise<TestApp> {
+export async function createTestApp(
+  options: AppOptions = {},
+): Promise<TestApp> {
   const database = createTestDatabase();
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(DatabaseConnection)
     .useValue(database)
     .compile();
-  const app = moduleRef.createNestApplication({ logger: false });
-  configureApp(app);
+  const app = moduleRef.createNestApplication<NestExpressApplication>({
+    logger: false,
+  });
+  configureApp(app, options);
   await app.listen(0, '127.0.0.1');
   return {
     app,

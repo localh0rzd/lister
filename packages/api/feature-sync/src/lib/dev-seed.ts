@@ -13,7 +13,7 @@ export const DEV_USER_ID = '0190a000-0000-7000-8000-00000000d001';
 export const DEV_SPACE_ID = '0190a000-0000-7000-8000-00000000d5ac';
 export const DEV_SPACE_NAME = 'Home';
 
-/** Makes sure the dev space exists, outside production. */
+/** Makes sure the dev space exists, outside production (or with LISTER_DEV_SEED=true). */
 @Injectable()
 export class DevSeed implements OnApplicationBootstrap {
   private readonly logger = new Logger(DevSeed.name);
@@ -21,7 +21,11 @@ export class DevSeed implements OnApplicationBootstrap {
   constructor(private readonly database: DatabaseConnection) {}
 
   onApplicationBootstrap(): void {
-    if (process.env['NODE_ENV'] === 'production') return;
+    // LISTER_DEV_SEED=true keeps it in a local production build (npm run start:prod).
+    const wanted =
+      process.env['NODE_ENV'] !== 'production' ||
+      process.env['LISTER_DEV_SEED'] === 'true';
+    if (!wanted) return;
     const inserted = this.database.db
       .insert(schema.spaces)
       .values({

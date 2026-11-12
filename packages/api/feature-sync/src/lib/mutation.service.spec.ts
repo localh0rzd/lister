@@ -549,6 +549,20 @@ describe('DevSeed', () => {
     expect(DEV_USER_ID).toMatch(/^[0-9a-f-]{36}$/);
   });
 
+  it('runs in a local production build when LISTER_DEV_SEED=true', () => {
+    const db = createTestDatabase();
+    onTestFinished(() => db.onApplicationShutdown());
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('LISTER_DEV_SEED', 'true');
+    onTestFinished(() => {
+      vi.unstubAllEnvs();
+    });
+
+    new DevSeed(db).onApplicationBootstrap();
+
+    expect(db.db.select().from(schema.spaces).all()).toHaveLength(1);
+  });
+
   it('does nothing in production', () => {
     const db = createTestDatabase();
     onTestFinished(() => db.onApplicationShutdown());
