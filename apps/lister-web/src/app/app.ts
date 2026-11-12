@@ -1,10 +1,10 @@
-import { Component, inject } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { Component, type ElementRef, inject, viewChild } from '@angular/core';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { BreakpointObserver } from '@angular/cdk/layout';
-import { RouterOutlet } from '@angular/router';
+import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { MatToolbar } from '@angular/material/toolbar';
 import { NavigationBar, NavigationRail } from '@lister/web/ui';
-import { map } from 'rxjs';
+import { filter, map } from 'rxjs';
 import { DESTINATIONS } from './destinations';
 
 /** From this width the navigation rail replaces the top app bar and bottom navigation bar. */
@@ -23,4 +23,20 @@ export class App {
     this.breakpoints.observe(WIDE_LAYOUT).pipe(map((state) => state.matches)),
     { initialValue: this.breakpoints.isMatched(WIDE_LAYOUT) },
   );
+  private readonly content =
+    viewChild.required<ElementRef<HTMLElement>>('content');
+
+  // Focus on a nav link is lost when the layout switches at 600 px (one navigation replaces the
+  // other). Accepted: it only happens while resizing or rotating.
+
+  constructor() {
+    // <main> is the scroll container, and the router only resets the window's scroll position,
+    // so each new page is scrolled to the top here.
+    inject(Router)
+      .events.pipe(
+        filter((event) => event instanceof NavigationEnd),
+        takeUntilDestroyed(),
+      )
+      .subscribe(() => (this.content().nativeElement.scrollTop = 0));
+  }
 }

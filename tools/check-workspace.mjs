@@ -6,6 +6,7 @@
 //   matching scope tag, and are imported only as @lister/<scope>/<name>, which points at their
 //   src/index.ts (no aliases into a library's internals).
 // - Every project is linted, and Angular projects include the shared Angular best-practice rules.
+// - Web libraries declare `"sideEffects": false`, so unused barrel exports don't reach a bundle.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import devkit from '@nx/devkit';
@@ -58,6 +59,18 @@ for (const { name, data } of Object.values(graph.nodes)) {
       fail(
         `tsconfig.base.json needs "${alias}": ["./${data.root}/src/index.ts"]`,
       );
+    }
+  }
+
+  // Web libraries are side-effect free, so esbuild drops what a route doesn't use from their
+  // barrels and lazy-loaded parts stay out of the initial bundle.
+  if (top === 'packages' && dirScope === 'web') {
+    const pkgPath = join(workspaceRoot, data.root, 'package.json');
+    const pkg = existsSync(pkgPath)
+      ? JSON.parse(readFileSync(pkgPath, 'utf8'))
+      : {};
+    if (pkg.sideEffects !== false) {
+      fail('needs a package.json with "sideEffects": false');
     }
   }
 

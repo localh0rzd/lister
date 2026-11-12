@@ -1,0 +1,5 @@
+{
+  "name": "@lister/web-ui",
+  "private": true,
+  "sideEffects": false
+}

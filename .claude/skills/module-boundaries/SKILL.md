@@ -59,6 +59,9 @@ npx nx g @nx/js:library packages/shared/domain --name=shared-domain --importPath
 - **After generating:**
   - Angular libraries: spread `angularBestPractices` in the new `eslint.config.mjs`, the way
     `apps/lister-web/eslint.config.mjs` does.
+  - Web libraries: add a `package.json` with `{ "name": "@lister/web-<name>", "private": true, "sideEffects": false }`,
+    so esbuild drops unused barrel exports and lazy-only components stay out of the initial
+    bundle (`lint:workspace` checks it).
   - Delete placeholder code you won't use (example component, service, spec).
   - `npm run lint:workspace` and `npx nx lint <project>` must pass.
 - **Targets:** tests are generated with Vitest (the defaults in `nx.json`), and
@@ -125,7 +128,8 @@ can't:
 - every project has exactly one `scope:*` tag and one `type:*` tag;
 - apps and e2e projects live in `apps/`;
 - libraries live in `packages/<scope>/<name>`, with the matching scope tag and alias;
-- every project is linted, and every Angular project includes `angularBestPractices`.
+- every project is linted, and every Angular project includes `angularBestPractices`;
+- every web library is marked `"sideEffects": false`.
 
 ## When a boundary is in your way
 

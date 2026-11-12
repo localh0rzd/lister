@@ -32,6 +32,12 @@ test.describe('navigation on a phone (375 px)', () => {
         await expectAccessible();
       });
     }
+
+    await test.step('keyboard', async () => {
+      await nav.getByRole('link', { name: 'Runs' }).focus();
+      await page.keyboard.press('Enter');
+      await expect(page).toHaveURL('/runs');
+    });
   });
 });
 

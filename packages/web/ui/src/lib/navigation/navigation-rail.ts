@@ -28,6 +28,7 @@ import type { NavDestination } from './nav-destination';
       }
     </nav>
   `,
+  styleUrl: './nav-items.scss',
   styles: `
     :host {
       display: flex;
@@ -45,40 +46,10 @@ import type { NavDestination } from './nav-destination';
       gap: 12px;
     }
     .item {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
       width: 80px;
-      color: var(--mat-sys-on-surface-variant);
-      font: var(--mat-sys-label-medium);
-      text-decoration: none;
-      outline: none;
     }
     .indicator {
-      display: grid;
-      place-items: center;
       width: 56px;
-      height: 32px;
-      border-radius: var(--mat-sys-corner-full);
-    }
-    .item:hover .indicator {
-      background: color-mix(in srgb, var(--mat-sys-on-surface) 8%, transparent);
-    }
-    .item:focus-visible .indicator {
-      outline: 2px solid var(--mat-sys-primary);
-      outline-offset: 2px;
-    }
-    .item.active {
-      color: var(--mat-sys-on-surface);
-      font-weight: 700;
-    }
-    .item.active .indicator {
-      background: var(--mat-sys-secondary-container);
-      color: var(--mat-sys-on-secondary-container);
-    }
-    .item.active mat-icon {
-      font-variation-settings: 'FILL' 1;
     }
   `,
 })

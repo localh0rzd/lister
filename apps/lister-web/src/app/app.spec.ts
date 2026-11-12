@@ -42,9 +42,7 @@ describe('App shell', () => {
     setup(false);
     const el = await render();
 
-    expect(el.querySelector('[role="banner"]')?.textContent).toContain(
-      'Lister',
-    );
+    expect(el.querySelector('header')?.textContent).toContain('Lister');
     expect(el.querySelector('lister-navigation-bar')).not.toBeNull();
     expect(el.querySelector('lister-navigation-rail')).toBeNull();
   });
@@ -55,7 +53,21 @@ describe('App shell', () => {
 
     expect(el.querySelector('lister-navigation-rail')).not.toBeNull();
     expect(el.querySelector('lister-navigation-bar')).toBeNull();
-    expect(el.querySelector('[role="banner"]')).toBeNull();
+    expect(el.querySelector('header')).toBeNull();
+  });
+
+  it('starts every destination at the top', async () => {
+    setup(true);
+    const harness = await RouterTestingHarness.create('/lists');
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const main = (fixture.nativeElement as HTMLElement).querySelector('main');
+    if (!main) throw new Error('no <main>');
+    main.scrollTop = 500;
+
+    await harness.navigateByUrl('/runs');
+
+    expect(main.scrollTop).toBe(0);
   });
 
   it('offers Lists, Runs and Space', async () => {

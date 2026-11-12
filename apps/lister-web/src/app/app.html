@@ -2,12 +2,14 @@
   @if (wide()) {
   <lister-navigation-rail class="nav" [destinations]="destinations" />
   } @else {
-  <mat-toolbar class="top-bar" role="banner">
-    <span class="brand">Lister</span>
-  </mat-toolbar>
+  <header class="top-bar">
+    <mat-toolbar>
+      <span class="brand">Lister</span>
+    </mat-toolbar>
+  </header>
   <lister-navigation-bar class="nav" [destinations]="destinations" />
   }
-  <main class="content">
+  <main #content class="content">
     <router-outlet />
   </main>
 </div>

@@ -23,22 +23,7 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-002 — App shell with navigation bar and navigation rail
-
-- Milestone: M1 Foundations
-- Area: web
-- Priority: high
-- Depends on: T-001
-- Done when:
-  - A `packages/web/ui` library (scope:web, type:ui) has a navigation bar and a navigation rail
-    built with the M3 tokens (`--mat-sys-*`): keyboard accessible, `aria-current` on the active
-    destination, unit tested.
-  - Below 600 px width the shell shows a top app bar and the bottom navigation bar; from 600 px it
-    shows the navigation rail.
-  - Destinations Lists, Runs and Space are lazy routes with placeholder pages; `/` opens Lists.
-  - The API status from the current home page moves to the Space page, so the existing proxy e2e
-    test keeps passing.
-  - E2E: switching destinations works at 375 px and at 1280 px width.
+_Nothing in progress._
 
 ## Backlog
 
@@ -555,6 +540,25 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 - Notes: Found in T-001. Until then the full variable font is bundled.
 
 ## Done
+
+### T-002 — App shell with navigation bar and navigation rail
+
+- Completed: 2026-11-12 — App shell in `lister-web` (top app bar + bottom bar below 600 px, rail from 600 px); NavigationBar/NavigationRail in `packages/web/ui`; lazy Lists, Runs and Space in `packages/web/feature-*`; API status and Appearance on Space; unit and e2e tests at 375 and 1280 px with axe.
+- Review: Approve with minor fixes (3 minor, 4 nit); fixed: web libraries are `sideEffects: false` (checked by `lint:workspace`) so the theme picker left the initial bundle, scroll resets per destination, safe-area insets with `viewport-fit=cover`, a `<header>` landmark, shared nav item styles, a keyboard step for the bar. Declined: keeping focus across the 600 px layout switch (only while resizing).
+- Milestone: M1 Foundations
+- Area: web
+- Priority: high
+- Depends on: T-001
+- Done when:
+  - A `packages/web/ui` library (scope:web, type:ui) has a navigation bar and a navigation rail
+    built with the M3 tokens (`--mat-sys-*`): keyboard accessible, `aria-current` on the active
+    destination, unit tested.
+  - Below 600 px width the shell shows a top app bar and the bottom navigation bar; from 600 px it
+    shows the navigation rail.
+  - Destinations Lists, Runs and Space are lazy routes with placeholder pages; `/` opens Lists.
+  - The API status from the current home page moves to the Space page, so the existing proxy e2e
+    test keeps passing.
+  - E2E: switching destinations works at 375 px and at 1280 px width.
 
 ### T-001 — Material 3 theme, self-hosted fonts, light and dark
 
