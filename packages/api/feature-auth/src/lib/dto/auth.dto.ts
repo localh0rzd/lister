@@ -2,6 +2,7 @@ import { Transform } from 'class-transformer';
 import { IsString, Length, Matches, MaxLength } from 'class-validator';
 import {
   AUTH_LIMITS,
+  USERNAME_PATTERN,
   type ChangePasswordRequest,
   type LoginRequest,
   type SetupRequest,
@@ -29,8 +30,8 @@ export class SetupDto implements SetupRequest {
   @Transform(trim)
   @IsString()
   @Length(1, AUTH_LIMITS.usernameMax)
-  @Matches(/^[\p{L}\p{N}._-]+$/u, {
-    message: 'username may only contain letters, numbers, ".", "_" and "-"',
+  @Matches(USERNAME_PATTERN, {
+    message: 'username may only contain letters a–z, digits, ".", "_" and "-"',
   })
   username!: string;
 

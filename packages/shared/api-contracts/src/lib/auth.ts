@@ -8,7 +8,7 @@ export interface CurrentUser {
   mustChangePassword: boolean;
 }
 
-/** Body of `POST /api/auth/login`. The username is matched ignoring case. */
+/** Body of `POST /api/auth/login`. The username is matched ignoring case (see `USERNAME_PATTERN`). */
 export interface LoginRequest {
   username: string;
   password: string;
@@ -28,6 +28,13 @@ export interface ChangePasswordRequest {
   currentPassword: string;
   newPassword: string;
 }
+
+/**
+ * Usernames: ASCII letters (any case), digits, `.`, `_` and `-`, matched ignoring case. Display
+ * names may use any characters. ASCII only, because case-insensitive matching (SQLite's `lower()`)
+ * only folds ASCII letters.
+ */
+export const USERNAME_PATTERN = /^[A-Za-z0-9._-]+$/;
 
 /** Rules for usernames and passwords, shared by the server and the forms. */
 export const AUTH_LIMITS = {

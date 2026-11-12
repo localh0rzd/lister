@@ -479,6 +479,7 @@ describe('auth', () => {
       ['a short password', { password: 'short' }],
       ['an empty username', { username: '' }],
       ['an odd username', { username: 'no spaces' }],
+      ['a non-ASCII username', { username: 'Ärger' }],
       ['no display name', { displayName: ' ' }],
     ])('answers 400 for %s', async (_name, override) => {
       const { token } = await startWithoutAccounts();
