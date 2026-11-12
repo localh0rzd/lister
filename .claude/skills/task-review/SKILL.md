@@ -170,7 +170,7 @@ Range: <base>..<head> · <date>
 
 - **trivial:** the fix is mechanical and local, and the finding already says exactly what to
   change: a wording, a missing test case for a behaviour that already exists, a rename, a style
-  tweak. No design choice, nothing else depends on it. A low-effort fixer does these, and
+  tweak. No design choice, nothing else depends on it. The task worker (Sonnet) does these, and
   nobody re-reviews them; the test gate is enough.
 - **substantive:** anything else, and always every blocker and major: logic, data, sync,
   security, a design choice, or a fix that touches more than one place. You fix these yourself,

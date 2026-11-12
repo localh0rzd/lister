@@ -15,13 +15,13 @@ design behind the tasks is `docs/design.md`.
 The main session is the **coordinator**. It runs at **medium** effort, and it doesn't write task
 code itself. For every task, it starts two sessions with `mcp__ccd_session__start_session`
 (`initiation: "user_asked"`, `context: "fresh"`, `use_worktree: false`, `wake_when_done: true`,
-`model: "claude-opus-5-5"`), one after the other:
+with the model and effort given below), one after the other:
 
-1. **Task worker**, `effort: "low"`, `name: "task-t-nnn"`: picks up the task and implements it
+1. **Task worker**, `model: "claude-sonnet-5-5"`, `effort: "medium"`, `name: "task-t-nnn"`: picks up the task and implements it
    following "Doing it" below, through to the verified `T-NNN: <title>` commit. It doesn't start
    the review. Its brief names the task, the base commit, and these skills: this one,
    `best-practices`, `testing`, `module-boundaries` and `verify`.
-2. **Review worker**, `effort: "medium"`, `name: "review-t-nnn"`: starts once the task commit
+2. **Review worker**, `model: "claude-opus-5-5"`, `effort: "medium"`, `name: "review-t-nnn"`: starts once the task commit
    exists and follows "Reviewing it" below. It writes the report with each finding marked
    **trivial** or **substantive** (`task-review` skill), then fixes the substantive ones
    itself.
@@ -35,7 +35,7 @@ The review loop (agreed with the user, 2026-11-12):
    address findings X, Y, Z without regressions?". The review worker graded its own work, so
    this check and the test gate both stay. If something is wrong, send it back to the review
    worker. **Two rounds at most**, then ask the user.
-3. **Trivial findings: the task worker fixes them**, at low effort, with no re-review; `verify`
+3. **Trivial findings: the task worker fixes them**, with no re-review; `verify`
    is the gate. It then closes the task in `TASKS.md` and commits `T-NNN: trivial review fixes`
    with its own fix report.
 4. **Fix reports.** Every fixer lists every finding it was given, each with one status:
@@ -48,8 +48,8 @@ If there are no substantive findings, skip steps 1–2. If there are no trivial 
 worker only closes the task.
 
 The coordinator's own effort caps the effort of the sessions it starts. After each start, check
-it with `mcp__ccd_session_mgmt__get_session`, and if it's wrong, fix it with
-`mcp__ccd_session_mgmt__set_session_effort`.
+model and effort with `mcp__ccd_session_mgmt__get_session`, and if either is wrong, fix it with
+`mcp__ccd_session_mgmt__set_session_model` / `mcp__ccd_session_mgmt__set_session_effort`.
 
 ## Standing agreements with the user (2026-11-12)
 
@@ -123,7 +123,7 @@ it with `mcp__ccd_session_mgmt__get_session`, and if it's wrong, fix it with
      > Lister is an Nx monorepo (Angular 22 web app, NestJS 11 API, shared TypeScript
      > libraries) that another Claude session builds one TASKS.md task at a time. The user
      > asked for a critical, independent review after every task. You fix the substantive
-     > findings yourself; a low-effort task worker fixes the trivial ones from your report
+     > findings yourself; a task worker (Sonnet) fixes the trivial ones from your report
      > alone, so each trivial finding must say exactly what to change. The coordinator
      > re-reviews your fix diff. Precise file and line evidence and concrete failure scenarios
      > matter more than volume.
