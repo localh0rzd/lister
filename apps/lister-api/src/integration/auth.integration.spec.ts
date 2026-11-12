@@ -514,6 +514,7 @@ describe('auth', () => {
       );
 
       expect(code).toBe(0);
+      expect(lines[0]).toMatch(/^Temporary password for anna: /);
       const temporary = /: (\S+)$/.exec(lines[0])?.[1] as string;
       expect((await send(api, 'GET', '/auth/me', { cookie })).status).toBe(401);
       await expect(signIn(api, 'anna', PASSWORD)).rejects.toThrow();

@@ -57,7 +57,10 @@ export class AuthService {
   constructor(
     private readonly database: DatabaseConnection,
     @Inject(AUTH_CLOCK) private readonly clock: Clock,
-  ) {}
+  ) {
+    // Built up front, so the first unknown-user sign-in isn't slower than the rest.
+    void this.getDummyHash();
+  }
 
   userCount(): number {
     return (
@@ -102,6 +105,8 @@ export class AuthService {
   }
 
   startSession(row: UserRow): SignedIn {
+    // Abandoned sessions go as people sign in; one cheap delete per sign-in.
+    this.purgeExpiredSessions();
     const now = this.clock();
     const token = randomBytes(32).toString('base64url');
     const expiresAt = now + SESSION_LIFETIME_MS;
@@ -217,14 +222,14 @@ export class AuthService {
 
   /**
    * Sets a new password that must be changed at the next sign-in, and ends the user's sessions.
-   * Returns false when the username is unknown. Used by the reset command (and T-023's admin reset).
+   * Returns the stored username, or null when the username is unknown. Used by the reset command (and T-023's admin reset).
    */
   async setTemporaryPassword(
     username: string,
     temporaryPassword: string,
-  ): Promise<boolean> {
+  ): Promise<string | null> {
     const row = this.findByUsername(username);
-    if (!row) return false;
+    if (!row) return null;
     const passwordHash = await hashPassword(temporaryPassword);
     this.database.sqlite.transaction(() => {
       this.database.db
@@ -234,7 +239,7 @@ export class AuthService {
         .run();
       this.endSessionsOf(row.id);
     })();
-    return true;
+    return row.username;
   }
 
   findByUsername(username: string): UserRow | undefined {

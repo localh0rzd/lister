@@ -31,11 +31,12 @@ export async function runResetPasswordCommand(
   }
   const password = temporaryPassword();
   const auth = context.get(AuthService);
-  if (!(await auth.setTemporaryPassword(username, password))) {
+  const stored = await auth.setTemporaryPassword(username, password);
+  if (stored === null) {
     print(`No user named "${username}"`);
     return 1;
   }
-  print(`Temporary password for ${username}: ${password}`);
+  print(`Temporary password for ${stored}: ${password}`);
   print(
     'It must be changed at the next sign-in. All their sessions were ended.',
   );

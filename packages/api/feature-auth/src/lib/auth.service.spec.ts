@@ -167,6 +167,18 @@ describe('AuthService', () => {
 
       expect(auth.purgeExpiredSessions()).toBe(1);
     });
+
+    it('purges abandoned sessions when someone signs in', async () => {
+      database.db
+        .update(schema.sessions)
+        .set({ expiresAt: now - 1 })
+        .run();
+
+      await auth.login('anna', 'correct horse');
+
+      expect(database.db.select().from(schema.sessions).all()).toHaveLength(1);
+      expect(auth.authenticate(token)).toBeNull();
+    });
   });
 
   describe('changePassword', () => {
@@ -201,9 +213,9 @@ describe('AuthService', () => {
       await auth.createUser(newUser());
       const { token } = await auth.login('anna', 'correct horse');
 
-      expect(await auth.setTemporaryPassword('nobody', 'x')).toBe(false);
+      expect(await auth.setTemporaryPassword('nobody', 'x')).toBeNull();
       expect(await auth.setTemporaryPassword('ANNA', 'temporary-pass')).toBe(
-        true,
+        'Anna',
       );
 
       expect(auth.authenticate(token)).toBeNull();

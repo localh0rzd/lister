@@ -23,30 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-022 — Accounts, sessions and the admin role
-
-- Milestone: M5 Accounts and spaces
-- Area: api
-- Priority: normal
-- Depends on: T-004
-- Done when:
-  - `users` (username, display name, password hash, admin flag, must-change-password flag) and
-    `sessions` tables, in `packages/api/feature-auth` (scope:api, type:feature). Passwords are
-    hashed with Node's built-in `crypto.argon2`.
-  - `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me` and
-    `POST /api/auth/password` (change your own password), using an httpOnly session cookie
-    (SameSite=Lax, `Secure` when `PUBLIC_URL` is https) that lasts 90 days and renews on use (D15).
-  - A user flagged "must change password" can do nothing else until they've changed it.
-  - First start: while no account exists, the server logs a one-time setup token, and
-    `POST /api/auth/setup` with it creates the first account, as an admin.
-  - A server command resets a user's password, for when no admin can sign in.
-  - Sign-in attempts are rate-limited per client IP (behind Traefik, taken from
-    `X-Forwarded-For`).
-  - Tests cover sign-in, sign-out, expiry, the forced password change, the setup token, the reset
-    command and the rate limit.
-- Notes: T-006 seeded no user row: `DEV_USER_ID` (feature-sync) only stands in as `createdBy`/`updatedBy`; decide what happens to rows stamped with it.
-- Decision: rows stamped with `DEV_USER_ID` stay as they are. `created_by`/`updated_by` have no foreign key and nothing reads them; T-024/T-025 stop stamping it, and the dev data is throwaway.
-
 ## Backlog
 
 ### T-023 — User administration
@@ -253,6 +229,32 @@ nosniff`, `Referrer-Policy`, `frame-ancestors` in the CSP, and `app.disable('x-p
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
 
 ## Done
+
+### T-022 — Accounts, sessions and the admin role
+
+- Completed: 2026-11-13 — new `packages/api/feature-auth`: users and sessions (argon2id, hashed session tokens), login/logout/me/password/setup routes with a 90-day renewing cookie, a global auth guard (forced password change, `@AdminOnly`), setup token, `reset-password` command, per-IP rate limit
+- Review: Changes requested; 8 fixed (4 substantive, 4 trivial), 0 skipped, 0 disagreed; re-review rounds: 2
+- Milestone: M5 Accounts and spaces
+- Area: api
+- Priority: normal
+- Depends on: T-004
+- Done when:
+  - `users` (username, display name, password hash, admin flag, must-change-password flag) and
+    `sessions` tables, in `packages/api/feature-auth` (scope:api, type:feature). Passwords are
+    hashed with Node's built-in `crypto.argon2`.
+  - `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me` and
+    `POST /api/auth/password` (change your own password), using an httpOnly session cookie
+    (SameSite=Lax, `Secure` when `PUBLIC_URL` is https) that lasts 90 days and renews on use (D15).
+  - A user flagged "must change password" can do nothing else until they've changed it.
+  - First start: while no account exists, the server logs a one-time setup token, and
+    `POST /api/auth/setup` with it creates the first account, as an admin.
+  - A server command resets a user's password, for when no admin can sign in.
+  - Sign-in attempts are rate-limited per client IP (behind Traefik, taken from
+    `X-Forwarded-For`).
+  - Tests cover sign-in, sign-out, expiry, the forced password change, the setup token, the reset
+    command and the rate limit.
+- Notes: T-006 seeded no user row: `DEV_USER_ID` (feature-sync) only stands in as `createdBy`/`updatedBy`; decide what happens to rows stamped with it.
+- Decision: rows stamped with `DEV_USER_ID` stay as they are. `created_by`/`updated_by` have no foreign key and nothing reads them; T-024/T-025 stop stamping it, and the dev data is throwaway.
 
 ### T-038 — Templates and styles in their own files
 

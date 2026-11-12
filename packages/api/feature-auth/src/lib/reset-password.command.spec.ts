@@ -23,18 +23,18 @@ describe('reset-password command', () => {
   });
 
   it('prints a fresh random password for a known user', async () => {
-    setTemporaryPassword.mockResolvedValue(true);
+    setTemporaryPassword.mockResolvedValue('Anna');
 
     expect(await runResetPasswordCommand(context, ['anna'], print)).toBe(0);
 
     const [username, password] = setTemporaryPassword.mock.calls[0];
     expect(username).toBe('anna');
     expect(password).toHaveLength(20);
-    expect(lines[0]).toContain(password);
+    expect(lines[0]).toBe(`Temporary password for Anna: ${password}`);
   });
 
   it('fails for an unknown user', async () => {
-    setTemporaryPassword.mockResolvedValue(false);
+    setTemporaryPassword.mockResolvedValue(null);
 
     expect(await runResetPasswordCommand(context, ['nobody'], print)).toBe(1);
     expect(lines[0]).toContain('nobody');
