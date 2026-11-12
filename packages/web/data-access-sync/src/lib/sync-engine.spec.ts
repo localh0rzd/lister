@@ -465,6 +465,53 @@ describe('SyncEngine', () => {
     });
   });
 
+  describe('rebuilding only what changed', () => {
+    it('keeps a pending change on one list while a poke updates another', async () => {
+      setup();
+      engine.start();
+      await settle();
+      const mine = await createList('Camping');
+      await settle();
+      server.autoAnswer = false;
+
+      await engine.mutate({
+        spaceId: SPACE,
+        name: 'list.update',
+        args: { id: mine, patch: { title: 'Mine' } },
+      });
+      const theirs = newId();
+      server.otherClient('list.create', { id: theirs, title: 'From Ben' });
+      await settle();
+
+      expect(await visibleList(mine)).toMatchObject({ title: 'Mine' });
+      expect(await visibleList(theirs)).toMatchObject({ title: 'From Ben' });
+    });
+
+    it('removes an item whose create the server rejects', async () => {
+      setup();
+      engine.start();
+      await settle();
+      const listId = await createList();
+      await settle();
+      server.autoAnswer = false;
+
+      const id = newId();
+      await engine.mutate({
+        spaceId: SPACE,
+        name: 'item.create',
+        args: { id, listId, title: 'Tent', position: 'a0' },
+      });
+      expect(await db.items.get(id)).toMatchObject({ title: 'Tent' });
+      await settle();
+      server.store.lists.delete(listId); // makes the server reject the create
+      server.answerPushes();
+      await settle();
+
+      expect(await db.items.get(id)).toBeUndefined();
+      expect(await visibleList(listId)).toMatchObject({ title: 'Camping' });
+    });
+  });
+
   describe('connection trouble', () => {
     it('queues changes while offline and flushes them on reconnect', async () => {
       setup();

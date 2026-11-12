@@ -28,6 +28,9 @@ const PWA_URL = 'http://localhost:3100';
  */
 export default defineConfig({
   ...nxE2EPreset(import.meta.dirname, { testDir: './src' }),
+  // Cross-device checks wait for a round trip through the server; under the full suite's
+  // parallel load that can take longer than Playwright's 5 s default.
+  expect: { timeout: 10_000 },
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     baseURL,

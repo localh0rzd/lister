@@ -57,6 +57,26 @@ type DistributiveOmit<T, K extends PropertyKey> = T extends unknown
   ? Omit<T, K>
   : never;
 
+/** Row ids a set of mutations reads or writes. */
+interface Touched {
+  lists: Set<string>;
+  items: Set<string>;
+}
+
+function touchedBy(
+  mutations: readonly { name: string; args: unknown }[],
+  into: Touched = { lists: new Set(), items: new Set() },
+): Touched {
+  for (const { name, args } of mutations) {
+    const { id, listId } = args as { id?: string; listId?: string };
+    if (!id) continue;
+    if (name.startsWith('list.')) into.lists.add(id);
+    else into.items.add(id);
+    if (listId) into.lists.add(listId);
+  }
+  return into;
+}
+
 /** A mutation as the UI asks for it: the engine adds the mutation id. */
 export type MutationRequest = DistributiveOmit<MutationInput, 'mutationId'>;
 
@@ -205,7 +225,7 @@ export class SyncEngine {
             mutation,
             createdAt: this.now(),
           });
-          await this.rebuild(spaceId);
+          await this.rebuild(spaceId, touchedBy([mutation]));
           return undefined;
         },
       );
@@ -246,8 +266,11 @@ export class SyncEngine {
     // `offline` (VPN adapters, flapping networks) heals by itself even if `online` never comes.
     const goOffline = () => socket.io.engine?.close();
     const goOnline = () => {
-      if (!socket.connected && !this.connection.updateRequired)
-        socket.connect();
+      if (socket.connected || this.connection.updateRequired) return;
+      // While Socket.IO waits between reconnect attempts, connect() does nothing; restarting
+      // the connection skips the remaining backoff now that the network is back.
+      socket.disconnect();
+      socket.connect();
     };
     this.window?.addEventListener('offline', goOffline);
     this.window?.addEventListener('online', goOnline);
@@ -393,7 +416,7 @@ export class SyncEngine {
       const synced = (await this.db.syncState.get(entry.spaceId))?.version ?? 0;
       if (synced >= ack.version) {
         await this.db.outbox.delete(entry.seq);
-        await this.rebuild(entry.spaceId);
+        await this.rebuild(entry.spaceId, touchedBy([entry.mutation]));
       } else {
         // Its rows haven't arrived yet (a poke is missing); it leaves when they do.
         await this.db.outbox.update(entry.seq, { ackedVersion: ack.version });
@@ -415,7 +438,8 @@ export class SyncEngine {
           .first();
         if (entry?.seq === undefined) return;
         await this.db.outbox.delete(entry.seq);
-        await this.rebuild(entry.spaceId); // rolls the change back
+        // Rolls the change back.
+        await this.rebuild(entry.spaceId, touchedBy([entry.mutation]));
         await this.db.rejections.put({
           mutationId: reject.mutationId,
           reason: reject.reason,
@@ -496,6 +520,9 @@ export class SyncEngine {
       await this.db.serverItems.bulkPut(rows.items);
       await this.db.syncState.put({ spaceId, version, lastSyncedAt: syncedAt });
 
+      const touched = touchedBy([]);
+      for (const row of rows.lists) touched.lists.add(row.id);
+      for (const row of rows.items) touched.items.add(row.id);
       for (const entry of await this.db.outbox
         .where('spaceId')
         .equals(spaceId)
@@ -504,47 +531,90 @@ export class SyncEngine {
           continue;
         if (entry.ackedVersion <= version) {
           await this.db.outbox.delete(entry.seq); // confirmed: its rows are here
+          touchedBy([entry.mutation], touched);
         } else if (snapshot) {
           // The server is behind its own ack (restored database): send it again.
           await this.db.outbox.update(entry.seq, { ackedVersion: undefined });
         }
       }
-      await this.rebuild(spaceId);
+      // A snapshot replaces everything; otherwise only the rows that changed are rebuilt.
+      await this.rebuild(spaceId, snapshot ? undefined : touched);
     });
   }
 
   /**
-   * Rebuilds a space's visible rows: its server rows with the pending mutations re-applied in
-   * order. Runs inside a transaction that includes the sync tables.
+   * Rebuilds visible rows: server rows with the pending mutations re-applied in order. With
+   * `touched`, only those rows (plus every row a pending mutation touches) are recomputed, so a
+   * poke or an ack costs as much as the change, not the whole space. Without it, the whole
+   * space is rebuilt (after a snapshot). Runs inside a transaction that includes the sync tables.
    */
-  private async rebuild(spaceId: string): Promise<void> {
-    const store = new MemoryRowStore(
-      await this.db.serverLists.where('spaceId').equals(spaceId).toArray(),
-      await this.db.serverItems.where('spaceId').equals(spaceId).toArray(),
-    );
-    const context = await this.context(spaceId);
-    for (const entry of await this.db.outbox
-      .where('spaceId')
-      .equals(spaceId)
-      .sortBy('seq')) {
+  private async rebuild(spaceId: string, touched?: Touched): Promise<void> {
+    const pending = (
+      await this.db.outbox.where('spaceId').equals(spaceId).sortBy('seq')
+    ).flatMap((entry) => {
       const mutation = mutationSchema.safeParse(entry.mutation);
       // An entry the rules now refuse just has no effect here; the server will answer it.
-      if (mutation.success) {
-        applyMutation(
-          store,
-          { ...context, now: entry.createdAt },
-          mutation.data,
-        );
-      }
+      return mutation.success
+        ? [{ mutation: mutation.data, at: entry.createdAt }]
+        : [];
+    });
+
+    let store: MemoryRowStore;
+    let lists: Iterable<string>;
+    let items: Iterable<string>;
+    if (!touched) {
+      store = new MemoryRowStore(
+        await this.db.serverLists.where('spaceId').equals(spaceId).toArray(),
+        await this.db.serverItems.where('spaceId').equals(spaceId).toArray(),
+      );
+      await this.db.lists.where('spaceId').equals(spaceId).delete();
+      await this.db.items.where('spaceId').equals(spaceId).delete();
+      lists = [];
+      items = [];
+    } else {
+      const ids = touchedBy(
+        pending.map((p) => p.mutation),
+        { lists: new Set(touched.lists), items: new Set(touched.items) },
+      );
+      const serverItems = (
+        await this.db.serverItems.bulkGet([...ids.items])
+      ).filter((row) => row !== undefined);
+      // The rules look at an item's list (deleted lists win).
+      for (const item of serverItems) ids.lists.add(item.listId);
+      const serverLists = (
+        await this.db.serverLists.bulkGet([...ids.lists])
+      ).filter((row) => row !== undefined);
+      store = new MemoryRowStore(serverLists, serverItems);
+      lists = ids.lists;
+      items = ids.items;
     }
-    await this.db.lists.where('spaceId').equals(spaceId).delete();
-    await this.db.items.where('spaceId').equals(spaceId).delete();
-    await this.db.lists.bulkPut(
-      [...store.lists.values()].filter((l) => l.spaceId === spaceId),
-    );
-    await this.db.items.bulkPut(
-      [...store.items.values()].filter((i) => i.spaceId === spaceId),
-    );
+
+    const context = await this.context(spaceId);
+    for (const { mutation, at } of pending) {
+      applyMutation(store, { ...context, now: at }, mutation);
+    }
+
+    const inSpace = <T extends { spaceId: string }>(row: T | undefined) =>
+      row?.spaceId === spaceId ? row : undefined;
+    if (!touched) {
+      await this.db.lists.bulkPut(
+        [...store.lists.values()].filter((r) => inSpace(r)),
+      );
+      await this.db.items.bulkPut(
+        [...store.items.values()].filter((r) => inSpace(r)),
+      );
+      return;
+    }
+    for (const id of lists) {
+      const row = inSpace(store.lists.get(id));
+      if (row) await this.db.lists.put(row);
+      else await this.db.lists.delete(id); // e.g. a rejected create
+    }
+    for (const id of items) {
+      const row = inSpace(store.items.get(id));
+      if (row) await this.db.items.put(row);
+      else await this.db.items.delete(id);
+    }
   }
 
   /** Who we are and the version local predictions are based on. */
