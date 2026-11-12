@@ -758,7 +758,9 @@ describe('SyncEngine', () => {
       });
 
       expect(await db.runs.get(runId)).toMatchObject({ title: 'Shop' });
-      const items = await db.runItems.where('runId').equals(runId).toArray();
+      const items = (
+        await db.runItems.where('runId').equals(runId).toArray()
+      ).filter((i) => i.deletedAt === null); // not the merged-away alias
       expect(items.map((i) => [i.title, i.quantity])).toEqual([['Milk', '2']]);
       expect(await outbox()).toHaveLength(1);
     });
@@ -787,6 +789,27 @@ describe('SyncEngine', () => {
       await settle();
       expect((await db.serverRuns.get(runId))?.finishedAt).not.toBeNull();
       expect(await outbox()).toEqual([]);
+    });
+
+    it('keeps a run open while an item nobody touched is still unchecked', async () => {
+      setup();
+      engine.start();
+      await settle();
+      const { runId, ids } = await startRun(['Milk', 'Bread', 'Eggs']);
+      await settle();
+      server.autoAnswer = false;
+      await engine.mutate({
+        spaceId: SPACE,
+        name: 'runItem.setState',
+        args: { id: ids[0], state: 'checked' },
+      });
+
+      // Ben checks Bread; Eggs is touched by nobody and still unchecked.
+      server.otherClient('runItem.setState', { id: ids[1], state: 'checked' });
+      await settle();
+
+      // Only a rebuild that loads all of the run's items sees Eggs and keeps the run open.
+      expect((await db.runs.get(runId))?.finishedAt).toBeNull();
     });
 
     it('reopens when an item is added to a finished run', async () => {

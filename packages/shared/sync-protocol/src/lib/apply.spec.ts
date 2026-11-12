@@ -543,8 +543,14 @@ describe('runs', () => {
     extra: { quantity?: string; note?: string; sources?: string[] } = {},
   ) => ({ id: newId(), title, ...extra });
 
+  /** The live (not merged-away or removed) items. */
+  const live = (store: MemoryRowStore) =>
+    [...store.runItems.values()].filter((item) => item.deletedAt === null);
+
   function start(items: ReturnType<typeof entry>[], version = 1) {
     const store = new MemoryRowStore();
+    apply(store, 'list.create', { id: basic, title: 'Basic' });
+    apply(store, 'list.create', { id: camping, title: 'Camping' });
     const runId = newId();
     const outcome = apply(
       store,
@@ -608,7 +614,7 @@ describe('runs', () => {
       entry('SOCKS', { quantity: '1 pair', sources: [camping] }),
     ]);
 
-    const items = [...run.store.runItems.values()];
+    const items = live(run.store);
     expect(items).toHaveLength(2);
     expect(items.find((i) => i.title === 'Headlamp')).toMatchObject({
       quantity: '2',
@@ -655,23 +661,28 @@ describe('runs', () => {
     apply(run.store, 'runItem.setState', { id: tent.id, state: 'checked' }, 2);
     expect(run.store.getRun(run.runId)?.finishedAt).toBe(2000);
 
+    const more = entry('Tent', { quantity: '2', sources: [basic] });
     const outcome = apply(
       run.store,
       'run.addItems',
-      {
-        runId: run.runId,
-        items: [entry('Tent', { quantity: '2', sources: [basic] })],
-      },
+      { runId: run.runId, items: [more] },
       3,
     );
 
+    // Unchecked by the merge: a change of state by whoever added the item.
     expect(run.store.getRunItem(tent.id)).toMatchObject({
       state: 'unchecked',
       quantity: '2',
+      stateBy: USER,
+      stateAt: 3000,
     });
     expect(run.store.getRun(run.runId)?.finishedAt).toBeNull();
+    // The target and the merged-away id (an alias) are written.
     expect(outcome).toEqual(
-      expect.objectContaining({ runs: [run.runId], runItems: [tent.id] }),
+      expect.objectContaining({
+        runs: [run.runId],
+        runItems: [tent.id, more.id],
+      }),
     );
   });
 
@@ -709,7 +720,7 @@ describe('runs', () => {
     );
     expect(finishedAt()).toBeNull();
     // Removing the only unchecked item finishes it again.
-    const c = [...run.store.runItems.values()].find((i) => i.title === 'C');
+    const c = live(run.store).find((i) => i.title === 'C');
     apply(run.store, 'runItem.remove', { id: c?.id }, 7);
     expect(finishedAt()).toBe(7000);
   });
@@ -832,5 +843,168 @@ describe('runs', () => {
     );
 
     expect([...store.runItems.values()].map((i) => i.title)).toEqual(['Tent']);
+  });
+
+  it('applies changes to a merged-away id to the item it merged into (offline check)', () => {
+    // Ben added Milk while Ann, offline, added Milk too and checked it.
+    const run = start([]);
+    const bens = entry('Milk');
+    apply(run.store, 'run.addItems', { runId: run.runId, items: [bens] }, 2);
+    const anns = entry('milk');
+    apply(run.store, 'run.addItems', { runId: run.runId, items: [anns] }, 3);
+
+    expect(run.store.getRunItem(anns.id)).toMatchObject({
+      mergedInto: bens.id,
+      deletedAt: 3000,
+    });
+    const outcome = apply(
+      run.store,
+      'runItem.setState',
+      { id: anns.id, state: 'checked' },
+      4,
+    );
+
+    expect(outcome).toEqual(
+      expect.objectContaining({ runItems: [bens.id], runs: [run.runId] }),
+    );
+    expect(run.store.getRunItem(bens.id)).toMatchObject({ state: 'checked' });
+    expect(run.store.getRun(run.runId)?.finishedAt).toBe(4000);
+    expect(live(run.store)).toHaveLength(1);
+  });
+
+  it('writes nothing when merged items bring nothing new', () => {
+    const tent = entry('Tent', { sources: [camping] });
+    const run = start([tent]);
+    const again = entry('Tent', { sources: [camping] });
+    const outcome = apply(
+      run.store,
+      'run.addItems',
+      { runId: run.runId, items: [again] },
+      2,
+    );
+
+    // Only the alias of the new id is written; the item keeps its version.
+    expect(outcome).toEqual(
+      expect.objectContaining({ runItems: [again.id], runs: [] }),
+    );
+    expect(run.store.getRunItem(tent.id)).toMatchObject({ version: 1 });
+    // Sending the same items again (a replay) is no change at all.
+    expect(
+      apply(run.store, 'run.addItems', { runId: run.runId, items: [again] }, 3),
+    ).toEqual({ kind: 'unchanged' });
+  });
+
+  it('restoring an item merges it into an identical one that entered meanwhile', () => {
+    const tent = entry('Tent');
+    const run = start([tent]);
+    apply(run.store, 'runItem.remove', { id: tent.id }, 2);
+    const newTent = entry('Tent', { quantity: '2', sources: [camping] });
+    apply(run.store, 'run.addItems', { runId: run.runId, items: [newTent] }, 3);
+
+    apply(run.store, 'runItem.restore', { id: tent.id }, 4);
+
+    expect(live(run.store).map((i) => i.title)).toEqual(['Tent']);
+    expect(run.store.getRunItem(tent.id)).toMatchObject({
+      mergedInto: newTent.id,
+    });
+  });
+
+  it('refuses a source list that does not exist or is in another space', () => {
+    const run = start([]);
+    expect(
+      apply(run.store, 'run.start', {
+        id: newId(),
+        title: 'X',
+        sourceListId: newId(),
+      }),
+    ).toEqual({ kind: 'rejected', reason: "This list doesn't exist" });
+    moveToAnotherSpace(run.store, camping);
+    expect(
+      apply(run.store, 'run.start', {
+        id: newId(),
+        title: 'X',
+        sourceListId: camping,
+      }),
+    ).toMatchObject({ kind: 'rejected' });
+    // A list in the trash is fine.
+    apply(run.store, 'list.delete', { id: basic }, 2);
+    expect(
+      apply(
+        run.store,
+        'run.start',
+        { id: newId(), title: 'X', sourceListId: basic },
+        3,
+      ),
+    ).toMatchObject({ kind: 'changed' });
+  });
+
+  it('stays inside its space', () => {
+    const milk = entry('Milk');
+    const run = start([milk]);
+    const theirs = run.store.getRun(run.runId);
+    const theirItem = run.store.getRunItem(milk.id);
+    if (!theirs || !theirItem) throw new Error('not started');
+    const otherSpace = newId();
+    run.store.putRun({ ...theirs, spaceId: otherSpace });
+    run.store.putRunItem({ ...theirItem, spaceId: otherSpace });
+
+    expect(
+      apply(run.store, 'run.update', { id: run.runId, patch: { title: 'X' } }),
+    ).toEqual({ kind: 'rejected', reason: "This run doesn't exist" });
+    expect(
+      apply(run.store, 'run.addItems', {
+        runId: run.runId,
+        items: [entry('X')],
+      }),
+    ).toMatchObject({ kind: 'rejected' });
+    for (const [name, args] of [
+      ['runItem.setState', { id: milk.id, state: 'checked' }],
+      ['runItem.update', { id: milk.id, patch: { note: 'x' } }],
+      ['runItem.move', { id: milk.id, position: 'a9' }],
+      ['runItem.remove', { id: milk.id }],
+      ['runItem.restore', { id: milk.id }],
+    ] as const) {
+      expect(apply(run.store, name, args), name).toMatchObject({
+        kind: 'rejected',
+      });
+    }
+    // An item id taken in another space can't enter a run here.
+    expect(
+      apply(run.store, 'run.start', {
+        id: newId(),
+        title: 'Mine',
+        items: [{ ...milk }],
+      }),
+    ).toEqual({ kind: 'rejected', reason: 'This item already exists' });
+
+    // Items of another space with this run's id are neither merged into nor counted.
+    const runHere = newId();
+    const bread = entry('Bread');
+    apply(
+      run.store,
+      'run.start',
+      { id: runHere, title: 'Here', items: [bread] },
+      2,
+    );
+    run.store.putRunItem({
+      ...theirItem,
+      spaceId: otherSpace,
+      id: newId(),
+      runId: runHere,
+      title: 'Bread',
+      state: 'unchecked',
+    });
+    apply(run.store, 'runItem.setState', { id: bread.id, state: 'checked' }, 3);
+    expect(run.store.getRun(runHere)?.finishedAt).toBe(3000);
+    const breadAgain = entry('bread', { quantity: '5' });
+    apply(
+      run.store,
+      'run.addItems',
+      { runId: runHere, items: [breadAgain] },
+      4,
+    );
+    expect(run.store.getRunItem(breadAgain.id)).toMatchObject({
+      mergedInto: bread.id,
+    });
   });
 });

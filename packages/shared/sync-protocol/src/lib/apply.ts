@@ -189,12 +189,85 @@ export function applyMutation(
     const run = store.getRun(id);
     return run?.spaceId === ctx.spaceId ? run : undefined;
   };
-  const runItemHere = (id: string) => {
-    const item = store.getRunItem(id);
+  /**
+   * A run item by id. An id that was merged into another item when it entered (D16) is an
+   * alias of that item: changes made to it, e.g. offline before the merge, land on the item it
+   * became part of.
+   */
+  const runItemHere = (id: string): RunItem | undefined => {
+    let item = store.getRunItem(id);
+    for (let hops = 0; item?.mergedInto && hops < 10; hops++) {
+      item = store.getRunItem(item.mergedInto);
+    }
     return item?.spaceId === ctx.spaceId ? item : undefined;
   };
   const runItemsOf = (runId: string) =>
     store.runItemsOf(runId).filter((item) => item.spaceId === ctx.spaceId);
+  const sameMerge = (
+    a: Pick<RunItem, 'quantity' | 'note' | 'sources' | 'state'>,
+    b: Pick<RunItem, 'quantity' | 'note' | 'sources' | 'state'>,
+  ) =>
+    a.quantity === b.quantity &&
+    a.note === b.note &&
+    a.state === b.state &&
+    a.sources.length === b.sources.length &&
+    a.sources.every((source, i) => source === b.sources[i]);
+
+  /**
+   * Merges `incoming` into the live item `into` (D16). The merge-away id is kept as an alias
+   * (a removed row pointing at `into`), so later changes to it still apply. Returns the ids
+   * written.
+   */
+  const mergeInto = (
+    into: RunItem,
+    incoming: {
+      id: string;
+      title: string;
+      quantity: string;
+      note: string;
+      sources: readonly string[];
+      position?: string;
+    },
+  ): { item: RunItem; written: string[] } => {
+    const merge = mergeRunItem(into, incoming);
+    const written: string[] = [];
+    let item = into;
+    if (!sameMerge(merge, into)) {
+      item = {
+        ...into,
+        ...merge,
+        ...stamp,
+        // A merge that unchecks it is a change of state, by whoever brought the item in.
+        ...(merge.state !== into.state
+          ? { stateBy: ctx.userId, stateAt: ctx.now }
+          : {}),
+      };
+      store.putRunItem(item);
+      written.push(item.id);
+    }
+    if (incoming.id !== into.id) {
+      const alias = store.getRunItem(incoming.id);
+      store.putRunItem({
+        ...(alias ?? created),
+        ...stamp,
+        id: incoming.id,
+        runId: into.runId,
+        spaceId: ctx.spaceId,
+        title: incoming.title,
+        quantity: incoming.quantity,
+        note: incoming.note,
+        position: alias?.position ?? incoming.position ?? into.position,
+        sources: [...incoming.sources],
+        state: alias?.state ?? 'unchecked',
+        stateBy: alias?.stateBy ?? null,
+        stateAt: alias?.stateAt ?? null,
+        deletedAt: alias?.deletedAt ?? ctx.now,
+        mergedInto: into.id,
+      });
+      written.push(incoming.id);
+    }
+    return { item, written };
+  };
 
   /**
    * Items entering a run (D16): one identical to a live item of the run (or to one entering
@@ -224,16 +297,16 @@ export function applyMutation(
     );
     const written = new Set<string>();
     for (const next of incoming) {
+      // Already here (a retry, or replayed on a client): it entered before.
+      if (store.getRunItem(next.id)) continue;
       const key = sameItemKey(next.title);
       const same = byKey.get(key);
       if (same) {
-        const merged = { ...same, ...mergeRunItem(same, next), ...stamp };
-        store.putRunItem(merged);
-        byKey.set(key, merged);
-        written.add(merged.id);
+        const merged = mergeInto(same, next);
+        byKey.set(key, merged.item);
+        for (const id of merged.written) written.add(id);
         continue;
       }
-      if (store.getRunItem(next.id)) continue; // checked before: only on a retry
       last = positionBetween(last, null);
       const item: RunItem = {
         ...created,
@@ -247,6 +320,7 @@ export function applyMutation(
         state: 'unchecked',
         stateBy: null,
         stateAt: null,
+        mergedInto: null,
       };
       store.putRunItem(item);
       byKey.set(key, item);
@@ -416,6 +490,9 @@ export function applyMutation(
           ? unchanged
           : reject('This run already exists');
       }
+      if (args.sourceListId !== null && !listHere(args.sourceListId)) {
+        return reject(LIST_MISSING); // a list in the trash is fine
+      }
       for (const { id } of args.items) {
         if (store.getRunItem(id)) return reject('This item already exists');
       }
@@ -446,7 +523,9 @@ export function applyMutation(
       }
       const runItems = enter(run.id, args.items);
       // Adding items reopens a finished run.
-      return changed({ runItems, runs: settle(run.id) });
+      const runs = settle(run.id);
+      if (runItems.length === 0 && runs.length === 0) return unchanged;
+      return changed({ runItems, runs });
     }
     case 'runItem.update': {
       const item = liveRunItem(mutation.args.id);
@@ -470,6 +549,16 @@ export function applyMutation(
       const item = runItemHere(mutation.args.id);
       if (!item) return reject(RUN_ITEM_MISSING);
       if (item.deletedAt === null) return unchanged;
+      // An identical item entered meanwhile: restoring merges into it (D16), never a duplicate.
+      const same = runItemsOf(item.runId).find(
+        (other) =>
+          other.deletedAt === null &&
+          sameItemKey(other.title) === sameItemKey(item.title),
+      );
+      if (same) {
+        const { written } = mergeInto(same, item);
+        return changed({ runItems: written, runs: settle(item.runId) });
+      }
       return updateRunItem(item, { deletedAt: null });
     }
     case 'runItem.setState': {

@@ -75,6 +75,7 @@ export const runItemRowSchema = z.object({
   state: runItemStateSchema,
   stateBy: idSchema.nullable(),
   stateAt: timestampSchema.nullable(),
+  mergedInto: idSchema.nullable().default(null),
 }) satisfies z.ZodType<RunItem>;
 
 /** Changed rows per table. A table the server doesn't send yet is empty. */

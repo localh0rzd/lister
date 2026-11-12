@@ -190,6 +190,7 @@ clocks:
 | Edits to the same field                                        | The one that **reaches the server last** wins                                         |
 | Check vs. uncheck of the same item in a run                    | Same rule                                                                             |
 | A run finishes while someone adds or unchecks an item          | It's open again: a run counts as finished only while every item is checked or skipped |
+| The same item added to a run on two devices (one offline)      | Merged into one (D16); the other id stays as an alias, so its changes (a check) apply |
 | Edit vs. delete                                                | Delete wins; the editor sees "deleted by Ben" and can restore it                      |
 | Changes to a deleted list's items, or new items in it          | Delete wins too: ignored (acknowledged without effect) until the list is restored     |
 | Concurrent inserts or reorders                                 | Both kept; order by fractional position keys, ties broken by id                       |
@@ -376,7 +377,10 @@ surrounding spaces. The merged item:
 
 The merge rule is one shared pure function, like flattening. Run mutations (`run.start`,
 `run.addItems`) carry the items in order; the shared rule merges them and appends the rest after
-the run's last item, so every client computes the same positions.
+the run's last item, so every client computes the same positions. An item that merges into another keeps its id
+as an alias (a removed row with `mergedInto`), so changes made to it elsewhere, e.g. a check made
+offline, land on the merged item. Restoring a removed item merges it into an identical item that
+entered meanwhile, so a run never shows the same item twice.
 
 **Finishing:** a run counts as finished while every item is checked or skipped and it has at least
 one item. The server recomputes this in the same transaction as every run-item change, and clients

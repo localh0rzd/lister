@@ -23,32 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-019 — Run model, including ad-hoc runs
-
-- Milestone: M4 Runs
-- Area: shared, api, web
-- Priority: normal
-- Depends on: T-015
-- Done when:
-  - Runs and run items exist in the domain, in SQLite (migration) and in Dexie (version bump), with
-    mutations:
-    - start: from a list — the client copies the list's flattened items into the run, so starting
-      works offline — or empty, for an ad-hoc run;
-    - rename; add, edit, move and remove run items; add a whole list, whose flattened items are
-      copied in as a new section;
-    - set an item's state: unchecked, checked or skipped (always a set, never a toggle).
-  - Identical items are merged whenever items enter a run (start, adding a list, adding an item by
-    hand), with one shared rule (D16): titles match ignoring case and surrounding spaces; the
-    larger quantity wins (empty = 1) and different text quantities are joined; notes are joined;
-    the item lists every source list; a checked item whose quantity rises is unchecked again.
-  - A run counts as finished while every item is checked or skipped and it has at least one item.
-    The server recomputes this in the same transaction as each run-item change, and the client
-    applies the same shared rule; unchecking or adding an item reopens the run.
-  - Editing a list doesn't change active runs.
-  - Unit and integration tests for each rule, including the merge cases and two people finishing and
-    reopening a run at the same time.
-- Notes: Finished runs are purged by T-033.
-
 ## Backlog
 
 ### T-020 — Runs UI
@@ -312,6 +286,35 @@ nosniff`, `Referrer-Policy`, `frame-ancestors` in the CSP, and `app.disable('x-p
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
 
 ## Done
+
+### T-019 — Run model, including ad-hoc runs
+
+- Completed: 2026-11-12 — `Run`/`RunItem` with run.start (from a list or ad-hoc), run.update, run.addItems, runItem.update/move/remove/restore/setState (migrations 0003–0004, Dexie v5–v6); shared D16 merge rules and finishing in the same change; the engine rebuilds every item of each run concerned.
+- Review: Changes requested (2 major, 5 minor, 1 nit); all fixed: merged-away ids stay as aliases (`mergedInto`), so offline checks on them apply (design §2.4, §3); run rules tested for other spaces; a merge that unchecks records who and when; no-op merges write nothing; restore merges into an identical item; run.start checks its source list; an engine test with an untouched unchecked item; `mergeNote` both ways, ignoring case.
+
+- Milestone: M4 Runs
+- Area: shared, api, web
+- Priority: normal
+- Depends on: T-015
+- Done when:
+  - Runs and run items exist in the domain, in SQLite (migration) and in Dexie (version bump), with
+    mutations:
+    - start: from a list — the client copies the list's flattened items into the run, so starting
+      works offline — or empty, for an ad-hoc run;
+    - rename; add, edit, move and remove run items; add a whole list, whose flattened items are
+      copied in as a new section;
+    - set an item's state: unchecked, checked or skipped (always a set, never a toggle).
+  - Identical items are merged whenever items enter a run (start, adding a list, adding an item by
+    hand), with one shared rule (D16): titles match ignoring case and surrounding spaces; the
+    larger quantity wins (empty = 1) and different text quantities are joined; notes are joined;
+    the item lists every source list; a checked item whose quantity rises is unchecked again.
+  - A run counts as finished while every item is checked or skipped and it has at least one item.
+    The server recomputes this in the same transaction as each run-item change, and the client
+    applies the same shared rule; unchecking or adding an item reopens the run.
+  - Editing a list doesn't change active runs.
+  - Unit and integration tests for each rule, including the merge cases and two people finishing and
+    reopening a run at the same time.
+- Notes: Finished runs are purged by T-033.
 
 ### T-018 — Duplicate a list
 

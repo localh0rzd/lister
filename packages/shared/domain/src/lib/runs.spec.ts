@@ -53,6 +53,8 @@ describe('mergeNote', () => {
     ['', 'wool', 'wool'],
     ['wool', 'wool', 'wool'],
     ['wool', 'black', 'wool · black'],
+    ['Wool', 'wool', 'Wool'],
+    ['tent', 'tent pegs too', 'tent pegs too'],
   ])('%j + %j → %j', (existing, incoming, merged) => {
     expect(mergeNote(existing, incoming)).toBe(merged);
   });

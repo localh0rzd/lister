@@ -40,11 +40,16 @@ export function mergeQuantity(existing: string, incoming: string): string {
   );
 }
 
-/** Notes of two identical items merged: both kept, unless one already contains the other. */
+/**
+ * Notes of two identical items merged: both kept, unless one already contains the other
+ * (ignoring case), in which case the longer one stays.
+ */
 export function mergeNote(existing: string, incoming: string): string {
   const next = incoming.trim();
-  if (next === '' || existing.includes(next)) return existing;
-  if (existing.trim() === '') return next;
+  const has = (a: string, b: string) =>
+    a.toLocaleLowerCase('en').includes(b.toLocaleLowerCase('en'));
+  if (next === '' || has(existing, next)) return existing;
+  if (existing.trim() === '' || has(next, existing.trim())) return next;
   return cut(`${existing} · ${next}`, LIMITS.note);
 }
 

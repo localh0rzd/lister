@@ -443,6 +443,13 @@ describe('sync gateway', () => {
       const pokes = collect(ben.client, 'poke');
       const runId = newId();
       const [basic, camping] = [newId(), newId()];
+      await push(
+        anna.client,
+        mutation('list.create', { id: basic, title: 'Basic' }),
+        mutation('list.create', { id: camping, title: 'Camping' }),
+      );
+      await vi.waitFor(() => expect(pokes).toHaveLength(2));
+      pokes.splice(0);
 
       const [answer] = await push(
         anna.client,
@@ -463,17 +470,15 @@ describe('sync gateway', () => {
         }),
       );
 
-      expect(answer).toMatchObject({ version: 1 });
+      expect(answer).toMatchObject({ version: 3 });
       await vi.waitFor(() => expect(pokes).toHaveLength(1));
       expect(pokes[0].rows.runs).toEqual([
         expect.objectContaining({ id: runId, title: 'Alps', finishedAt: null }),
       ]);
       expect(
-        pokes[0].rows.runItems.map((item) => [
-          item.title,
-          item.quantity,
-          item.sources,
-        ]),
+        pokes[0].rows.runItems
+          .filter((item) => item.deletedAt === null) // not the merged-away alias
+          .map((item) => [item.title, item.quantity, item.sources]),
       ).toEqual([
         ['Headlamp', '2', [basic, camping]],
         ['Map', '', [basic]],
@@ -572,6 +577,47 @@ describe('sync gateway', () => {
       expect(run?.finishedAt !== null).toBe(allDone);
       expect(items.find((i) => i.id === a)?.state).toBe('unchecked');
       expect(run?.finishedAt).toBeNull();
+    });
+
+    it("applies an offline check to the item another member's identical item became", async () => {
+      const anna = await helloed();
+      const ben = await helloed();
+      const runId = newId();
+      await push(
+        anna.client,
+        mutation('run.start', { id: runId, title: 'Groceries' }),
+      );
+      // Ben adds Milk; Anna, offline, added Milk too and checked it.
+      const bens = newId();
+      await push(
+        ben.client,
+        mutation('run.addItems', {
+          runId,
+          items: [{ id: bens, title: 'Milk' }],
+        }),
+      );
+      const annas = newId();
+      const answers = await push(
+        anna.client,
+        mutation('run.addItems', {
+          runId,
+          items: [{ id: annas, title: 'milk' }],
+        }),
+        mutation('runItem.setState', { id: annas, state: 'checked' }),
+      );
+
+      expect(answers.every((a) => 'version' in a)).toBe(true);
+      const rows = next(ben.client, 'rows');
+      ben.client.emit('pull', { spaceId: DEV_SPACE_ID, since: 0 });
+      const items = (await rows).rows.runItems.filter((i) => i.runId === runId);
+      expect(items.find((i) => i.id === bens)).toMatchObject({
+        state: 'checked',
+        deletedAt: null,
+      });
+      expect(items.find((i) => i.id === annas)).toMatchObject({
+        mergedInto: bens,
+        deletedAt: expect.any(Number),
+      });
     });
 
     it('refuses changes to items of a run that does not exist', async () => {

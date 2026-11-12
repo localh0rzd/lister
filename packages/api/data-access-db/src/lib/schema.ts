@@ -118,6 +118,8 @@ export const runItems = sqliteTable(
       .default('unchecked'),
     stateBy: text('state_by'),
     stateAt: integer('state_at'),
+    /** An alias: this id merged into that item when it entered the run (D16). */
+    mergedInto: text('merged_into'),
   },
   (table) => [
     index('run_items_space_version').on(table.spaceId, table.version),

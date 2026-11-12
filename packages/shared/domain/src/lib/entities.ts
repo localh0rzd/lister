@@ -84,4 +84,9 @@ export interface RunItem extends SyncMetadata {
   /** Who last set `state`, and when (`null` while never set). */
   readonly stateBy: Id | null;
   readonly stateAt: Timestamp | null;
+  /**
+   * Set on a removed row whose id entered the run but merged into this other item (D16): an
+   * alias, so changes to it (e.g. a check made offline) apply to the item it became part of.
+   */
+  readonly mergedInto: Id | null;
 }

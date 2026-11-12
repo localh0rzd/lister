@@ -147,6 +147,7 @@ function touchedBy(
       case 'run':
         if (a.id) into.runs.add(a.id); // run.start, run.update
         if (a.runId) into.runs.add(a.runId); // run.addItems
+        if (a.sourceListId) into.lists.add(a.sourceListId); // run.start checks it
         for (const row of a.items ?? []) into.runItems.add(row.id);
         break;
       case 'runItem':
