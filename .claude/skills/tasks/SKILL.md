@@ -1,6 +1,6 @@
 ---
 name: tasks
-description: Pick up, implement, review and close work items from TASKS.md, the Lister backlog — one commit per task on the work branch, a separate review session after every task, and a pause at the end of each milestone. Use when the user says "next task", "work on T-003", "start implementing", "what's in the backlog", "add a task", or otherwise refers to TASKS.md.
+description: Pick up, implement, review and close work items from TASKS.md, the Lister backlog — the main session coordinates, a task worker session implements each task and a review worker session reviews it, and a pause at the end of each milestone. Use when the user says "next task", "work on T-003", "start implementing", "what's in the backlog", "add a task", or otherwise refers to TASKS.md.
 ---
 
 # Working the TASKS.md backlog
@@ -10,13 +10,56 @@ description: Pick up, implement, review and close work items from TASKS.md, the 
 bullets (`Milestone`, `Area`, `Priority`, `Depends on`, `Decisions`, `Done when`, `Notes`). The
 design behind the tasks is `docs/design.md`.
 
+## Roles (agreed with the user, 2026-11-12)
+
+The main session is the **coordinator**. It runs at **medium** effort, and it doesn't write task
+code itself. For every task, it starts two sessions with `mcp__ccd_session__start_session`
+(`initiation: "user_asked"`, `context: "fresh"`, `use_worktree: false`, `wake_when_done: true`,
+`model: "claude-opus-5-5"`), one after the other:
+
+1. **Task worker**, `effort: "low"`, `name: "task-t-nnn"`: picks up the task and implements it
+   following "Doing it" below, through to the verified `T-NNN: <title>` commit. It doesn't start
+   the review. Its brief names the task, the base commit, and these skills: this one,
+   `best-practices`, `testing`, `module-boundaries` and `verify`.
+2. **Review worker**, `effort: "medium"`, `name: "review-t-nnn"`: starts once the task commit
+   exists and follows "Reviewing it" below. It writes the report with each finding marked
+   **trivial** or **substantive** (`task-review` skill), then fixes the substantive ones
+   itself.
+
+The review loop (agreed with the user, 2026-11-12):
+
+1. **Substantive findings: the review worker fixes them.** It already has the context and runs
+   at medium effort. It passes `verify`, commits `T-NNN: address review`, and writes a fix
+   report.
+2. **The coordinator re-reviews only that fix diff**, scoped to "do these changes correctly
+   address findings X, Y, Z without regressions?". The review worker graded its own work, so
+   this check and the test gate both stay. If something is wrong, send it back to the review
+   worker. **Two rounds at most**, then ask the user.
+3. **Trivial findings: the task worker fixes them**, at low effort, with no re-review; `verify`
+   is the gate. It then closes the task in `TASKS.md` and commits `T-NNN: trivial review fixes`
+   with its own fix report.
+4. **Fix reports.** Every fixer lists every finding it was given, each with one status:
+   `fixed` (how, which test), `skipped` (why) or `disagree` (why). The coordinator checks that
+   no finding is missing, and treats a missing one as not done.
+5. The coordinator reports to the user (see Reviewing it, step 7), then goes on to the next
+   task, stopping at the end of each milestone.
+
+If there are no substantive findings, skip steps 1–2. If there are no trivial ones, the task
+worker only closes the task.
+
+The coordinator's own effort caps the effort of the sessions it starts. After each start, check
+it with `mcp__ccd_session_mgmt__get_session`, and if it's wrong, fix it with
+`mcp__ccd_session_mgmt__set_session_effort`.
+
 ## Standing agreements with the user (2026-11-12)
 
 - **Branch:** work happens on `work/v1`, cut from `master`. If it doesn't exist yet, run
   `git switch -c work/v1 master`; otherwise `git switch work/v1`. Never push, merge or rebase
   unless the user asks.
-- **Commits:** each task gets its own commit, `T-NNN: <title>`, and its review fixes a second
-  one, `T-NNN: address review`. That way each review sees exactly one task.
+- **Commits:** each task gets its own commit, `T-NNN: <title>`. Its substantive review fixes
+  get a second one, `T-NNN: address review` (by the review worker), and its trivial fixes and
+  the closing of the task a third, `T-NNN: trivial review fixes` (by the task worker). That way
+  each review sees exactly one task, and each re-review exactly one fix diff.
 - **Review:** after every task, a **separate review session** reviews it critically (see
   Reviewing it). Don't start the next task until that review is resolved.
 - **Pace:** keep going task by task. **Stop at the end of each milestone** (M1, M2, …) with a
@@ -62,42 +105,52 @@ design behind the tasks is `docs/design.md`.
    - `initiation: "user_asked"`. The user asked for a review session after every task.
    - `context: "fresh"` and `use_worktree: false`: it reads this checkout and changes nothing.
    - `name: "review-t-nnn"`, `title: "Review T-NNN: <title>"`, `wake_when_done: true`.
-   - Use Opus 5.5 Medium model for the review
+   - `model: "claude-opus-5-5"`, `effort: "medium"`. Then check the effort with `get_session`,
+     since it's capped at the coordinator's own (see Roles).
    - `prompt`:
      > Review task T-NNN ("<title>") in this repository: the commits `<base>..<head>` on branch
      > `work/v1`. Follow the project's `task-review` skill exactly, including its `ui-review`
-     > step when the task changes the web UI. You're read-only: don't edit tracked files,
-     > commit, switch branches, stash or install anything; you only write the report
-     > `tmp/reviews/T-NNN.md` and its screenshots under `tmp/reviews/T-NNN-ui/`. Don't stop a
-     > server you didn't start. End your wrap-up recap and your final message with the
-     > verdict line, for example
-     > `Verdict: Changes requested — 1 blocker, 2 major, 0 minor, 1 nit — tmp/reviews/T-NNN.md`.
+     > step when the task changes the web UI. Mark every finding trivial or substantive. Stay
+     > read-only until the report `tmp/reviews/T-NNN.md` (screenshots under
+     > `tmp/reviews/T-NNN-ui/`) is written. Then fix the substantive findings yourself, as
+     > the skill's "Fixing substantive findings" says: tests, `verify`, one commit
+     > `T-NNN: address review`, and a fix report with one status (fixed, skipped or disagree)
+     > per finding. Leave the trivial findings and `TASKS.md` alone. Don't switch branches,
+     > stash or install anything, and don't stop a server you didn't start. End your wrap-up
+     > recap and your final message with the verdict line plus the fix commit, for example
+     > `Verdict: Changes requested — 1 blocker, 2 major, 0 minor, 1 nit (3 substantive, 1 trivial) — tmp/reviews/T-NNN.md — fixed in abc1234`.
    - `background`:
      > Lister is an Nx monorepo (Angular 22 web app, NestJS 11 API, shared TypeScript
      > libraries) that another Claude session builds one TASKS.md task at a time. The user
-     > asked for a critical, independent review after every task. The implementing session is
-     > waiting for your report and will fix your findings in a follow-up commit, so precise
-     > file and line evidence and concrete failure scenarios matter more than volume.
+     > asked for a critical, independent review after every task. You fix the substantive
+     > findings yourself; a low-effort task worker fixes the trivial ones from your report
+     > alone, so each trivial finding must say exactly what to change. The coordinator
+     > re-reviews your fix diff. Precise file and line evidence and concrete failure scenarios
+     > matter more than volume.
 2. **Wait.** Write a bold title line and one sentence before the call. Afterwards, tell the user
    in one line that the review is running, with a link to the session, and end your turn. Edit
    nothing while it runs, because it reads this checkout. The app continues you when the review
    finishes.
-3. **Triage** `tmp/reviews/T-NNN.md`. As soon as the review is over, implement its suggested
-   changes; don't wait to be told. The default for every finding, nits included, is to fix
-   it. For each finding, choose one:
-   - fix it (the default);
-   - decline it, only for a good reason (it's wrong, it contradicts `docs/design.md`, or its
-     cost clearly outweighs its benefit), with the reason in the fix commit's body;
-   - if it's real but outside the task, add it to Backlog as a new task;
-   - if you're uncertain whether or how to fix it, ask the user (`AskUserQuestion`) before
-     deciding, instead of guessing.
-4. **Fix.** Fixes meet the same standard: a test for every bug, then `verify` again.
-5. **Re-check.** If there were blockers, send the review session the new range (SendMessage to
-   its `local_…` id) and wait for its re-review. Allow at most two rounds, then ask the user.
-6. **Close** the task (next section), and commit everything as `T-NNN: address review`, even
-   when the only change is closing the task.
-7. **Report** to the user: a short summary of every finding you didn't implement (declined or
-   deferred), each with why you decided against it, plus any question still open.
+3. **Check the substantive fixes.** Read the review worker's fix report and re-review only its
+   fix diff (`git diff <fix>^..<fix>`), asking: "do these changes correctly address findings
+   X, Y, Z without regressions?". Every substantive finding must be in the report. If a fix
+   is wrong or a finding is missing, send it back to the review worker (SendMessage to its
+   `local_…` id). Two rounds at most, then ask the user.
+4. **Hand the trivial findings to the task worker** (SendMessage to its `local_…` id): the
+   report path and the trivial finding numbers. It fixes them all, which is the default, nits
+   included. It may only:
+   - skip one, if it's real but outside the task, after adding it to Backlog as a new task;
+   - disagree with one, if it's wrong or contradicts `docs/design.md`.
+
+   Each skip or disagreement goes in its fix report with the reason. It asks you instead of
+   guessing when unsure, and you ask the user (`AskUserQuestion`) if you can't decide.
+
+5. **Gate:** the task worker runs `verify`; there's no re-review for trivial fixes. Check its
+   fix report for completeness.
+6. **Close:** the task worker closes the task (next section) and commits
+   `T-NNN: trivial review fixes`, even when the only change is closing the task.
+7. **Report** to the user: a short summary of every finding that wasn't fixed (skipped or
+   disagree, in either fix report), each with its reason, plus any question still open.
 8. Continue with the next task, unless the milestone is complete (see End of a milestone).
 
 If the review session can't be started, or it fails, tell the user, and don't start the next
@@ -109,7 +162,7 @@ Move the block to the **top of Done** and add these lines under the title:
 
 ```
 - Completed: YYYY-MM-DD — <one line: what changed, main files/projects>
-- Review: <verdict>; <n> fixed, <m> deferred (T-xxx), <k> declined
+- Review: <verdict>; <n> fixed (<s> substantive, <t> trivial), <m> skipped (T-xxx), <k> disagreed; re-review rounds: <r>
 ```
 
 If you stopped short, leave the task in **In progress**, or move it back to Backlog, with a

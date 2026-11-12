@@ -11,9 +11,13 @@ bugs until you've looked. Don't approve on trust, and don't invent problems eith
 
 ## Ground rules
 
-- **Read-only.** Don't edit tracked files, commit, amend, switch branches, stash, reset or
-  install packages. The only file you write is the report, plus scratch probes under `tmp/`.
-  Run any checks you like (tests, lint, builds, e2e). If something needs to change, report it.
+- **Read-only while reviewing.** Until the report is written, don't edit tracked files,
+  commit, amend, switch branches, stash, reset or install packages. The only file you write is
+  the report, plus scratch probes under `tmp/`. Run any checks you like (tests, lint, builds,
+  e2e).
+- **Then you fix the substantive findings yourself** (see "Fixing substantive findings"),
+  unless your brief says report only. You already have the context; the test gate and the
+  coordinator's re-review of your fix diff make up for grading your own work.
 - **Scope:**
   - The review covers the commit range in your brief: `git log --stat <base>..<head>` and
     `git diff <base>..<head>`.
@@ -50,7 +54,9 @@ bugs until you've looked. Don't approve on trust, and don't invent problems eith
 6. **UI/UX:** when the task changes anything the web app shows, also run the `ui-review`
    skill: use the real screens at phone and desktop widths, and append its "UI/UX" section to
    the report. Its findings count towards the verdict like any others.
-7. **Write the report** (format below), then finish.
+7. **Write the report** (format below), with a tier on every finding.
+8. **Fix the substantive findings** (section below), unless your brief says report only. Then
+   finish.
 
 ## Checklist
 
@@ -131,9 +137,11 @@ Range: <base>..<head> · <date>
 
 ## Findings
 
-### 1. [blocker] <one-line summary>
+### 1. [blocker · substantive] <one-line summary>
 
 `path/to/file.ts:42` — what's wrong. Scenario: … Fix: …
+
+### 2. [nit · trivial] <one-line summary>
 
 ## Done when
 
@@ -158,6 +166,18 @@ Range: <base>..<head> · <date>
 - **minor:** robustness or clarity that's cheap to fix now.
 - **nit:** optional polish.
 
+**Tier** (every finding gets one, next to its severity):
+
+- **trivial:** the fix is mechanical and local, and the finding already says exactly what to
+  change: a wording, a missing test case for a behaviour that already exists, a rename, a style
+  tweak. No design choice, nothing else depends on it. A low-effort fixer does these, and
+  nobody re-reviews them; the test gate is enough.
+- **substantive:** anything else, and always every blocker and major: logic, data, sync,
+  security, a design choice, or a fix that touches more than one place. You fix these yourself,
+  and the coordinator re-reviews your fix diff.
+
+If you're unsure, it's substantive.
+
 **Verdict:**
 
 - any blocker or major → **Changes requested**;
@@ -167,15 +187,42 @@ Range: <base>..<head> · <date>
 End with one line that starts with the verdict, in your wrap-up recap if you have one and in
 your final message:
 
-`Verdict: Changes requested — 1 blocker, 2 major, 3 minor, 1 nit — tmp/reviews/T-NNN.md`
+`Verdict: Changes requested — 1 blocker, 2 major, 3 minor, 1 nit (2 substantive, 5 trivial) — tmp/reviews/T-NNN.md`
 
-The implementing session sees that line first.
+The coordinator sees that line first. When you've also fixed findings, add the fix commit and
+the fix report's path after it.
 
-## Re-review
+## Fixing substantive findings
 
-The implementing session may message you once it has fixed the findings, giving you a new range.
+Once the report is written, fix every **substantive** finding. Leave the trivial ones alone: the
+task worker does those.
 
-1. Review that range.
-2. Check each earlier finding: fixed, not fixed, or declined with a reason you accept or don't.
-3. Look for new problems the fixes introduced.
+- Follow `best-practices`, `testing` and `module-boundaries`, the same as the original work.
+  Every bug gets a test that fails without the fix.
+- Run the `verify` skill. Don't commit while it fails.
+- Commit as `T-NNN: address review`, with the fix report in the body. Don't close the task in
+  `TASKS.md`; the task worker does that.
+- **Fix report**, also appended to the review as `## Fixes <date>`. One line per substantive
+  finding, each with exactly one status:
+  - `fixed`: how, and which test covers it;
+  - `skipped`: why (e.g. out of scope, now a Backlog task T-xxx);
+  - `disagree`: why the finding was wrong after all.
+
+  No finding may be missing from the report: that makes a silent partial fix visible.
+
+- If a fix needs a product decision, don't guess. Mark it `skipped`, and put the question under
+  "Questions for the user".
+- End with the verdict line, the commit and the fix report's path.
+
+## Re-review (of a fix diff only)
+
+A re-review covers only the fix commit's diff, never the whole task again. The question is:
+"do these changes correctly address findings X, Y, Z, without regressions?"
+
+1. Read the fix report and the diff (`git diff <fix>^..<fix>`), plus the code the diff touches.
+2. For each finding, say whether its status holds: really fixed, a fair skip, or a disagreement
+   you accept or not.
+3. Look only for regressions that the diff introduced.
 4. Add a `## Re-review <date>` section to the same report, and end with a new verdict line.
+
+There are at most two re-review rounds. After that, the coordinator asks the user.
