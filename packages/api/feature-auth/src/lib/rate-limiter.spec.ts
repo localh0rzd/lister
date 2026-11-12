@@ -1,4 +1,4 @@
-import { AttemptLimiter } from './rate-limiter';
+import { AttemptLimiter, clientKey } from './rate-limiter';
 
 describe('AttemptLimiter', () => {
   it('lets a key try until it has failed too often', () => {
@@ -41,5 +41,38 @@ describe('AttemptLimiter', () => {
     limiter.prune(5000);
 
     expect(limiter.retryAfterMs('a', 5000)).toBe(0);
+  });
+
+  it('forgets one failure that turned out to be a success', () => {
+    const limiter = new AttemptLimiter(2, 1000);
+    limiter.recordFailure('a', 5);
+    limiter.recordFailure('a', 5);
+    limiter.forget('a', 5);
+
+    expect(limiter.retryAfterMs('a', 6)).toBe(0);
+    limiter.forget('a', 5);
+    limiter.forget('a', 5);
+    limiter.forget('b', 5);
+    limiter.recordFailure('a', 7);
+
+    expect(limiter.retryAfterMs('a', 8)).toBe(0);
+  });
+});
+
+describe('clientKey', () => {
+  it.each([
+    ['203.0.113.7', '203.0.113.7'],
+    ['::ffff:203.0.113.7', '203.0.113.7'],
+    ['::ffff:cb00:7107', '203.0.113.7'],
+    ['2001:db8:1:2:aaaa:bbbb:cccc:dddd', '2001:db8:1:2::/64'],
+    ['2001:DB8:1:2::1', '2001:db8:1:2::/64'],
+    ['2001:0db8:0001:0002:0:0:0:9', '2001:db8:1:2::/64'],
+    ['2001:db8::1', '2001:db8:0:0::/64'],
+    ['fe80::1%eth0', 'fe80:0:0:0::/64'],
+    ['::1', '0:0:0:0::/64'],
+    [undefined, 'unknown'],
+    ['', 'unknown'],
+  ])('keys %j as %j', (ip, key) => {
+    expect(clientKey(ip)).toBe(key);
   });
 });

@@ -15,9 +15,13 @@ Accounts, sessions and sign-in (design §2.3, D9, D15). The `users` and `session
   `AuthService.authenticate(token)` is what the socket handshake will use (T-025).
 - Setup: while no account exists, the server logs a one-time token at startup; `POST /auth/setup`
   with it creates the first admin. It lives in memory, so a restart logs a new one.
-- Rate limit: 10 failed sign-in or setup attempts per client IP in 15 minutes, then 429 with
-  `Retry-After`. The IP is `request.ip`; `configureApp()` makes Express trust `X-Forwarded-For`
-  from loopback and private addresses (Traefik), or whatever `TRUST_PROXY` says. In memory.
+- Rate limit: 10 failed sign-in, setup or password-change attempts per client in 15 minutes, then
+  429 with `Retry-After`. `AttemptLimits.begin()` counts an attempt as a failure before the
+  password check and takes it back when it succeeds, so parallel guesses can't outrun the limit.
+  The client is `request.ip` (an IPv6 client's /64, see `clientKey`); `configureApp()` makes
+  Express trust `X-Forwarded-For` from loopback and private addresses (Traefik), or whatever
+  `TRUST_PROXY` says. In memory.
+- A wrong current password on `POST /auth/password` is a 400, not a 401: the session is fine.
 - Reset command, for when no admin can sign in (prints a random temporary password that must be
   changed at the next sign-in, and ends the user's sessions):
   `node dist/apps/lister-api/main.js reset-password <username>` (in the container:

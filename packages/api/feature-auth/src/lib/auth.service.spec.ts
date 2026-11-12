@@ -1,4 +1,8 @@
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import {
   type DatabaseConnection,
   createTestDatabase,
@@ -174,7 +178,7 @@ describe('AuthService', () => {
 
       await expect(
         auth.changePassword(first.user.id, sessionId, 'wrong', 'new password!'),
-      ).rejects.toBeInstanceOf(UnauthorizedException);
+      ).rejects.toBeInstanceOf(BadRequestException);
       const changed = await auth.changePassword(
         first.user.id,
         sessionId,

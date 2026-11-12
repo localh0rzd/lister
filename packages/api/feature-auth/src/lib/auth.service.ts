@@ -1,5 +1,6 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import {
+  BadRequestException,
   ConflictException,
   Inject,
   Injectable,
@@ -199,7 +200,8 @@ export class AuthService {
       .where(eq(schema.users.id, userId))
       .get();
     if (!row || !(await verifyPassword(currentPassword, row.passwordHash))) {
-      throw new UnauthorizedException('The current password is wrong');
+      // 400, not 401: the session is fine, and 401 means "signed out" to the client.
+      throw new BadRequestException('The current password is wrong');
     }
     const passwordHash = await hashPassword(newPassword);
     this.database.sqlite.transaction(() => {

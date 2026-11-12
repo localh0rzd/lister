@@ -9,7 +9,6 @@ import {
   Req,
   Res,
   ForbiddenException,
-  UnauthorizedException,
 } from '@nestjs/common';
 import type { CurrentUser } from '@lister/shared/api-contracts';
 import { AttemptLimits } from './attempt-limits.service';
@@ -50,16 +49,10 @@ export class AuthController {
     @Req() request: AuthRequest,
     @Res({ passthrough: true }) response: AuthResponse,
   ): Promise<CurrentUser> {
-    this.limits.assertAllowed(request.ip, response);
-    let signedIn: SignedIn;
-    try {
-      signedIn = await this.auth.login(body.username, body.password);
-    } catch (error) {
-      if (error instanceof UnauthorizedException) {
-        this.limits.recordFailure(request.ip);
-      }
-      throw error;
-    }
+    // Counted as a failure until it succeeds, so parallel guesses can't outrun the limit.
+    const attempt = this.limits.begin(request.ip, response);
+    const signedIn = await this.auth.login(body.username, body.password);
+    attempt.release();
     this.setCookie(response, signedIn);
     return signedIn.user;
   }
@@ -93,18 +86,24 @@ export class AuthController {
     @Body() body: ChangePasswordDto,
     @SignedInUser() user: CurrentUser,
     @SessionId() sessionId: string,
+    @Req() request: AuthRequest,
+    @Res({ passthrough: true }) response: AuthResponse,
   ): Promise<CurrentUser> {
     if (body.newPassword === body.currentPassword) {
       throw new BadRequestException(
         'The new password must differ from the current one',
       );
     }
-    return this.auth.changePassword(
+    // Guessing the current password is limited like guessing at sign-in.
+    const attempt = this.limits.begin(request.ip, response);
+    const changed = await this.auth.changePassword(
       user.id,
       sessionId,
       body.currentPassword,
       body.newPassword,
     );
+    attempt.release();
+    return changed;
   }
 
   /** Creates the first account (an admin) with the token from the server log, and signs it in. */
@@ -115,14 +114,15 @@ export class AuthController {
     @Req() request: AuthRequest,
     @Res({ passthrough: true }) response: AuthResponse,
   ): Promise<CurrentUser> {
-    this.limits.assertAllowed(request.ip, response);
+    const attempt = this.limits.begin(request.ip, response);
     if (!this.setupToken.isOpen()) {
+      attempt.release();
       throw new NotFoundException('Setup is not available');
     }
     if (!this.setupToken.matches(body.token)) {
-      this.limits.recordFailure(request.ip);
       throw new ForbiddenException('The setup token is wrong');
     }
+    attempt.release();
     const user = await this.auth.createFirstAdmin({
       username: body.username,
       displayName: body.displayName,

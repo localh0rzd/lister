@@ -121,6 +121,55 @@ describe('auth', () => {
       expect(Number(blocked.headers.get('retry-after'))).toBeGreaterThan(0);
       expect((await attempt('203.0.113.8', PASSWORD)).status).toBe(200);
     });
+
+    it('counts guesses sent in parallel before any of them has failed', async () => {
+      await createAccount(api, 'anna');
+      const guesses = Array.from({ length: 30 }, (_, i) =>
+        send(api, 'POST', '/auth/login', {
+          body: { username: 'anna', password: `wrong guess ${i}` },
+          headers: { 'X-Forwarded-For': '203.0.113.7' },
+        }).then((response) => response.status),
+      );
+
+      const statuses = await Promise.all(guesses);
+
+      expect(statuses.filter((status) => status === 401)).toHaveLength(10);
+      expect(statuses.filter((status) => status === 429)).toHaveLength(20);
+    });
+
+    it('does not count successful sign-ins', async () => {
+      await createAccount(api, 'anna');
+      for (let i = 0; i < 12; i++) {
+        const response = await send(api, 'POST', '/auth/login', {
+          body: { username: 'anna', password: PASSWORD },
+          headers: { 'X-Forwarded-For': '203.0.113.7' },
+        });
+        expect(response.status).toBe(200);
+      }
+    });
+
+    it('limits an IPv6 client by its /64, not by single addresses', async () => {
+      await createAccount(api, 'anna');
+      for (let i = 1; i <= 10; i++) {
+        const response = await send(api, 'POST', '/auth/login', {
+          body: { username: 'anna', password: 'wrong wrong' },
+          headers: { 'X-Forwarded-For': `2001:db8:1:2::${i.toString(16)}` },
+        });
+        expect(response.status).toBe(401);
+      }
+
+      const sameNetwork = await send(api, 'POST', '/auth/login', {
+        body: { username: 'anna', password: PASSWORD },
+        headers: { 'X-Forwarded-For': '2001:db8:1:2:ffff::1' },
+      });
+      const otherNetwork = await send(api, 'POST', '/auth/login', {
+        body: { username: 'anna', password: PASSWORD },
+        headers: { 'X-Forwarded-For': '2001:db8:1:3::1' },
+      });
+
+      expect(sameNetwork.status).toBe(429);
+      expect(otherNetwork.status).toBe(200);
+    });
   });
 
   describe('GET /api/auth/me', () => {
@@ -236,7 +285,7 @@ describe('auth', () => {
       [
         'a wrong current password',
         { currentPassword: 'wrong wrong', newPassword: 'a brand new password' },
-        401,
+        400,
       ],
       [
         'a new password that is too short',
@@ -260,6 +309,27 @@ describe('auth', () => {
 
       expect(response.status).toBe(status);
       await expect(signIn(api, 'anna')).resolves.toBeTruthy();
+    });
+
+    it('limits guesses of the current password like sign-in attempts', async () => {
+      await createAccount(api, 'anna');
+      const cookie = await signIn(api, 'anna');
+      const change = (currentPassword: string) =>
+        send(api, 'POST', '/auth/password', {
+          cookie,
+          body: { currentPassword, newPassword: NEW_PASSWORD },
+          headers: { 'X-Forwarded-For': '203.0.113.7' },
+        });
+
+      const guesses = await Promise.all(
+        Array.from({ length: 12 }, (_, i) => change(`wrong guess ${i}`)),
+      );
+      const blocked = await change(PASSWORD);
+
+      expect(guesses.filter((r) => r.status === 400)).toHaveLength(10);
+      expect(guesses.filter((r) => r.status === 429)).toHaveLength(2);
+      expect(blocked.status).toBe(429);
+      expect((await send(api, 'GET', '/auth/me', { cookie })).status).toBe(200);
     });
 
     it('answers 401 without a session', async () => {
