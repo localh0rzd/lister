@@ -547,16 +547,63 @@ describe('ListEditorPage — included lists', () => {
     expect(page.element.textContent).toContain('Shared (shown above)');
   });
 
+  it('shows a top-level repeat (its list is already inside an earlier section) as shown above', async () => {
+    const hostel = list('Hostel');
+    const toiletries = list('Toiletries');
+    await db.lists.bulkPut([hostel, toiletries]);
+    await db.items.put(itemOf(toiletries.id, 'Soap', 'a0'));
+    await db.includes.bulkPut([
+      include(camping.id, hostel.id, 'a0'),
+      include(hostel.id, toiletries.id, 'a0'),
+      include(camping.id, toiletries.id, 'a1'), // after Hostel, which already has it
+    ]);
+    const page = await render();
+
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(sectionTitles(page.element)).toEqual(['Hostel', 'Toiletries']);
+    });
+    const repeat = page.element.querySelectorAll('.items > li.section')[1];
+    expect(repeat.textContent).toContain(
+      'Already shown above, inside another list.',
+    );
+    expect(repeat.textContent).not.toContain('trash');
+    // Its menu still works: it can be moved or removed.
+    expect(
+      page.element.querySelector('[aria-label="More for list Toiletries"]'),
+    ).not.toBeNull();
+  });
+
+  it('counts only lists that use an included list some other way than through this one', async () => {
+    const bigTrip = list('Big trip');
+    const hostel = list('Hostel');
+    const toiletries = list('Toiletries');
+    await db.lists.bulkPut([bigTrip, hostel, toiletries]);
+    await db.includes.bulkPut([
+      include(bigTrip.id, camping.id, 'a0'), // reaches Toiletries only through Camping
+      include(camping.id, toiletries.id, 'a1'),
+      include(hostel.id, toiletries.id, 'a0'), // a real other user
+    ]);
+    const page = await render();
+
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(page.element.textContent).toContain('Also in 1 other list');
+    });
+  });
+
   it('offers only lists that may be added, then adds the picked one at the end', async () => {
     const a = list('A');
     const b = list('B');
     const parent = list('Parent'); // includes Camping: adding it would loop
     const trashed = list('Trashed', { deletedAt: 1 });
-    await db.lists.bulkPut([a, b, parent, trashed]);
+    const insideA = list('Inside A'); // already reached through A
+    await db.lists.bulkPut([a, b, parent, trashed, insideA]);
     await db.items.put(item('Tent', 'a0'));
     await db.includes.bulkPut([
       include(camping.id, a.id, 'a1'),
       include(parent.id, camping.id, 'a0'),
+      include(a.id, insideA.id, 'a0'),
     ]);
     const page = await render();
     await vi.waitFor(async () => {

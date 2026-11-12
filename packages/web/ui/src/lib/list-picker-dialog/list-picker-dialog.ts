@@ -8,7 +8,11 @@ import {
   MatDialogRef,
   MatDialogTitle,
 } from '@angular/material/dialog';
-import { MatFormField, MatLabel } from '@angular/material/form-field';
+import {
+  MatFormField,
+  MatLabel,
+  MatPrefix,
+} from '@angular/material/form-field';
 import { MatIcon } from '@angular/material/icon';
 import { MatInput } from '@angular/material/input';
 import { MatActionList, MatListItem } from '@angular/material/list';
@@ -42,6 +46,7 @@ const fold = (text: string) =>
     MatInput,
     MatLabel,
     MatListItem,
+    MatPrefix,
   ],
   template: `
     <h2 mat-dialog-title>Add list</h2>

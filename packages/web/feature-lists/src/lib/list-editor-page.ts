@@ -38,7 +38,10 @@ import {
   wouldCreateCycle,
 } from '@lister/shared/domain';
 import { titleSchema } from '@lister/shared/sync-protocol';
-import { Repositories } from '@lister/web/data-access-local-db';
+import {
+  Repositories,
+  type SpaceComposition,
+} from '@lister/web/data-access-local-db';
 import {
   ItemDialog,
   type ItemDialogData,
@@ -64,6 +67,31 @@ export type EditorRow =
       /** The included list's entries, nested includes among them. */
       entries: FlatEntry[];
     };
+
+/**
+ * How many lists use `listId` other than `root` and the lists that only reach it through
+ * `root` (those change along with `root` anyway).
+ */
+function otherUsers(space: SpaceComposition, listId: string, root: string) {
+  const throughRoot = space.usersOf(root);
+  return [...space.usersOf(listId)].filter(
+    (user) => user !== root && !throughRoot.has(user),
+  ).length;
+}
+
+/** Every list `root` contains through live includes, at any depth. */
+function reachableFrom(space: SpaceComposition, root: string): Set<string> {
+  const reached = new Set<string>();
+  const stack = [root];
+  while (stack.length > 0) {
+    for (const row of space.includesOf(stack.pop() as string)) {
+      if (row.deletedAt !== null || reached.has(row.childListId)) continue;
+      reached.add(row.childListId);
+      stack.push(row.childListId);
+    }
+  }
+  return reached;
+}
 
 /**
  * One list: its own items and its included lists as sections, in one order (design §2.2). Add
@@ -132,7 +160,6 @@ export class ListEditorPage {
         rows.push({ kind: 'item', id: item.id, position: item.position, item });
       } else {
         const { include, list: child, state } = entry;
-        const users = space.value.usersOf(include.childListId);
         rows.push({
           kind: 'section',
           id: include.id,
@@ -140,7 +167,7 @@ export class ListEditorPage {
           include,
           list: child,
           state,
-          otherUsers: users.size - (users.has(root) ? 1 : 0),
+          otherUsers: otherUsers(space.value, include.childListId, root),
           entries: [],
         });
       }
@@ -162,7 +189,12 @@ export class ListEditorPage {
   private adding: Promise<unknown> = Promise.resolve();
   private lastAdded: string | null = null;
   /** After a keyboard move, the item whose menu button gets the focus back. */
-  private readonly refocus = signal<{ id: string; index: number } | null>(null);
+  /** The row moved by keyboard, with its position before and after the move. */
+  private readonly refocus = signal<{
+    id: string;
+    from: string;
+    to: string;
+  } | null>(null);
 
   constructor() {
     const title = inject(Title);
@@ -177,16 +209,18 @@ export class ListEditorPage {
       const target = this.refocus();
       const view = this.view();
       if (!target || view.kind !== 'ready') return;
-      // Wait until the row is rendered at its new place (moving its node drops the focus).
-      if (view.rows.findIndex((row) => row.id === target.id) !== target.index)
-        return;
+      const row = view.rows.find((r) => r.id === target.id);
+      // Not moved yet: wait for the render that moves it (moving its node drops the focus).
+      if (row?.position === target.from) return;
+      // Once only, whatever happened: later renders must not steal the focus.
+      this.refocus.set(null);
+      // Gone, or moved again by someone else meanwhile: leave the focus alone.
+      if (row?.position !== target.to) return;
       const trigger = this.host.nativeElement.querySelector<HTMLElement>(
         `[data-item-id="${CSS.escape(target.id)}"]`,
       );
-      if (!trigger) return;
-      if (trigger.ownerDocument.activeElement !== trigger) trigger.focus();
-      // Once only: later renders (e.g. a change from another device) must not steal the focus.
-      this.refocus.set(null);
+      if (trigger && trigger.ownerDocument.activeElement !== trigger)
+        trigger.focus();
     });
   }
 
@@ -253,18 +287,16 @@ export class ListEditorPage {
     );
   }
 
-  /** "Add list": a picker without this list, lists already in it and lists that would loop. */
+  /**
+   * "Add list": a picker without this list, lists it already contains (directly or through
+   * another list: adding those would show nothing new) and lists that would make a loop.
+   */
   protected async addList(): Promise<void> {
     const view = this.view();
     const lists = this.spaceLists();
     if (view.kind !== 'ready' || lists.status !== 'ready') return;
     const root = view.list.id;
-    const included = new Set(
-      view.space
-        .includesOf(root)
-        .filter((row) => row.deletedAt === null)
-        .map((row) => row.childListId),
-    );
+    const included = reachableFrom(view.space, root);
     const choices = lists.value
       .filter(
         (list) =>
@@ -307,6 +339,14 @@ export class ListEditorPage {
     });
   }
 
+  /** What a section shows under its title, if anything. */
+  protected sectionNote(row: Extract<EditorRow, { kind: 'section' }>) {
+    if (row.state === 'deleted') return 'This list is in the trash.';
+    if (row.state === 'repeated')
+      return 'Already shown above, inside another list.';
+    return undefined;
+  }
+
   protected sectionTitle(row: Extract<EditorRow, { kind: 'section' }>) {
     return row.state === 'deleted' || !row.list
       ? 'Deleted list'
@@ -323,8 +363,9 @@ export class ListEditorPage {
 
   /** Move up / Move down from a row's menu: keeps the keyboard focus on the row. */
   protected async step(row: EditorRow, toIndex: number): Promise<void> {
-    if (await this.move(row, toIndex)) {
-      this.refocus.set({ id: row.id, index: toIndex });
+    const to = await this.move(row, toIndex);
+    if (to !== undefined) {
+      this.refocus.set({ id: row.id, from: row.position, to });
       const count = this.currentRows().length;
       const title =
         row.kind === 'item' ? row.item.title : this.sectionTitle(row);
@@ -343,9 +384,13 @@ export class ListEditorPage {
 
   /**
    * Puts the row at `toIndex` among the list's own rows (items and sections share one key
-   * space); ties are re-keyed so the move always takes effect.
+   * space); ties are re-keyed so the move always takes effect. Returns the row's new position,
+   * or `undefined` if it didn't move.
    */
-  private async move(row: EditorRow, toIndex: number): Promise<boolean> {
+  private async move(
+    row: EditorRow,
+    toIndex: number,
+  ): Promise<string | undefined> {
     const rows = this.currentRows();
     const kinds = new Map(rows.map((r) => [r.id, r.kind]));
     const changes = moveTo(rows, row.id, toIndex);
@@ -355,9 +400,9 @@ export class ListEditorPage {
           ? { name: 'include.move', args: change }
           : { name: 'item.move', args: change },
       );
-      if (!moved) return false;
+      if (!moved) return undefined;
     }
-    return changes.length > 0;
+    return changes.find((change) => change.id === row.id)?.position;
   }
 
   /** For editing an item of an included list: which list it changes, and who else uses it. */
@@ -365,8 +410,7 @@ export class ListEditorPage {
     const view = this.view();
     if (view.kind !== 'ready' || listId === view.list.id) return undefined;
     const source = view.space.list(listId);
-    const users = view.space.usersOf(listId);
-    const others = users.size - (users.has(view.list.id) ? 1 : 0);
+    const others = otherUsers(view.space, listId, view.list.id);
     const title = `Changes “${source?.title ?? 'another list'}”`;
     if (others === 0) return title;
     return `${title}, also used in ${others} other ${others === 1 ? 'list' : 'lists'}`;

@@ -121,7 +121,7 @@
       } @else {
       <span class="section-text">
         <span class="section-title">{{ title }}</span>
-        <span class="note">This list is in the trash.</span>
+        <span class="note">{{ sectionNote(row) }}</span>
       </span>
       }
       <button
@@ -164,7 +164,8 @@
       [id]="'section-' + row.id"
       [attr.aria-label]="'Items of ' + title"
     >
-      @for (entry of row.entries; track $index) { @if (entry.kind === 'item') {
+      @for (entry of row.entries; track entry.kind === 'item' ? entry.item.id :
+      entry.include.id) { @if (entry.kind === 'item') {
       <li class="nested" [style.--depth]="entry.depth">
         <div class="text">
           <span class="title">{{ entry.item.title }}</span>

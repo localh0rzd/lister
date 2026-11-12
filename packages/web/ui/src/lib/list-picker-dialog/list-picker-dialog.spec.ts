@@ -36,6 +36,11 @@ describe('ListPickerDialog', () => {
   it('shows the lists it is given and closes with the picked one', async () => {
     const dialog = await render({ lists });
     expect(dialog.options()).toEqual(['Camping', 'Café trip', 'Toiletries']);
+    // The search icon is projected into the field's prefix slot.
+    expect(
+      dialog.element.querySelector('.mat-mdc-form-field-icon-prefix mat-icon')
+        ?.textContent,
+    ).toBe('search');
 
     (
       dialog.element.querySelectorAll('button[mat-list-item]')[2] as HTMLElement
