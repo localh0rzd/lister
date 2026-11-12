@@ -8,7 +8,7 @@ import type { NavDestination } from './nav-destination';
   selector: 'lister-navigation-bar',
   imports: [RouterLink, RouterLinkActive, MatIcon],
   templateUrl: './navigation-bar.html',
-  styleUrls: ['./navigation-bar.scss', './nav-items.scss'],
+  styleUrls: ['./nav-items.scss', './navigation-bar.scss'],
 })
 export class NavigationBar {
   readonly destinations = input.required<readonly NavDestination[]>();

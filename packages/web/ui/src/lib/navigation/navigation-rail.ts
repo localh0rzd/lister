@@ -11,7 +11,7 @@ import type { NavDestination } from './nav-destination';
   selector: 'lister-navigation-rail',
   imports: [RouterLink, RouterLinkActive, MatIcon],
   templateUrl: './navigation-rail.html',
-  styleUrls: ['./navigation-rail.scss', './nav-items.scss'],
+  styleUrls: ['./nav-items.scss', './navigation-rail.scss'],
 })
 export class NavigationRail {
   readonly destinations = input.required<readonly NavDestination[]>();
