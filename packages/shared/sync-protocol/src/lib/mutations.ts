@@ -27,6 +27,19 @@ const copyOf = z.strictObject({ from: idSchema, id: idSchema });
 /** How many rows one duplicate may copy (a packing list has dozens, not thousands). */
 export const MAX_DUPLICATE_ROWS = 2000;
 
+/** An item entering a run (start, a whole list, typed in); the client picks its id. */
+const newRunItem = z.strictObject({
+  id: idSchema,
+  title: titleSchema,
+  quantity: quantitySchema.default(''),
+  note: noteSchema.default(''),
+  /** The list it came from (flattened: the list that owns it); empty when typed in. */
+  sources: z.array(idSchema).max(50).default([]),
+});
+
+/** How many items may enter a run in one change. */
+export const MAX_RUN_ITEMS = 2000;
+
 /**
  * Mutations set values; they never toggle or increment, so a retry is harmless (design §4.2).
  * Creates carry the client's id. Lists are shown by title, so they have no `move`. Includes
@@ -75,6 +88,41 @@ export const mutationArgs = {
   'item.move': z.strictObject({ id: idSchema, position: positionSchema }),
   'item.delete': byId,
   'item.restore': byId,
+  /**
+   * Starts a run: from a list (the client flattens it and sends its items, so this works
+   * offline) or empty (ad-hoc). Identical items are merged as they enter (D16).
+   */
+  'run.start': z.strictObject({
+    id: idSchema,
+    title: titleSchema,
+    sourceListId: idSchema.nullable().default(null),
+    items: z.array(newRunItem).max(MAX_RUN_ITEMS).default([]),
+  }),
+  'run.update': z.strictObject({
+    id: idSchema,
+    patch: patch({ title: titleSchema }),
+  }),
+  /** Items typed in or a whole list (as a new section), merged as they enter (D16). */
+  'run.addItems': z.strictObject({
+    runId: idSchema,
+    items: z.array(newRunItem).min(1).max(MAX_RUN_ITEMS),
+  }),
+  'runItem.update': z.strictObject({
+    id: idSchema,
+    patch: patch({
+      title: titleSchema,
+      quantity: quantitySchema,
+      note: noteSchema,
+    }),
+  }),
+  'runItem.move': z.strictObject({ id: idSchema, position: positionSchema }),
+  'runItem.remove': byId,
+  'runItem.restore': byId,
+  /** Sets (never toggles) an item's state. */
+  'runItem.setState': z.strictObject({
+    id: idSchema,
+    state: z.enum(['unchecked', 'checked', 'skipped']),
+  }),
   'include.create': z.strictObject({
     id: idSchema,
     parentListId: idSchema,
@@ -108,6 +156,14 @@ export const mutationSchema = z.discriminatedUnion('name', [
   mutationOf('item.move'),
   mutationOf('item.delete'),
   mutationOf('item.restore'),
+  mutationOf('run.start'),
+  mutationOf('run.update'),
+  mutationOf('run.addItems'),
+  mutationOf('runItem.update'),
+  mutationOf('runItem.move'),
+  mutationOf('runItem.remove'),
+  mutationOf('runItem.restore'),
+  mutationOf('runItem.setState'),
   mutationOf('include.create'),
   mutationOf('include.move'),
   mutationOf('include.delete'),

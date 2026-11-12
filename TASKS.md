@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-019 — Run model, including ad-hoc runs
 
 - Milestone: M4 Runs
@@ -50,6 +48,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   - Unit and integration tests for each rule, including the merge cases and two people finishing and
     reopening a run at the same time.
 - Notes: Finished runs are purged by T-033.
+
+## Backlog
 
 ### T-020 — Runs UI
 

@@ -1,9 +1,9 @@
 import { eq } from 'drizzle-orm';
 import { type Database, schema } from '@lister/api/data-access-db';
-import type { Include, Item, List } from '@lister/shared/domain';
+import type { Include, Item, List, Run, RunItem } from '@lister/shared/domain';
 import type { RowStore } from '@lister/shared/sync-protocol';
 
-const { includes, items, lists } = schema;
+const { includes, items, lists, runItems, runs } = schema;
 
 /** A transaction handle (same API as the database). */
 export type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
@@ -48,6 +48,39 @@ export class SqlRowStore implements RowStore {
       .insert(items)
       .values(row)
       .onConflictDoUpdate({ target: items.id, set: row })
+      .run();
+  }
+
+  getRun(id: string): Run | undefined {
+    return this.tx.select().from(runs).where(eq(runs.id, id)).get();
+  }
+
+  getRunItem(id: string): RunItem | undefined {
+    return this.tx.select().from(runItems).where(eq(runItems.id, id)).get();
+  }
+
+  runItemsOf(runId: string): RunItem[] {
+    return this.tx
+      .select()
+      .from(runItems)
+      .where(eq(runItems.runId, runId))
+      .all();
+  }
+
+  putRun(row: Run): void {
+    this.tx
+      .insert(runs)
+      .values(row)
+      .onConflictDoUpdate({ target: runs.id, set: row })
+      .run();
+  }
+
+  putRunItem(row: RunItem): void {
+    const value = { ...row, sources: [...row.sources] }; // a JSON column
+    this.tx
+      .insert(runItems)
+      .values(value)
+      .onConflictDoUpdate({ target: runItems.id, set: value })
       .run();
   }
 

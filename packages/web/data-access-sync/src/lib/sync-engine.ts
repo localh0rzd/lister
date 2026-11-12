@@ -88,41 +88,72 @@ interface Touched {
   lists: Set<string>;
   items: Set<string>;
   includes: Set<string>;
+  runs: Set<string>;
+  runItems: Set<string>;
 }
 
 const noneTouched = (): Touched => ({
   lists: new Set(),
   items: new Set(),
   includes: new Set(),
+  runs: new Set(),
+  runItems: new Set(),
 });
 
+/** The args fields `touchedBy` reads (every mutation has some of them). */
+interface TouchingArgs {
+  id?: string;
+  listId?: string;
+  parentListId?: string;
+  childListId?: string;
+  sourceListId?: string | null;
+  runId?: string;
+  items?: { id: string; from?: string }[];
+  includes?: { id: string; from: string }[];
+}
+
+/**
+ * The rows a set of mutations writes or reads by reference, per table. Rows a rule reads by
+ * relation (all includes of the space, all items of a run) are loaded by `rebuild()` itself.
+ */
 function touchedBy(
   mutations: readonly { name: string; args: unknown }[],
   into: Touched = noneTouched(),
 ): Touched {
   for (const { name, args } of mutations) {
-    const { id, listId, parentListId, childListId } = args as Partial<
-      Record<'id' | 'listId' | 'parentListId' | 'childListId', string>
-    >;
-    if (!id) continue;
-    if (name.startsWith('list.')) into.lists.add(id);
-    else if (name.startsWith('item.')) into.items.add(id);
-    else if (name.startsWith('include.')) into.includes.add(id);
-    // A name the schema doesn't know never reaches the rules, so it touches nothing.
-    else continue;
-    for (const list of [listId, parentListId, childListId]) {
-      if (list) into.lists.add(list);
+    const a = args as TouchingArgs;
+    const family = name.slice(0, name.indexOf('.'));
+    switch (family) {
+      case 'list':
+        if (a.id) into.lists.add(a.id);
+        // list.duplicate: reads its source and writes copies of the listed rows.
+        if (a.sourceListId) into.lists.add(a.sourceListId);
+        for (const row of a.items ?? []) {
+          into.items.add(row.id);
+          if (row.from) into.items.add(row.from);
+        }
+        for (const row of a.includes ?? [])
+          into.includes.add(row.id).add(row.from);
+        break;
+      case 'item':
+        if (a.id) into.items.add(a.id);
+        if (a.listId) into.lists.add(a.listId);
+        break;
+      case 'include':
+        if (a.id) into.includes.add(a.id);
+        if (a.parentListId) into.lists.add(a.parentListId);
+        if (a.childListId) into.lists.add(a.childListId);
+        break;
+      case 'run':
+        if (a.id) into.runs.add(a.id); // run.start, run.update
+        if (a.runId) into.runs.add(a.runId); // run.addItems
+        for (const row of a.items ?? []) into.runItems.add(row.id);
+        break;
+      case 'runItem':
+        if (a.id) into.runItems.add(a.id);
+        break;
+      // A name the schema doesn't know never reaches the rules, so it touches nothing.
     }
-    // list.duplicate: reads its source and writes copies of the listed rows.
-    const copy = args as {
-      sourceListId?: string;
-      items?: { from: string; id: string }[];
-      includes?: { from: string; id: string }[];
-    };
-    if (copy.sourceListId) into.lists.add(copy.sourceListId);
-    for (const row of copy.items ?? []) into.items.add(row.from).add(row.id);
-    for (const row of copy.includes ?? [])
-      into.includes.add(row.from).add(row.id);
   }
   return into;
 }
@@ -262,6 +293,8 @@ export class SyncEngine {
             await this.db.lists.where('spaceId').equals(spaceId).toArray(),
             await this.db.items.where('spaceId').equals(spaceId).toArray(),
             await this.db.includes.where('spaceId').equals(spaceId).toArray(),
+            await this.db.runs.where('spaceId').equals(spaceId).toArray(),
+            await this.db.runItems.where('spaceId').equals(spaceId).toArray(),
           );
           const context = await this.context(spaceId);
           const outcome = applyMutation(
@@ -547,9 +580,13 @@ export class SyncEngine {
       this.db.serverLists,
       this.db.serverItems,
       this.db.serverIncludes,
+      this.db.serverRuns,
+      this.db.serverRunItems,
       this.db.lists,
       this.db.items,
       this.db.includes,
+      this.db.runs,
+      this.db.runItems,
       this.db.outbox,
       this.db.syncState,
       this.db.meta,
@@ -569,16 +606,22 @@ export class SyncEngine {
         await this.db.serverLists.where('spaceId').equals(spaceId).delete();
         await this.db.serverItems.where('spaceId').equals(spaceId).delete();
         await this.db.serverIncludes.where('spaceId').equals(spaceId).delete();
+        await this.db.serverRuns.where('spaceId').equals(spaceId).delete();
+        await this.db.serverRunItems.where('spaceId').equals(spaceId).delete();
       }
       await this.db.serverLists.bulkPut(rows.lists);
       await this.db.serverItems.bulkPut(rows.items);
       await this.db.serverIncludes.bulkPut(rows.includes);
+      await this.db.serverRuns.bulkPut(rows.runs);
+      await this.db.serverRunItems.bulkPut(rows.runItems);
       await this.db.syncState.put({ spaceId, version, lastSyncedAt: syncedAt });
 
       const touched = noneTouched();
       for (const row of rows.lists) touched.lists.add(row.id);
       for (const row of rows.items) touched.items.add(row.id);
       for (const row of rows.includes) touched.includes.add(row.id);
+      for (const row of rows.runs) touched.runs.add(row.id);
+      for (const row of rows.runItems) touched.runItems.add(row.id);
       for (const entry of await this.db.outbox
         .where('spaceId')
         .equals(spaceId)
@@ -625,18 +668,26 @@ export class SyncEngine {
     let lists: Iterable<string>;
     let items: Iterable<string>;
     let includes: Iterable<string>;
+    let runs: Iterable<string>;
+    let runItems: Iterable<string>;
     if (!touched) {
       store = new MemoryRowStore(
         await this.db.serverLists.where('spaceId').equals(spaceId).toArray(),
         await this.db.serverItems.where('spaceId').equals(spaceId).toArray(),
         serverIncludes,
+        await this.db.serverRuns.where('spaceId').equals(spaceId).toArray(),
+        await this.db.serverRunItems.where('spaceId').equals(spaceId).toArray(),
       );
       await this.db.lists.where('spaceId').equals(spaceId).delete();
       await this.db.items.where('spaceId').equals(spaceId).delete();
       await this.db.includes.where('spaceId').equals(spaceId).delete();
+      await this.db.runs.where('spaceId').equals(spaceId).delete();
+      await this.db.runItems.where('spaceId').equals(spaceId).delete();
       lists = [];
       items = [];
       includes = [];
+      runs = [];
+      runItems = [];
     } else {
       const ids = touchedBy(
         pending.map((p) => p.mutation),
@@ -644,6 +695,8 @@ export class SyncEngine {
           lists: new Set(touched.lists),
           items: new Set(touched.items),
           includes: new Set(touched.includes),
+          runs: new Set(touched.runs),
+          runItems: new Set(touched.runItems),
         },
       );
       // Ids are keys across spaces; only this space's rows take part, as in a full rebuild.
@@ -660,10 +713,35 @@ export class SyncEngine {
       const serverLists = (
         await this.db.serverLists.bulkGet([...ids.lists])
       ).filter(inSpaceOf(spaceId));
-      store = new MemoryRowStore(serverLists, serverItems, serverIncludes);
+      // The run rules read all items of a run (merging, finishing): load every item of each
+      // run concerned, and recompute them all.
+      for (const item of (
+        await this.db.serverRunItems.bulkGet([...ids.runItems])
+      ).filter(inSpaceOf(spaceId))) {
+        ids.runs.add(item.runId);
+      }
+      const serverRunItems = (
+        await this.db.serverRunItems
+          .where('runId')
+          .anyOf([...ids.runs])
+          .toArray()
+      ).filter(inSpaceOf(spaceId));
+      for (const item of serverRunItems) ids.runItems.add(item.id);
+      const serverRuns = (
+        await this.db.serverRuns.bulkGet([...ids.runs])
+      ).filter(inSpaceOf(spaceId));
+      store = new MemoryRowStore(
+        serverLists,
+        serverItems,
+        serverIncludes,
+        serverRuns,
+        serverRunItems,
+      );
       lists = ids.lists;
       items = ids.items;
       includes = ids.includes;
+      runs = ids.runs;
+      runItems = ids.runItems;
     }
 
     const context = await this.context(spaceId);
@@ -677,6 +755,10 @@ export class SyncEngine {
       await this.db.items.bulkPut([...store.items.values()].filter(inSpace));
       await this.db.includes.bulkPut(
         [...store.includes.values()].filter(inSpace),
+      );
+      await this.db.runs.bulkPut([...store.runs.values()].filter(inSpace));
+      await this.db.runItems.bulkPut(
+        [...store.runItems.values()].filter(inSpace),
       );
       return;
     }
@@ -707,6 +789,24 @@ export class SyncEngine {
     );
     await this.db.includes.bulkPut(includeChanges.put);
     await this.db.includes.bulkDelete(includeChanges.gone);
+    const runIds = [...runs];
+    const runChanges = changes(
+      spaceId,
+      runIds,
+      store.runs,
+      await this.db.runs.bulkGet(runIds),
+    );
+    await this.db.runs.bulkPut(runChanges.put);
+    await this.db.runs.bulkDelete(runChanges.gone);
+    const runItemIds = [...runItems];
+    const runItemChanges = changes(
+      spaceId,
+      runItemIds,
+      store.runItems,
+      await this.db.runItems.bulkGet(runItemIds),
+    );
+    await this.db.runItems.bulkPut(runItemChanges.put);
+    await this.db.runItems.bulkDelete(runItemChanges.gone);
   }
 
   /** Who we are and the version local predictions are based on. */

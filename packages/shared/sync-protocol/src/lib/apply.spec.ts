@@ -43,6 +43,8 @@ describe('applyMutation (shared by server and client)', () => {
       lists: [id],
       items: [],
       includes: [],
+      runs: [],
+      runItems: [],
     });
     expect(store.getList(id)).toEqual({
       id,
@@ -211,6 +213,8 @@ describe('includes', () => {
       lists: [],
       items: [],
       includes: [id],
+      runs: [],
+      runItems: [],
     });
     expect(store.getInclude(id)).toMatchObject({
       parentListId: ids.Trip,
@@ -429,6 +433,8 @@ describe('list.duplicate', () => {
       lists: [copy],
       items: [stoveCopy, tentCopy],
       includes: [includeCopy],
+      runs: [],
+      runItems: [],
     });
     expect(s.store.getList(copy)).toMatchObject({
       title: 'Copy of Camping',
@@ -523,6 +529,308 @@ describe('list.duplicate', () => {
       lists: [copy],
       items: [],
       includes: [],
+      runs: [],
+      runItems: [],
     });
+  });
+});
+
+describe('runs', () => {
+  const basic = newId();
+  const camping = newId();
+  const entry = (
+    title: string,
+    extra: { quantity?: string; note?: string; sources?: string[] } = {},
+  ) => ({ id: newId(), title, ...extra });
+
+  function start(items: ReturnType<typeof entry>[], version = 1) {
+    const store = new MemoryRowStore();
+    const runId = newId();
+    const outcome = apply(
+      store,
+      'run.start',
+      { id: runId, title: 'Alps', sourceListId: basic, items },
+      version,
+    );
+    const titles = () =>
+      [...store.runItems.values()]
+        .filter((item) => item.deletedAt === null)
+        .sort((a, b) => (a.position < b.position ? -1 : 1))
+        .map((item) => `${item.title}×${item.quantity || 1}`);
+    return { store, runId, outcome, titles };
+  }
+
+  it('starts a run with its items in order, unchecked', () => {
+    const tent = entry('Tent', { sources: [camping] });
+    const map = entry('Map', { sources: [basic] });
+    const run = start([tent, map]);
+
+    expect(run.outcome).toEqual(
+      expect.objectContaining({
+        runs: [run.runId],
+        runItems: [tent.id, map.id],
+      }),
+    );
+    expect(run.store.getRun(run.runId)).toMatchObject({
+      title: 'Alps',
+      sourceListId: basic,
+      finishedAt: null,
+      createdBy: USER,
+    });
+    expect(run.store.getRunItem(tent.id)).toMatchObject({
+      runId: run.runId,
+      state: 'unchecked',
+      sources: [camping],
+      stateBy: null,
+    });
+    expect(run.titles()).toEqual(['Tent×1', 'Map×1']);
+  });
+
+  it('starts an empty ad-hoc run', () => {
+    const store = new MemoryRowStore();
+    const id = newId();
+    apply(store, 'run.start', { id, title: 'Groceries' });
+    expect(store.getRun(id)).toMatchObject({
+      sourceListId: null,
+      finishedAt: null,
+    });
+  });
+
+  it('merges identical items as they enter (D16): larger quantity, joined notes, every source', () => {
+    const run = start([
+      entry('Headlamp', { sources: [basic] }),
+      entry(' headlamp ', {
+        quantity: '2',
+        note: 'spare batteries',
+        sources: [camping],
+      }),
+      entry('Socks', { quantity: '2 pairs', sources: [basic] }),
+      entry('SOCKS', { quantity: '1 pair', sources: [camping] }),
+    ]);
+
+    const items = [...run.store.runItems.values()];
+    expect(items).toHaveLength(2);
+    expect(items.find((i) => i.title === 'Headlamp')).toMatchObject({
+      quantity: '2',
+      note: 'spare batteries',
+      sources: [basic, camping],
+    });
+    expect(items.find((i) => i.title === 'Socks')).toMatchObject({
+      quantity: '2 pairs, 1 pair',
+    });
+  });
+
+  it('merges a typed-in item and a whole added list into existing items, appending the rest', () => {
+    const run = start([entry('Tent', { sources: [camping] })]);
+    const milk = entry('Milk');
+    apply(
+      run.store,
+      'run.addItems',
+      { runId: run.runId, items: [entry('tent'), milk] },
+      2,
+    );
+    const toiletries = newId();
+    apply(
+      run.store,
+      'run.addItems',
+      {
+        runId: run.runId,
+        items: [
+          entry('Soap', { sources: [toiletries] }),
+          entry('Milk', { quantity: '2', sources: [toiletries] }),
+        ],
+      },
+      3,
+    );
+
+    expect(run.titles()).toEqual(['Tent×1', 'Milk×2', 'Soap×1']);
+    expect(run.store.getRunItem(milk.id)).toMatchObject({
+      sources: [toiletries],
+    });
+  });
+
+  it('unchecks a checked item when a merge raises its quantity, and reopens the run', () => {
+    const tent = entry('Tent', { sources: [camping] });
+    const run = start([tent]);
+    apply(run.store, 'runItem.setState', { id: tent.id, state: 'checked' }, 2);
+    expect(run.store.getRun(run.runId)?.finishedAt).toBe(2000);
+
+    const outcome = apply(
+      run.store,
+      'run.addItems',
+      {
+        runId: run.runId,
+        items: [entry('Tent', { quantity: '2', sources: [basic] })],
+      },
+      3,
+    );
+
+    expect(run.store.getRunItem(tent.id)).toMatchObject({
+      state: 'unchecked',
+      quantity: '2',
+    });
+    expect(run.store.getRun(run.runId)?.finishedAt).toBeNull();
+    expect(outcome).toEqual(
+      expect.objectContaining({ runs: [run.runId], runItems: [tent.id] }),
+    );
+  });
+
+  it('finishes while every item is checked or skipped, and reopens on uncheck or a new item', () => {
+    const [a, b] = [entry('A'), entry('B')];
+    const run = start([a, b]);
+    const finishedAt = () => run.store.getRun(run.runId)?.finishedAt;
+
+    apply(run.store, 'runItem.setState', { id: a.id, state: 'checked' }, 2);
+    expect(finishedAt()).toBeNull();
+    const last = apply(
+      run.store,
+      'runItem.setState',
+      { id: b.id, state: 'skipped' },
+      3,
+    );
+    expect(finishedAt()).toBe(3000);
+    expect(last).toEqual(
+      expect.objectContaining({ runs: [run.runId], runItems: [b.id] }),
+    );
+    expect(run.store.getRunItem(b.id)).toMatchObject({
+      stateBy: USER,
+      stateAt: 3000,
+    });
+
+    apply(run.store, 'runItem.setState', { id: a.id, state: 'unchecked' }, 4);
+    expect(finishedAt()).toBeNull();
+    apply(run.store, 'runItem.setState', { id: a.id, state: 'checked' }, 5);
+    expect(finishedAt()).toBe(5000);
+    apply(
+      run.store,
+      'run.addItems',
+      { runId: run.runId, items: [entry('C')] },
+      6,
+    );
+    expect(finishedAt()).toBeNull();
+    // Removing the only unchecked item finishes it again.
+    const c = [...run.store.runItems.values()].find((i) => i.title === 'C');
+    apply(run.store, 'runItem.remove', { id: c?.id }, 7);
+    expect(finishedAt()).toBe(7000);
+  });
+
+  it('sets, never toggles: setting the same state again changes nothing', () => {
+    const a = entry('A');
+    const run = start([a, entry('B')]);
+    apply(run.store, 'runItem.setState', { id: a.id, state: 'checked' }, 2);
+    expect(
+      apply(run.store, 'runItem.setState', { id: a.id, state: 'checked' }, 3),
+    ).toEqual({
+      kind: 'unchanged',
+    });
+    expect(run.store.getRunItem(a.id)).toMatchObject({
+      state: 'checked',
+      version: 2,
+    });
+  });
+
+  it('edits, moves, removes and restores items; a removed item wins over later changes', () => {
+    const a = entry('A');
+    const run = start([a, entry('B')]);
+    apply(
+      run.store,
+      'runItem.update',
+      { id: a.id, patch: { quantity: '3', note: 'big' } },
+      2,
+    );
+    apply(run.store, 'runItem.move', { id: a.id, position: 'a5' }, 3);
+    expect(run.titles()).toEqual(['B×1', 'A×3']);
+    apply(run.store, 'runItem.remove', { id: a.id }, 4);
+    expect(
+      apply(run.store, 'runItem.setState', { id: a.id, state: 'checked' }, 5),
+    ).toEqual({
+      kind: 'unchanged',
+    });
+    apply(run.store, 'runItem.restore', { id: a.id }, 6);
+    expect(run.store.getRunItem(a.id)).toMatchObject({
+      deletedAt: null,
+      state: 'unchecked',
+    });
+  });
+
+  it('renames a run', () => {
+    const run = start([]);
+    apply(
+      run.store,
+      'run.update',
+      { id: run.runId, patch: { title: 'Alps 2027' } },
+      2,
+    );
+    expect(run.store.getRun(run.runId)).toMatchObject({
+      title: 'Alps 2027',
+      version: 2,
+    });
+  });
+
+  it('is idempotent by run id and rejects unknown runs and items', () => {
+    const tent = entry('Tent');
+    const run = start([tent]);
+    expect(
+      apply(
+        run.store,
+        'run.start',
+        { id: run.runId, title: 'Again', items: [entry('X')] },
+        2,
+      ),
+    ).toEqual({ kind: 'unchanged' });
+    expect(
+      apply(run.store, 'run.addItems', { runId: newId(), items: [entry('X')] }),
+    ).toEqual({
+      kind: 'rejected',
+      reason: "This run doesn't exist",
+    });
+    expect(
+      apply(run.store, 'runItem.setState', { id: newId(), state: 'checked' }),
+    ).toEqual({
+      kind: 'rejected',
+      reason: "This item isn't in the run",
+    });
+    // Another run already has this item id.
+    expect(
+      apply(
+        run.store,
+        'run.start',
+        { id: newId(), title: 'B', items: [{ ...tent }] },
+        3,
+      ),
+    ).toEqual({ kind: 'rejected', reason: 'This item already exists' });
+  });
+
+  it("doesn't touch the lists it was started from", () => {
+    const store = new MemoryRowStore();
+    const listId = newId();
+    apply(store, 'list.create', { id: listId, title: 'Camping' });
+    const itemId = newId();
+    apply(store, 'item.create', {
+      id: itemId,
+      listId,
+      title: 'Tent',
+      position: 'a0',
+    });
+    const runId = newId();
+    apply(
+      store,
+      'run.start',
+      {
+        id: runId,
+        title: 'Alps',
+        sourceListId: listId,
+        items: [{ id: newId(), title: 'Tent', sources: [listId] }],
+      },
+      2,
+    );
+    apply(
+      store,
+      'item.update',
+      { id: itemId, patch: { title: 'Big tent' } },
+      3,
+    );
+
+    expect([...store.runItems.values()].map((i) => i.title)).toEqual(['Tent']);
   });
 });

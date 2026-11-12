@@ -10,7 +10,8 @@ import {
 import { CLOCK, type Clock } from './clock';
 import { SqlRowStore } from './sql-row-store';
 
-const { includes, items, lists, processedMutations, spaces } = schema;
+const { includes, items, lists, processedMutations, runItems, runs, spaces } =
+  schema;
 
 /** The answer to one pushed mutation. */
 export type MutationResult =
@@ -31,7 +32,13 @@ export interface MutationContext {
   clientId?: string;
 }
 
-const noRows = (): RowSet => ({ lists: [], items: [], includes: [] });
+const noRows = (): RowSet => ({
+  lists: [],
+  items: [],
+  includes: [],
+  runs: [],
+  runItems: [],
+});
 
 type StoredResult = { version: number } | { reason: string };
 
@@ -157,6 +164,16 @@ export class MutationService {
               .select()
               .from(includes)
               .where(inArray(includes.id, outcome.includes))
+              .all()
+          : [],
+        runs: outcome.runs?.length
+          ? tx.select().from(runs).where(inArray(runs.id, outcome.runs)).all()
+          : [],
+        runItems: outcome.runItems?.length
+          ? tx
+              .select()
+              .from(runItems)
+              .where(inArray(runItems.id, outcome.runItems))
               .all()
           : [],
       };

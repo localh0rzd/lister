@@ -123,6 +123,10 @@ class FakeServer {
           includes: [...this.store.includes.values()].filter(
             (r) => r.version > from,
           ),
+          runs: [...this.store.runs.values()].filter((r) => r.version > from),
+          runItems: [...this.store.runItems.values()].filter(
+            (r) => r.version > from,
+          ),
         },
       });
     } else if (event === 'push') {
@@ -164,6 +168,10 @@ class FakeServer {
         items: result.items.flatMap((id) => this.store.items.get(id) ?? []),
         includes: result.includes.flatMap(
           (id) => this.store.includes.get(id) ?? [],
+        ),
+        runs: result.runs.flatMap((id) => this.store.runs.get(id) ?? []),
+        runItems: result.runItems.flatMap(
+          (id) => this.store.runItems.get(id) ?? [],
         ),
       };
       if (this.connected)
@@ -312,7 +320,7 @@ describe('SyncEngine', () => {
       expect(
         (
           server.sent('push')[0] as { mutations: MutationInput[] }
-        ).mutations.map((m) => m.args.id),
+        ).mutations.map((m) => (m.args as { id: string }).id),
       ).toEqual([first, second]);
       expect(engine.online()).toBe(true);
     });
@@ -715,6 +723,89 @@ describe('SyncEngine', () => {
         listId: copy,
         title: 'Big tent',
       });
+    });
+  });
+
+  describe('runs', () => {
+    async function startRun(titles: string[]) {
+      const runId = newId();
+      const items = titles.map((title) => ({ id: newId(), title }));
+      expect(
+        await engine.mutate({
+          spaceId: SPACE,
+          name: 'run.start',
+          args: { id: runId, title: 'Shop', items },
+        }),
+      ).toEqual({ ok: true });
+      return { runId, ids: items.map((i) => i.id) };
+    }
+
+    it('starts a run offline and shows its merged items at once', async () => {
+      setup({ leader: false });
+      engine.start();
+      const runId = newId();
+      await engine.mutate({
+        spaceId: SPACE,
+        name: 'run.start',
+        args: {
+          id: runId,
+          title: 'Shop',
+          items: [
+            { id: newId(), title: 'Milk' },
+            { id: newId(), title: 'milk', quantity: '2' },
+          ],
+        },
+      });
+
+      expect(await db.runs.get(runId)).toMatchObject({ title: 'Shop' });
+      const items = await db.runItems.where('runId').equals(runId).toArray();
+      expect(items.map((i) => [i.title, i.quantity])).toEqual([['Milk', '2']]);
+      expect(await outbox()).toHaveLength(1);
+    });
+
+    it("finishes a run locally when another person's check of the last item arrives", async () => {
+      setup();
+      engine.start();
+      await settle();
+      const { runId, ids } = await startRun(['Milk', 'Bread']);
+      await settle();
+      server.autoAnswer = false;
+      // My check is still pending when Ben checks the other item.
+      await engine.mutate({
+        spaceId: SPACE,
+        name: 'runItem.setState',
+        args: { id: ids[0], state: 'checked' },
+      });
+      expect((await db.runs.get(runId))?.finishedAt).toBeNull();
+
+      server.otherClient('runItem.setState', { id: ids[1], state: 'checked' });
+      await settle();
+      // Rebased: Ben's check (server) plus mine (pending) finish the run here already.
+      expect((await db.runs.get(runId))?.finishedAt).not.toBeNull();
+
+      server.answerPushes();
+      await settle();
+      expect((await db.serverRuns.get(runId))?.finishedAt).not.toBeNull();
+      expect(await outbox()).toEqual([]);
+    });
+
+    it('reopens when an item is added to a finished run', async () => {
+      setup({ leader: false });
+      engine.start();
+      const { runId, ids } = await startRun(['Milk']);
+      await engine.mutate({
+        spaceId: SPACE,
+        name: 'runItem.setState',
+        args: { id: ids[0], state: 'checked' },
+      });
+      expect((await db.runs.get(runId))?.finishedAt).not.toBeNull();
+
+      await engine.mutate({
+        spaceId: SPACE,
+        name: 'run.addItems',
+        args: { runId, items: [{ id: newId(), title: 'Eggs' }] },
+      });
+      expect((await db.runs.get(runId))?.finishedAt).toBeNull();
     });
   });
 

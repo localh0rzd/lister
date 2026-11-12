@@ -20,6 +20,28 @@ describe('mutationSchema', () => {
       { name: 'item.delete', args: { id } },
       { name: 'item.restore', args: { id } },
       {
+        name: 'run.start',
+        args: {
+          id,
+          title: 'Alps',
+          sourceListId: newId(),
+          items: [{ id: newId(), title: 'Tent', sources: [newId()] }],
+        },
+      },
+      { name: 'run.update', args: { id, patch: { title: 'Alps 2027' } } },
+      {
+        name: 'run.addItems',
+        args: {
+          runId: id,
+          items: [{ id: newId(), title: 'Milk', quantity: '2' }],
+        },
+      },
+      { name: 'runItem.update', args: { id, patch: { note: 'cold' } } },
+      { name: 'runItem.move', args: { id, position: 'a1' } },
+      { name: 'runItem.remove', args: { id } },
+      { name: 'runItem.restore', args: { id } },
+      { name: 'runItem.setState', args: { id, state: 'skipped' } },
+      {
         name: 'list.duplicate',
         args: {
           id,

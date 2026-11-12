@@ -72,11 +72,15 @@ async function helloed(origin?: string) {
   return { client, welcome: await welcome };
 }
 
-const mutation = (
-  name: MutationInput['name'],
-  args: Record<string, unknown>,
-): MutationInput =>
-  ({ mutationId: newId(), spaceId: DEV_SPACE_ID, name, args }) as MutationInput;
+/** A mutation for the dev space, typed by its name. */
+const mutation = <N extends MutationInput['name']>(
+  name: N,
+  args: Extract<MutationInput, { name: N }>['args'],
+) =>
+  ({ mutationId: newId(), spaceId: DEV_SPACE_ID, name, args }) as Extract<
+    MutationInput,
+    { name: N }
+  >;
 
 describe('sync gateway', () => {
   describe('handshake', () => {
@@ -415,6 +419,171 @@ describe('sync gateway', () => {
         ['Camping 2', 3],
         ['Hiking', 2],
       ]);
+    });
+  });
+
+  describe('runs', () => {
+    function answerFor(client: Client, sent: MutationInput) {
+      return new Promise<Payload<'ack'> | Payload<'reject'>>((resolve) => {
+        const mine = (payload: Payload<'ack'> | Payload<'reject'>) =>
+          payload.mutationId === sent.mutationId && resolve(payload);
+        client.on('ack', mine);
+        client.on('reject', mine);
+      });
+    }
+    async function push(client: Client, ...mutations: MutationInput[]) {
+      const answers = mutations.map((m) => answerFor(client, m));
+      client.emit('push', { mutations });
+      return Promise.all(answers);
+    }
+
+    it('starts a run with merged items and pokes it to the other member', async () => {
+      const anna = await helloed();
+      const ben = await helloed();
+      const pokes = collect(ben.client, 'poke');
+      const runId = newId();
+      const [basic, camping] = [newId(), newId()];
+
+      const [answer] = await push(
+        anna.client,
+        mutation('run.start', {
+          id: runId,
+          title: 'Alps',
+          sourceListId: basic,
+          items: [
+            { id: newId(), title: 'Headlamp', sources: [basic] },
+            {
+              id: newId(),
+              title: 'headlamp',
+              quantity: '2',
+              sources: [camping],
+            },
+            { id: newId(), title: 'Map', sources: [basic] },
+          ],
+        }),
+      );
+
+      expect(answer).toMatchObject({ version: 1 });
+      await vi.waitFor(() => expect(pokes).toHaveLength(1));
+      expect(pokes[0].rows.runs).toEqual([
+        expect.objectContaining({ id: runId, title: 'Alps', finishedAt: null }),
+      ]);
+      expect(
+        pokes[0].rows.runItems.map((item) => [
+          item.title,
+          item.quantity,
+          item.sources,
+        ]),
+      ).toEqual([
+        ['Headlamp', '2', [basic, camping]],
+        ['Map', '', [basic]],
+      ]);
+    });
+
+    it('finishes when the last item is checked, in the same change, and reopens on uncheck', async () => {
+      const { client } = await helloed();
+      const runId = newId();
+      const [a, b] = [newId(), newId()];
+      await push(
+        client,
+        mutation('run.start', {
+          id: runId,
+          title: 'Shop',
+          items: [
+            { id: a, title: 'Milk' },
+            { id: b, title: 'Bread' },
+          ],
+        }),
+      );
+      const pokes = collect((await helloed()).client, 'poke');
+
+      await push(
+        client,
+        mutation('runItem.setState', { id: a, state: 'checked' }),
+      );
+      await push(
+        client,
+        mutation('runItem.setState', { id: b, state: 'skipped' }),
+      );
+      await vi.waitFor(() => expect(pokes).toHaveLength(2));
+      // The last check carries the finished run in the same poke (same version).
+      expect(pokes[1].rows.runItems.map((i) => i.id)).toEqual([b]);
+      expect(pokes[1].rows.runs).toEqual([
+        expect.objectContaining({
+          id: runId,
+          finishedAt: expect.any(Number),
+          version: 3,
+        }),
+      ]);
+
+      await push(
+        client,
+        mutation('runItem.setState', { id: a, state: 'unchecked' }),
+      );
+      await vi.waitFor(() => expect(pokes).toHaveLength(3));
+      expect(pokes[2].rows.runs).toEqual([
+        expect.objectContaining({ id: runId, finishedAt: null }),
+      ]);
+    });
+
+    it('two people finishing and reopening at the same time end in one consistent state', async () => {
+      const anna = await helloed();
+      const ben = await helloed();
+      const runId = newId();
+      const [a, b] = [newId(), newId()];
+      await push(
+        anna.client,
+        mutation('run.start', {
+          id: runId,
+          title: 'Shop',
+          items: [
+            { id: a, title: 'Milk' },
+            { id: b, title: 'Bread' },
+          ],
+        }),
+      );
+      await push(
+        anna.client,
+        mutation('runItem.setState', { id: a, state: 'checked' }),
+      );
+
+      // At the same moment: Anna checks the last item (finishing the run) while Ben, who hasn't
+      // seen it yet, unchecks the other one (reopening it).
+      const [annaAnswer, benAnswer] = await Promise.all([
+        push(
+          anna.client,
+          mutation('runItem.setState', { id: b, state: 'checked' }),
+        ),
+        push(
+          ben.client,
+          mutation('runItem.setState', { id: a, state: 'unchecked' }),
+        ),
+      ]);
+      expect(annaAnswer[0]).toHaveProperty('version');
+      expect(benAnswer[0]).toHaveProperty('version');
+
+      // Whatever the order, the stored run agrees with its items.
+      const rows = next(ben.client, 'rows');
+      ben.client.emit('pull', { spaceId: DEV_SPACE_ID, since: 0 });
+      const snapshot = await rows;
+      const items = snapshot.rows.runItems.filter((i) => i.runId === runId);
+      const run = snapshot.rows.runs.find((r) => r.id === runId);
+      const allDone = items.every((i) => i.state !== 'unchecked');
+      expect(run?.finishedAt !== null).toBe(allDone);
+      expect(items.find((i) => i.id === a)?.state).toBe('unchecked');
+      expect(run?.finishedAt).toBeNull();
+    });
+
+    it('refuses changes to items of a run that does not exist', async () => {
+      const { client } = await helloed();
+      const [answer] = await push(
+        client,
+        mutation('run.addItems', {
+          runId: newId(),
+          items: [{ id: newId(), title: 'Milk' }],
+        }),
+      );
+      expect(answer).toMatchObject({ reason: "This run doesn't exist" });
     });
   });
 

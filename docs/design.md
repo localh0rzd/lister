@@ -374,7 +374,9 @@ surrounding spaces. The merged item:
 - lists every source list, and appears in the section of the first one;
 - is unchecked again if the merge raised the quantity of an item that was already checked.
 
-The merge rule is one shared pure function, like flattening.
+The merge rule is one shared pure function, like flattening. Run mutations (`run.start`,
+`run.addItems`) carry the items in order; the shared rule merges them and appends the rest after
+the run's last item, so every client computes the same positions.
 
 **Finishing:** a run counts as finished while every item is checked or skipped and it has at least
 one item. The server recomputes this in the same transaction as every run-item change, and clients

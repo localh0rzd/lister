@@ -189,7 +189,13 @@ describe('MutationService', () => {
         status: 'ack',
         version: 2,
       });
-      expect(applied.rows).toEqual({ lists: [], items: [], includes: [] });
+      expect(applied.rows).toEqual({
+        lists: [],
+        items: [],
+        includes: [],
+        runs: [],
+        runItems: [],
+      });
       expect(spaceVersion()).toBe(2);
       expect(listRow(id)).toMatchObject({
         title: 'Camping',
@@ -299,6 +305,8 @@ describe('MutationService', () => {
         lists: [],
         items: [itemRow(id)],
         includes: [],
+        runs: [],
+        runItems: [],
       });
       expect(applied.rows.items[0]).toMatchObject({
         position: 'a5',
@@ -324,7 +332,13 @@ describe('MutationService', () => {
       );
 
       expect(again.result).toEqual(first.result);
-      expect(again.rows).toEqual({ lists: [], items: [], includes: [] });
+      expect(again.rows).toEqual({
+        lists: [],
+        items: [],
+        includes: [],
+        runs: [],
+        runItems: [],
+      });
       expect(spaceVersion()).toBe(1);
     });
 
@@ -551,6 +565,8 @@ describe('includes', () => {
       lists: [],
       items: [],
       includes: [includeRow(id)],
+      runs: [],
+      runItems: [],
     });
   });
 

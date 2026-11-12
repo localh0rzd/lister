@@ -1,6 +1,13 @@
 import { InjectionToken } from '@angular/core';
 import { Dexie, type EntityTable, type Table } from 'dexie';
-import type { Include, Item, List, Space } from '@lister/shared/domain';
+import type {
+  Include,
+  Item,
+  List,
+  Run,
+  RunItem,
+  Space,
+} from '@lister/shared/domain';
 import type { MutationInput } from '@lister/shared/sync-protocol';
 
 /** A mutation waiting to be pushed, in the order it was made (`seq`). */
@@ -70,7 +77,7 @@ export interface MetaEntry {
  * Every server schema change (a Drizzle migration) comes with a new `this.version(n)` here, in
  * the same change (CLAUDE.md). Version 1 matches server migrations 0000–0001; version 2 adds the
  * client-only `rejections` table; version 3 indexes spaces by name; version 4 matches migration
- * 0002 (includes) and forces a snapshot. Tombstones are
+ * 0002 (includes) and version 5 migration 0003 (runs); both force a snapshot. Tombstones are
  * stored like other rows; queries leave them out (`deletedAt` can't be indexed while it's null).
  */
 export class LocalDb extends Dexie {
@@ -81,6 +88,10 @@ export class LocalDb extends Dexie {
   serverLists!: EntityTable<List, 'id'>;
   serverItems!: EntityTable<Item, 'id'>;
   serverIncludes!: EntityTable<Include, 'id'>;
+  runs!: EntityTable<Run, 'id'>;
+  runItems!: EntityTable<RunItem, 'id'>;
+  serverRuns!: EntityTable<Run, 'id'>;
+  serverRunItems!: EntityTable<RunItem, 'id'>;
   outbox!: EntityTable<OutboxEntry, 'seq'>;
   syncState!: Table<SyncState, string>;
   meta!: Table<MetaEntry, string>;
@@ -108,6 +119,15 @@ export class LocalDb extends Dexie {
       .stores({
         includes: 'id, spaceId, parentListId, childListId',
         serverIncludes: 'id, spaceId, parentListId, childListId',
+      })
+      .upgrade((tx) => tx.table('syncState').clear());
+    // Server migration 0003: runs. A new synced table again: snapshot on the next pull.
+    this.version(5)
+      .stores({
+        runs: 'id, spaceId',
+        runItems: 'id, spaceId, runId',
+        serverRuns: 'id, spaceId',
+        serverRunItems: 'id, spaceId, runId',
       })
       .upgrade((tx) => tx.table('syncState').clear());
   }

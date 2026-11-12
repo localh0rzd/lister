@@ -109,8 +109,8 @@ satisfies z.ZodType<Entity>`, tolerant (`z.object`, not `strictObject`): it's wh
     `this.version(n).stores({...}).upgrade((tx) => tx.table('syncState').clear())`. Test it in
     `local-db.spec.ts` (open the old version with data, then the new one: `syncState` is empty,
     `outbox` isn't).
-- **Engine** (`src/lib/sync-engine.ts`), new table only — it names lists, items and includes
-  explicitly, and nothing fails to compile if you miss a place (includes, T-015, are the
+- **Engine** (`src/lib/sync-engine.ts`), new table only — it names lists, items, includes, runs and
+  run items explicitly, and nothing fails to compile if you miss a place (includes, T-015, are the
   example with references and a relation):
   - `mutate()`: load the new visible table into the `MemoryRowStore` it predicts with,
     otherwise the rule can't find the row and refuses the change locally;
@@ -121,11 +121,11 @@ satisfies z.ZodType<Entity>`, tolerant (`z.object`, not `strictObject`): it's wh
     `MemoryRowStore` and write the visible rows back (`changes()`). The incremental path also
     loads rows the rules reach through references (each touched item's list, each touched
     include's parent and child lists); add the new table's. For a rule that reads by relation,
-    load that whole relation for the space (every include of the space is always loaded, for
-    the loop check);
+    load that whole relation (every include of the space, for the loop check; every item of each
+    run concerned, for merging and finishing);
   - `touchedBy()`: map the new mutation prefix to its table (`list.`, `item.`, `include.`) and
-    read its reference arguments (now `listId`, `parentListId`, `childListId`); an unknown
-    prefix touches nothing;
+    read its reference arguments (a `case` per mutation family: `list`, `item`, `include`,
+    `run`, `runItem`); an unknown family touches nothing;
   - its spec (`sync-engine.spec.ts`, fake socket + fake-indexeddb): local apply, ack, poke,
     reject rolls back, rebase.
 - **Reads:** a method on `Repositories` (`src/lib/repositories.ts`) returning

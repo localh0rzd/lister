@@ -54,3 +54,34 @@ export interface Include extends SyncMetadata {
   /** Fractional-index key, in the same key space as the parent's items. */
   readonly position: string;
 }
+
+/**
+ * A run: one use of a list, or an ad-hoc checklist (D1, D10). It owns copies of its items, so
+ * editing a list never changes it. `finishedAt` is set while every item is checked or skipped
+ * (and there is at least one); finished runs are shown nowhere.
+ */
+export interface Run extends SyncMetadata {
+  readonly title: string;
+  /** The list it was started from; `null` for an ad-hoc run. */
+  readonly sourceListId: Id | null;
+  readonly finishedAt: Timestamp | null;
+}
+
+export type RunItemState = 'unchecked' | 'checked' | 'skipped';
+
+/** An item of a run: a copy, merged with identical items (D16). */
+export interface RunItem extends SyncMetadata {
+  readonly runId: Id;
+  readonly title: string;
+  /** Free text; empty means 1 (D6). */
+  readonly quantity: string;
+  readonly note: string;
+  /** Fractional-index key within the run. */
+  readonly position: string;
+  /** The lists it came from, in order; the first decides its section. Empty when typed in. */
+  readonly sources: Id[];
+  readonly state: RunItemState;
+  /** Who last set `state`, and when (`null` while never set). */
+  readonly stateBy: Id | null;
+  readonly stateAt: Timestamp | null;
+}

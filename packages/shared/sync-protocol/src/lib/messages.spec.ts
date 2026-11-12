@@ -166,12 +166,12 @@ describe('socket messages', () => {
       version: 1,
       snapshot: false,
       futureFlag: true,
-      rows: { lists: [{ ...list(), icon: 'hiking' }], items: [], runs: [] },
+      rows: { lists: [{ ...list(), icon: 'hiking' }], items: [], trips: [] },
     });
 
     expect(result.success).toBe(true);
     expect(result.data).not.toHaveProperty('futureFlag');
-    expect(result.data?.rows).not.toHaveProperty('runs');
+    expect(result.data?.rows).not.toHaveProperty('trips');
     expect(result.data?.rows.lists[0]).not.toHaveProperty('icon');
     expect(
       welcomeSchema.safeParse({ userId: newId(), spaces: [], isAdmin: true })

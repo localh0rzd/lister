@@ -4,7 +4,7 @@ import { DatabaseConnection, schema } from '@lister/api/data-access-db';
 import type { Space } from '@lister/shared/domain';
 import type { Rows } from '@lister/shared/sync-protocol';
 
-const { includes, items, lists, spaces } = schema;
+const { includes, items, lists, runItems, runs, spaces } = schema;
 
 /** Reads for the sync protocol: the user's spaces, and the rows a client needs to catch up. */
 @Injectable()
@@ -35,8 +35,13 @@ export class SyncReader {
       if (!space) return undefined;
       const snapshot = since === 0 || since > space.version;
       const from = snapshot ? 0 : since;
-      const changed = <T extends typeof lists | typeof items | typeof includes>(
-        table: T,
+      const changed = (
+        table:
+          | typeof lists
+          | typeof items
+          | typeof includes
+          | typeof runs
+          | typeof runItems,
       ) => and(eq(table.spaceId, spaceId), gt(table.version, from));
       return {
         spaceId,
@@ -46,6 +51,8 @@ export class SyncReader {
           lists: tx.select().from(lists).where(changed(lists)).all(),
           items: tx.select().from(items).where(changed(items)).all(),
           includes: tx.select().from(includes).where(changed(includes)).all(),
+          runs: tx.select().from(runs).where(changed(runs)).all(),
+          runItems: tx.select().from(runItems).where(changed(runItems)).all(),
         },
       };
     });

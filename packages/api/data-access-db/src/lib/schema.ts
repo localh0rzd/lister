@@ -83,6 +83,49 @@ export const includes = sqliteTable(
   ],
 );
 
+/** A run: one use of a list, or an ad-hoc checklist (D1, D10). */
+export const runs = sqliteTable(
+  'runs',
+  {
+    ...syncColumns,
+    title: text('title').notNull(),
+    // No foreign key: the source list may be purged while the run lives on.
+    sourceListId: text('source_list_id'),
+    finishedAt: integer('finished_at'),
+  },
+  (table) => [index('runs_space_version').on(table.spaceId, table.version)],
+);
+
+/** A run's items: copies, merged when identical (D16), with their check state. */
+export const runItems = sqliteTable(
+  'run_items',
+  {
+    ...syncColumns,
+    runId: text('run_id')
+      .notNull()
+      .references(() => runs.id),
+    title: text('title').notNull(),
+    quantity: text('quantity').notNull().default(''),
+    note: text('note').notNull().default(''),
+    position: text('position').notNull(),
+    /** JSON array of list ids; the first decides the item's section. */
+    sources: text('sources', { mode: 'json' })
+      .$type<string[]>()
+      .notNull()
+      .default([]),
+    state: text('state', { enum: ['unchecked', 'checked', 'skipped'] })
+      .notNull()
+      .default('unchecked'),
+    stateBy: text('state_by'),
+    stateAt: integer('state_at'),
+  },
+  (table) => [
+    index('run_items_space_version').on(table.spaceId, table.version),
+    // Merging and the finished check read a run's items.
+    index('run_items_run').on(table.runId),
+  ],
+);
+
 /**
  * The answer to every mutation the server has handled, so a retried mutation id gets the same
  * answer without being applied twice.
