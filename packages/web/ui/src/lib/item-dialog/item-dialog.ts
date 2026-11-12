@@ -65,7 +65,7 @@ export interface ItemDialogData extends ItemFields {
         @if (item.notice) {
           <p class="notice">{{ item.notice }}</p>
         }
-        <mat-form-field>
+        <mat-form-field subscriptSizing="dynamic">
           <mat-label>Title</mat-label>
           <input matInput [formField]="itemForm.title" cdkFocusInitial />
           @if (
@@ -75,7 +75,7 @@ export interface ItemDialogData extends ItemFields {
             <mat-error>{{ error.message }}</mat-error>
           }
         </mat-form-field>
-        <mat-form-field>
+        <mat-form-field subscriptSizing="dynamic">
           <mat-label>Quantity</mat-label>
           <input matInput [formField]="itemForm.quantity" placeholder="1" />
           <mat-hint>Free text, e.g. 2 pairs or 500 g. Empty means 1.</mat-hint>
@@ -86,7 +86,7 @@ export interface ItemDialogData extends ItemFields {
             <mat-error>{{ error.message }}</mat-error>
           }
         </mat-form-field>
-        <mat-form-field>
+        <mat-form-field subscriptSizing="dynamic">
           <mat-label>Note</mat-label>
           <textarea matInput [formField]="itemForm.note" rows="3"></textarea>
           @if (
@@ -112,7 +112,9 @@ export interface ItemDialogData extends ItemFields {
       display: flex;
       flex-direction: column;
       gap: 8px;
-      min-width: min(360px, 75vw);
+      /* Wide enough for the quantity hint on one line; narrower screens wrap it. */
+      width: min(480px, calc(100vw - 96px));
+      box-sizing: border-box;
     }
   `,
 })

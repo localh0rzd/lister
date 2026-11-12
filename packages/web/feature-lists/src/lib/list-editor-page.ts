@@ -138,7 +138,27 @@ export class ListEditorPage {
   /** Sections the user folded (by include id); they start open. */
   protected readonly collapsed = signal<ReadonlySet<string>>(new Set());
 
+  /**
+   * The order a move (drag or Move up / down) asked for, shown until the local data has it.
+   * Without it, the dragged row would jump back to its old place for a moment: the drop list
+   * restores the DOM order, and the new positions arrive a little later from the local
+   * database (in several steps when ties are re-keyed).
+   */
+  private readonly heldOrder = signal<readonly string[] | null>(null);
+
   protected readonly view = computed(() => {
+    const view = this.dataView();
+    const order = this.heldOrder();
+    if (view.kind !== 'ready' || !order) return view;
+    const byId = new Map(view.rows.map((row) => [row.id, row]));
+    const rows = [
+      ...order.flatMap((id) => byId.get(id) ?? []),
+      ...view.rows.filter((row) => !order.includes(row.id)), // added meanwhile
+    ];
+    return { ...view, rows };
+  });
+
+  private readonly dataView = computed(() => {
     const list = this.list();
     if (list.status === 'error') return { kind: 'error' as const };
     if (list.status === 'loading') return { kind: 'loading' as const };
@@ -205,6 +225,23 @@ export class ListEditorPage {
       if (view.kind === 'ready' || view.kind === 'deleted') {
         title.setTitle(`${view.list.title} · Lister`);
       }
+    });
+    // Drop the held order once the data has caught up (or after a while, e.g. when another
+    // device moved something at the same time).
+    effect((onCleanup) => {
+      const order = this.heldOrder();
+      if (!order) return;
+      const view = this.dataView();
+      const ids = view.kind === 'ready' ? view.rows.map((row) => row.id) : [];
+      if (
+        ids.length === order.length &&
+        ids.every((id, i) => id === order[i])
+      ) {
+        this.heldOrder.set(null);
+        return;
+      }
+      const timer = setTimeout(() => this.heldOrder.set(null), 3000);
+      onCleanup(() => clearTimeout(timer));
     });
     // The moved row is re-rendered, which drops the focus: put it back on its menu button.
     afterRenderEffect(() => {
@@ -394,6 +431,10 @@ export class ListEditorPage {
     toIndex: number,
   ): Promise<string | undefined> {
     const rows = this.currentRows();
+    // Show the new order at once; the positions follow (possibly in several steps).
+    const order = rows.map((r) => r.id).filter((id) => id !== row.id);
+    order.splice(toIndex, 0, row.id);
+    this.heldOrder.set(order);
     const kinds = new Map(rows.map((r) => [r.id, r.kind]));
     const changes = moveTo(rows, row.id, toIndex);
     for (const change of changes) {
@@ -402,8 +443,12 @@ export class ListEditorPage {
           ? { name: 'include.move', args: change }
           : { name: 'item.move', args: change },
       );
-      if (!moved) return undefined;
+      if (!moved) {
+        this.heldOrder.set(null); // refused (the refusal is shown): back to the data
+        return undefined;
+      }
     }
+    if (changes.length === 0) this.heldOrder.set(null);
     return changes.find((change) => change.id === row.id)?.position;
   }
 

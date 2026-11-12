@@ -1,12 +1,18 @@
 import { TestBed } from '@angular/core/testing';
-import { SyncBadge } from './sync-badge';
+import { PENDING_GRACE_MS, SyncBadge } from './sync-badge';
 
+afterEach(() => vi.useRealTimers());
+
+/** Renders the badge and lets the grace period pass, like a change that stays pending. */
 async function render(online: boolean, pendingCount: number, compact = false) {
+  vi.useFakeTimers();
   const fixture = TestBed.createComponent(SyncBadge);
   fixture.componentRef.setInput('online', online);
   fixture.componentRef.setInput('pendingCount', pendingCount);
   fixture.componentRef.setInput('compact', compact);
-  await fixture.whenStable();
+  fixture.detectChanges();
+  vi.advanceTimersByTime(PENDING_GRACE_MS);
+  fixture.detectChanges();
   const element = fixture.nativeElement as HTMLElement;
   return {
     element,
@@ -55,5 +61,53 @@ describe('SyncBadge', () => {
 
     expect(element.getAttribute('role')).toBe('status');
     expect(element.getAttribute('aria-live')).toBe('polite');
+  });
+
+  describe('online, a change that syncs quickly', () => {
+    function start() {
+      vi.useFakeTimers();
+      const fixture = TestBed.createComponent(SyncBadge);
+      fixture.componentRef.setInput('online', true);
+      fixture.componentRef.setInput('pendingCount', 0);
+      fixture.detectChanges();
+      const set = (pending: number) => {
+        fixture.componentRef.setInput('pendingCount', pending);
+        fixture.detectChanges();
+      };
+      const text = () =>
+        (fixture.nativeElement as HTMLElement).textContent?.trim() ?? '';
+      return { fixture, set, text };
+    }
+
+    it('never shows the badge when it syncs within the grace period', () => {
+      const badge = start();
+      badge.set(1);
+      vi.advanceTimersByTime(PENDING_GRACE_MS - 1);
+      badge.fixture.detectChanges();
+      expect(badge.text()).toBe('');
+
+      badge.set(0);
+      vi.advanceTimersByTime(PENDING_GRACE_MS);
+      badge.fixture.detectChanges();
+      expect(badge.text()).toBe('');
+    });
+
+    it('shows changes that wait longer, and hides them once synced', () => {
+      const badge = start();
+      badge.set(2);
+      vi.advanceTimersByTime(PENDING_GRACE_MS);
+      badge.fixture.detectChanges();
+      expect(badge.text()).toContain('2 changes not synced');
+
+      badge.set(0);
+      expect(badge.text()).toBe('');
+    });
+
+    it('shows pending changes at once while offline', () => {
+      const badge = start();
+      badge.fixture.componentRef.setInput('online', false);
+      badge.set(1);
+      expect(badge.text()).toContain('Offline · 1 change not synced');
+    });
   });
 });

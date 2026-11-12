@@ -3,7 +3,12 @@ import { provideRouter } from '@angular/router';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MatDialog } from '@angular/material/dialog';
 import { MatMenuHarness } from '@angular/material/menu/testing';
-import { type Item, type List, newId } from '@lister/shared/domain';
+import {
+  type Include,
+  type Item,
+  type List,
+  newId,
+} from '@lister/shared/domain';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { SyncEngine } from '@lister/web/data-access-sync';
 import { Notifier } from '@lister/web/util-notify';
@@ -132,6 +137,49 @@ describe('ListsPage', () => {
     await vi.waitFor(async () => {
       await fixture.whenStable();
       expect(rows(element)).toContain('Camping · 3 items');
+    });
+  });
+
+  it('adds the total and the included lists for a list that includes others', async () => {
+    const trip = list('Trip');
+    const camping = list('Camping');
+    const toiletries = list('Toiletries');
+    const gone = list('Gone');
+    await db.lists.bulkPut([
+      trip,
+      camping,
+      toiletries,
+      { ...gone, deletedAt: 1 },
+    ]);
+    await db.items.bulkPut([
+      item(trip.id),
+      item(camping.id),
+      item(camping.id),
+      item(toiletries.id),
+      { ...item(toiletries.id), deletedAt: 2 },
+    ]);
+    const include = (parent: List, child: List): Include => ({
+      ...meta,
+      id: newId(),
+      parentListId: parent.id,
+      childListId: child.id,
+      position: 'a1',
+    });
+    await db.includes.bulkPut([
+      include(trip, camping),
+      include(camping, toiletries), // nested
+      include(trip, toiletries), // a diamond: counted once
+      include(trip, gone), // in the trash: not counted
+    ]);
+    const { element, fixture } = await render();
+
+    await vi.waitFor(async () => {
+      await fixture.whenStable();
+      expect(rows(element)).toEqual([
+        'Camping · 2 items · 3 in total · 1 list included',
+        'Toiletries · 1 item',
+        'Trip · 1 item · 4 in total · 2 lists included',
+      ]);
     });
   });
 

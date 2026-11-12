@@ -90,28 +90,6 @@ export class Repositories {
     });
   }
 
-  /** How many (not deleted) items each list of a space has; lists without items are missing. */
-  itemCountsOfSpace(
-    spaceId: () => string | undefined,
-  ): Signal<QueryState<ReadonlyMap<string, number>>> {
-    return liveQuerySignal(() => {
-      const id = spaceId();
-      if (!id) return undefined;
-      return async () => {
-        const counts = new Map<string, number>();
-        await this.db.items
-          .where('spaceId')
-          .equals(id)
-          .each((item) => {
-            if (item.deletedAt === null) {
-              counts.set(item.listId, (counts.get(item.listId) ?? 0) + 1);
-            }
-          });
-        return counts;
-      };
-    });
-  }
-
   /** One list by id, deleted or not (`undefined` if it doesn't exist here). */
   list(listId: () => string | undefined): Signal<QueryState<List | undefined>> {
     return liveQuerySignal(() => {

@@ -47,7 +47,10 @@ bugs until you've looked. Don't approve on trust, and don't invent problems eith
 5. **Try to break it.** Take the riskiest behaviour and probe it: edge-case input, a double
    submit, a retry, offline and reconnect, two clients, a non-member, a slow network. Write a
    probe test under `tmp/` if that helps, and describe it in the report. Never commit it.
-6. **Write the report** (format below), then finish.
+6. **UI/UX:** when the task changes anything the web app shows, also run the `ui-review`
+   skill: use the real screens at phone and desktop widths, and append its "UI/UX" section to
+   the report. Its findings count towards the verdict like any others.
+7. **Write the report** (format below), then finish.
 
 ## Checklist
 

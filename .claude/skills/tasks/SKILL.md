@@ -65,9 +65,11 @@ design behind the tasks is `docs/design.md`.
    - Leave out `model` and `effort`, so the review runs on your model.
    - `prompt`:
      > Review task T-NNN ("<title>") in this repository: the commits `<base>..<head>` on branch
-     > `work/v1`. Follow the project's `task-review` skill exactly. You're read-only: don't edit
-     > tracked files, commit, switch branches, stash or install anything; the only file you
-     > write is `tmp/reviews/T-NNN.md`. End your wrap-up recap and your final message with the
+     > `work/v1`. Follow the project's `task-review` skill exactly, including its `ui-review`
+     > step when the task changes the web UI. You're read-only: don't edit tracked files,
+     > commit, switch branches, stash or install anything; you only write the report
+     > `tmp/reviews/T-NNN.md` and its screenshots under `tmp/reviews/T-NNN-ui/`. Don't stop a
+     > server you didn't start. End your wrap-up recap and your final message with the
      > verdict line, for example
      > `Verdict: Changes requested — 1 blocker, 2 major, 0 minor, 1 nit — tmp/reviews/T-NNN.md`.
    - `background`:

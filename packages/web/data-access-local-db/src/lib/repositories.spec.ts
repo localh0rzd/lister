@@ -268,36 +268,6 @@ describe('Repositories.itemsOfList', () => {
   });
 });
 
-describe('Repositories.itemCountsOfSpace', () => {
-  it('counts live items per list and follows changes', async () => {
-    const camping = newId();
-    const hiking = newId();
-    const gone = item(camping, 'Gone', 'a2', { deletedAt: 1 });
-    await db.items.bulkPut([
-      item(camping, 'Tent', 'a0'),
-      item(camping, 'Stove', 'a1'),
-      gone,
-      item(hiking, 'Boots', 'a0'),
-      item(newId(), 'Elsewhere', 'a0', { spaceId: OTHER_SPACE }),
-    ]);
-
-    const counts = TestBed.runInInjectionContext(() =>
-      repositories.itemCountsOfSpace(() => SPACE),
-    );
-
-    await vi.waitFor(() => {
-      TestBed.tick();
-      expect(Object.fromEntries(valueOf(counts()) ?? [])).toEqual({
-        [camping]: 2,
-        [hiking]: 1,
-      });
-    });
-
-    await db.items.put({ ...gone, deletedAt: null });
-    await vi.waitFor(() => expect(valueOf(counts())?.get(camping)).toBe(3));
-  });
-});
-
 describe('Repositories.list', () => {
   it('finds one list, also when deleted, and follows changes', async () => {
     const camping = list('Camping');

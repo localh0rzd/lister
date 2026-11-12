@@ -319,6 +319,65 @@ describe('ListEditorPage', () => {
     );
   });
 
+  it('shows the dropped order at once, before the new position is stored', async () => {
+    const [a, b, c] = [item('A', 'a0'), item('B', 'a1'), item('C', 'a2')];
+    await db.items.bulkPut([a, b, c]);
+    let store: (() => Promise<unknown>) | undefined;
+    mutate.mockImplementation(async (request: MutationRequest) => {
+      requests.push(request);
+      const { id, position } = request.args as { id: string; position: string };
+      store = () => db.items.update(id, { position }); // the local write, later
+      return { ok: true };
+    });
+    const page = await render();
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(page.titles()).toEqual(['A', 'B', 'C']);
+    });
+
+    page.fixture.debugElement
+      .query(By.directive(CdkDropList))
+      .triggerEventHandler('cdkDropListDropped', {
+        previousIndex: 0,
+        currentIndex: 2,
+        item: { data: a },
+      });
+    page.fixture.detectChanges();
+    // No frame with the old order: A is at the end before anything is stored.
+    expect(page.titles()).toEqual(['B', 'C', 'A']);
+
+    await vi.waitFor(() => expect(store).toBeDefined());
+    await store?.();
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(page.titles()).toEqual(['B', 'C', 'A']);
+    });
+  });
+
+  it('goes back to the stored order when a move is refused', async () => {
+    const [a, b] = [item('A', 'a0'), item('B', 'a1')];
+    await db.items.bulkPut([a, b]);
+    mutate.mockResolvedValue({ ok: false, reason: 'Nope' });
+    const page = await render();
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(page.titles()).toEqual(['A', 'B']);
+    });
+
+    page.fixture.debugElement
+      .query(By.directive(CdkDropList))
+      .triggerEventHandler('cdkDropListDropped', {
+        previousIndex: 0,
+        currentIndex: 1,
+        item: { data: a },
+      });
+
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(page.titles()).toEqual(['A', 'B']);
+    });
+  });
+
   it('moves the dragged item even if the list changed during the drag', async () => {
     const rows = ['A', 'B', 'C', 'D', 'E'].map((t, i) => item(t, `a${i}`));
     await db.items.bulkPut(rows);

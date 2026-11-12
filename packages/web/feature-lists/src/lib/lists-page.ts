@@ -4,13 +4,23 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
 import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
 import { RouterLink } from '@angular/router';
-import { type List, newId } from '@lister/shared/domain';
+import { type List, flattenEntries, newId } from '@lister/shared/domain';
 import { CurrentSpace, Repositories } from '@lister/web/data-access-local-db';
 import { TitleDialog, type TitleDialogData } from '@lister/web/ui';
 import { firstValueFrom } from 'rxjs';
 import { SpaceChanges } from './space-changes';
 
-/** The Lists destination: every list of the space with its item count (design §2.7). */
+/** What a list holds: its own items, all items with included lists, and those lists. */
+export interface ListCounts {
+  own: number;
+  total: number;
+  lists: number;
+}
+
+/**
+ * The Lists destination: every list of the space with its item counts (design §2.7): its own
+ * items and, when it includes other lists, the total and how many lists it includes.
+ */
 @Component({
   selector: 'lister-lists-page',
   imports: [
@@ -32,7 +42,9 @@ export class ListsPage {
   private readonly dialog = inject(MatDialog);
 
   private readonly lists = this.repositories.listsOfSpace(this.space.id);
-  private readonly counts = this.repositories.itemCountsOfSpace(this.space.id);
+  private readonly composition = this.repositories.compositionOfSpace(
+    this.space.id,
+  );
 
   /** What the page shows. */
   protected readonly view = computed(() => {
@@ -44,14 +56,21 @@ export class ListsPage {
     if (lists.status === 'error') return { kind: 'error' as const };
     if (lists.status === 'loading') return { kind: 'loading' as const };
     // Counts are extra: if their query fails, the lists still show (with "–").
-    const counts = this.counts();
+    const composition = this.composition();
     return {
       kind: 'lists' as const,
-      lists: lists.value.map((list) => ({
-        list,
-        count:
-          counts.status === 'ready' ? (counts.value.get(list.id) ?? 0) : null,
-      })),
+      lists: lists.value.map((list) => {
+        if (composition.status !== 'ready') return { list, count: null };
+        const entries = flattenEntries(list.id, composition.value);
+        const count: ListCounts = {
+          own: entries.filter((e) => e.kind === 'item' && e.depth === 0).length,
+          total: entries.filter((e) => e.kind === 'item').length,
+          lists: entries.filter(
+            (e) => e.kind === 'section' && e.state === 'live',
+          ).length,
+        };
+        return { list, count };
+      }),
     };
   });
 
@@ -89,9 +108,13 @@ export class ListsPage {
     );
   }
 
-  protected itemCount(count: number | null): string {
+  /** "3 items", or "3 items · 12 in total · 2 lists included" for a list that includes others. */
+  protected itemCount(count: ListCounts | null): string {
     if (count === null) return '–';
-    return count === 1 ? '1 item' : `${count} items`;
+    const items = (n: number) => (n === 1 ? '1 item' : `${n} items`);
+    if (count.lists === 0) return items(count.own);
+    const lists = count.lists === 1 ? '1 list' : `${count.lists} lists`;
+    return `${items(count.own)} · ${count.total} in total · ${lists} included`;
   }
 
   protected initial(title: string): string {

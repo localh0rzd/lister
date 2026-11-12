@@ -183,3 +183,33 @@ test.describe('list editor on a desktop (1280 px)', () => {
     await expectAccessible();
   });
 });
+
+for (const [device, viewport, oneLine] of [
+  ['phone', { width: 375, height: 812 }, false],
+  ['desktop', { width: 1280, height: 800 }, true],
+] as const) {
+  test.describe(`edit item dialog on a ${device}`, () => {
+    test.use({ viewport });
+
+    test('the quantity hint is readable and nothing covers it', async ({
+      page,
+    }) => {
+      await openNewList(page);
+      await addItem(page, 'Socks');
+      await itemMenu(page, 'Socks', 'Edit');
+      const dialog = page.getByRole('dialog', { name: 'Edit item' });
+      const hint = dialog.getByText('Free text, e.g. 2 pairs or 500 g.');
+      await expect(hint).toBeVisible();
+
+      const hintBox = await box(hint);
+      const note = await box(
+        dialog.locator('mat-form-field').filter({ hasText: 'Note' }),
+      );
+      expect(hintBox.y + hintBox.height).toBeLessThanOrEqual(note.y);
+      if (oneLine) expect(hintBox.height).toBeLessThan(24);
+      const dialogBox = await box(dialog);
+      expect(dialogBox.x).toBeGreaterThanOrEqual(0);
+      expect(dialogBox.x + dialogBox.width).toBeLessThanOrEqual(viewport.width);
+    });
+  });
+}

@@ -175,6 +175,7 @@ Use the `verify` skill to run the checks.
 - `module-boundaries` — every bigger feature in its own library; the strict boundary rules
 - `tasks` — pick up, implement, review and close items from `TASKS.md`: one commit per task on `work/v1`, then a review session
 - `task-review` — the critical review that a separate session runs after every task
+- `ui-review` — hands-on UI/UX review of the real screens (flicker, fit, feedback, information, keyboard); part of `task-review` for UI tasks
 - `fullstack-feature` — feature across API and web: synced data via mutations, or plain HTTP
 - `angular-feature` — Angular components, routes, libraries, data access
 - `nest-feature` — Nest modules, controllers, DTOs, validation
