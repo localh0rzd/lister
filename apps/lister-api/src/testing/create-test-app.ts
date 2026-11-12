@@ -1,3 +1,4 @@
+import type { Type } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import {
@@ -6,6 +7,11 @@ import {
 } from '@lister/api/data-access-db';
 import { AppModule } from '../app/app.module';
 import { type AppOptions, configureApp } from '../app/configure-app';
+
+export interface TestAppOptions extends AppOptions {
+  /** Extra controllers, for routes that only the test needs (e.g. a guarded probe). */
+  controllers?: Type[];
+}
 
 export interface TestApp {
   app: NestExpressApplication;
@@ -21,17 +27,20 @@ export interface TestApp {
  * random port, for integration tests (`testing` skill). Close it in `afterEach`.
  */
 export async function createTestApp(
-  options: AppOptions = {},
+  options: TestAppOptions = {},
 ): Promise<TestApp> {
   const database = createTestDatabase();
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+  const moduleRef = await Test.createTestingModule({
+    imports: [AppModule],
+    controllers: options.controllers ?? [],
+  })
     .overrideProvider(DatabaseConnection)
     .useValue(database)
     .compile();
   const app = moduleRef.createNestApplication<NestExpressApplication>({
     logger: false,
   });
-  configureApp(app, options);
+  configureApp(app, { webRoot: options.webRoot });
   await app.listen(0, '127.0.0.1');
   return {
     app,

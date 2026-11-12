@@ -36,6 +36,13 @@
       "when": 1794506455765,
       "tag": "0004_run_item_aliases",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1794526152149,
+      "tag": "0005_users_and_sessions",
+      "breakpoints": true
     }
   ]
 }

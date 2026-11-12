@@ -1,4 +1,11 @@
-import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
+import {
+  index,
+  integer,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core';
 
 /**
  * Instance-wide key/value settings (e.g. markers for one-off startup work).
@@ -7,6 +14,41 @@ export const appMeta = sqliteTable('app_meta', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),
 });
+
+/** An account (design §2.3). Usernames are unique ignoring case. */
+export const users = sqliteTable(
+  'users',
+  {
+    id: text('id').primaryKey(),
+    username: text('username').notNull(),
+    displayName: text('display_name').notNull(),
+    /** `argon2id$…` as written by `hashPassword()` in @lister/api/feature-auth. */
+    passwordHash: text('password_hash').notNull(),
+    isAdmin: integer('is_admin', { mode: 'boolean' }).notNull().default(false),
+    mustChangePassword: integer('must_change_password', { mode: 'boolean' })
+      .notNull()
+      .default(false),
+    createdAt: integer('created_at').notNull(),
+  },
+  (table) => [uniqueIndex('users_username').on(sql`lower(${table.username})`)],
+);
+
+/**
+ * A sign-in. `id` is the SHA-256 of the cookie's token, so a leaked database can't be used to
+ * sign in. Times are epoch milliseconds.
+ */
+export const sessions = sqliteTable(
+  'sessions',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    expiresAt: integer('expires_at').notNull(),
+    createdAt: integer('created_at').notNull(),
+  },
+  (table) => [index('sessions_user').on(table.userId)],
+);
 
 /** A space owns lists and runs. `version` is its change counter (design §4.2). */
 export const spaces = sqliteTable('spaces', {

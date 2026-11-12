@@ -30,6 +30,7 @@ packages/
   shared/api-contracts/  DTO types + route helpers, @lister/shared/api-contracts (scope:shared, type:util)
   shared/domain/         entities, ids, positions, domain rules, @lister/shared/domain (scope:shared, type:util)
   shared/sync-protocol/  Zod schemas: mutations, socket messages, rows, @lister/shared/sync-protocol (scope:shared, type:util)
+  api/feature-auth/      accounts, sessions, sign-in, setup token, reset command, auth guard, @lister/api/feature-auth (scope:api, type:feature)
   api/data-access-db/    SQLite + Drizzle, migrations, test database, @lister/api/data-access-db (scope:api, type:data-access)
   web/feature-lists/     Lists destination, @lister/web/feature-lists (scope:web, type:feature)
   web/feature-runs/      Runs destination, @lister/web/feature-runs (scope:web, type:feature)

@@ -9,8 +9,9 @@ Synced data on the server (design §4.2).
 - `mutation-handlers.ts` has one handler per mutation. Changes are per-field patches; deletes
   win, including for the items of a deleted list (design §2.4); creates are idempotent by id.
   Handlers check everything before they write.
-- `DevSeed`, `DEV_USER_ID` and `DEV_SPACE_ID` stand in for accounts until T-024 (there is no user
-  row).
+- `DevSeed`, `DEV_USER_ID` and `DEV_SPACE_ID` stand in for accounts until T-024/T-025. Accounts now exist (T-022),
+  but the socket doesn't use them yet; rows stamped with `DEV_USER_ID` stay as they are (no
+  foreign key on `created_by`/`updated_by`).
 - `SyncGateway`: hello → welcome (or `updateRequired`), pull → rows since a version (0 means a
   snapshot), and push → ack or reject per mutation in order, plus a poke of the changed rows to
   the space's room. `SyncReader` does the reads.

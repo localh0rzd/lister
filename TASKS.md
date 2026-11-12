@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-022 — Accounts, sessions and the admin role
 
 - Milestone: M5 Accounts and spaces
@@ -47,6 +45,9 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   - Tests cover sign-in, sign-out, expiry, the forced password change, the setup token, the reset
     command and the rate limit.
 - Notes: T-006 seeded no user row: `DEV_USER_ID` (feature-sync) only stands in as `createdBy`/`updatedBy`; decide what happens to rows stamped with it.
+- Decision: rows stamped with `DEV_USER_ID` stay as they are. `created_by`/`updated_by` have no foreign key and nothing reads them; T-024/T-025 stop stamping it, and the dev data is throwaway.
+
+## Backlog
 
 ### T-023 — User administration
 

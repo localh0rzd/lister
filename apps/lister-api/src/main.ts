@@ -4,10 +4,40 @@ import { Logger } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { NestFactory } from '@nestjs/core';
 import { API_PREFIX } from '@lister/shared/api-contracts';
+import {
+  RESET_PASSWORD_COMMAND,
+  runResetPasswordCommand,
+} from '@lister/api/feature-auth';
 import { AppModule } from './app/app.module';
 import { configureApp } from './app/configure-app';
 
+/** `node main.js reset-password <username>`: runs against the same database, then exits. */
+async function runCommand(command: string, args: string[]): Promise<number> {
+  if (command !== RESET_PASSWORD_COMMAND) {
+    console.error(
+      `Unknown command "${command}". Commands: ${RESET_PASSWORD_COMMAND}`,
+    );
+    return 2;
+  }
+  const context = await NestFactory.createApplicationContext(AppModule, {
+    logger: ['error'],
+  });
+  try {
+    return await runResetPasswordCommand(context, args, (line) =>
+      console.log(line),
+    );
+  } finally {
+    await context.close();
+  }
+}
+
 async function bootstrap() {
+  const [command, ...args] = process.argv.slice(2);
+  if (command) {
+    process.exitCode = await runCommand(command, args);
+    return;
+  }
+
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   // The production build sits next to ours (dist/apps/lister-web/browser); WEB_ROOT overrides.
   const webRoot =
