@@ -14,7 +14,7 @@ const text = (max: number) =>
   z
     .string()
     .trim()
-    .max(max)
+    .max(max, `At most ${max} characters`)
     .regex(/^[^\p{Cc}]*$/u, 'Remove the control characters');
 
 /** One line with at least one visible character. */

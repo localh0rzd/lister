@@ -1,0 +1,77 @@
+:host {
+  display: block;
+  padding-bottom: 96px; // room for the FAB
+}
+
+h1 {
+  font: var(--mat-sys-headline-small);
+  margin: 0 0 16px;
+}
+
+.lists {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 64px;
+  padding-inline: 16px 4px;
+  border-radius: var(--mat-sys-corner-medium);
+  background: var(--mat-sys-surface-container-low);
+  margin-bottom: 8px;
+}
+
+.text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.title {
+  font: var(--mat-sys-body-large);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.count,
+.hint {
+  font: var(--mat-sys-body-medium);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.empty {
+  text-align: center;
+  padding: 48px 16px;
+}
+
+.empty-icon {
+  width: 48px;
+  height: 48px;
+  font-size: 48px;
+  color: var(--mat-sys-primary);
+}
+
+.empty-title {
+  font: var(--mat-sys-title-medium);
+  margin: 8px 0 4px;
+}
+
+.fab {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  // Above the bottom navigation bar (80px) on phones.
+  bottom: calc(80px + 16px + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 600px) {
+  .fab {
+    right: 24px;
+    bottom: 24px;
+  }
+}

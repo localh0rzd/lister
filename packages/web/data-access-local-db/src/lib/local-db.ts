@@ -69,7 +69,7 @@ export interface MetaEntry {
  *
  * Every server schema change (a Drizzle migration) comes with a new `this.version(n)` here, in
  * the same change (CLAUDE.md). Version 1 matches server migrations 0000–0001; version 2 adds the
- * client-only `rejections` table. Tombstones are
+ * client-only `rejections` table; version 3 indexes spaces by name. Tombstones are
  * stored like other rows; queries leave them out (`deletedAt` can't be indexed while it's null).
  */
 export class LocalDb extends Dexie {
@@ -97,6 +97,8 @@ export class LocalDb extends Dexie {
     });
     // Client-only: rejections that every tab can show (no server migration).
     this.version(2).stores({ rejections: 'mutationId, at' });
+    // Spaces by name (CurrentSpace).
+    this.version(3).stores({ spaces: 'id, name' });
   }
 }
 

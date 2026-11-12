@@ -1,17 +1,13 @@
 import {
   DOCUMENT,
-  type EnvironmentProviders,
   InjectionToken,
   Service,
   inject,
   signal,
-  isDevMode,
-  makeEnvironmentProviders,
-  provideAppInitializer,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { SwUpdate, provideServiceWorker } from '@angular/service-worker';
+import { SwUpdate } from '@angular/service-worker';
+import { Notifier } from '@lister/web/util-notify';
 import { filter, fromEvent, interval, merge } from 'rxjs';
 
 /** How often a long-open app asks the server for a new version. */
@@ -31,13 +27,13 @@ export const PAGE_RELOAD = new InjectionToken<() => void>('PAGE_RELOAD', {
  * and a reload when the cached version is broken. Checks for updates hourly and whenever the app
  * comes back to the foreground.
  *
- * MatSnackBar shows one snackbar at a time, so a later one (e.g. an Undo) replaces the prompt.
- * The prompt is then offered again at the next check while the update is still waiting.
+ * The prompt is a sticky notice (`Notifier`): other notices go first and it comes back after
+ * them. If the user swipes it away, it's offered again at the next check.
  */
 @Service()
 export class AppUpdates {
   private readonly updates = inject(SwUpdate);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly notifier = inject(Notifier);
   private readonly reload = inject(PAGE_RELOAD);
   private readonly document = inject(DOCUMENT);
 
@@ -82,23 +78,10 @@ export class AppUpdates {
   private offerReload(message: string): void {
     this.pendingReload.set(message);
     this.showing = true;
-    const ref = this.snackBar.open(message, 'Reload');
-    ref.onAction().subscribe(() => this.reload());
-    ref.afterDismissed().subscribe(() => (this.showing = false));
+    // Sticky: the notifier lets Undo and other notices go first, then shows it again.
+    void this.notifier.notify({ message, action: 'Reload' }).then((outcome) => {
+      this.showing = false;
+      if (outcome === 'action') this.reload();
+    });
   }
-}
-
-/**
- * The service worker (production builds only; the dev server has none) and update handling.
- */
-export function providePwa(): EnvironmentProviders {
-  return makeEnvironmentProviders([
-    provideServiceWorker('ngsw-worker.js', {
-      enabled: !isDevMode(),
-      registrationStrategy: 'registerWhenStable:30000',
-    }),
-    provideAppInitializer(() => {
-      inject(AppUpdates);
-    }),
-  ]);
 }

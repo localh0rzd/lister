@@ -23,7 +23,23 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-_Nothing in progress._
+### T-010 — Web: Lists page
+
+- Milestone: M2 Sync walking skeleton
+- Area: web
+- Priority: high
+- Depends on: T-002, T-009
+- Done when:
+  - A `packages/web/feature-lists` library (scope:web, type:feature) provides the Lists
+    destination: all lists of the space with their item counts, and an empty state.
+  - A FAB creates a list (title dialog). Lists can be renamed and deleted; deleting offers Undo in
+    a snackbar.
+  - Every change goes through the sync engine, works offline, and appears on another open device
+    without a reload.
+  - The app bar shows a small sync indicator: offline, or "N changes not synced".
+- Notes: MatSnackBar shows one snackbar at a time, so a new one replaces the update prompt
+  (`AppUpdates` in `@lister/web/util-pwa` re-offers it later) or another Undo. Snackbars that
+  must not be lost (Undo, rejections) go through one small queue; decide it here (T-003 review).
 
 ## Backlog
 
@@ -42,24 +58,6 @@ _Nothing in progress._
   doesn't type-check, so a library's stricter options (e.g. `noPropertyAccessFromIndexSignature`)
   and stale types in specs went unnoticed. One spec still built a `HealthResponse` without `db`
   after T-004 changed the contract.
-
-### T-010 — Web: Lists page
-
-- Milestone: M2 Sync walking skeleton
-- Area: web
-- Priority: high
-- Depends on: T-002, T-009
-- Done when:
-  - A `packages/web/feature-lists` library (scope:web, type:feature) provides the Lists
-    destination: all lists of the space with their item counts, and an empty state.
-  - A FAB creates a list (title dialog). Lists can be renamed and deleted; deleting offers Undo in
-    a snackbar.
-  - Every change goes through the sync engine, works offline, and appears on another open device
-    without a reload.
-  - The app bar shows a small sync indicator: offline, or "N changes not synced".
-- Notes: MatSnackBar shows one snackbar at a time, so a new one replaces the update prompt
-  (`AppUpdates` in `@lister/web/util-pwa` re-offers it later) or another Undo. Snackbars that
-  must not be lost (Undo, rejections) go through one small queue; decide it here (T-003 review).
 
 ### T-011 — Web: list editor
 

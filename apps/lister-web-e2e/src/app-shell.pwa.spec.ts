@@ -88,7 +88,11 @@ test.describe('installable PWA (production build)', () => {
     await expect(page.getByText('New version available')).toBeVisible({
       timeout: 30_000,
     });
-    await page.getByRole('button', { name: 'Reload' }).click();
+    // The reload runs once the snackbar has closed.
+    await Promise.all([
+      page.waitForEvent('load'),
+      page.getByRole('button', { name: 'Reload' }).click(),
+    ]);
 
     await expect(
       page.getByRole('heading', { level: 1, name: 'Lists' }),

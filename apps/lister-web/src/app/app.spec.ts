@@ -1,4 +1,4 @@
-import { TestBed } from '@angular/core/testing';
+import { DeferBlockBehavior, TestBed } from '@angular/core/testing';
 import { BreakpointObserver, type BreakpointState } from '@angular/cdk/layout';
 import { provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
@@ -11,6 +11,8 @@ class Page {}
 
 function setup(wide: boolean) {
   TestBed.configureTestingModule({
+    // The deferred sync indicator needs the sync engine; it has its own tests.
+    deferBlockBehavior: DeferBlockBehavior.Manual,
     imports: [App],
     providers: [
       provideRouter([

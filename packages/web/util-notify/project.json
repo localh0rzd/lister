@@ -1,0 +1,10 @@
+{
+  "name": "web-util-notify",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/web/util-notify/src",
+  "prefix": "lister",
+  "projectType": "library",
+  "tags": ["scope:web", "type:util"],
+  "// targets": "to see all targets run: nx show project web-util-notify --web",
+  "targets": {}
+}

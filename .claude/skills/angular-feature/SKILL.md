@@ -112,6 +112,10 @@ export class ListCard {
   - From 600 px: the navigation rail, with list and detail side by side where that helps.
 - **Interaction:** CDK drag and drop always comes with a keyboard alternative ("Move up / down"
   in a menu). Destructive actions offer Undo in a snackbar.
+- **Snackbars:** only through `Notifier` (`@lister/web/util-notify`), which queues them; timed
+  ones (Undo) need a `duration`, sticky ones (prompts) leave it out.
+- **Bundle:** the shell must not import the sync engine statically (it brings Zod, Dexie and
+  Socket.IO); use it in lazy routes or behind `@defer`, like `SyncIndicator`.
 - **Styles:** global styles go in `apps/lister-web/src/styles.scss`. Component styles stay small;
   the budget per component is 4 kB (warning) and 8 kB (error).
 - **Text:** UI text is English. Runs are called runs in the UI too: the destination is "Runs",

@@ -38,6 +38,7 @@ packages/
   web/data-access-local-db/ Dexie database, liveQuery signals, repositories, @lister/web/data-access-local-db (scope:web, type:data-access)
   web/ui/                nav bar and rail, theme picker, @lister/web/ui (scope:web, type:ui)
   web/util-theme/        theme preference + theme-color, @lister/web/util-theme (scope:web, type:util)
+  web/util-notify/       Notifier: the snackbar queue, @lister/web/util-notify (scope:web, type:util)
   web/util-pwa/          service worker + update prompt, @lister/web/util-pwa (scope:web, type:util)
 ```
 
@@ -135,6 +136,8 @@ Every project needs exactly one `scope:*` tag and one `type:*` tag. The details,
 - Other HTTP (sign-in, passkeys, user administration, spaces, export, health): `httpResource()` for reads, `HttpClient` in a data-access service for writes, URLs via `apiPath()`. The dev proxy (`apps/lister-web/proxy.conf.json`) forwards `/api` and `/socket.io` (WebSockets) to `:3000`.
 - UI: Angular Material 3 components and `--mat-sys-*` tokens. The navigation bar and rail are our own components in `packages/web/ui` (Material has none). Fonts and icons are self-hosted — never add Google Fonts links.
 - Drag and drop (CDK) always has a keyboard alternative ("Move up / down"). Destructive actions offer Undo in a snackbar.
+- Snackbars only through `Notifier` (`@lister/web/util-notify`), never `MatSnackBar` directly: it queues them, so an Undo never wipes out another notice.
+- Keep the initial bundle small: code that isn't needed for the first paint (sync engine, update prompt) is loaded with a dynamic import or `@defer`.
 - PWA: the service worker only runs in production builds (`providePwa()` in `@lister/web/util-pwa`, config in `apps/lister-web/ngsw-config.json`). Offline and PWA e2e specs are named `*.pwa.spec.ts` and run against the production build on port 4300. App icons are generated with `npm run icons`.
 - Forms: Signal Forms (`@angular/forms/signals`) for new forms.
 - Routes are lazy (`loadComponent` / `loadChildren`). Router inputs are bound to component inputs (`withComponentInputBinding`).

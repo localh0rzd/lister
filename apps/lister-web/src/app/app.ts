@@ -6,13 +6,20 @@ import { MatToolbar } from '@angular/material/toolbar';
 import { NavigationBar, NavigationRail } from '@lister/web/ui';
 import { filter, map } from 'rxjs';
 import { DESTINATIONS } from './destinations';
+import { SyncIndicator } from './sync-indicator';
 
 /** From this width the navigation rail replaces the top app bar and bottom navigation bar. */
 export const WIDE_LAYOUT = '(min-width: 600px)';
 
 @Component({
   selector: 'lister-root',
-  imports: [RouterOutlet, MatToolbar, NavigationBar, NavigationRail],
+  imports: [
+    RouterOutlet,
+    MatToolbar,
+    NavigationBar,
+    NavigationRail,
+    SyncIndicator,
+  ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })

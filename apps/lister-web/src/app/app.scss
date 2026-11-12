@@ -26,6 +26,10 @@
   font: var(--mat-sys-title-large);
 }
 
+.spacer {
+  flex: 1;
+}
+
 .nav {
   grid-area: nav;
 }

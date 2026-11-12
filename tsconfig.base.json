@@ -40,7 +40,8 @@
       ],
       "@lister/web/data-access-sync": [
         "./packages/web/data-access-sync/src/index.ts"
-      ]
+      ],
+      "@lister/web/util-notify": ["./packages/web/util-notify/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

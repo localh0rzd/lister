@@ -70,8 +70,8 @@ const titles = (state: QueryState<{ title: string }[]>) =>
   valueOf(state)?.map((r) => r.title);
 
 describe('LocalDb', () => {
-  it('has the tables of schema version 2', () => {
-    expect(db.verno).toBe(2);
+  it('has the tables of schema version 3', () => {
+    expect(db.verno).toBe(3);
     expect(db.tables.map((t) => t.name).sort()).toEqual([
       'items',
       'lists',
@@ -257,5 +257,35 @@ describe('Repositories.itemsOfList', () => {
     await vi.waitFor(() =>
       expect(titles(items())).toEqual(['Second', 'First']),
     );
+  });
+});
+
+describe('Repositories.itemCountsOfSpace', () => {
+  it('counts live items per list and follows changes', async () => {
+    const camping = newId();
+    const hiking = newId();
+    const gone = item(camping, 'Gone', 'a2', { deletedAt: 1 });
+    await db.items.bulkPut([
+      item(camping, 'Tent', 'a0'),
+      item(camping, 'Stove', 'a1'),
+      gone,
+      item(hiking, 'Boots', 'a0'),
+      item(newId(), 'Elsewhere', 'a0', { spaceId: OTHER_SPACE }),
+    ]);
+
+    const counts = TestBed.runInInjectionContext(() =>
+      repositories.itemCountsOfSpace(() => SPACE),
+    );
+
+    await vi.waitFor(() => {
+      TestBed.tick();
+      expect(Object.fromEntries(valueOf(counts()) ?? [])).toEqual({
+        [camping]: 2,
+        [hiking]: 1,
+      });
+    });
+
+    await db.items.put({ ...gone, deletedAt: null });
+    await vi.waitFor(() => expect(valueOf(counts())?.get(camping)).toBe(3));
   });
 });

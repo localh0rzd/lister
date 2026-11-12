@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { Notifier } from '@lister/web/util-notify';
 import { SwUpdate, type VersionEvent } from '@angular/service-worker';
 import { Subject } from 'rxjs';
 import {
@@ -23,16 +23,19 @@ function setup({ enabled = true } = {}) {
     checkForUpdate: vi.fn(() => Promise.resolve(false)),
   };
   const snackBar = {
-    open: vi.fn(() => ({
-      onAction: () => action,
-      afterDismissed: () => dismissed,
-    })),
+    open: vi.fn(
+      () =>
+        new Promise<'action' | 'dismissed'>((resolve) => {
+          action.subscribe(() => resolve('action'));
+          dismissed.subscribe(() => resolve('dismissed'));
+        }),
+    ),
   };
   const reload = vi.fn();
   TestBed.configureTestingModule({
     providers: [
       { provide: SwUpdate, useValue: swUpdate },
-      { provide: MatSnackBar, useValue: snackBar },
+      { provide: Notifier, useValue: { notify: snackBar.open } },
       { provide: PAGE_RELOAD, useValue: reload },
     ],
   });
@@ -60,17 +63,18 @@ describe('AppUpdates', () => {
     vi.restoreAllMocks();
   });
 
-  it('offers a reload when a new version is ready', () => {
+  it('offers a reload when a new version is ready', async () => {
     const { versionUpdates, action, snackBar, reload } = setup();
 
     versionUpdates.next(versionReady);
-    expect(snackBar.open).toHaveBeenCalledWith(
-      'New version available',
-      'Reload',
-    );
+    expect(snackBar.open).toHaveBeenCalledWith({
+      message: 'New version available',
+      action: 'Reload',
+    });
     expect(reload).not.toHaveBeenCalled();
 
     action.next();
+    await Promise.resolve();
     expect(reload).toHaveBeenCalledTimes(1);
   });
 
@@ -91,16 +95,17 @@ describe('AppUpdates', () => {
     expect(snackBar.open).not.toHaveBeenCalled();
   });
 
-  it('offers a reload when the cached version is broken', () => {
+  it('offers a reload when the cached version is broken', async () => {
     const { unrecoverable, action, snackBar, reload } = setup();
 
     unrecoverable.next({ type: 'UNRECOVERABLE_STATE', reason: 'gone' });
 
-    expect(snackBar.open).toHaveBeenCalledWith(
-      'Lister needs to reload to keep working',
-      'Reload',
-    );
+    expect(snackBar.open).toHaveBeenCalledWith({
+      message: 'Lister needs to reload to keep working',
+      action: 'Reload',
+    });
     action.next();
+    await Promise.resolve();
     expect(reload).toHaveBeenCalledTimes(1);
   });
 
@@ -121,7 +126,7 @@ describe('AppUpdates', () => {
     expect(swUpdate.checkForUpdate).toHaveBeenCalledTimes(2);
   });
 
-  it('offers the update again after another snackbar replaced the prompt', () => {
+  it('offers the update again after the prompt was swiped away', async () => {
     vi.useFakeTimers();
     const { versionUpdates, dismissed, snackBar, swUpdate } = setup();
     versionUpdates.next(versionReady);
@@ -129,13 +134,14 @@ describe('AppUpdates', () => {
 
     // e.g. an Undo snackbar replaced it
     dismissed.next();
+    await Promise.resolve();
     vi.advanceTimersByTime(UPDATE_CHECK_INTERVAL_MS);
 
     expect(snackBar.open).toHaveBeenCalledTimes(2);
-    expect(snackBar.open).toHaveBeenLastCalledWith(
-      'New version available',
-      'Reload',
-    );
+    expect(snackBar.open).toHaveBeenLastCalledWith({
+      message: 'New version available',
+      action: 'Reload',
+    });
     expect(swUpdate.checkForUpdate).not.toHaveBeenCalled();
   });
 
