@@ -88,12 +88,14 @@ test.describe('offline', () => {
 
     await test.step('B, online: changes other items', async () => {
       await editItemTitle(b, 'Stove', 'Gas stove');
+      // Past items A keeps, so the result shows whether the move survived.
+      await itemMenu(b, 'Lamp', 'Move up');
       await itemMenu(b, 'Lamp', 'Move up');
       await addItem(b, 'Map');
       await expect(itemTitles(b)).toHaveText([
         'Tent',
-        'Gas stove',
         'Lamp',
+        'Gas stove',
         'Matches',
         'Map',
       ]);
@@ -109,7 +111,11 @@ test.describe('offline', () => {
     await expect
       .poll(async () => [...(await contents(a))].sort())
       .toEqual(['Big tent', 'Gas stove', 'Lamp', 'Map', 'Rope']);
-    await expect(itemTitles(a).first()).toHaveText('Big tent');
+    for (const page of [a, b]) {
+      await expect
+        .poll(async () => (await contents(page)).slice(0, 3))
+        .toEqual(['Big tent', 'Lamp', 'Gas stove']);
+    }
     await expect
       .poll(async () => (await contents(b)).join('|'))
       .toBe((await contents(a)).join('|'));

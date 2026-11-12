@@ -38,6 +38,8 @@ class FakeServer {
   connectCalls = 0;
   /** When false, pushes are recorded but not answered until `answerPushes()`. */
   autoAnswer = true;
+  /** Like Socket.IO between reconnect attempts: connect() does nothing until disconnect(). */
+  backingOff = false;
   private readonly handlers = new Map<
     string,
     ((payload?: unknown) => void)[]
@@ -51,10 +53,12 @@ class FakeServer {
     io: { engine: { close: () => server.drop('transport close') } },
     connect: () => {
       this.connectCalls++;
+      if (this.backingOff) return;
       this.connected = true;
       this.fire('connect');
     },
     disconnect: () => {
+      this.backingOff = false; // cancels the pending reconnect attempt
       if (!this.connected) return;
       this.connected = false;
       this.fire('disconnect', 'io client disconnect');
@@ -487,6 +491,41 @@ describe('SyncEngine', () => {
       expect(await visibleList(theirs)).toMatchObject({ title: 'From Ben' });
     });
 
+    it("leaves another space's rows alone when an id appears in two spaces", async () => {
+      setup({ leader: false });
+      engine.start();
+      const id = await createList('Mine');
+      const other = {
+        ...(await visibleList(id))!,
+        id: newId(),
+        spaceId: newId(),
+      };
+      await db.serverLists.put(other);
+      await db.lists.put(other);
+
+      // A pending change in this space names the other space's id.
+      const mutationId = newId();
+      await db.outbox.add({
+        mutationId,
+        spaceId: SPACE,
+        mutation: {
+          mutationId,
+          spaceId: SPACE,
+          name: 'list.update',
+          args: { id: other.id, patch: { title: 'Wrong space' } },
+        },
+        createdAt: 1,
+      });
+      await engine.mutate({
+        spaceId: SPACE,
+        name: 'list.update',
+        args: { id, patch: { title: 'Renamed' } },
+      });
+
+      expect(await visibleList(other.id)).toEqual(other);
+      expect(await visibleList(id)).toMatchObject({ title: 'Renamed' });
+    });
+
     it('removes an item whose create the server rejects', async () => {
       setup();
       engine.start();
@@ -569,8 +608,11 @@ describe('SyncEngine', () => {
       expect(drops).toEqual(['transport close']);
       await eventually(() => expect(engine.online()).toBe(false));
 
+      // Socket.IO is waiting out its backoff, where connect() alone would do nothing.
+      server.backingOff = true;
       window.dispatchEvent(new Event('online'));
       await settle();
+      expect(server.connected).toBe(true);
       expect(server.connectCalls).toBe(2);
       await eventually(() => expect(engine.online()).toBe(true));
     });

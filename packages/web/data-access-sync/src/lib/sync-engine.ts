@@ -57,6 +57,32 @@ type DistributiveOmit<T, K extends PropertyKey> = T extends unknown
   ? Omit<T, K>
   : never;
 
+/** A filter that keeps the rows of one space (and drops missing ones). */
+function inSpaceOf(spaceId: string) {
+  return <T extends { spaceId: string }>(row: T | undefined): row is T =>
+    row?.spaceId === spaceId;
+}
+
+/**
+ * What to write for the rebuilt rows `ids` of a space: rows to put, and ids to remove because
+ * they no longer have a row (e.g. a rejected create). Visible rows of other spaces stay.
+ */
+function changes<T extends { spaceId: string }>(
+  spaceId: string,
+  ids: readonly string[],
+  rows: ReadonlyMap<string, T>,
+  current: readonly (T | undefined)[],
+): { put: T[]; gone: string[] } {
+  const put: T[] = [];
+  const gone: string[] = [];
+  ids.forEach((id, i) => {
+    const row = rows.get(id);
+    if (row?.spaceId === spaceId) put.push(row);
+    else if (current[i]?.spaceId === spaceId) gone.push(id);
+  });
+  return { put, gone };
+}
+
 /** Row ids a set of mutations reads or writes. */
 interface Touched {
   lists: Set<string>;
@@ -576,14 +602,15 @@ export class SyncEngine {
         pending.map((p) => p.mutation),
         { lists: new Set(touched.lists), items: new Set(touched.items) },
       );
+      // Ids are keys across spaces; only this space's rows take part, as in a full rebuild.
       const serverItems = (
         await this.db.serverItems.bulkGet([...ids.items])
-      ).filter((row) => row !== undefined);
+      ).filter(inSpaceOf(spaceId));
       // The rules look at an item's list (deleted lists win).
       for (const item of serverItems) ids.lists.add(item.listId);
       const serverLists = (
         await this.db.serverLists.bulkGet([...ids.lists])
-      ).filter((row) => row !== undefined);
+      ).filter(inSpaceOf(spaceId));
       store = new MemoryRowStore(serverLists, serverItems);
       lists = ids.lists;
       items = ids.items;
@@ -594,27 +621,30 @@ export class SyncEngine {
       applyMutation(store, { ...context, now: at }, mutation);
     }
 
-    const inSpace = <T extends { spaceId: string }>(row: T | undefined) =>
-      row?.spaceId === spaceId ? row : undefined;
+    const inSpace = inSpaceOf(spaceId);
     if (!touched) {
-      await this.db.lists.bulkPut(
-        [...store.lists.values()].filter((r) => inSpace(r)),
-      );
-      await this.db.items.bulkPut(
-        [...store.items.values()].filter((r) => inSpace(r)),
-      );
+      await this.db.lists.bulkPut([...store.lists.values()].filter(inSpace));
+      await this.db.items.bulkPut([...store.items.values()].filter(inSpace));
       return;
     }
-    for (const id of lists) {
-      const row = inSpace(store.lists.get(id));
-      if (row) await this.db.lists.put(row);
-      else await this.db.lists.delete(id); // e.g. a rejected create
-    }
-    for (const id of items) {
-      const row = inSpace(store.items.get(id));
-      if (row) await this.db.items.put(row);
-      else await this.db.items.delete(id);
-    }
+    const listIds = [...lists];
+    const itemIds = [...items];
+    const listChanges = changes(
+      spaceId,
+      listIds,
+      store.lists,
+      await this.db.lists.bulkGet(listIds),
+    );
+    const itemChanges = changes(
+      spaceId,
+      itemIds,
+      store.items,
+      await this.db.items.bulkGet(itemIds),
+    );
+    await this.db.lists.bulkPut(listChanges.put);
+    await this.db.lists.bulkDelete(listChanges.gone);
+    await this.db.items.bulkPut(itemChanges.put);
+    await this.db.items.bulkDelete(itemChanges.gone);
   }
 
   /** Who we are and the version local predictions are based on. */

@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from './support/fixtures';
 
-/** Unique per test run, because the e2e database keeps data between runs. */
+/** Unique titles: every test in a run shares the e2e database. */
 const unique = (title: string) =>
   `${title} ${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 

@@ -1,6 +1,6 @@
 import { type Browser, type Page, expect } from '@playwright/test';
 
-/** Unique per run: the e2e databases keep data between runs. */
+/** Unique titles: every test in a run shares the e2e database. */
 export const unique = (title: string) =>
   `${title} ${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 

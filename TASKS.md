@@ -23,21 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-013 — E2E: real-time and offline sync
-
-- Milestone: M2 Sync walking skeleton
-- Area: web, api
-- Priority: high
-- Depends on: T-011, T-012
-- Done when:
-  - Specs with two browser contexts: an item added, edited, reordered or deleted in A shows up in B
-    without a reload.
-  - Offline: A goes offline (`context.setOffline(true)`) and makes changes while B changes other
-    items; once A is back online, both show the same content.
-  - Reloading while offline (production build) still shows the data and the pending changes, which
-    sync once online.
-  - The specs run in CI.
-
 ## Backlog
 
 ### T-035 — Type-check every project in CI
@@ -399,7 +384,37 @@ nosniff`, `Referrer-Policy`, `frame-ancestors` in the CSP, and `app.disable('x-p
   - The initial bundle stays within its budget, and a check (budget or test) catches regressions.
 - Notes: Found in T-009. Mobile users download the chunk on the first visit.
 
+### T-037 — Quiet the sync-engine test teardown
+
+- Milestone: M6 Collaboration polish
+- Area: web
+- Priority: low
+- Depends on: T-013
+- Done when:
+  - `npx nx test web-data-access-sync` logs no `DatabaseClosedError`: no engine work is still
+    running when a test closes its Dexie database.
+- Notes: found in the T-013 review. Awaiting `engine.whenIdle()` in `afterEach` made 11 tests
+  fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
+
 ## Done
+
+### T-013 — E2E: real-time and offline sync
+
+- Completed: 2026-11-12 — two-device specs `sync.spec.ts` (live add/paste/edit/reorder/delete, offline changes converge) and `sync.pwa.spec.ts` (offline reload keeps data and the pending change); the sync engine rebuilds only changed rows (full rebuild only for snapshots), "online" reconnects at once, each e2e server starts from an empty database.
+- Review: Approve with minor fixes (4 minor, 1 nit); all fixed: the partial rebuild ignores rows of other spaces, writes in bulk; the "online" test models Socket.IO's backoff; the offline spec checks B's move survives; separate resets for the two e2e databases. The test-teardown `DatabaseClosedError` noise is deferred (T-037).
+
+- Milestone: M2 Sync walking skeleton
+- Area: web, api
+- Priority: high
+- Depends on: T-011, T-012
+- Done when:
+  - Specs with two browser contexts: an item added, edited, reordered or deleted in A shows up in B
+    without a reload.
+  - Offline: A goes offline (`context.setOffline(true)`) and makes changes while B changes other
+    items; once A is back online, both show the same content.
+  - Reloading while offline (production build) still shows the data and the pending changes, which
+    sync once online.
+  - The specs run in CI.
 
 ### T-012 — Serve the web app from the API (one origin)
 
