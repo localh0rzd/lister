@@ -25,6 +25,28 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## Backlog
 
+### T-038 — Templates and styles in their own files
+
+- Milestone: — (refactor before M5)
+- Area: web
+- Priority: high
+- Depends on: —
+- Done when:
+  - No Angular component in `apps/lister-web` or `packages/web/*` uses inline `template` or
+    `styles`: each has its own `<name>.html` (and `<name>.scss` when it has styles) next to its
+    `.ts`, referenced with `templateUrl` / `styleUrl`. Today that's `sync-indicator`,
+    `trash-page`, `space-page`, `list-picker-dialog`, `navigation-rail`, `navigation-bar`,
+    `sync-badge`, `loading-hint`, `title-dialog`, `item-dialog` and `theme-picker`; check with a
+    grep for any others, including test-only host components outside `*.spec.ts`.
+  - The skills say so: `angular-feature` drops "Add `--inlineTemplate --inlineStyle` for small
+    components" and `best-practices` drops "Small components get an inline template and inline
+    styles"; both state that templates and style sheets always live in their own files.
+    `nx.json > generators > @nx/angular:component` doesn't inline (set `inlineTemplate: false`,
+    `inlineStyle: false` explicitly if the generator supports them).
+  - Pure move: rendered output and behaviour are unchanged; every existing unit and e2e test
+    passes without edits beyond file paths, and no component exceeds its style budget.
+- Notes: components with no styles get no empty `.scss`.
+
 ### T-022 — Accounts, sessions and the admin role
 
 - Milestone: M5 Accounts and spaces
