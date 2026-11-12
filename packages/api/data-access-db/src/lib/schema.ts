@@ -62,6 +62,27 @@ export const items = sqliteTable(
   ],
 );
 
+/** "List `parent` contains list `child`" (D2), ordered among the parent's items. */
+export const includes = sqliteTable(
+  'includes',
+  {
+    ...syncColumns,
+    parentListId: text('parent_list_id')
+      .notNull()
+      .references(() => lists.id),
+    childListId: text('child_list_id')
+      .notNull()
+      .references(() => lists.id),
+    position: text('position').notNull(),
+  },
+  (table) => [
+    index('includes_space_version').on(table.spaceId, table.version),
+    // The rules read a list's includes (loop and duplicate checks).
+    index('includes_parent').on(table.parentListId),
+    index('includes_child').on(table.childListId),
+  ],
+);
+
 /**
  * The answer to every mutation the server has handled, so a retried mutation id gets the same
  * answer without being applied twice.

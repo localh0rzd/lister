@@ -417,4 +417,76 @@ describe('sync gateway', () => {
       ]);
     });
   });
+
+  describe('includes', () => {
+    /** The ack or reject this client gets for `sent`. */
+    function answer(client: Client, sent: MutationInput) {
+      return new Promise<Payload<'ack'> | Payload<'reject'>>((resolve) => {
+        const mine = (payload: Payload<'ack'> | Payload<'reject'>) =>
+          payload.mutationId === sent.mutationId && resolve(payload);
+        client.on('ack', mine);
+        client.on('reject', mine);
+      });
+    }
+    const include = (parentListId: string, childListId: string) =>
+      mutation('include.create', {
+        id: newId(),
+        parentListId,
+        childListId,
+        position: 'a1',
+      });
+
+    it('rejects the second half of a loop two offline clients each made', async () => {
+      const anna = await helloed();
+      const ben = await helloed();
+      const camping = mutation('list.create', {
+        id: newId(),
+        title: 'Camping',
+      });
+      const hiking = mutation('list.create', { id: newId(), title: 'Hiking' });
+      const created = answer(anna.client, hiking);
+      anna.client.emit('push', { mutations: [camping, hiking] });
+      await created;
+
+      // Offline, each adds one half: Camping → Hiking, and Hiking → Camping.
+      const annas = include(camping.args.id, hiking.args.id);
+      const bens = include(hiking.args.id, camping.args.id);
+      // Pokes to Ben may still include the lists' creation; wait for the include's.
+      const benSeesAnna = new Promise<Payload<'poke'>>((resolve) =>
+        ben.client.on(
+          'poke',
+          (poke) => poke.rows.includes.length > 0 && resolve(poke),
+        ),
+      );
+      const annaAck = answer(anna.client, annas);
+      anna.client.emit('push', { mutations: [annas] });
+      expect(await annaAck).toEqual({
+        mutationId: annas.mutationId,
+        version: 3,
+      });
+      expect((await benSeesAnna).rows.includes).toEqual([
+        expect.objectContaining({
+          id: annas.args.id,
+          parentListId: camping.args.id,
+          childListId: hiking.args.id,
+        }),
+      ]);
+
+      const benAnswer = answer(ben.client, bens);
+      ben.client.emit('push', { mutations: [bens] });
+      expect(await benAnswer).toEqual({
+        mutationId: bens.mutationId,
+        reason: 'That would make a loop: “Camping” already contains “Hiking”',
+      });
+
+      // Only Anna's half exists.
+      const rows = next(ben.client, 'rows');
+      ben.client.emit('pull', { spaceId: DEV_SPACE_ID, since: 0 });
+      const snapshot = await rows;
+      expect(snapshot.version).toBe(3);
+      expect(snapshot.rows.includes.map((row) => row.id)).toEqual([
+        annas.args.id,
+      ]);
+    });
+  });
 });

@@ -120,6 +120,9 @@ class FakeServer {
         rows: {
           lists: [...this.store.lists.values()].filter((r) => r.version > from),
           items: [...this.store.items.values()].filter((r) => r.version > from),
+          includes: [...this.store.includes.values()].filter(
+            (r) => r.version > from,
+          ),
         },
       });
     } else if (event === 'push') {
@@ -159,6 +162,9 @@ class FakeServer {
       const rows: RowSet = {
         lists: result.lists.flatMap((id) => this.store.lists.get(id) ?? []),
         items: result.items.flatMap((id) => this.store.items.get(id) ?? []),
+        includes: result.includes.flatMap(
+          (id) => this.store.includes.get(id) ?? [],
+        ),
       };
       if (this.connected)
         this.fire('poke', { spaceId: SPACE, version: this.version, rows });
@@ -548,6 +554,112 @@ describe('SyncEngine', () => {
 
       expect(await db.items.get(id)).toBeUndefined();
       expect(await visibleList(listId)).toMatchObject({ title: 'Camping' });
+    });
+  });
+
+  describe('includes', () => {
+    const include = (parentListId: string, childListId: string) => ({
+      spaceId: SPACE,
+      name: 'include.create' as const,
+      args: { id: newId(), parentListId, childListId, position: 'a1' },
+    });
+
+    it('includes a list locally, syncs it, and removes it again', async () => {
+      setup();
+      engine.start();
+      await settle();
+      const trip = await createList('Trip');
+      const camping = await createList('Camping');
+      const create = include(trip, camping);
+
+      expect(await engine.mutate(create)).toEqual({ ok: true });
+      expect(await db.includes.get(create.args.id)).toMatchObject({
+        parentListId: trip,
+        childListId: camping,
+      });
+      await settle();
+      expect(await db.serverIncludes.get(create.args.id)).toBeDefined();
+
+      // The prediction store has the include, so removing it isn't refused locally.
+      expect(
+        await engine.mutate({
+          spaceId: SPACE,
+          name: 'include.delete',
+          args: { id: create.args.id },
+        }),
+      ).toEqual({ ok: true });
+      expect(await db.includes.get(create.args.id)).toMatchObject({
+        deletedAt: expect.any(Number),
+      });
+      await settle();
+      expect(await outbox()).toEqual([]);
+    });
+
+    it('refuses a loop locally', async () => {
+      setup({ leader: false });
+      engine.start();
+      const a = await createList('A');
+      const b = await createList('B');
+      await engine.mutate(include(a, b));
+
+      expect(await engine.mutate(include(b, a))).toEqual({
+        ok: false,
+        reason: 'That would make a loop: “A” already contains “B”',
+      });
+    });
+
+    it('rolls back an offline half of a loop when the other half wins on the server', async () => {
+      setup();
+      engine.start();
+      await settle();
+      const a = await createList('A');
+      const b = await createList('B');
+      await settle();
+      server.autoAnswer = false;
+
+      const mine = include(a, b);
+      await engine.mutate(mine);
+      // Ben's half reaches the server first; the poke makes my pending half a loop.
+      const theirs = include(b, a).args;
+      server.otherClient('include.create', theirs);
+      await settle();
+      expect(await db.includes.get(theirs.id)).toBeDefined();
+      expect(await db.includes.get(mine.args.id)).toBeUndefined();
+
+      server.answerPushes();
+      await settle();
+      expect(await db.includes.get(mine.args.id)).toBeUndefined();
+      await eventually(() =>
+        expect(engine.errors()).toEqual([
+          expect.objectContaining({
+            reason: 'That would make a loop: “B” already contains “A”',
+          }),
+        ]),
+      );
+    });
+
+    it('rebuilds an include when a poke changes its list', async () => {
+      setup();
+      engine.start();
+      await settle();
+      const a = await createList('A');
+      const b = await createList('B');
+      const create = include(a, b);
+      await engine.mutate(create);
+      await settle();
+      server.autoAnswer = false;
+      await engine.mutate({
+        spaceId: SPACE,
+        name: 'include.move',
+        args: { id: create.args.id, position: 'a5' },
+      });
+
+      server.otherClient('list.delete', { id: a });
+      await settle();
+      // My pending move on an include of a deleted list has no effect (delete wins).
+      expect(await db.includes.get(create.args.id)).toMatchObject({
+        position: 'a1',
+      });
     });
   });
 

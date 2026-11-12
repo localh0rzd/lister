@@ -42,6 +42,7 @@ describe('applyMutation (shared by server and client)', () => {
       kind: 'changed',
       lists: [id],
       items: [],
+      includes: [],
     });
     expect(store.getList(id)).toEqual({
       id,
@@ -171,5 +172,187 @@ describe('applyMutation (shared by server and client)', () => {
     expect(apply(store, 'list.restore', { id: listId }, 5)).toEqual({
       kind: 'unchanged',
     });
+  });
+});
+
+describe('includes', () => {
+  /** A space with lists of these titles; returns their ids by title. */
+  function lists<T extends string>(...titles: T[]) {
+    const store = new MemoryRowStore();
+    const ids = {} as Record<T, string>;
+    for (const title of titles) {
+      ids[title] = newId();
+      apply(store, 'list.create', { id: ids[title], title });
+    }
+    return { store, ids };
+  }
+  const include = (
+    store: MemoryRowStore,
+    parentListId: string,
+    childListId: string,
+    version = 2,
+    id = newId(),
+  ) => ({
+    id,
+    outcome: apply(
+      store,
+      'include.create',
+      { id, parentListId, childListId, position: 'a0' },
+      version,
+    ),
+  });
+
+  it('includes one list in another, stamped like other rows', () => {
+    const { store, ids } = lists('Trip', 'Camping');
+    const { id, outcome } = include(store, ids.Trip, ids.Camping);
+
+    expect(outcome).toEqual({
+      kind: 'changed',
+      lists: [],
+      items: [],
+      includes: [id],
+    });
+    expect(store.getInclude(id)).toMatchObject({
+      parentListId: ids.Trip,
+      childListId: ids.Camping,
+      position: 'a0',
+      spaceId: SPACE,
+      version: 2,
+      deletedAt: null,
+      createdBy: USER,
+    });
+  });
+
+  it('refuses a list including itself, a list twice, and loops of any length', () => {
+    const { store, ids } = lists('A', 'B', 'C');
+    expect(include(store, ids.A, ids.A).outcome).toEqual({
+      kind: 'rejected',
+      reason: "A list can't include itself",
+    });
+    include(store, ids.A, ids.B);
+    expect(include(store, ids.A, ids.B, 3).outcome).toEqual({
+      kind: 'rejected',
+      reason: '“B” is already included',
+    });
+    expect(include(store, ids.B, ids.A, 3).outcome).toEqual({
+      kind: 'rejected',
+      reason: 'That would make a loop: “A” already contains “B”',
+    });
+    include(store, ids.B, ids.C, 3);
+    expect(include(store, ids.C, ids.A, 4).outcome).toMatchObject({
+      kind: 'rejected',
+    });
+    expect(store.includes.size).toBe(2);
+  });
+
+  it('allows a diamond', () => {
+    const { store, ids } = lists('Trip', 'Hostel', 'Camping', 'Toiletries');
+    include(store, ids.Trip, ids.Hostel);
+    include(store, ids.Trip, ids.Camping);
+    include(store, ids.Hostel, ids.Toiletries);
+    expect(include(store, ids.Camping, ids.Toiletries).outcome).toMatchObject({
+      kind: 'changed',
+    });
+  });
+
+  it('is idempotent by id, and rejects an id from another space', () => {
+    const { store, ids } = lists('A', 'B');
+    const { id } = include(store, ids.A, ids.B);
+    expect(include(store, ids.A, ids.B, 3, id).outcome).toEqual({
+      kind: 'unchanged',
+    });
+    const row = store.getInclude(id);
+    if (!row) throw new Error('missing');
+    store.putInclude({ ...row, spaceId: newId() });
+    expect(include(store, ids.A, ids.B, 4, id).outcome).toEqual({
+      kind: 'rejected',
+      reason: 'This include already exists',
+    });
+  });
+
+  it('refuses lists that are missing or in another space', () => {
+    const { store, ids } = lists('A', 'B');
+    expect(include(store, ids.A, newId()).outcome).toEqual({
+      kind: 'rejected',
+      reason: "This list doesn't exist",
+    });
+    moveToAnotherSpace(store, ids.B);
+    expect(include(store, ids.A, ids.B).outcome).toMatchObject({
+      kind: 'rejected',
+    });
+  });
+
+  it('may include a list in the trash; a deleted parent wins', () => {
+    const { store, ids } = lists('A', 'B', 'C');
+    apply(store, 'list.delete', { id: ids.B }, 2);
+    expect(include(store, ids.A, ids.B, 3).outcome).toMatchObject({
+      kind: 'changed',
+    });
+    apply(store, 'list.delete', { id: ids.A }, 4);
+    expect(include(store, ids.A, ids.C, 5).outcome).toEqual({
+      kind: 'unchanged',
+    });
+  });
+
+  it('moves, removes and restores an include; delete wins over a move', () => {
+    const { store, ids } = lists('A', 'B');
+    const { id } = include(store, ids.A, ids.B);
+
+    apply(store, 'include.move', { id, position: 'a5' }, 3);
+    expect(store.getInclude(id)).toMatchObject({ position: 'a5', version: 3 });
+    apply(store, 'include.delete', { id }, 4);
+    expect(store.getInclude(id)).toMatchObject({ deletedAt: 4000 });
+    expect(apply(store, 'include.move', { id, position: 'a1' }, 5)).toEqual({
+      kind: 'unchanged',
+    });
+    // Once removed, the list may be included again, and the loop check ignores it.
+    expect(include(store, ids.B, ids.A, 6).outcome).toMatchObject({
+      kind: 'changed',
+    });
+  });
+
+  it('refuses restoring an include that would now make a loop or a duplicate', () => {
+    const { store, ids } = lists('A', 'B');
+    const { id } = include(store, ids.A, ids.B);
+    apply(store, 'include.delete', { id }, 3);
+    include(store, ids.B, ids.A, 4);
+
+    expect(apply(store, 'include.restore', { id }, 5)).toEqual({
+      kind: 'rejected',
+      reason: 'That would make a loop: “B” already contains “A”',
+    });
+
+    const again = lists('A', 'B');
+    const first = include(again.store, again.ids.A, again.ids.B);
+    apply(again.store, 'include.delete', { id: first.id }, 3);
+    include(again.store, again.ids.A, again.ids.B, 4);
+    expect(apply(again.store, 'include.restore', { id: first.id }, 5)).toEqual({
+      kind: 'rejected',
+      reason: '“B” is already included',
+    });
+  });
+
+  it('restores a removed include', () => {
+    const { store, ids } = lists('A', 'B');
+    const { id } = include(store, ids.A, ids.B);
+    apply(store, 'include.delete', { id }, 3);
+    expect(apply(store, 'include.restore', { id }, 4)).toMatchObject({
+      kind: 'changed',
+    });
+    expect(store.getInclude(id)).toMatchObject({ deletedAt: null });
+  });
+
+  it("rejects changes to an include that doesn't exist", () => {
+    const { store } = lists();
+    for (const name of ['include.move', 'include.delete', 'include.restore']) {
+      const args =
+        name === 'include.move'
+          ? { id: newId(), position: 'a0' }
+          : { id: newId() };
+      expect(apply(store, name, args), name).toEqual({
+        kind: 'rejected',
+        reason: "This list isn't included there",
+      });
+    }
   });
 });

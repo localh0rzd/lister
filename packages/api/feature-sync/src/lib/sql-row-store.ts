@@ -1,9 +1,9 @@
 import { eq } from 'drizzle-orm';
 import { type Database, schema } from '@lister/api/data-access-db';
-import type { Item, List } from '@lister/shared/domain';
+import type { Include, Item, List } from '@lister/shared/domain';
 import type { RowStore } from '@lister/shared/sync-protocol';
 
-const { items, lists } = schema;
+const { includes, items, lists } = schema;
 
 /** A transaction handle (same API as the database). */
 export type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
@@ -23,6 +23,18 @@ export class SqlRowStore implements RowStore {
     return this.tx.select().from(items).where(eq(items.id, id)).get();
   }
 
+  getInclude(id: string): Include | undefined {
+    return this.tx.select().from(includes).where(eq(includes.id, id)).get();
+  }
+
+  includesOf(parentListId: string): Include[] {
+    return this.tx
+      .select()
+      .from(includes)
+      .where(eq(includes.parentListId, parentListId))
+      .all();
+  }
+
   putList(row: List): void {
     this.tx
       .insert(lists)
@@ -36,6 +48,14 @@ export class SqlRowStore implements RowStore {
       .insert(items)
       .values(row)
       .onConflictDoUpdate({ target: items.id, set: row })
+      .run();
+  }
+
+  putInclude(row: Include): void {
+    this.tx
+      .insert(includes)
+      .values(row)
+      .onConflictDoUpdate({ target: includes.id, set: row })
       .run();
   }
 }

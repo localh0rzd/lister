@@ -189,7 +189,7 @@ describe('MutationService', () => {
         status: 'ack',
         version: 2,
       });
-      expect(applied.rows).toEqual({ lists: [], items: [] });
+      expect(applied.rows).toEqual({ lists: [], items: [], includes: [] });
       expect(spaceVersion()).toBe(2);
       expect(listRow(id)).toMatchObject({
         title: 'Camping',
@@ -295,7 +295,11 @@ describe('MutationService', () => {
       const applied = push('item.move', { id, position: 'a5' });
 
       expect(applied.spaceId).toBe(SPACE);
-      expect(applied.rows).toEqual({ lists: [], items: [itemRow(id)] });
+      expect(applied.rows).toEqual({
+        lists: [],
+        items: [itemRow(id)],
+        includes: [],
+      });
       expect(applied.rows.items[0]).toMatchObject({
         position: 'a5',
         version: 3,
@@ -320,7 +324,7 @@ describe('MutationService', () => {
       );
 
       expect(again.result).toEqual(first.result);
-      expect(again.rows).toEqual({ lists: [], items: [] });
+      expect(again.rows).toEqual({ lists: [], items: [], includes: [] });
       expect(spaceVersion()).toBe(1);
     });
 
@@ -509,6 +513,71 @@ describe('MutationService', () => {
           .result,
       ).toMatchObject({ status: 'reject', reason: 'This list already exists' });
     });
+  });
+});
+
+describe('includes', () => {
+  const includeRow = (id: string) =>
+    database.db
+      .select()
+      .from(schema.includes)
+      .where(eq(schema.includes.id, id))
+      .get();
+  function include(parentListId: string, childListId: string) {
+    const id = newId();
+    const applied = push('include.create', {
+      id,
+      parentListId,
+      childListId,
+      position: 'a1',
+    });
+    return { id, applied };
+  }
+
+  it('stores an include and returns it for the poke', () => {
+    const trip = createList('Trip');
+    const camping = createList('Camping');
+    const { id, applied } = include(trip, camping);
+
+    expect(applied.result).toMatchObject({ status: 'ack', version: 3 });
+    expect(includeRow(id)).toMatchObject({
+      parentListId: trip,
+      childListId: camping,
+      position: 'a1',
+      version: 3,
+      createdBy: ALICE,
+    });
+    expect(applied.rows).toEqual({
+      lists: [],
+      items: [],
+      includes: [includeRow(id)],
+    });
+  });
+
+  it('rejects closing a loop, reading the includes from SQLite', () => {
+    const a = createList('A');
+    const b = createList('B');
+    const c = createList('C');
+    include(a, b);
+    include(b, c);
+
+    const { id, applied } = include(c, a);
+    expect(applied.result).toEqual({
+      mutationId: expect.any(String),
+      status: 'reject',
+      reason: 'That would make a loop: “A” already contains “C”',
+    });
+    expect(includeRow(id)).toBeUndefined();
+    expect(spaceVersion()).toBe(5);
+  });
+
+  it('moves, removes and restores an include', () => {
+    const { id } = include(createList('A'), createList('B'));
+    push('include.move', { id, position: 'a3' });
+    push('include.delete', { id });
+    expect(includeRow(id)).toMatchObject({ position: 'a3', deletedAt: now });
+    push('include.restore', { id });
+    expect(includeRow(id)).toMatchObject({ deletedAt: null });
   });
 });
 

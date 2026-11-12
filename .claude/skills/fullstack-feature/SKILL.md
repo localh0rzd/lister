@@ -109,8 +109,9 @@ satisfies z.ZodType<Entity>`, tolerant (`z.object`, not `strictObject`): it's wh
     `this.version(n).stores({...}).upgrade((tx) => tx.table('syncState').clear())`. Test it in
     `local-db.spec.ts` (open the old version with data, then the new one: `syncState` is empty,
     `outbox` isn't).
-- **Engine** (`src/lib/sync-engine.ts`), new table only — it names lists and items explicitly,
-  and nothing fails to compile if you miss a place:
+- **Engine** (`src/lib/sync-engine.ts`), new table only — it names lists, items and includes
+  explicitly, and nothing fails to compile if you miss a place (includes, T-015, are the
+  example with references and a relation):
   - `mutate()`: load the new visible table into the `MemoryRowStore` it predicts with,
     otherwise the rule can't find the row and refuses the change locally;
   - `syncTables()`: both tables (so the rebuild runs in one transaction);
@@ -118,11 +119,13 @@ satisfies z.ZodType<Entity>`, tolerant (`z.object`, not `strictObject`): it's wh
     and add the ids to `touched`;
   - `rebuild()`: load the server rows (all of the space, or by touched id) into the
     `MemoryRowStore` and write the visible rows back (`changes()`). The incremental path also
-    loads rows the rules reach through references (today: each touched item's list); add the
-    new table's (e.g. an include's parent and child lists). For a rule that reads by relation,
-    load that whole relation for the space;
-  - `touchedBy()`: map the new mutation names to their table and read their own argument names
-    (today it reads only `id` and `listId`, and anything not `list.*` counts as an item);
+    loads rows the rules reach through references (each touched item's list, each touched
+    include's parent and child lists); add the new table's. For a rule that reads by relation,
+    load that whole relation for the space (every include of the space is always loaded, for
+    the loop check);
+  - `touchedBy()`: map the new mutation prefix to its table (`list.`, `item.`, `include.`) and
+    read its reference arguments (now `listId`, `parentListId`, `childListId`); an unknown
+    prefix touches nothing;
   - its spec (`sync-engine.spec.ts`, fake socket + fake-indexeddb): local apply, ack, poke,
     reject rolls back, rebase.
 - **Reads:** a method on `Repositories` (`src/lib/repositories.ts`) returning
@@ -185,7 +188,8 @@ satisfies z.ZodType<Entity>`, tolerant (`z.object`, not `strictObject`): it's wh
 - [ ] Path A, new table: added everywhere lists and items are named (`rowSetSchema`, `RowStore`
       and `MemoryRowStore` (constructor, map), `ApplyOutcome`, `SqlRowStore`, `MutationService`
       rows, `SyncReader.rowsSince`, both Dexie tables, the engine's `mutate` / `syncTables` /
-      `storeServerRows` / `rebuild` (incl. referenced rows) / `touchedBy`)
+      `storeServerRows` / `rebuild` (incl. referenced rows) / `touchedBy`) and the fake server
+      in `sync-engine.spec.ts`
 - [ ] Rejected and offline states are visible in the UI
 - [ ] Unit tests on both sides, integration tests for every backend call, a Playwright happy path
       (`testing` skill)

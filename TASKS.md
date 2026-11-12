@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-015 — Composition model: includes, flattening, cycle rejection
 
 - Milestone: M3 Composition
@@ -41,6 +39,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
     cycle, including when two offline clients each add one half of a loop (the second is rejected).
   - Unit tests for flattening (nesting, order, diamonds) and cycles; an integration test for the
     two-client loop.
+
+## Backlog
 
 ### T-016 — Composition UI
 

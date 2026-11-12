@@ -87,18 +87,32 @@ function changes<T extends { spaceId: string }>(
 interface Touched {
   lists: Set<string>;
   items: Set<string>;
+  includes: Set<string>;
 }
+
+const noneTouched = (): Touched => ({
+  lists: new Set(),
+  items: new Set(),
+  includes: new Set(),
+});
 
 function touchedBy(
   mutations: readonly { name: string; args: unknown }[],
-  into: Touched = { lists: new Set(), items: new Set() },
+  into: Touched = noneTouched(),
 ): Touched {
   for (const { name, args } of mutations) {
-    const { id, listId } = args as { id?: string; listId?: string };
+    const { id, listId, parentListId, childListId } = args as Partial<
+      Record<'id' | 'listId' | 'parentListId' | 'childListId', string>
+    >;
     if (!id) continue;
     if (name.startsWith('list.')) into.lists.add(id);
-    else into.items.add(id);
-    if (listId) into.lists.add(listId);
+    else if (name.startsWith('item.')) into.items.add(id);
+    else if (name.startsWith('include.')) into.includes.add(id);
+    // A name the schema doesn't know never reaches the rules, so it touches nothing.
+    else continue;
+    for (const list of [listId, parentListId, childListId]) {
+      if (list) into.lists.add(list);
+    }
   }
   return into;
 }
@@ -237,6 +251,7 @@ export class SyncEngine {
           const store = new MemoryRowStore(
             await this.db.lists.where('spaceId').equals(spaceId).toArray(),
             await this.db.items.where('spaceId').equals(spaceId).toArray(),
+            await this.db.includes.where('spaceId').equals(spaceId).toArray(),
           );
           const context = await this.context(spaceId);
           const outcome = applyMutation(
@@ -521,8 +536,10 @@ export class SyncEngine {
     return [
       this.db.serverLists,
       this.db.serverItems,
+      this.db.serverIncludes,
       this.db.lists,
       this.db.items,
+      this.db.includes,
       this.db.outbox,
       this.db.syncState,
       this.db.meta,
@@ -541,14 +558,17 @@ export class SyncEngine {
       if (snapshot) {
         await this.db.serverLists.where('spaceId').equals(spaceId).delete();
         await this.db.serverItems.where('spaceId').equals(spaceId).delete();
+        await this.db.serverIncludes.where('spaceId').equals(spaceId).delete();
       }
       await this.db.serverLists.bulkPut(rows.lists);
       await this.db.serverItems.bulkPut(rows.items);
+      await this.db.serverIncludes.bulkPut(rows.includes);
       await this.db.syncState.put({ spaceId, version, lastSyncedAt: syncedAt });
 
-      const touched = touchedBy([]);
+      const touched = noneTouched();
       for (const row of rows.lists) touched.lists.add(row.id);
       for (const row of rows.items) touched.items.add(row.id);
+      for (const row of rows.includes) touched.includes.add(row.id);
       for (const entry of await this.db.outbox
         .where('spaceId')
         .equals(spaceId)
@@ -585,35 +605,55 @@ export class SyncEngine {
         : [];
     });
 
+    // The include rules read the whole include graph (loops, duplicates), so every include of
+    // the space takes part in both paths; there are few of them.
+    const serverIncludes = await this.db.serverIncludes
+      .where('spaceId')
+      .equals(spaceId)
+      .toArray();
     let store: MemoryRowStore;
     let lists: Iterable<string>;
     let items: Iterable<string>;
+    let includes: Iterable<string>;
     if (!touched) {
       store = new MemoryRowStore(
         await this.db.serverLists.where('spaceId').equals(spaceId).toArray(),
         await this.db.serverItems.where('spaceId').equals(spaceId).toArray(),
+        serverIncludes,
       );
       await this.db.lists.where('spaceId').equals(spaceId).delete();
       await this.db.items.where('spaceId').equals(spaceId).delete();
+      await this.db.includes.where('spaceId').equals(spaceId).delete();
       lists = [];
       items = [];
+      includes = [];
     } else {
       const ids = touchedBy(
         pending.map((p) => p.mutation),
-        { lists: new Set(touched.lists), items: new Set(touched.items) },
+        {
+          lists: new Set(touched.lists),
+          items: new Set(touched.items),
+          includes: new Set(touched.includes),
+        },
       );
       // Ids are keys across spaces; only this space's rows take part, as in a full rebuild.
       const serverItems = (
         await this.db.serverItems.bulkGet([...ids.items])
       ).filter(inSpaceOf(spaceId));
-      // The rules look at an item's list (deleted lists win).
+      // The rules look at an item's list (deleted lists win), and at an include's lists.
       for (const item of serverItems) ids.lists.add(item.listId);
+      for (const include of serverIncludes) {
+        if (!ids.includes.has(include.id)) continue;
+        ids.lists.add(include.parentListId);
+        ids.lists.add(include.childListId);
+      }
       const serverLists = (
         await this.db.serverLists.bulkGet([...ids.lists])
       ).filter(inSpaceOf(spaceId));
-      store = new MemoryRowStore(serverLists, serverItems);
+      store = new MemoryRowStore(serverLists, serverItems, serverIncludes);
       lists = ids.lists;
       items = ids.items;
+      includes = ids.includes;
     }
 
     const context = await this.context(spaceId);
@@ -625,6 +665,9 @@ export class SyncEngine {
     if (!touched) {
       await this.db.lists.bulkPut([...store.lists.values()].filter(inSpace));
       await this.db.items.bulkPut([...store.items.values()].filter(inSpace));
+      await this.db.includes.bulkPut(
+        [...store.includes.values()].filter(inSpace),
+      );
       return;
     }
     const listIds = [...lists];
@@ -645,6 +688,15 @@ export class SyncEngine {
     await this.db.lists.bulkDelete(listChanges.gone);
     await this.db.items.bulkPut(itemChanges.put);
     await this.db.items.bulkDelete(itemChanges.gone);
+    const includeIds = [...includes];
+    const includeChanges = changes(
+      spaceId,
+      includeIds,
+      store.includes,
+      await this.db.includes.bulkGet(includeIds),
+    );
+    await this.db.includes.bulkPut(includeChanges.put);
+    await this.db.includes.bulkDelete(includeChanges.gone);
   }
 
   /** Who we are and the version local predictions are based on. */

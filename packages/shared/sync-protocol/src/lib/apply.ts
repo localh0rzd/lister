@@ -1,4 +1,9 @@
-import type { Item, List } from '@lister/shared/domain';
+import {
+  type Include,
+  type Item,
+  type List,
+  wouldCreateCycle,
+} from '@lister/shared/domain';
 import type { Mutation, MutationArgs } from './mutations';
 
 /**
@@ -9,9 +14,13 @@ export interface RowStore {
   /** The list with this id in any space, if it exists (tombstones included). */
   getList(id: string): List | undefined;
   getItem(id: string): Item | undefined;
+  getInclude(id: string): Include | undefined;
+  /** The includes whose parent is this list, in any space (tombstones included). */
+  includesOf(parentListId: string): readonly Include[];
   /** Insert or replace. */
   putList(row: List): void;
   putItem(row: Item): void;
+  putInclude(row: Include): void;
 }
 
 export interface ApplyContext {
@@ -24,7 +33,7 @@ export interface ApplyContext {
 
 /** What a mutation did: rows changed, nothing (ignored), or a rejection with a reason. */
 export type ApplyOutcome =
-  | { kind: 'changed'; lists: string[]; items: string[] }
+  | { kind: 'changed'; lists: string[]; items: string[]; includes: string[] }
   | { kind: 'unchanged' }
   | { kind: 'rejected'; reason: string };
 
@@ -34,15 +43,24 @@ const changedList = (id: string): ApplyOutcome => ({
   kind: 'changed',
   lists: [id],
   items: [],
+  includes: [],
 });
 const changedItem = (id: string): ApplyOutcome => ({
   kind: 'changed',
   lists: [],
   items: [id],
+  includes: [],
+});
+const changedInclude = (id: string): ApplyOutcome => ({
+  kind: 'changed',
+  lists: [],
+  items: [],
+  includes: [id],
 });
 
 const LIST_MISSING = "This list doesn't exist";
 const ITEM_MISSING = "This item doesn't exist";
+const INCLUDE_MISSING = "This list isn't included there";
 
 /** Only the fields a patch sets (absent and undefined keys are left alone). */
 function definedFields<T extends object>(patch: T): Partial<T> {
@@ -57,6 +75,8 @@ function definedFields<T extends object>(patch: T): Partial<T> {
  * - per-field patches; the change that reaches the server last wins;
  * - deletes win: changes to a tombstone, or to the items of a deleted list, are ignored;
  * - creates are idempotent by id within the space; an id from another space is rejected;
+ * - includes never form a loop, and a list includes another at most once (live includes): the
+ *   one that would arrive second is rejected, also when two clients made the halves offline;
  * - everything is checked before anything is written, so a rejection changes nothing.
  */
 export function applyMutation(
@@ -102,8 +122,49 @@ export function applyMutation(
     if (item.deletedAt !== null || listIsDeleted(item.listId)) return unchanged;
     return item;
   };
-  const isOutcome = (value: Item | ApplyOutcome): value is ApplyOutcome =>
-    'kind' in value;
+  const isOutcome = (value: object): value is ApplyOutcome => 'kind' in value;
+
+  const includeHere = (id: string) => {
+    const include = store.getInclude(id);
+    return include?.spaceId === ctx.spaceId ? include : undefined;
+  };
+  const updateInclude = (include: Include, change: Partial<Include>) => {
+    store.putInclude({ ...include, ...change, ...stamp });
+    return changedInclude(include.id);
+  };
+  const liveIncludesOf = (listId: string) =>
+    store
+      .includesOf(listId)
+      .filter((row) => row.spaceId === ctx.spaceId && row.deletedAt === null);
+  /** Why `parent` may not (again) include `child`, if it may not. */
+  const includeRefusal = (
+    parent: List,
+    child: List,
+    self?: string,
+  ): ApplyOutcome | undefined => {
+    if (parent.id === child.id) return reject("A list can't include itself");
+    if (
+      liveIncludesOf(parent.id).some(
+        (row) => row.childListId === child.id && row.id !== self,
+      )
+    ) {
+      return reject(`“${child.title}” is already included`);
+    }
+    if (wouldCreateCycle(parent.id, child.id, liveIncludesOf)) {
+      return reject(
+        `That would make a loop: “${child.title}” already contains “${parent.title}”`,
+      );
+    }
+    return undefined;
+  };
+  /** An include that may be changed: it exists here, isn't deleted, nor is its parent list. */
+  const liveInclude = (id: string): Include | ApplyOutcome => {
+    const include = includeHere(id);
+    if (!include) return reject(INCLUDE_MISSING);
+    if (include.deletedAt !== null || listIsDeleted(include.parentListId))
+      return unchanged;
+    return include;
+  };
 
   switch (mutation.name) {
     case 'list.create': {
@@ -185,6 +246,55 @@ export function applyMutation(
         return unchanged;
       return updateItem(item, { deletedAt: null });
     }
+    case 'include.create': {
+      const args = mutation.args;
+      const existing = store.getInclude(args.id);
+      if (existing) {
+        return existing.spaceId === ctx.spaceId
+          ? unchanged
+          : reject('This include already exists');
+      }
+      const parent = listHere(args.parentListId);
+      const child = listHere(args.childListId);
+      if (!parent || !child) return reject(LIST_MISSING);
+      if (parent.deletedAt !== null) return unchanged;
+      // A child in the trash may still be included: deleting never blocks (design §2.2).
+      const refusal = includeRefusal(parent, child);
+      if (refusal) return refusal;
+      store.putInclude({
+        ...created,
+        id: args.id,
+        parentListId: args.parentListId,
+        childListId: args.childListId,
+        position: args.position,
+      });
+      return changedInclude(args.id);
+    }
+    case 'include.move': {
+      const include = liveInclude(mutation.args.id);
+      return isOutcome(include)
+        ? include
+        : updateInclude(include, { position: mutation.args.position });
+    }
+    case 'include.delete': {
+      const include = liveInclude(mutation.args.id);
+      return isOutcome(include)
+        ? include
+        : updateInclude(include, { deletedAt: ctx.now });
+    }
+    case 'include.restore': {
+      const include = includeHere(mutation.args.id);
+      if (!include) return reject(INCLUDE_MISSING);
+      if (include.deletedAt === null || listIsDeleted(include.parentListId))
+        return unchanged;
+      const parent = listHere(include.parentListId);
+      const child = listHere(include.childListId);
+      if (!parent || !child) return reject(LIST_MISSING);
+      // Others may have added the same include, or the other half of a loop, meanwhile.
+      const refusal = includeRefusal(parent, child, include.id);
+      if (refusal) return refusal;
+      return updateInclude(include, { deletedAt: null });
+    }
   }
 }
 
@@ -192,10 +302,28 @@ export function applyMutation(
 export class MemoryRowStore implements RowStore {
   readonly lists = new Map<string, List>();
   readonly items = new Map<string, Item>();
+  readonly includes = new Map<string, Include>();
 
-  constructor(lists: Iterable<List> = [], items: Iterable<Item> = []) {
+  constructor(
+    lists: Iterable<List> = [],
+    items: Iterable<Item> = [],
+    includes: Iterable<Include> = [],
+  ) {
     for (const list of lists) this.lists.set(list.id, list);
     for (const item of items) this.items.set(item.id, item);
+    for (const include of includes) this.includes.set(include.id, include);
+  }
+
+  getInclude(id: string) {
+    return this.includes.get(id);
+  }
+  includesOf(parentListId: string) {
+    return [...this.includes.values()].filter(
+      (row) => row.parentListId === parentListId,
+    );
+  }
+  putInclude(row: Include) {
+    this.includes.set(row.id, row);
   }
 
   getList(id: string) {

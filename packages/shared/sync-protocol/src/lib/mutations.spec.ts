@@ -19,6 +19,18 @@ describe('mutationSchema', () => {
       { name: 'item.move', args: { id, position: 'a0V' } },
       { name: 'item.delete', args: { id } },
       { name: 'item.restore', args: { id } },
+      {
+        name: 'include.create',
+        args: {
+          id,
+          parentListId: newId(),
+          childListId: newId(),
+          position: 'a1',
+        },
+      },
+      { name: 'include.move', args: { id, position: 'a2' } },
+      { name: 'include.delete', args: { id } },
+      { name: 'include.restore', args: { id } },
     ];
 
     expect(valid.map((m) => m.name).sort()).toEqual([...MUTATION_NAMES].sort());

@@ -43,3 +43,14 @@ export interface Item extends SyncMetadata {
   /** Fractional-index key; see `comparePositions`. */
   readonly position: string;
 }
+
+/**
+ * "List `parentListId` contains list `childListId`" (D2): a live reference, ordered among the
+ * parent's items (they share one position key space). The include graph never has a cycle.
+ */
+export interface Include extends SyncMetadata {
+  readonly parentListId: Id;
+  readonly childListId: Id;
+  /** Fractional-index key, in the same key space as the parent's items. */
+  readonly position: string;
+}

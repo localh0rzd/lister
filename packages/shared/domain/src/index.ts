@@ -1,3 +1,4 @@
+export * from './lib/composition';
 export * from './lib/entities';
 export * from './lib/ids';
 export * from './lib/limits';

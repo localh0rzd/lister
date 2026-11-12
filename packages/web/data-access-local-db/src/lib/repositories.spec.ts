@@ -70,14 +70,16 @@ const titles = (state: QueryState<{ title: string }[]>) =>
   valueOf(state)?.map((r) => r.title);
 
 describe('LocalDb', () => {
-  it('has the tables of schema version 3', () => {
-    expect(db.verno).toBe(3);
+  it('has the tables of schema version 4', () => {
+    expect(db.verno).toBe(4);
     expect(db.tables.map((t) => t.name).sort()).toEqual([
+      'includes',
       'items',
       'lists',
       'meta',
       'outbox',
       'rejections',
+      'serverIncludes',
       'serverItems',
       'serverLists',
       'spaces',

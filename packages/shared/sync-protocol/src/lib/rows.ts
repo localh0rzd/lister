@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { type Item, LIMITS, type List } from '@lister/shared/domain';
+import {
+  type Include,
+  type Item,
+  LIMITS,
+  type List,
+} from '@lister/shared/domain';
 import {
   descriptionSchema,
   idSchema,
@@ -41,9 +46,17 @@ export const itemRowSchema = z.object({
   position: positionSchema,
 }) satisfies z.ZodType<Item>;
 
-/** Changed rows per table. */
+export const includeRowSchema = z.object({
+  ...syncMetadata,
+  parentListId: idSchema,
+  childListId: idSchema,
+  position: positionSchema,
+}) satisfies z.ZodType<Include>;
+
+/** Changed rows per table. A table the server doesn't send yet is empty. */
 export const rowSetSchema = z.object({
   lists: z.array(listRowSchema),
   items: z.array(itemRowSchema),
+  includes: z.array(includeRowSchema).default([]),
 });
 export type RowSet = z.infer<typeof rowSetSchema>;

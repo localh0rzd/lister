@@ -1,6 +1,6 @@
 import { InjectionToken } from '@angular/core';
 import { Dexie, type EntityTable, type Table } from 'dexie';
-import type { Item, List, Space } from '@lister/shared/domain';
+import type { Include, Item, List, Space } from '@lister/shared/domain';
 import type { MutationInput } from '@lister/shared/sync-protocol';
 
 /** A mutation waiting to be pushed, in the order it was made (`seq`). */
@@ -61,23 +61,26 @@ export interface MetaEntry {
 /**
  * The local database (IndexedDB via Dexie), design §2.5 and §4.2:
  *
- * - `serverLists` / `serverItems`: rows exactly as the server last sent them.
- * - `lists` / `items`: what the UI shows, i.e. the server rows with the pending outbox mutations
+ * - `serverLists` / `serverItems` / `serverIncludes`: rows exactly as the server last sent them.
+ * - `lists` / `items` / `includes`: what the UI shows, i.e. the server rows with the pending outbox mutations
  *   re-applied on top. The sync engine rebuilds affected rows from the server copy whenever
  *   server rows arrive or a mutation is rejected (rebase and rollback).
  * - `outbox`: pending mutations in order; `syncState`: synced version per space; `meta`.
  *
  * Every server schema change (a Drizzle migration) comes with a new `this.version(n)` here, in
  * the same change (CLAUDE.md). Version 1 matches server migrations 0000–0001; version 2 adds the
- * client-only `rejections` table; version 3 indexes spaces by name. Tombstones are
+ * client-only `rejections` table; version 3 indexes spaces by name; version 4 matches migration
+ * 0002 (includes) and forces a snapshot. Tombstones are
  * stored like other rows; queries leave them out (`deletedAt` can't be indexed while it's null).
  */
 export class LocalDb extends Dexie {
   spaces!: EntityTable<LocalSpace, 'id'>;
   lists!: EntityTable<List, 'id'>;
   items!: EntityTable<Item, 'id'>;
+  includes!: EntityTable<Include, 'id'>;
   serverLists!: EntityTable<List, 'id'>;
   serverItems!: EntityTable<Item, 'id'>;
+  serverIncludes!: EntityTable<Include, 'id'>;
   outbox!: EntityTable<OutboxEntry, 'seq'>;
   syncState!: Table<SyncState, string>;
   meta!: Table<MetaEntry, string>;
@@ -99,6 +102,14 @@ export class LocalDb extends Dexie {
     this.version(2).stores({ rejections: 'mutationId, at' });
     // Spaces by name (CurrentSpace).
     this.version(3).stores({ spaces: 'id, name' });
+    // Server migration 0002: includes. A new synced table: the next pull must be a snapshot,
+    // since an older app dropped includes from the pokes it got (design §2.5).
+    this.version(4)
+      .stores({
+        includes: 'id, spaceId, parentListId, childListId',
+        serverIncludes: 'id, spaceId, parentListId, childListId',
+      })
+      .upgrade((tx) => tx.table('syncState').clear());
   }
 }
 

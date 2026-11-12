@@ -23,7 +23,8 @@ const byId = z.strictObject({ id: idSchema });
 
 /**
  * Mutations set values; they never toggle or increment, so a retry is harmless (design §4.2).
- * Creates carry the client's id. Lists are shown by title, so they have no `move`.
+ * Creates carry the client's id. Lists are shown by title, so they have no `move`. Includes
+ * share their parent's position key space with its items.
  */
 export const mutationArgs = {
   'list.create': z.strictObject({
@@ -56,6 +57,15 @@ export const mutationArgs = {
   'item.move': z.strictObject({ id: idSchema, position: positionSchema }),
   'item.delete': byId,
   'item.restore': byId,
+  'include.create': z.strictObject({
+    id: idSchema,
+    parentListId: idSchema,
+    childListId: idSchema,
+    position: positionSchema,
+  }),
+  'include.move': z.strictObject({ id: idSchema, position: positionSchema }),
+  'include.delete': byId,
+  'include.restore': byId,
 } as const;
 
 export type MutationName = keyof typeof mutationArgs;
@@ -79,6 +89,10 @@ export const mutationSchema = z.discriminatedUnion('name', [
   mutationOf('item.move'),
   mutationOf('item.delete'),
   mutationOf('item.restore'),
+  mutationOf('include.create'),
+  mutationOf('include.move'),
+  mutationOf('include.delete'),
+  mutationOf('include.restore'),
 ]);
 
 /** A mutation as sent (defaults may be missing). */
