@@ -40,7 +40,8 @@ test.describe('duplicate a list', () => {
       page.getByRole('listitem').filter({ hasText: copy }),
     ).toContainText('2 items · 3 in total · 1 list included');
 
-    await page.getByRole('link', { name: copy }).click();
+    // The notice leads to the copy (lists are sorted by title, so it may be off-screen).
+    await page.getByRole('button', { name: 'Open' }).click();
     await expect(
       page.getByRole('heading', { level: 1, name: copy }),
     ).toBeVisible();

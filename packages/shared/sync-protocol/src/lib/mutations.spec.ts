@@ -20,6 +20,16 @@ describe('mutationSchema', () => {
       { name: 'item.delete', args: { id } },
       { name: 'item.restore', args: { id } },
       {
+        name: 'list.duplicate',
+        args: {
+          id,
+          sourceListId: newId(),
+          title: 'Copy of Camping',
+          items: [{ from: newId(), id: newId() }],
+          includes: [],
+        },
+      },
+      {
         name: 'include.create',
         args: {
           id,

@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MatDialog } from '@angular/material/dialog';
 import { MatMenuHarness } from '@angular/material/menu/testing';
@@ -293,66 +293,73 @@ describe('ListsPage', () => {
     );
     await menu.clickItem({ text: /Duplicate/ });
 
-    await vi.waitFor(() => expect(mutate).toHaveBeenCalledTimes(4));
-    const requests = mutate.mock.calls.map(([request]) => request);
-    const copyId = requests[0].args.id;
-    expect(copyId).not.toBe(camping.id);
-    expect(requests).toEqual([
-      {
-        spaceId: SPACE,
-        name: 'list.create',
-        args: { id: copyId, title: 'Copy of Camping', description: 'Summer' },
+    await vi.waitFor(() => expect(mutate).toHaveBeenCalledTimes(1));
+    const [request] = mutate.mock.calls[0];
+    const copyId = request.args.id;
+    expect(request).toEqual({
+      spaceId: SPACE,
+      name: 'list.duplicate',
+      args: {
+        id: copyId,
+        sourceListId: camping.id,
+        title: 'Copy of Camping',
+        items: expect.arrayContaining([
+          { from: tent.id, id: expect.any(String) },
+          { from: stove.id, id: expect.any(String) },
+        ]),
+        includes: [{ from: expect.any(String), id: expect.any(String) }],
       },
-      {
-        spaceId: SPACE,
-        name: 'item.create',
-        args: {
-          id: expect.any(String),
-          listId: copyId,
-          title: 'Stove',
-          quantity: '',
-          note: '',
-          position: 'a0',
-        },
-      },
-      {
-        spaceId: SPACE,
-        name: 'item.create',
-        args: {
-          id: expect.any(String),
-          listId: copyId,
-          title: 'Tent',
-          quantity: '1',
-          note: '2 people',
-          position: 'a1',
-        },
-      },
-      {
-        spaceId: SPACE,
-        name: 'include.create',
-        args: {
-          id: expect.any(String),
-          parentListId: copyId,
-          childListId: toiletries.id,
-          position: 'a5',
-        },
-      },
-    ]);
-    const newIds = requests.map((r) => r.args.id);
-    expect(newIds).not.toContain(tent.id);
+    });
+    expect(request.args.items).toHaveLength(2); // not the deleted one
+    const newIds = [
+      copyId,
+      ...request.args.items.map((r: { id: string }) => r.id),
+      ...request.args.includes.map((r: { id: string }) => r.id),
+    ];
     expect(new Set(newIds).size).toBe(4);
+    expect(newIds).not.toContain(tent.id);
     await vi.waitFor(() =>
       expect(notify).toHaveBeenCalledWith(
-        expect.objectContaining({ message: 'Created “Copy of Camping”' }),
+        expect.objectContaining({
+          message: 'Created “Copy of Camping”',
+          action: 'Open',
+        }),
       ),
     );
   });
 
-  it('stops duplicating at the first refusal', async () => {
+  it('opens the copy from the notice', async () => {
+    const camping = list('Camping');
+    await db.lists.put(camping);
+    const { loader, element, fixture } = await render();
+    await vi.waitFor(async () => {
+      await fixture.whenStable();
+      expect(rows(element)).toContain('Camping · 0 items');
+    });
+    notify.mockResolvedValueOnce('action');
+    const navigate = vi
+      .spyOn(TestBed.inject(Router), 'navigate')
+      .mockResolvedValue(true);
+
+    const menu = await loader.getHarness(
+      MatMenuHarness.with({ selector: '[aria-label="More for Camping"]' }),
+    );
+    await menu.clickItem({ text: /Duplicate/ });
+
+    await vi.waitFor(() => expect(navigate).toHaveBeenCalled());
+    const copyId = mutate.mock.calls[0][0].args.id;
+    expect(navigate).toHaveBeenCalledWith(['/lists', copyId]);
+  });
+
+  it('says why a duplicate was refused, and nothing is created', async () => {
     const camping = list('Camping');
     await db.lists.put(camping);
     await db.items.put(item(camping.id));
-    const { loader } = await render();
+    const { loader, element, fixture } = await render();
+    await vi.waitFor(async () => {
+      await fixture.whenStable();
+      expect(rows(element)).toContain('Camping · 1 item');
+    });
     mutate.mockResolvedValueOnce({ ok: false, reason: 'Nope' });
 
     const menu = await loader.getHarness(
@@ -366,6 +373,9 @@ describe('ListsPage', () => {
       ),
     );
     expect(mutate).toHaveBeenCalledTimes(1);
+    expect(notify).not.toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'Open' }),
+    );
   });
 
   it('shows why a change was refused', async () => {
@@ -392,5 +402,9 @@ describe('copyTitle', () => {
     const long = 'x'.repeat(200);
     expect([...copyTitle(long)]).toHaveLength(200);
     expect(copyTitle('🏕'.repeat(199))).toBe(`Copy of ${'🏕'.repeat(192)}`);
+    // A family emoji is one grapheme of 7 code points: it's never cut in half.
+    const family = '👨‍👩‍👧‍👦';
+    const near = 'x'.repeat(190) + family;
+    expect(copyTitle(near)).toBe(`Copy of ${'x'.repeat(190)}`.trimEnd());
   });
 });

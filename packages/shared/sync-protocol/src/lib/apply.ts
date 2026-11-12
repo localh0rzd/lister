@@ -183,6 +183,54 @@ export function applyMutation(
       });
       return changedList(args.id);
     }
+    case 'list.duplicate': {
+      const args = mutation.args;
+      const existing = store.getList(args.id);
+      if (existing) {
+        return existing.spaceId === ctx.spaceId
+          ? unchanged
+          : reject('This list already exists');
+      }
+      const source = listHere(args.sourceListId);
+      if (!source) return reject(LIST_MISSING);
+      // Everything is checked before anything is written.
+      for (const { id } of args.items) {
+        if (store.getItem(id)) return reject('This item already exists');
+      }
+      for (const { id } of args.includes) {
+        if (store.getInclude(id)) return reject('This include already exists');
+      }
+      store.putList({
+        ...created,
+        id: args.id,
+        title: args.title,
+        description: source.description,
+      });
+      // Rows deleted or moved away since the client looked are skipped: the copy is of the
+      // source as the server has it now.
+      const items: string[] = [];
+      for (const { from, id } of args.items) {
+        const item = itemHere(from);
+        if (!item || item.listId !== source.id || item.deletedAt !== null)
+          continue;
+        store.putItem({ ...item, ...created, id, listId: args.id });
+        items.push(id);
+      }
+      const includes: string[] = [];
+      for (const { from, id } of args.includes) {
+        const include = includeHere(from);
+        if (
+          !include ||
+          include.parentListId !== source.id ||
+          include.deletedAt !== null
+        )
+          continue;
+        // A new list includes nothing and nothing includes it: no loop, no duplicate.
+        store.putInclude({ ...include, ...created, id, parentListId: args.id });
+        includes.push(id);
+      }
+      return { kind: 'changed', lists: [args.id], items, includes };
+    }
     case 'list.update': {
       const list = listHere(mutation.args.id);
       if (!list) return reject(LIST_MISSING);

@@ -3,17 +3,17 @@ import { MatFabButton, MatIconButton } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
 import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import {
   LIMITS,
   type List,
   flattenEntries,
   newId,
-  sortByPosition,
 } from '@lister/shared/domain';
 import { CurrentSpace, Repositories } from '@lister/web/data-access-local-db';
 import { TitleDialog, type TitleDialogData, LoadingHint } from '@lister/web/ui';
 import { SpaceChanges } from '@lister/web/data-access-sync';
+import { NOTICE_DURATION_MS, Notifier } from '@lister/web/util-notify';
 import { firstValueFrom } from 'rxjs';
 
 /** What a list holds: its own items, all items with included lists, and those lists. */
@@ -47,6 +47,8 @@ export class ListsPage {
   private readonly repositories = inject(Repositories);
   private readonly changes = inject(SpaceChanges);
   private readonly dialog = inject(MatDialog);
+  private readonly notifier = inject(Notifier);
+  private readonly router = inject(Router);
 
   private readonly lists = this.repositories.listsOfSpace(this.space.id);
   private readonly composition = this.repositories.compositionOfSpace(
@@ -115,54 +117,50 @@ export class ListsPage {
     );
   }
 
-  /** "3 items", or "3 items · 12 in total · 2 lists included" for a list that includes others. */
   /**
    * Duplicate: a new list "Copy of <title>" with copies of the list's items (same order, new
-   * ids) and the same includes (still live references). Every id comes from this device, so it
-   * works offline. Stops at the first refusal, which is shown.
+   * ids) and the same includes (still live references), as one `list.duplicate` change: it
+   * appears complete at once, everywhere, and never half-made. Every id comes from this device,
+   * so it works offline.
    */
   protected async duplicate(list: List): Promise<void> {
     const composition = this.composition();
-    if (composition.status !== 'ready') return;
+    if (composition.status !== 'ready') {
+      this.changes.tell(
+        "Can't duplicate this list right now: try again in a moment",
+      );
+      return;
+    }
     const source = composition.value;
     const id = newId();
     const title = copyTitle(list.title);
-    const changes = [
-      {
-        name: 'list.create' as const,
-        args: { id, title, description: list.description },
+    const created = await this.changes.apply({
+      name: 'list.duplicate',
+      args: {
+        id,
+        sourceListId: list.id,
+        title,
+        items: source
+          .itemsOf(list.id)
+          .filter((item) => item.deletedAt === null)
+          .map((item) => ({ from: item.id, id: newId() })),
+        includes: source
+          .includesOf(list.id)
+          .filter((row) => row.deletedAt === null)
+          .map((row) => ({ from: row.id, id: newId() })),
       },
-      ...sortByPosition(
-        source.itemsOf(list.id).filter((item) => item.deletedAt === null),
-      ).map((item) => ({
-        name: 'item.create' as const,
-        args: {
-          id: newId(),
-          listId: id,
-          title: item.title,
-          quantity: item.quantity,
-          note: item.note,
-          position: item.position,
-        },
-      })),
-      ...sortByPosition(
-        source.includesOf(list.id).filter((row) => row.deletedAt === null),
-      ).map((row) => ({
-        name: 'include.create' as const,
-        args: {
-          id: newId(),
-          parentListId: id,
-          childListId: row.childListId,
-          position: row.position,
-        },
-      })),
-    ];
-    for (const change of changes) {
-      if (!(await this.changes.apply(change))) return;
-    }
-    this.changes.tell(`Created “${title}”`);
+    });
+    if (!created) return;
+    // Lists are sorted by title, so the copy is usually off-screen: offer a way to it.
+    const outcome = await this.notifier.notify({
+      message: `Created “${title}”`,
+      action: 'Open',
+      duration: NOTICE_DURATION_MS,
+    });
+    if (outcome === 'action') await this.router.navigate(['/lists', id]);
   }
 
+  /** "3 items", or "3 items · 12 in total · 2 lists included" for a list that includes others. */
   protected itemCount(count: ListCounts | null): string {
     if (count === null) return '–';
     const items = (n: number) => (n === 1 ? '1 item' : `${n} items`);
@@ -187,7 +185,20 @@ export class ListsPage {
   }
 }
 
-/** "Copy of <title>", shortened to the title limit if needed. */
+const graphemes = new Intl.Segmenter('en', { granularity: 'grapheme' });
+
+/**
+ * "Copy of <title>", shortened to the title limit if needed (counted in code points, like the
+ * schema), without cutting an emoji or a letter with its accents in half.
+ */
 export function copyTitle(title: string): string {
-  return [...`Copy of ${title}`].slice(0, LIMITS.title).join('').trimEnd();
+  let out = '';
+  let length = 0;
+  for (const { segment } of graphemes.segment(`Copy of ${title}`)) {
+    const size = [...segment].length;
+    if (length + size > LIMITS.title) break;
+    out += segment;
+    length += size;
+  }
+  return out.trimEnd();
 }

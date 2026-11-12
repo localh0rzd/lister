@@ -488,6 +488,72 @@ describe('sync gateway', () => {
       );
     });
 
+    it('duplicates a list in one change, poked to the other member at once', async () => {
+      const anna = await helloed();
+      const ben = await helloed();
+      const pokes = collect(ben.client, 'poke');
+      const source = newId();
+      const tent = newId();
+      const stove = newId();
+      const setup = [
+        mutation('list.create', { id: source, title: 'Camping' }),
+        mutation('item.create', {
+          id: tent,
+          listId: source,
+          title: 'Tent',
+          position: 'a0',
+        }),
+        mutation('item.create', {
+          id: stove,
+          listId: source,
+          title: 'Stove',
+          position: 'a1',
+        }),
+      ];
+      const ready = answerTo(anna.client, setup[2]);
+      anna.client.emit('push', { mutations: setup });
+      await ready;
+      await vi.waitFor(() => expect(pokes).toHaveLength(3));
+
+      const copy = newId();
+      const duplicate = mutation('list.duplicate', {
+        id: copy,
+        sourceListId: source,
+        title: 'Copy of Camping',
+        items: [
+          { from: tent, id: newId() },
+          { from: stove, id: newId() },
+        ],
+        includes: [],
+      });
+      const answer = answerTo(anna.client, duplicate);
+      anna.client.emit('push', { mutations: [duplicate] });
+
+      expect(await answer).toEqual({
+        mutationId: duplicate.mutationId,
+        version: 4,
+      });
+      await vi.waitFor(() => expect(pokes).toHaveLength(4));
+      const poke = pokes[3];
+      expect(poke.rows.lists).toEqual([
+        expect.objectContaining({ id: copy, title: 'Copy of Camping' }),
+      ]);
+      expect(
+        poke.rows.items.map((item) => [item.listId, item.title, item.position]),
+      ).toEqual([
+        [copy, 'Tent', 'a0'],
+        [copy, 'Stove', 'a1'],
+      ]);
+
+      // A retry is answered without a second copy.
+      const again = answerTo(anna.client, duplicate);
+      anna.client.emit('push', { mutations: [duplicate] });
+      expect(await again).toEqual({
+        mutationId: duplicate.mutationId,
+        version: 4,
+      });
+    });
+
     it("refuses restoring a list or an item that doesn't exist", async () => {
       const { client } = await helloed();
       const list = mutation('list.restore', { id: newId() });

@@ -113,6 +113,16 @@ function touchedBy(
     for (const list of [listId, parentListId, childListId]) {
       if (list) into.lists.add(list);
     }
+    // list.duplicate: reads its source and writes copies of the listed rows.
+    const copy = args as {
+      sourceListId?: string;
+      items?: { from: string; id: string }[];
+      includes?: { from: string; id: string }[];
+    };
+    if (copy.sourceListId) into.lists.add(copy.sourceListId);
+    for (const row of copy.items ?? []) into.items.add(row.from).add(row.id);
+    for (const row of copy.includes ?? [])
+      into.includes.add(row.from).add(row.id);
   }
   return into;
 }

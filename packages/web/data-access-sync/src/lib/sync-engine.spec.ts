@@ -661,6 +661,63 @@ describe('SyncEngine', () => {
     });
   });
 
+  describe('list.duplicate', () => {
+    it('shows the whole copy at once and keeps it through a poke for the source', async () => {
+      setup();
+      engine.start();
+      await settle();
+      const source = await createList('Camping');
+      const tent = newId();
+      await engine.mutate({
+        spaceId: SPACE,
+        name: 'item.create',
+        args: { id: tent, listId: source, title: 'Tent', position: 'a0' },
+      });
+      await settle();
+      server.autoAnswer = false;
+
+      const copy = newId();
+      const tentCopy = newId();
+      expect(
+        await engine.mutate({
+          spaceId: SPACE,
+          name: 'list.duplicate',
+          args: {
+            id: copy,
+            sourceListId: source,
+            title: 'Copy of Camping',
+            items: [{ from: tent, id: tentCopy }],
+            includes: [],
+          },
+        }),
+      ).toEqual({ ok: true });
+      expect(await visibleList(copy)).toMatchObject({
+        title: 'Copy of Camping',
+      });
+      expect(await db.items.get(tentCopy)).toMatchObject({
+        listId: copy,
+        title: 'Tent',
+      });
+      expect(await outbox()).toHaveLength(1); // one change, not one per row
+
+      // Someone renames the source's Tent meanwhile: the pending copy is rebuilt from it.
+      server.otherClient('item.update', {
+        id: tent,
+        patch: { title: 'Big tent' },
+      });
+      await settle();
+      expect(await db.items.get(tentCopy)).toMatchObject({ title: 'Big tent' });
+
+      server.answerPushes();
+      await settle();
+      expect(await outbox()).toEqual([]);
+      expect(await db.serverItems.get(tentCopy)).toMatchObject({
+        listId: copy,
+        title: 'Big tent',
+      });
+    });
+  });
+
   describe('connection trouble', () => {
     it('queues changes while offline and flushes them on reconnect', async () => {
       setup();

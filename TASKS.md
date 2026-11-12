@@ -23,17 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-018 — Duplicate a list
-
-- Milestone: M3 Composition
-- Area: web
-- Priority: normal
-- Depends on: T-016
-- Done when:
-  - "Duplicate" on a list creates "Copy of <title>" with copies of its items (same order, new ids)
-    and the same includes (still references).
-  - It works offline (the ids come from the client).
-
 ## Backlog
 
 ### T-019 — Run model, including ad-hoc runs
@@ -323,6 +312,20 @@ nosniff`, `Referrer-Policy`, `frame-ancestors` in the CSP, and `app.disable('x-p
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
 
 ## Done
+
+### T-018 — Duplicate a list
+
+- Completed: 2026-11-12 — "Duplicate" on the Lists page: one `list.duplicate` mutation (client ids for the list, its item copies and include copies) creates "Copy of <title>" with the items in order and the same includes, atomically and offline; the notice's "Open" goes to the copy.
+- Review: Changes requested (1 major, 2 minor, 2 nit); all fixed: one atomic `list.duplicate` instead of N+1 mutations (no build-up, no half-copies; tested in the rules, the engine, over the socket); a message when the data isn't ready; "Open" in the notice; doc comment placement; `copyTitle` cuts on grapheme boundaries.
+
+- Milestone: M3 Composition
+- Area: web
+- Priority: normal
+- Depends on: T-016
+- Done when:
+  - "Duplicate" on a list creates "Copy of <title>" with copies of its items (same order, new ids)
+    and the same includes (still references).
+  - It works offline (the ids come from the client).
 
 ### T-017 — Trash and restore
 

@@ -356,3 +356,173 @@ describe('includes', () => {
     }
   });
 });
+
+describe('list.duplicate', () => {
+  function source() {
+    const store = new MemoryRowStore();
+    const listId = newId();
+    const childId = newId();
+    apply(store, 'list.create', {
+      id: listId,
+      title: 'Camping',
+      description: 'Summer',
+    });
+    apply(store, 'list.create', { id: childId, title: 'Toiletries' });
+    const tent = newId();
+    const stove = newId();
+    const gone = newId();
+    apply(store, 'item.create', {
+      id: tent,
+      listId,
+      title: 'Tent',
+      quantity: '1',
+      note: 'big',
+      position: 'a1',
+    });
+    apply(store, 'item.create', {
+      id: stove,
+      listId,
+      title: 'Stove',
+      position: 'a0',
+    });
+    apply(store, 'item.create', {
+      id: gone,
+      listId,
+      title: 'Gone',
+      position: 'a2',
+    });
+    apply(store, 'item.delete', { id: gone }, 2);
+    const include = newId();
+    apply(store, 'include.create', {
+      id: include,
+      parentListId: listId,
+      childListId: childId,
+      position: 'a5',
+    });
+    return { store, listId, childId, tent, stove, gone, include };
+  }
+
+  it('copies the list, its items and its includes in one change', () => {
+    const s = source();
+    const copy = newId();
+    const [tentCopy, stoveCopy, includeCopy] = [newId(), newId(), newId()];
+
+    const outcome = apply(
+      s.store,
+      'list.duplicate',
+      {
+        id: copy,
+        sourceListId: s.listId,
+        title: 'Copy of Camping',
+        items: [
+          { from: s.stove, id: stoveCopy },
+          { from: s.tent, id: tentCopy },
+          { from: s.gone, id: newId() }, // deleted meanwhile: skipped
+        ],
+        includes: [{ from: s.include, id: includeCopy }],
+      },
+      5,
+    );
+
+    expect(outcome).toEqual({
+      kind: 'changed',
+      lists: [copy],
+      items: [stoveCopy, tentCopy],
+      includes: [includeCopy],
+    });
+    expect(s.store.getList(copy)).toMatchObject({
+      title: 'Copy of Camping',
+      description: 'Summer',
+      version: 5,
+      deletedAt: null,
+    });
+    expect(s.store.getItem(tentCopy)).toMatchObject({
+      listId: copy,
+      title: 'Tent',
+      quantity: '1',
+      note: 'big',
+      position: 'a1',
+      version: 5,
+      createdAt: 5000,
+    });
+    expect(s.store.getInclude(includeCopy)).toMatchObject({
+      parentListId: copy,
+      childListId: s.childId,
+      position: 'a5',
+    });
+    // The source is untouched.
+    expect(s.store.getItem(s.tent)).toMatchObject({
+      listId: s.listId,
+      version: 1,
+    });
+  });
+
+  it('is idempotent by id and writes nothing when an id is taken', () => {
+    const s = source();
+    const copy = newId();
+    const args = {
+      id: copy,
+      sourceListId: s.listId,
+      title: 'Copy',
+      items: [{ from: s.tent, id: newId() }],
+      includes: [],
+    };
+    apply(s.store, 'list.duplicate', args, 5);
+    expect(apply(s.store, 'list.duplicate', args, 6)).toEqual({
+      kind: 'unchanged',
+    });
+
+    const before = s.store.lists.size;
+    expect(
+      apply(
+        s.store,
+        'list.duplicate',
+        { ...args, id: newId(), items: [{ from: s.tent, id: s.stove }] },
+        7,
+      ),
+    ).toEqual({ kind: 'rejected', reason: 'This item already exists' });
+    expect(s.store.lists.size).toBe(before);
+  });
+
+  it('refuses a source that is missing or in another space', () => {
+    const s = source();
+    const args = (sourceListId: string) => ({
+      id: newId(),
+      sourceListId,
+      title: 'Copy',
+      items: [],
+      includes: [],
+    });
+    expect(apply(s.store, 'list.duplicate', args(newId()), 5)).toEqual({
+      kind: 'rejected',
+      reason: "This list doesn't exist",
+    });
+    moveToAnotherSpace(s.store, s.listId);
+    expect(apply(s.store, 'list.duplicate', args(s.listId), 5)).toMatchObject({
+      kind: 'rejected',
+    });
+  });
+
+  it('only copies rows that belong to the source', () => {
+    const s = source();
+    const copy = newId();
+    const outcome = apply(
+      s.store,
+      'list.duplicate',
+      {
+        id: copy,
+        sourceListId: s.childId,
+        title: 'Copy',
+        items: [{ from: s.tent, id: newId() }],
+        includes: [{ from: s.include, id: newId() }],
+      },
+      5,
+    );
+    expect(outcome).toEqual({
+      kind: 'changed',
+      lists: [copy],
+      items: [],
+      includes: [],
+    });
+  });
+});

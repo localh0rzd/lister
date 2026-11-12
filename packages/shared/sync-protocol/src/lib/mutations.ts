@@ -21,6 +21,12 @@ const patch = <T extends z.ZodRawShape>(shape: T) =>
 
 const byId = z.strictObject({ id: idSchema });
 
+/** A row to copy: the source row's id and the copy's new id (from the client). */
+const copyOf = z.strictObject({ from: idSchema, id: idSchema });
+
+/** How many rows one duplicate may copy (a packing list has dozens, not thousands). */
+export const MAX_DUPLICATE_ROWS = 2000;
+
 /**
  * Mutations set values; they never toggle or increment, so a retry is harmless (design §4.2).
  * Creates carry the client's id. Lists are shown by title, so they have no `move`. Includes
@@ -38,6 +44,18 @@ export const mutationArgs = {
   }),
   'list.delete': byId,
   'list.restore': byId,
+  /**
+   * One step, so the copy appears complete everywhere and never half-made: a new list `id`
+   * titled `title`, with the source's description, a copy of each listed item (same fields and
+   * position) and each listed include (same child, same position).
+   */
+  'list.duplicate': z.strictObject({
+    id: idSchema,
+    sourceListId: idSchema,
+    title: titleSchema,
+    items: z.array(copyOf).max(MAX_DUPLICATE_ROWS),
+    includes: z.array(copyOf).max(MAX_DUPLICATE_ROWS),
+  }),
   'item.create': z.strictObject({
     id: idSchema,
     listId: idSchema,
@@ -84,6 +102,7 @@ export const mutationSchema = z.discriminatedUnion('name', [
   mutationOf('list.update'),
   mutationOf('list.delete'),
   mutationOf('list.restore'),
+  mutationOf('list.duplicate'),
   mutationOf('item.create'),
   mutationOf('item.update'),
   mutationOf('item.move'),

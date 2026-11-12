@@ -127,7 +127,8 @@ uses of the same list, and runs would be hard to add later.
 
 - **Reference or copy?** Live includes between lists: fixing _Basic travel gear_ once fixes every
   list that includes it. A run copies the list's items when it starts, since it's used once (§2.1).
-  A separate "Duplicate list" action covers forking a list.
+  A separate "Duplicate list" action covers forking a list: one `list.duplicate` mutation
+  (the client picks every new id), so the copy appears complete, everywhere, and never half-made.
 - **Nesting:** any depth (A includes B includes C). The graph must stay free of cycles. Offline
   edits can create a cycle neither client could see (Anna adds A → B while Ben adds B → A); the
   server rejects whichever arrives second, and that client is told why. A list includes another
