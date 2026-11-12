@@ -62,7 +62,7 @@ design behind the tasks is `docs/design.md`.
    - `initiation: "user_asked"`. The user asked for a review session after every task.
    - `context: "fresh"` and `use_worktree: false`: it reads this checkout and changes nothing.
    - `name: "review-t-nnn"`, `title: "Review T-NNN: <title>"`, `wake_when_done: true`.
-   - Leave out `model` and `effort`, so the review runs on your model.
+   - Use Opus 5.5 Medium model for the review
    - `prompt`:
      > Review task T-NNN ("<title>") in this repository: the commits `<base>..<head>` on branch
      > `work/v1`. Follow the project's `task-review` skill exactly, including its `ui-review`
@@ -82,18 +82,23 @@ design behind the tasks is `docs/design.md`.
    in one line that the review is running, with a link to the session, and end your turn. Edit
    nothing while it runs, because it reads this checkout. The app continues you when the review
    finishes.
-3. **Triage** `tmp/reviews/T-NNN.md`. Blockers are always fixed. Majors are fixed, or deferred
-   to a new task when they're outside this task. Fix minors when they're cheap; nits are
-   optional. For each finding, choose one:
-   - fix it;
-   - decline it, with the reason in the fix commit's body;
-   - or, if it's real but outside the task, add it to Backlog as a new task.
+3. **Triage** `tmp/reviews/T-NNN.md`. As soon as the review is over, implement its suggested
+   changes; don't wait to be told. The default for every finding, nits included, is to fix
+   it. For each finding, choose one:
+   - fix it (the default);
+   - decline it, only for a good reason (it's wrong, it contradicts `docs/design.md`, or its
+     cost clearly outweighs its benefit), with the reason in the fix commit's body;
+   - if it's real but outside the task, add it to Backlog as a new task;
+   - if you're uncertain whether or how to fix it, ask the user (`AskUserQuestion`) before
+     deciding, instead of guessing.
 4. **Fix.** Fixes meet the same standard: a test for every bug, then `verify` again.
 5. **Re-check.** If there were blockers, send the review session the new range (SendMessage to
    its `local_…` id) and wait for its re-review. Allow at most two rounds, then ask the user.
 6. **Close** the task (next section), and commit everything as `T-NNN: address review`, even
    when the only change is closing the task.
-7. Continue with the next task, unless the milestone is complete (see End of a milestone).
+7. **Report** to the user: a short summary of every finding you didn't implement (declined or
+   deferred), each with why you decided against it, plus any question still open.
+8. Continue with the next task, unless the milestone is complete (see End of a milestone).
 
 If the review session can't be started, or it fails, tell the user, and don't start the next
 task until they decide how to proceed.
