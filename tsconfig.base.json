@@ -18,7 +18,12 @@
         "./packages/shared/api-contracts/src/index.ts"
       ],
       "@lister/web/util-theme": ["./packages/web/util-theme/src/index.ts"],
-      "@lister/web/ui": ["./packages/web/ui/src/index.ts"]
+      "@lister/web/ui": ["./packages/web/ui/src/index.ts"],
+      "@lister/web/feature-lists": [
+        "./packages/web/feature-lists/src/index.ts"
+      ],
+      "@lister/web/feature-runs": ["./packages/web/feature-runs/src/index.ts"],
+      "@lister/web/feature-space": ["./packages/web/feature-space/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

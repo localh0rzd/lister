@@ -1,6 +1,13 @@
-<header class="shell-header">
-  <h1>Lister</h1>
-</header>
-<main class="shell-main">
-  <router-outlet />
-</main>
+<div class="shell" [class.wide]="wide()">
+  @if (wide()) {
+  <lister-navigation-rail class="nav" [destinations]="destinations" />
+  } @else {
+  <mat-toolbar class="top-bar" role="banner">
+    <span class="brand">Lister</span>
+  </mat-toolbar>
+  <lister-navigation-bar class="nav" [destinations]="destinations" />
+  }
+  <main class="content">
+    <router-outlet />
+  </main>
+</div>

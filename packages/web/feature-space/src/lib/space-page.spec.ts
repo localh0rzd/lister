@@ -8,14 +8,14 @@ import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MatButtonToggleHarness } from '@angular/material/button-toggle/testing';
 import type { HealthResponse } from '@lister/shared/api-contracts';
 import { THEME_STORAGE_KEY } from '@lister/web/util-theme';
-import { Home } from './home';
+import { SpacePage } from './space-page';
 
-describe('Home', () => {
+describe('SpacePage', () => {
   beforeEach(() => {
-    window.localStorage.clear();
+    localStorage.clear();
     document.documentElement.style.colorScheme = '';
     TestBed.configureTestingModule({
-      imports: [Home],
+      imports: [SpacePage],
       providers: [provideHttpClient(), provideHttpClientTesting()],
     });
   });
@@ -31,7 +31,7 @@ describe('Home', () => {
   }
 
   it('shows the API status', async () => {
-    const fixture = TestBed.createComponent(Home);
+    const fixture = TestBed.createComponent(SpacePage);
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
 
@@ -43,7 +43,7 @@ describe('Home', () => {
   });
 
   it('switches to the dark theme and remembers it', async () => {
-    const fixture = TestBed.createComponent(Home);
+    const fixture = TestBed.createComponent(SpacePage);
     fixture.detectChanges();
     flushHealth();
     await fixture.whenStable();
@@ -56,6 +56,6 @@ describe('Home', () => {
     TestBed.tick();
 
     expect(document.documentElement.style.colorScheme).toBe('dark');
-    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
+    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
   });
 });

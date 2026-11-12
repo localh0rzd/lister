@@ -23,10 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-_Nothing in progress._
-
-## Backlog
-
 ### T-002 — App shell with navigation bar and navigation rail
 
 - Milestone: M1 Foundations
@@ -43,6 +39,8 @@ _Nothing in progress._
   - The API status from the current home page moves to the Space page, so the existing proxy e2e
     test keeps passing.
   - E2E: switching destinations works at 375 px and at 1280 px width.
+
+## Backlog
 
 ### T-003 — Installable PWA with offline app shell and update prompt
 

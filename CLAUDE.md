@@ -28,7 +28,10 @@ apps/
   lister-api-e2e/      Vitest + axios e2e     (scope:api,  type:e2e)
 packages/
   shared/api-contracts/  DTO types + route helpers, @lister/shared/api-contracts (scope:shared, type:util)
-  web/ui/                presentational components, @lister/web/ui (scope:web, type:ui)
+  web/feature-lists/     Lists destination, @lister/web/feature-lists (scope:web, type:feature)
+  web/feature-runs/      Runs destination, @lister/web/feature-runs (scope:web, type:feature)
+  web/feature-space/     Space destination, @lister/web/feature-space (scope:web, type:feature)
+  web/ui/                nav bar and rail, theme picker, @lister/web/ui (scope:web, type:ui)
   web/util-theme/        theme preference + theme-color, @lister/web/util-theme (scope:web, type:util)
 ```
 

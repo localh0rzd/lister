@@ -1,0 +1,10 @@
+{
+  "name": "web-feature-runs",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/web/feature-runs/src",
+  "prefix": "lister",
+  "projectType": "library",
+  "tags": ["scope:web", "type:feature"],
+  "// targets": "to see all targets run: nx show project web-feature-runs --web",
+  "targets": {}
+}

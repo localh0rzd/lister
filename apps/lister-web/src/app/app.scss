@@ -1,10 +1,36 @@
-:host {
-  display: block;
-  max-width: 48rem;
-  margin: 0 auto;
-  padding: 1.5rem 1rem;
+.shell {
+  display: grid;
+  height: 100dvh;
+  grid-template:
+    'top' auto
+    'content' 1fr
+    'nav' auto / 1fr;
 }
 
-.shell-header h1 {
-  margin: 0 0 1rem;
+.shell.wide {
+  grid-template: 'nav content' 1fr / auto 1fr;
+}
+
+.top-bar {
+  grid-area: top;
+  background: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+}
+
+.brand {
+  font: var(--mat-sys-title-large);
+}
+
+.nav {
+  grid-area: nav;
+}
+
+.content {
+  grid-area: content;
+  overflow: auto;
+  padding: 16px;
+}
+
+.shell.wide .content {
+  padding: 24px;
 }
