@@ -204,7 +204,7 @@ describe('MutationService', () => {
       push('item.delete', { id });
 
       push('item.update', { id, patch: { title: 'Too late' } });
-      push('item.move', { id, position: 'b0' });
+      push('item.move', { id, position: 'a5' });
       push('item.delete', { id });
 
       expect(itemRow(id)).toMatchObject({
@@ -229,20 +229,76 @@ describe('MutationService', () => {
       expect(spaceVersion()).toBe(6);
     });
 
-    it('does not add items to a deleted list', () => {
+    it('ignores new items and changes to items in a deleted list (design §2.4)', () => {
       const listId = createList();
+      const id = createItem(listId);
+      const gone = createItem(listId, 'Lamp');
+      push('item.delete', { id: gone });
       push('list.delete', { id: listId });
+      const before = spaceVersion();
 
-      const applied = push('item.create', {
-        id: newId(),
-        listId,
+      const results = [
+        push('item.create', {
+          id: newId(),
+          listId,
+          title: 'Stove',
+          position: 'a1',
+        }),
+        push('item.update', { id, patch: { title: 'Too late' } }),
+        push('item.move', { id, position: 'a5' }),
+        push('item.delete', { id }),
+        push('item.restore', { id: gone }),
+      ].map((applied) => applied.result);
+
+      expect(results).toEqual(
+        results.map((r) => ({
+          mutationId: r.mutationId,
+          status: 'ack',
+          version: before,
+        })),
+      );
+      expect(spaceVersion()).toBe(before);
+      expect(itemRow(id)).toMatchObject({
         title: 'Tent',
         position: 'a0',
+        deletedAt: null,
       });
+      expect(itemRow(gone)?.deletedAt).not.toBeNull();
+      expect(database.db.select().from(schema.items).all()).toHaveLength(2);
+    });
 
-      expect(applied.result).toMatchObject({
-        status: 'reject',
-        reason: 'The list was deleted',
+    it('acks restoring a row that is not deleted, without a change', () => {
+      const listId = createList();
+      const id = createItem(listId);
+
+      expect(push('list.restore', { id: listId }).result).toMatchObject({
+        status: 'ack',
+        version: 2,
+      });
+      expect(push('item.restore', { id }).result).toMatchObject({
+        status: 'ack',
+        version: 2,
+      });
+      expect(push('list.delete', { id: listId }).result).toMatchObject({
+        version: 3,
+      });
+      expect(push('list.delete', { id: listId }).result).toMatchObject({
+        version: 3,
+      });
+      expect(spaceVersion()).toBe(3);
+    });
+
+    it('returns the changed item rows for the poke', () => {
+      const listId = createList();
+      const id = createItem(listId);
+
+      const applied = push('item.move', { id, position: 'a5' });
+
+      expect(applied.spaceId).toBe(SPACE);
+      expect(applied.rows).toEqual({ lists: [], items: [itemRow(id)] });
+      expect(applied.rows.items[0]).toMatchObject({
+        position: 'a5',
+        version: 3,
       });
     });
   });
@@ -277,6 +333,33 @@ describe('MutationService', () => {
 
       expect(first.result).toMatchObject({ status: 'reject' });
       expect(again.result).toEqual(first.result);
+    });
+
+    it('acks a retried create whose record is gone (creates are idempotent by id)', () => {
+      const id = newId();
+      push('list.create', { id, title: 'Camping' });
+      database.db.delete(schema.processedMutations).run();
+
+      const again = push('list.create', { id, title: 'Camping' });
+
+      expect(again.result).toMatchObject({ status: 'ack', version: 1 });
+      expect(spaceVersion()).toBe(1);
+    });
+
+    it('does not hand out a stored answer for another space', () => {
+      const mutationId = newId();
+      push('list.create', { id: newId(), title: 'Camping' }, { mutationId });
+
+      const reused = push(
+        'list.delete',
+        { id: newId() },
+        { mutationId, spaceId: OTHER_SPACE },
+      );
+
+      expect(reused.result).toMatchObject({
+        status: 'reject',
+        reason: 'This change id was already used',
+      });
     });
 
     it('records who answered and when', () => {
@@ -329,6 +412,40 @@ describe('MutationService', () => {
       },
     );
 
+    it('records nothing for invalid entries, so junk stays out', () => {
+      push('list.create', { id: newId(), title: ' ' });
+      service.apply(
+        { mutationId: newId(), spaceId: 'x'.repeat(100_000) } as {
+          mutationId: string;
+        },
+        { userId: ALICE },
+      );
+
+      expect(
+        database.db.select().from(schema.processedMutations).all(),
+      ).toEqual([]);
+    });
+
+    it.each([
+      ['list.update', { patch: { title: 'x' } }, "This list doesn't exist"],
+      ['list.delete', {}, "This list doesn't exist"],
+      ['list.restore', {}, "This list doesn't exist"],
+      ['item.update', { patch: { title: 'x' } }, "This item doesn't exist"],
+      ['item.move', { position: 'a1' }, "This item doesn't exist"],
+      ['item.delete', {}, "This item doesn't exist"],
+      ['item.restore', {}, "This item doesn't exist"],
+    ] as const)(
+      'rejects %s of a missing row and changes nothing',
+      (name, extra, reason) => {
+        createList();
+
+        const applied = push(name, { id: newId(), ...extra });
+
+        expect(applied.result).toMatchObject({ status: 'reject', reason });
+        expect(spaceVersion()).toBe(1);
+      },
+    );
+
     it('rejects changes to rows that do not exist', () => {
       expect(
         push('list.update', { id: newId(), patch: { title: 'x' } }).result,
@@ -374,6 +491,7 @@ describe('MutationService', () => {
 
       expect(applied.result).toMatchObject({ status: 'reject' });
       expect(listRow(id)?.title).toBe('Camping');
+      expect(spaceVersion(OTHER_SPACE)).toBe(0);
       expect(
         push(
           'item.create',
@@ -391,6 +509,28 @@ describe('MutationService', () => {
           .result,
       ).toMatchObject({ status: 'reject', reason: 'This list already exists' });
     });
+  });
+});
+
+describe('transactions', () => {
+  it('rolls back everything, version included, when a write fails', () => {
+    const listId = createList();
+    database.sqlite.exec(
+      "CREATE TRIGGER fail BEFORE INSERT ON items BEGIN SELECT RAISE(ABORT, 'disk full'); END;",
+    );
+
+    expect(() =>
+      push('item.create', {
+        id: newId(),
+        listId,
+        title: 'Tent',
+        position: 'a0',
+      }),
+    ).toThrow(/disk full/);
+    expect(spaceVersion()).toBe(1);
+    expect(
+      database.db.select().from(schema.processedMutations).all(),
+    ).toHaveLength(1);
   });
 });
 

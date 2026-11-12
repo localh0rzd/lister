@@ -7,7 +7,11 @@ import {
   parseMutation,
 } from '@lister/shared/sync-protocol';
 import { CLOCK, type Clock } from './clock';
-import { type HandlerOutcome, mutationHandlers } from './mutation-handlers';
+import {
+  type HandlerContext,
+  type HandlerOutcome,
+  mutationHandlers as h,
+} from './mutation-handlers';
 
 const { items, lists, processedMutations, spaces } = schema;
 
@@ -65,12 +69,25 @@ export class MutationService {
           })
           .run();
 
+      const rejectWith = (reason: string): AppliedMutation => ({
+        result: { mutationId: entry.mutationId, status: 'reject', reason },
+        spaceId: null,
+        rows: noRows(),
+      });
+
+      // A retry gets the stored answer, but only for the same space: an id reused elsewhere
+      // must not borrow another space's answer. (From T-025 this runs after the membership
+      // check, so non-members learn nothing.)
+      const rawSpaceId = (entry as { spaceId?: unknown }).spaceId;
       const previous = tx
         .select()
         .from(processedMutations)
         .where(eq(processedMutations.mutationId, entry.mutationId))
         .get();
       if (previous) {
+        if (previous.spaceId !== rawSpaceId) {
+          return rejectWith('This change id was already used');
+        }
         return {
           result: toResult(
             entry.mutationId,
@@ -81,18 +98,10 @@ export class MutationService {
         };
       }
 
-      const rejectWith = (spaceId: string, reason: string): AppliedMutation => {
-        record(spaceId, { reason });
-        return {
-          result: { mutationId: entry.mutationId, status: 'reject', reason },
-          spaceId: null,
-          rows: noRows(),
-        };
-      };
-
+      // Invalid input and unknown spaces aren't recorded: the same entry gives the same reason
+      // again, and junk never reaches the table.
       const parsed = parseMutation(entry);
-      const rawSpaceId = String((entry as { spaceId?: unknown }).spaceId ?? '');
-      if (!parsed.ok) return rejectWith(rawSpaceId, parsed.reason);
+      if (!parsed.ok) return rejectWith(parsed.reason);
       const mutation: Mutation = parsed.mutation;
 
       // Authorization: T-025 checks space membership here.
@@ -101,20 +110,18 @@ export class MutationService {
         .from(spaces)
         .where(eq(spaces.id, mutation.spaceId))
         .get();
-      if (!space)
-        return rejectWith(mutation.spaceId, "This space doesn't exist");
+      if (!space) return rejectWith("This space doesn't exist");
 
       const version = space.version + 1;
-      const handler = mutationHandlers[mutation.name] as (
-        ...args: Parameters<(typeof mutationHandlers)['list.delete']>
-      ) => HandlerOutcome;
-      const outcome = handler(
+      const outcome = runHandler(
         { tx, spaceId: space.id, userId: context.userId, now, version },
-        mutation.args as never,
+        mutation,
       );
 
-      if (outcome.kind === 'rejected')
-        return rejectWith(space.id, outcome.reason);
+      if (outcome.kind === 'rejected') {
+        record(space.id, { reason: outcome.reason });
+        return rejectWith(outcome.reason);
+      }
       if (outcome.kind === 'unchanged') {
         // Nothing to do (e.g. a change to a deleted row: delete wins). Ack at the current version.
         record(space.id, { version: space.version });
@@ -160,4 +167,28 @@ function toResult(mutationId: string, stored: StoredResult): MutationResult {
   return 'version' in stored
     ? { mutationId, status: 'ack', version: stored.version }
     : { mutationId, status: 'reject', reason: stored.reason };
+}
+
+/** Typed dispatch: each mutation goes to its own handler with its own argument type. */
+function runHandler(ctx: HandlerContext, m: Mutation): HandlerOutcome {
+  switch (m.name) {
+    case 'list.create':
+      return h['list.create'](ctx, m.args);
+    case 'list.update':
+      return h['list.update'](ctx, m.args);
+    case 'list.delete':
+      return h['list.delete'](ctx, m.args);
+    case 'list.restore':
+      return h['list.restore'](ctx, m.args);
+    case 'item.create':
+      return h['item.create'](ctx, m.args);
+    case 'item.update':
+      return h['item.update'](ctx, m.args);
+    case 'item.move':
+      return h['item.move'](ctx, m.args);
+    case 'item.delete':
+      return h['item.delete'](ctx, m.args);
+    case 'item.restore':
+      return h['item.restore'](ctx, m.args);
+  }
 }

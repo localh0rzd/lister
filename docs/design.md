@@ -185,6 +185,7 @@ clocks:
 | Check vs. uncheck of the same item in a run                    | Same rule                                                                             |
 | A run finishes while someone adds or unchecks an item          | It's open again: a run counts as finished only while every item is checked or skipped |
 | Edit vs. delete                                                | Delete wins; the editor sees "deleted by Ben" and can restore it                      |
+| Changes to a deleted list's items, or new items in it          | Delete wins too: ignored (acknowledged without effect) until the list is restored     |
 | Concurrent inserts or reorders                                 | Both kept; order by fractional position keys, ties broken by id                       |
 | Change that breaks a rule (cycle, no permission, invalid data) | Server rejects it; the client rolls it back and shows a short notice                  |
 
@@ -326,7 +327,8 @@ clients only get the display names of the members of their spaces.
 | `run_items`             | run, title, quantity, note, position, sources (the lists it came from; the first decides its section), state, changed by, at |
 | `processed_mutations`   | mutation id, client id, result (fast path for retries)                                                                       |
 
-**Ordering:** items and includes of a list share one position key space (fractional-index strings),
+**Ordering:** lists are shown by title (case-insensitive), so they have no position and no
+`list.move`. Items and includes of a list share one position key space (fractional-index strings),
 so an included list can sit between items. Run items have their own positions.
 
 **Flattening** — one pure function, used by client and server alike, to show a list with its

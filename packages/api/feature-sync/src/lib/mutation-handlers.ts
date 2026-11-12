@@ -66,19 +66,28 @@ function findItem(ctx: HandlerContext, id: string) {
     .get();
 }
 
-/** Ids are global, so a create must not reuse one from any space. */
-function idTaken(
+/**
+ * Where an id already lives: in this space (a create was already applied, e.g. a retry whose
+ * processed_mutations record is gone, so it's idempotent), in another space (ids are global, so
+ * reject), or nowhere.
+ */
+function existingId(
   ctx: HandlerContext,
   table: typeof lists | typeof items,
   id: string,
-) {
-  return (
-    ctx.tx
-      .select({ id: table.id })
-      .from(table)
-      .where(eq(table.id, id))
-      .get() !== undefined
-  );
+): 'here' | 'elsewhere' | null {
+  const row = ctx.tx
+    .select({ spaceId: table.spaceId })
+    .from(table)
+    .where(eq(table.id, id))
+    .get();
+  if (!row) return null;
+  return row.spaceId === ctx.spaceId ? 'here' : 'elsewhere';
+}
+
+/** D5: delete wins, also for the items of a deleted list (design §2.4). */
+function listIsDeleted(ctx: HandlerContext, listId: string): boolean {
+  return findList(ctx, listId)?.deletedAt != null;
 }
 
 function updateList(
@@ -112,8 +121,9 @@ const ITEM_MISSING = "This item doesn't exist";
 
 /**
  * One handler per mutation. Handlers check everything before they write, so a rejection never
- * leaves a partial change. Rules: per-field patches, deletes win (changes to a tombstone are
- * ignored), and setting a value it already has is still a change (simple and idempotent).
+ * leaves a partial change. Rules: per-field patches; deletes win, so changes to a tombstone or
+ * to the items of a deleted list are ignored (design §2.4); a create whose id already exists in
+ * the space is ignored (idempotent); setting a value it already has is still a change.
  */
 export const mutationHandlers: {
   [N in Mutation['name']]: (
@@ -122,7 +132,9 @@ export const mutationHandlers: {
   ) => HandlerOutcome;
 } = {
   'list.create': (ctx, args) => {
-    if (idTaken(ctx, lists, args.id)) return reject('This list already exists');
+    const existing = existingId(ctx, lists, args.id);
+    if (existing === 'here') return unchanged;
+    if (existing === 'elsewhere') return reject('This list already exists');
     ctx.tx
       .insert(lists)
       .values({
@@ -157,10 +169,12 @@ export const mutationHandlers: {
   },
 
   'item.create': (ctx, args) => {
-    if (idTaken(ctx, items, args.id)) return reject('This item already exists');
+    const existing = existingId(ctx, items, args.id);
+    if (existing === 'here') return unchanged;
+    if (existing === 'elsewhere') return reject('This item already exists');
     const list = findList(ctx, args.listId);
     if (!list) return reject(LIST_MISSING);
-    if (list.deletedAt !== null) return reject('The list was deleted');
+    if (list.deletedAt !== null) return unchanged;
     ctx.tx
       .insert(items)
       .values({
@@ -179,28 +193,36 @@ export const mutationHandlers: {
   'item.update': (ctx, args) => {
     const item = findItem(ctx, args.id);
     if (!item) return reject(ITEM_MISSING);
-    if (item.deletedAt !== null) return unchanged;
+    if (item.deletedAt !== null || listIsDeleted(ctx, item.listId)) {
+      return unchanged;
+    }
     return updateItem(ctx, item.id, definedFields(args.patch));
   },
 
   'item.move': (ctx, args) => {
     const item = findItem(ctx, args.id);
     if (!item) return reject(ITEM_MISSING);
-    if (item.deletedAt !== null) return unchanged;
+    if (item.deletedAt !== null || listIsDeleted(ctx, item.listId)) {
+      return unchanged;
+    }
     return updateItem(ctx, item.id, { position: args.position });
   },
 
   'item.delete': (ctx, args) => {
     const item = findItem(ctx, args.id);
     if (!item) return reject(ITEM_MISSING);
-    if (item.deletedAt !== null) return unchanged;
+    if (item.deletedAt !== null || listIsDeleted(ctx, item.listId)) {
+      return unchanged;
+    }
     return updateItem(ctx, item.id, { deletedAt: ctx.now });
   },
 
   'item.restore': (ctx, args) => {
     const item = findItem(ctx, args.id);
     if (!item) return reject(ITEM_MISSING);
-    if (item.deletedAt === null) return unchanged;
+    if (item.deletedAt === null || listIsDeleted(ctx, item.listId)) {
+      return unchanged;
+    }
     return updateItem(ctx, item.id, { deletedAt: null });
   },
 };

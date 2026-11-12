@@ -23,23 +23,7 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-006 — Server: lists and items as mutations
-
-- Milestone: M2 Sync walking skeleton
-- Area: api
-- Priority: high
-- Depends on: T-004, T-005
-- Done when:
-  - Drizzle tables and a migration for `spaces` (with a version counter), `lists`, `items` and
-    `processed_mutations`.
-  - In development, startup makes sure a dev user and a dev space exist (removed by T-024).
-  - Mutation handlers for list and item create, update, move, delete and restore live in
-    `packages/api/feature-sync` (scope:api, type:feature). Each mutation runs in one synchronous
-    transaction with per-field patches; the space version goes up by one per mutation and is
-    stored on every changed row.
-  - An update to a deleted row is ignored (delete wins); a repeated mutation id is applied once and
-    gets the same answer; invalid arguments are rejected with a reason.
-  - Integration tests on in-memory SQLite cover each rule.
+_Nothing in progress._
 
 ## Backlog
 
@@ -323,6 +307,7 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
     `X-Forwarded-For`).
   - Tests cover sign-in, sign-out, expiry, the forced password change, the setup token, the reset
     command and the rate limit.
+- Notes: T-006 seeded no user row: `DEV_USER_ID` (feature-sync) only stands in as `createdBy`/`updatedBy`; decide what happens to rows stamped with it.
 
 ### T-023 — User administration
 
@@ -351,6 +336,7 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   - Deleting a user also deletes their personal space; shared spaces keep their content.
   - The dev user and space from T-006 are removed.
   - Tests for the membership and ownership rules.
+- Notes: Remove `DevSeed`, `DEV_USER_ID` and `DEV_SPACE_ID` (packages/api/feature-sync).
 
 ### T-025 — Authenticated and authorized sync
 
@@ -497,6 +483,26 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 - Notes: Found in T-001. Until then the full variable font is bundled.
 
 ## Done
+
+### T-006 — Server: lists and items as mutations
+
+- Completed: 2026-11-12 — migration 0001 (spaces, lists, items, processed_mutations); `packages/api/feature-sync` with `MutationService` (one synchronous transaction per mutation, versioned rows, recorded answers) and handlers for list/item create, update, delete, restore and item move; `DevSeed` (dev space; the dev user is only an id, no row). No `list.move`: lists sort by title (design §3).
+- Review: Approve with minor fixes (6 minor, 2 nit); all fixed: replays only within the same space, invalid entries not recorded, creates idempotent by id, one rule for items of a deleted list (ignored, design §2.4), typed dispatch, more tests (missing rows, rollback, returned rows, dev seed via the app), README, notes in T-022/T-024.
+- Milestone: M2 Sync walking skeleton
+- Area: api
+- Priority: high
+- Depends on: T-004, T-005
+- Done when:
+  - Drizzle tables and a migration for `spaces` (with a version counter), `lists`, `items` and
+    `processed_mutations`.
+  - In development, startup makes sure a dev user and a dev space exist (removed by T-024).
+  - Mutation handlers for list and item create, update, move, delete and restore live in
+    `packages/api/feature-sync` (scope:api, type:feature). Each mutation runs in one synchronous
+    transaction with per-field patches; the space version goes up by one per mutation and is
+    stored on every changed row.
+  - An update to a deleted row is ignored (delete wins); a repeated mutation id is applied once and
+    gets the same answer; invalid arguments are rejected with a reason.
+  - Integration tests on in-memory SQLite cover each rule.
 
 ### T-005 — Shared `domain` and `sync-protocol` libraries
 
