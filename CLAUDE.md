@@ -11,12 +11,12 @@ Nx monorepo: **Angular** web app + **NestJS** API, sharing TypeScript libraries.
 ## Stack (installed versions — check `package.json` before assuming APIs)
 
 - Nx 24 (integrated layout: `project.json` + `tsconfig.base.json` paths, one root `package.json`)
-- Angular 22: standalone, zoneless, signals, esbuild (`@angular/build`), Vitest via `@angular/build:unit-test` (libraries: Vitest with the Analog Angular plugin); Angular Material 22 + CDK, Roboto and Material Symbols from npm
+- Angular 22: standalone, zoneless, signals, esbuild (`@angular/build`), Vitest via `@angular/build:unit-test` (libraries: Vitest with the Analog Angular plugin); Angular Material 22 + CDK, Roboto and Material Symbols from npm, `@angular/service-worker`
 - NestJS 11 on Express 5, bundled with webpack (`@nx/webpack`)
 - **Vitest for every unit, integration and API e2e test** (no Jest anywhere), Playwright for web e2e
 - TypeScript 6, ESLint 9 flat config, Prettier
 - Node from `.nvmrc` (managed with fnm), npm as package manager. `.npmrc` sets `legacy-peer-deps=false` and `strict-peer-deps=true`: installs fail on peer conflicts
-- Planned, each added by its task (don't swap in alternatives; reasons in docs/design.md §4): `@angular/service-worker`, Dexie 4, Socket.IO 4 (`@nestjs/platform-socket.io` 11.x), Drizzle 0.45 + `better-sqlite3` 13, Zod 4, `fractional-indexing`, `uuid` (v7), `@simplewebauthn/server` + `@simplewebauthn/browser` 14
+- Planned, each added by its task (don't swap in alternatives; reasons in docs/design.md §4): Dexie 4, Socket.IO 4 (`@nestjs/platform-socket.io` 11.x), Drizzle 0.45 + `better-sqlite3` 13, Zod 4, `fractional-indexing`, `uuid` (v7), `@simplewebauthn/server` + `@simplewebauthn/browser` 14
 
 ## Layout
 
@@ -33,6 +33,7 @@ packages/
   web/feature-space/     Space destination, @lister/web/feature-space (scope:web, type:feature)
   web/ui/                nav bar and rail, theme picker, @lister/web/ui (scope:web, type:ui)
   web/util-theme/        theme preference + theme-color, @lister/web/util-theme (scope:web, type:util)
+  web/util-pwa/          service worker + update prompt, @lister/web/util-pwa (scope:web, type:util)
 ```
 
 New libraries go in `packages/<scope>/<name>`, where scope is `web`, `api` or `shared`, with import path `@lister/<scope>/<name>`.
@@ -128,7 +129,7 @@ Every project needs exactly one `scope:*` tag and one `type:*` tag. The details,
 - Other HTTP (sign-in, passkeys, user administration, spaces, export, health): `httpResource()` for reads, `HttpClient` in a data-access service for writes, URLs via `apiPath()`. The dev proxy (`apps/lister-web/proxy.conf.json`) forwards `/api` to `:3000`, and `/socket.io` once T-007 is done.
 - UI: Angular Material 3 components and `--mat-sys-*` tokens. The navigation bar and rail are our own components in `packages/web/ui` (Material has none). Fonts and icons are self-hosted — never add Google Fonts links.
 - Drag and drop (CDK) always has a keyboard alternative ("Move up / down"). Destructive actions offer Undo in a snackbar.
-- PWA: the service worker only runs in production builds; test offline behaviour against the production build.
+- PWA: the service worker only runs in production builds (`providePwa()` in `@lister/web/util-pwa`, config in `apps/lister-web/ngsw-config.json`). Offline and PWA e2e specs are named `*.pwa.spec.ts` and run against the production build on port 4300. App icons are generated with `npm run icons`.
 - Forms: Signal Forms (`@angular/forms/signals`) for new forms.
 - Routes are lazy (`loadComponent` / `loadChildren`). Router inputs are bound to component inputs (`withComponentInputBinding`).
 - Tests: Vitest + `TestBed`; mock HTTP with `provideHttpClientTesting()` + `HttpTestingController`.

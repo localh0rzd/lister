@@ -2,10 +2,12 @@ import { defineConfig, devices } from '@playwright/test';
 import { nxE2EPreset } from '@nx/playwright/preset';
 import { getReadyUrl, workspaceRoot } from '@nx/devkit';
 
-const isCI = !!process.env['CI'];
 // For CI, you may want to set BASE_URL to the deployed application.
 // getReadyUrl moves the address to the port the dev server task reported.
 const baseURL = process.env['BASE_URL'] || getReadyUrl('http://localhost:4200');
+// The production build with its service worker (lister-web:serve-static, started by the e2e
+// target), for *.pwa.spec.ts: the dev server has no service worker.
+const PWA_URL = 'http://localhost:4300';
 
 /**
  * Read environment variables from file.
@@ -32,9 +34,7 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   webServer: {
-    command: isCI
-      ? 'npx nx run lister-web:serve-static'
-      : 'npx nx run lister-web:serve',
+    command: 'npx nx run lister-web:serve',
     url: getReadyUrl('http://localhost:4200'),
     reuseExistingServer: true,
     cwd: workspaceRoot,
@@ -43,6 +43,13 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      testIgnore: /\.pwa\.spec\.ts$/,
+    },
+    {
+      // *.pwa.spec.ts run against the production build (service worker active).
+      name: 'pwa',
+      use: { ...devices['Desktop Chrome'], baseURL: PWA_URL },
+      testMatch: /\.pwa\.spec\.ts$/,
     },
 
     // Other engines: add projects here and install them (npx playwright install firefox webkit)

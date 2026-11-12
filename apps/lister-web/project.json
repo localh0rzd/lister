@@ -41,7 +41,8 @@
               "maximumError": "8kb"
             }
           ],
-          "outputHashing": "all"
+          "outputHashing": "all",
+          "serviceWorker": "apps/lister-web/ngsw-config.json"
         },
         "development": {
           "optimization": false,
@@ -57,6 +58,9 @@
       },
       "executor": "@angular/build:dev-server",
       "defaultConfiguration": "development",
+      "options": {
+        "proxyConfig": "apps/lister-web/proxy.conf.json"
+      },
       "configurations": {
         "production": {
           "buildTarget": "lister-web:build:production"
@@ -64,9 +68,6 @@
         "development": {
           "buildTarget": "lister-web:build:development"
         }
-      },
-      "options": {
-        "proxyConfig": "apps/lister-web/proxy.conf.json"
       }
     },
     "test": {
@@ -85,7 +86,7 @@
       "executor": "@nx/web:file-server",
       "options": {
         "buildTarget": "lister-web:build",
-        "port": 4200,
+        "port": 4300,
         "staticFilePath": "dist/apps/lister-web/browser",
         "spa": true
       }

@@ -23,7 +23,10 @@
         "./packages/web/feature-lists/src/index.ts"
       ],
       "@lister/web/feature-runs": ["./packages/web/feature-runs/src/index.ts"],
-      "@lister/web/feature-space": ["./packages/web/feature-space/src/index.ts"]
+      "@lister/web/feature-space": [
+        "./packages/web/feature-space/src/index.ts"
+      ],
+      "@lister/web/util-pwa": ["./packages/web/util-pwa/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

@@ -85,7 +85,9 @@ migrated in-memory SQLite database.
 - **Both layouts:** the layout changes at 600 px, so cover the flow at 375 px and at 1280 px.
 - **Accessibility:** run an axe check (`@axe-core/playwright`) on every screen in the flow. The
   first task that adds a screen also adds that dependency and a small fixture for it.
-- **Offline and PWA behaviour** runs against the production build (T-012), not the dev server.
+- **Offline and PWA behaviour** runs against the production build, not the dev server: name the
+  spec `*.pwa.spec.ts`. It then runs in the `pwa` Playwright project against
+  `lister-web:serve-static` (port 4300, with the service worker), which the e2e target starts.
 
 ## Quality bar
 

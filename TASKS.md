@@ -23,10 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-_Nothing in progress._
-
-## Backlog
-
 ### T-003 — Installable PWA with offline app shell and update prompt
 
 - Milestone: M1 Foundations
@@ -46,6 +42,8 @@ _Nothing in progress._
     offline.
 - Notes: The update logic lives in a `packages/web/util-pwa` library (scope:web, type:util). The
   dev server has no service worker; use the production build (`serve-static`).
+
+## Backlog
 
 ### T-004 — SQLite database layer with Drizzle and migrations
 
