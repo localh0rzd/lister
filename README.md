@@ -37,10 +37,11 @@ npx nx format:write
 
 ## Environment variables
 
-| Var             | Used by    | Default                                                                     |
-| --------------- | ---------- | --------------------------------------------------------------------------- |
-| `PORT`          | lister-api | `3000`                                                                      |
-| `DATABASE_PATH` | lister-api | `data/lister.db` (relative to the working directory; the folder is created) |
+| Var             | Used by    | Default                                                                                                                               |
+| --------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`          | lister-api | `3000`                                                                                                                                |
+| `PUBLIC_URL`    | lister-api | none (development allows `http://localhost:4200`); required in production. Its origin is the only one allowed to open the sync socket |
+| `DATABASE_PATH` | lister-api | `data/lister.db` (relative to the working directory; the folder is created)                                                           |
 
 ## Working with Claude Code
 

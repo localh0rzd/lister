@@ -1,0 +1,47 @@
+import { Injectable } from '@nestjs/common';
+import { and, eq, gt } from 'drizzle-orm';
+import { DatabaseConnection, schema } from '@lister/api/data-access-db';
+import type { Space } from '@lister/shared/domain';
+import type { Rows } from '@lister/shared/sync-protocol';
+
+const { items, lists, spaces } = schema;
+
+/** Reads for the sync protocol: the user's spaces, and the rows a client needs to catch up. */
+@Injectable()
+export class SyncReader {
+  constructor(private readonly database: DatabaseConnection) {}
+
+  /** Every space, i.e. the one dev space. T-024/T-025 replace this with the user's memberships. */
+  allSpaces(): Space[] {
+    return this.database.db
+      .select({ id: spaces.id, name: spaces.name, version: spaces.version })
+      .from(spaces)
+      .all();
+  }
+
+  /**
+   * Every row of the space changed after `since`, tombstones included, read in one transaction
+   * so `version` matches the rows. `since: 0` is a full snapshot (purge points: T-033).
+   */
+  rowsSince(spaceId: string, since: number): Rows | undefined {
+    return this.database.db.transaction((tx) => {
+      const space = tx
+        .select()
+        .from(spaces)
+        .where(eq(spaces.id, spaceId))
+        .get();
+      if (!space) return undefined;
+      const changed = <T extends typeof lists | typeof items>(table: T) =>
+        and(eq(table.spaceId, spaceId), gt(table.version, since));
+      return {
+        spaceId,
+        version: space.version,
+        snapshot: since === 0,
+        rows: {
+          lists: tx.select().from(lists).where(changed(lists)).all(),
+          items: tx.select().from(items).where(changed(items)).all(),
+        },
+      };
+    });
+  }
+}

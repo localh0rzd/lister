@@ -11,4 +11,8 @@ Synced data on the server (design §4.2).
   Handlers check everything before they write.
 - `DevSeed`, `DEV_USER_ID` and `DEV_SPACE_ID` stand in for accounts until T-024 (there is no user
   row).
-- The Socket.IO gateway arrives with T-007.
+- `SyncGateway`: hello → welcome (or `updateRequired`), pull → rows since a version (0 means a
+  snapshot), and push → ack or reject per mutation in order, plus a poke of the changed rows to
+  the space's room. `SyncReader` does the reads.
+- `SyncIoAdapter` (installed by `configureApp`) allows only the WebSocket transport, and only
+  the origins from `allowedOrigins()`: `PUBLIC_URL`, plus the dev server outside production.

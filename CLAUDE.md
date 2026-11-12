@@ -130,7 +130,7 @@ Every project needs exactly one `scope:*` tag and one `type:*` tag. The details,
 - Lint enforces the modern APIs through `angularBestPractices` in the root `eslint.config.mjs`. Every Angular project's lint config spreads it.
 - Templates: built-in control flow (`@if`, `@for` with `track`, `@switch`, `@defer`). No `*ngIf`/`*ngFor`.
 - Synced data (lists, items, includes, runs): read through the local-database repositories (signals), change through sync-engine mutations. Never `HttpClient` or `httpResource()` for it.
-- Other HTTP (sign-in, passkeys, user administration, spaces, export, health): `httpResource()` for reads, `HttpClient` in a data-access service for writes, URLs via `apiPath()`. The dev proxy (`apps/lister-web/proxy.conf.json`) forwards `/api` to `:3000`, and `/socket.io` once T-007 is done.
+- Other HTTP (sign-in, passkeys, user administration, spaces, export, health): `httpResource()` for reads, `HttpClient` in a data-access service for writes, URLs via `apiPath()`. The dev proxy (`apps/lister-web/proxy.conf.json`) forwards `/api` and `/socket.io` (WebSockets) to `:3000`.
 - UI: Angular Material 3 components and `--mat-sys-*` tokens. The navigation bar and rail are our own components in `packages/web/ui` (Material has none). Fonts and icons are self-hosted — never add Google Fonts links.
 - Drag and drop (CDK) always has a keyboard alternative ("Move up / down"). Destructive actions offer Undo in a snackbar.
 - PWA: the service worker only runs in production builds (`providePwa()` in `@lister/web/util-pwa`, config in `apps/lister-web/ngsw-config.json`). Offline and PWA e2e specs are named `*.pwa.spec.ts` and run against the production build on port 4300. App icons are generated with `npm run icons`.
