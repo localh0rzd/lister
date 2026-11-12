@@ -58,65 +58,8 @@ export interface ItemDialogData extends ItemFields {
     MatInput,
     MatLabel,
   ],
-  template: `
-    <h2 mat-dialog-title>Edit item</h2>
-    <form novalidate (submit)="save($event)">
-      <mat-dialog-content class="fields">
-        @if (item.notice) {
-          <p class="notice">{{ item.notice }}</p>
-        }
-        <mat-form-field subscriptSizing="dynamic">
-          <mat-label>Title</mat-label>
-          <input matInput [formField]="itemForm.title" cdkFocusInitial />
-          @if (
-            itemForm.title().touched() && itemForm.title().errors()[0];
-            as error
-          ) {
-            <mat-error>{{ error.message }}</mat-error>
-          }
-        </mat-form-field>
-        <mat-form-field subscriptSizing="dynamic">
-          <mat-label>Quantity</mat-label>
-          <input matInput [formField]="itemForm.quantity" placeholder="1" />
-          <mat-hint>Free text, e.g. 2 pairs or 500 g. Empty means 1.</mat-hint>
-          @if (
-            itemForm.quantity().touched() && itemForm.quantity().errors()[0];
-            as error
-          ) {
-            <mat-error>{{ error.message }}</mat-error>
-          }
-        </mat-form-field>
-        <mat-form-field subscriptSizing="dynamic">
-          <mat-label>Note</mat-label>
-          <textarea matInput [formField]="itemForm.note" rows="3"></textarea>
-          @if (
-            itemForm.note().touched() && itemForm.note().errors()[0];
-            as error
-          ) {
-            <mat-error>{{ error.message }}</mat-error>
-          }
-        </mat-form-field>
-      </mat-dialog-content>
-      <mat-dialog-actions align="end">
-        <button matButton type="button" mat-dialog-close>Cancel</button>
-        <button matButton="filled" type="submit">Save</button>
-      </mat-dialog-actions>
-    </form>
-  `,
-  styles: `
-    .notice {
-      margin: 0 0 8px;
-      color: var(--mat-sys-on-surface-variant);
-    }
-    .fields {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      /* Wide enough for the quantity hint on one line; narrower screens wrap it. */
-      width: min(480px, calc(100vw - 96px));
-      box-sizing: border-box;
-    }
-  `,
+  templateUrl: './item-dialog.html',
+  styleUrl: './item-dialog.scss',
 })
 export class ItemDialog {
   protected readonly item = inject<ItemDialogData>(MAT_DIALOG_DATA);

@@ -48,52 +48,8 @@ const fold = (text: string) =>
     MatListItem,
     MatPrefix,
   ],
-  template: `
-    <h2 mat-dialog-title>Add list</h2>
-    <mat-dialog-content class="content">
-      <mat-form-field class="search" subscriptSizing="dynamic">
-        <mat-label>Search lists</mat-label>
-        <mat-icon matPrefix aria-hidden="true">search</mat-icon>
-        <input
-          matInput
-          type="search"
-          [value]="query()"
-          (input)="search($event)"
-          (keydown.enter)="pickFirst($event)"
-        />
-      </mat-form-field>
-      @if (data.lists.length === 0) {
-        <p class="hint">No other lists can be added here.</p>
-      } @else if (matches().length === 0) {
-        <p class="hint">No list matches “{{ query() }}”.</p>
-      } @else {
-        <mat-action-list aria-label="Lists">
-          @for (list of matches(); track list.id) {
-            <button mat-list-item type="button" (click)="pick(list)">
-              {{ list.title }}
-            </button>
-          }
-        </mat-action-list>
-      }
-    </mat-dialog-content>
-    <mat-dialog-actions align="end">
-      <button matButton type="button" mat-dialog-close>Cancel</button>
-    </mat-dialog-actions>
-  `,
-  styles: `
-    .content {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      min-width: min(360px, 75vw);
-    }
-    .search {
-      width: 100%;
-    }
-    .hint {
-      color: var(--mat-sys-on-surface-variant);
-    }
-  `,
+  templateUrl: './list-picker-dialog.html',
+  styleUrl: './list-picker-dialog.scss',
 })
 export class ListPickerDialog {
   protected readonly data = inject<ListPickerData>(MAT_DIALOG_DATA);

@@ -27,7 +27,7 @@ Always load `best-practices` (and read `node_modules/@angular/core/resources/bes
   - The path is the file path without the extension.
   - The defaults are scss and the `lister-` prefix. OnPush is Angular's default, so the
     generator doesn't write it.
-  - Add `--inlineTemplate --inlineStyle` for small components.
+  - Templates and style sheets always live in their own files (`<name>.html`, `<name>.scss`), never inline; the generator is configured that way.
 
 ## Component rules
 

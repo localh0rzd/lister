@@ -43,33 +43,8 @@ export interface TitleDialogData {
     MatInput,
     MatLabel,
   ],
-  template: `
-    <h2 mat-dialog-title>{{ data.heading }}</h2>
-    <form novalidate (submit)="save($event)">
-      <mat-dialog-content>
-        <mat-form-field class="field">
-          <mat-label>Title</mat-label>
-          <input matInput [formField]="titleForm.title" cdkFocusInitial />
-          @if (
-            titleForm.title().touched() && titleForm.title().errors()[0];
-            as error
-          ) {
-            <mat-error>{{ error.message }}</mat-error>
-          }
-        </mat-form-field>
-      </mat-dialog-content>
-      <mat-dialog-actions align="end">
-        <button matButton type="button" mat-dialog-close>Cancel</button>
-        <button matButton="filled" type="submit">{{ data.confirm }}</button>
-      </mat-dialog-actions>
-    </form>
-  `,
-  styles: `
-    .field {
-      width: 100%;
-      min-width: min(320px, 70vw);
-    }
-  `,
+  templateUrl: './title-dialog.html',
+  styleUrl: './title-dialog.scss',
 })
 export class TitleDialog {
   protected readonly data = inject<TitleDialogData>(MAT_DIALOG_DATA);

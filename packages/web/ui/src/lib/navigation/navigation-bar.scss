@@ -1,0 +1,16 @@
+:host {
+  display: block;
+  background: var(--mat-sys-surface-container);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+nav {
+  display: flex;
+  height: 80px;
+}
+.item {
+  flex: 1;
+  justify-content: center;
+}
+.indicator {
+  width: 64px;
+}

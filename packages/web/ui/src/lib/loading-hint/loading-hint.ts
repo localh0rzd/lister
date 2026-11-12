@@ -9,17 +9,8 @@ export const LOADING_HINT_DELAY_MS = 300;
  */
 @Component({
   selector: 'lister-loading-hint',
-  template: `
-    @if (shown()) {
-      <p class="hint">Loading…</p>
-    }
-  `,
-  styles: `
-    .hint {
-      font: var(--mat-sys-body-medium);
-      color: var(--mat-sys-on-surface-variant);
-    }
-  `,
+  templateUrl: './loading-hint.html',
+  styleUrl: './loading-hint.scss',
 })
 export class LoadingHint {
   protected readonly shown = signal(false);

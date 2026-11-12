@@ -9,13 +9,7 @@ import { SyncBadge } from '@lister/web/ui';
 @Component({
   selector: 'lister-sync-indicator',
   imports: [SyncBadge],
-  template: `
-    <lister-sync-badge
-      [online]="sync.online()"
-      [pendingCount]="sync.pendingCount()"
-      [compact]="compact()"
-    />
-  `,
+  templateUrl: './sync-indicator.html',
 })
 export class SyncIndicator {
   protected readonly sync = inject(SyncEngine);

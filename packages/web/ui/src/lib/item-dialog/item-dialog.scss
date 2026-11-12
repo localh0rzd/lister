@@ -1,0 +1,12 @@
+.notice {
+  margin: 0 0 8px;
+  color: var(--mat-sys-on-surface-variant);
+}
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* Wide enough for the quantity hint on one line; narrower screens wrap it. */
+  width: min(480px, calc(100vw - 96px));
+  box-sizing: border-box;
+}

@@ -24,27 +24,8 @@ const OPTIONS = THEME_PREFERENCES.map((value) => ({
 @Component({
   selector: 'lister-theme-picker',
   imports: [MatButtonToggleGroup, MatButtonToggle, MatIcon],
-  template: `
-    <mat-button-toggle-group
-      [value]="value()"
-      (change)="value.set($event.value)"
-      [attr.aria-label]="label()"
-      hideSingleSelectionIndicator
-    >
-      @for (option of options; track option.value) {
-        <mat-button-toggle [value]="option.value">
-          <mat-icon aria-hidden="true">{{ option.icon }}</mat-icon>
-          {{ option.label }}
-        </mat-button-toggle>
-      }
-    </mat-button-toggle-group>
-  `,
-  styles: `
-    mat-icon {
-      vertical-align: middle;
-      margin-inline-end: 4px;
-    }
-  `,
+  templateUrl: './theme-picker.html',
+  styleUrl: './theme-picker.scss',
 })
 export class ThemePicker {
   readonly value = model.required<ThemePreference>();

@@ -13,39 +13,8 @@ export const PENDING_GRACE_MS = 1000;
   selector: 'lister-sync-badge',
   imports: [MatIcon],
   host: { role: 'status', 'aria-live': 'polite' },
-  template: `
-    @if (description(); as full) {
-      <span class="badge" [class.offline]="!online()" [attr.title]="full">
-        <mat-icon aria-hidden="true">{{
-          online() ? 'sync' : 'cloud_off'
-        }}</mat-icon>
-        <!-- The short label is for the eye; screen readers get the whole sentence. -->
-        <span class="label" aria-hidden="true">{{ label() }}</span>
-        <span class="cdk-visually-hidden">{{ full }}</span>
-      </span>
-    }
-  `,
-  styles: `
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 2px 8px;
-      border-radius: var(--mat-sys-corner-full);
-      background: var(--mat-sys-secondary-container);
-      color: var(--mat-sys-on-secondary-container);
-      font: var(--mat-sys-label-medium);
-    }
-    .badge.offline {
-      background: var(--mat-sys-surface-container-highest);
-      color: var(--mat-sys-on-surface);
-    }
-    mat-icon {
-      width: 18px;
-      height: 18px;
-      font-size: 18px;
-    }
-  `,
+  templateUrl: './sync-badge.html',
+  styleUrl: './sync-badge.scss',
 })
 export class SyncBadge {
   readonly online = input.required<boolean>();

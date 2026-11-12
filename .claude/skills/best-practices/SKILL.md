@@ -54,7 +54,7 @@ Follow everything in the bundled best-practices file, plus:
     `viewChild()`, `viewChildren()` and `contentChild()`.
   - Put host bindings in `host: {}`.
   - Import only what the template uses (no `CommonModule`).
-  - Small components get an inline template and inline styles.
+  - Templates and style sheets always live in their own files (`templateUrl`, `styleUrl`), never inline, however small. A component with no styles gets no empty `.scss`.
   - Use `NgOptimizedImage` for images.
 - **State:**
   - `signal`, `computed` and `linkedSignal`. Change state with `set` or `update`, never by

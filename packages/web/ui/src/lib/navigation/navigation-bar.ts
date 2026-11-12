@@ -7,42 +7,8 @@ import type { NavDestination } from './nav-destination';
 @Component({
   selector: 'lister-navigation-bar',
   imports: [RouterLink, RouterLinkActive, MatIcon],
-  template: `
-    <nav [attr.aria-label]="label()">
-      @for (destination of destinations(); track destination.path) {
-        <a
-          class="item"
-          [routerLink]="destination.path"
-          routerLinkActive="active"
-          ariaCurrentWhenActive="page"
-        >
-          <span class="indicator">
-            <mat-icon aria-hidden="true">{{ destination.icon }}</mat-icon>
-          </span>
-          <span class="label">{{ destination.label }}</span>
-        </a>
-      }
-    </nav>
-  `,
-  styleUrl: './nav-items.scss',
-  styles: `
-    :host {
-      display: block;
-      background: var(--mat-sys-surface-container);
-      padding-bottom: env(safe-area-inset-bottom);
-    }
-    nav {
-      display: flex;
-      height: 80px;
-    }
-    .item {
-      flex: 1;
-      justify-content: center;
-    }
-    .indicator {
-      width: 64px;
-    }
-  `,
+  templateUrl: './navigation-bar.html',
+  styleUrls: ['./navigation-bar.scss', './nav-items.scss'],
 })
 export class NavigationBar {
   readonly destinations = input.required<readonly NavDestination[]>();

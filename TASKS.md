@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-038 — Templates and styles in their own files
 
 - Milestone: — (refactor before M5)
@@ -46,6 +44,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   - Pure move: rendered output and behaviour are unchanged; every existing unit and e2e test
     passes without edits beyond file paths, and no component exceeds its style budget.
 - Notes: components with no styles get no empty `.scss`.
+
+## Backlog
 
 ### T-022 — Accounts, sessions and the admin role
 

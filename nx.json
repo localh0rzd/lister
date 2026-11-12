@@ -81,7 +81,9 @@
       "prefix": "lister"
     },
     "@nx/angular:component": {
-      "style": "scss"
+      "style": "scss",
+      "inlineTemplate": false,
+      "inlineStyle": false
     },
     "@nx/nest:application": {
       "linter": "eslint",
