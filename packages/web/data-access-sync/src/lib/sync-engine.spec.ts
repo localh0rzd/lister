@@ -1,3 +1,8 @@
+import {
+  EnvironmentInjector,
+  ErrorHandler,
+  createEnvironmentInjector,
+} from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { newId } from '@lister/shared/domain';
 import {
@@ -39,7 +44,10 @@ class FakeServer {
   >();
   private readonly unanswered: MutationInput[] = [];
 
-  readonly socket = {
+  readonly socket = ((server: FakeServer) => ({
+    get connected() {
+      return server.connected;
+    },
     connect: () => {
       this.connectCalls++;
       this.connected = true;
@@ -57,7 +65,7 @@ class FakeServer {
       this.received.push([event, payload]);
       this.handle(event, payload);
     },
-  } as unknown as SyncSocket;
+  }))(this) as unknown as SyncSocket;
 
   fire(event: string, payload?: unknown) {
     for (const handler of this.handlers.get(event) ?? []) handler(payload);
@@ -158,8 +166,8 @@ let db: LocalDb;
 let server: FakeServer;
 let engine: SyncEngine;
 
-function setup(options: { leader?: boolean } = {}) {
-  db = new LocalDb(`test-${newId()}`);
+function setup(options: { leader?: boolean; database?: LocalDb } = {}) {
+  db = options.database ?? new LocalDb(`test-${newId()}`);
   server = new FakeServer();
   const createSocket = vi.fn(() => server.socket);
   TestBed.configureTestingModule({
@@ -194,6 +202,14 @@ async function settle() {
     await new Promise((resolve) => setTimeout(resolve, 0));
   }
   await engine.whenIdle();
+}
+
+/** Waits until `check` passes (signals fed by the local database update asynchronously). */
+async function eventually(check: () => void) {
+  await vi.waitFor(() => {
+    TestBed.tick();
+    check();
+  });
 }
 
 const visibleList = (id: string) => db.lists.get(id);
@@ -397,15 +413,17 @@ describe('SyncEngine', () => {
 
       expect(await visibleList(id)).toMatchObject({ deletedAt: 1 });
       expect(await outbox()).toEqual([]);
-      expect(engine.errors()).toEqual([
-        {
-          mutationId: expect.any(String),
-          reason: "This list doesn't exist",
-          at: 42,
-        },
-      ]);
-      engine.dismissError(engine.errors()[0].mutationId);
-      expect(engine.errors()).toEqual([]);
+      await eventually(() =>
+        expect(engine.errors()).toEqual([
+          {
+            mutationId: expect.any(String),
+            reason: "This list doesn't exist",
+            at: 42,
+          },
+        ]),
+      );
+      await engine.dismissError(engine.errors()[0].mutationId);
+      await eventually(() => expect(engine.errors()).toEqual([]));
     });
 
     it('rebases pending changes on top of incoming server rows', async () => {
@@ -452,7 +470,7 @@ describe('SyncEngine', () => {
       engine.start();
       await settle();
       server.drop();
-      expect(engine.online()).toBe(false);
+      await eventually(() => expect(engine.online()).toBe(false));
 
       const id = await createList();
       await settle();
@@ -519,9 +537,29 @@ describe('SyncEngine', () => {
       server.fire('updateRequired', { protocolVersion: PROTOCOL_VERSION + 1 });
       server.drop('io server disconnect');
       vi.advanceTimersByTime(60_000);
-
-      expect(engine.updateRequired()).toBe(true);
       expect(server.connectCalls).toBe(1);
+
+      vi.useRealTimers();
+      await settle();
+      await eventually(() => expect(engine.updateRequired()).toBe(true));
+    });
+
+    it('keeps backing off while the server welcomes but drops every push', async () => {
+      setup();
+      engine.start();
+      await settle();
+      vi.useFakeTimers();
+
+      // Each reconnect gets a welcome, then the server drops the connection again.
+      for (const delay of [1000, 2000, 4000]) {
+        server.fire('welcome', { userId: USER, spaces: [] });
+        server.drop('io server disconnect');
+        const before = server.connectCalls;
+        vi.advanceTimersByTime(delay - 1);
+        expect(server.connectCalls).toBe(before);
+        vi.advanceTimersByTime(1);
+        expect(server.connectCalls).toBe(before + 1);
+      }
     });
   });
 
@@ -544,11 +582,12 @@ describe('SyncEngine', () => {
       const id = newId();
 
       // Another tab's write: straight into the shared database.
+      const mutationId = newId();
       await db.outbox.add({
-        mutationId: newId(),
+        mutationId,
         spaceId: SPACE,
         mutation: {
-          mutationId: newId(),
+          mutationId,
           spaceId: SPACE,
           name: 'list.create',
           args: { id, title: 'From tab 2' },
@@ -558,6 +597,182 @@ describe('SyncEngine', () => {
       await settle();
 
       expect(server.sent('push')).toHaveLength(1);
+      expect(await outbox()).toEqual([]);
+      expect(await serverList(id)).toMatchObject({ title: 'From tab 2' });
+    });
+
+    it('shows every tab the same status, rejections and last sync', async () => {
+      setup();
+      engine.start();
+      await settle();
+      const leader = engine;
+      const id = await createList();
+      await settle();
+
+      // A second tab: its own engine on the same database, without the lock.
+      const otherTab = createEnvironmentInjector(
+        [
+          { provide: SyncEngine, useClass: SyncEngine },
+          { provide: SYNC_LOCKS, useValue: { request: () => undefined } },
+        ],
+        TestBed.inject(EnvironmentInjector),
+      ).get(SyncEngine);
+      otherTab.start();
+      expect(otherTab).not.toBe(leader);
+      engine = otherTab;
+
+      await eventually(() => {
+        expect(engine.online()).toBe(true);
+        expect(engine.lastSyncedAt()).toBe(42);
+      });
+      await db.rejections.put({
+        mutationId: newId(),
+        reason: 'Refused',
+        at: 1,
+      });
+      await eventually(() =>
+        expect(engine.errors().map((e) => e.reason)).toEqual(['Refused']),
+      );
+      expect(await visibleList(id)).toBeDefined();
+    });
+  });
+
+  describe('ordering edge cases', () => {
+    it('keeps an acked change until its rows arrive, then drops it', async () => {
+      setup();
+      engine.start();
+      await settle();
+      server.otherClient('list.create', { id: newId(), title: 'Seen' });
+      await settle();
+
+      // The poke for our own change goes missing; only the ack arrives.
+      server.connected = false;
+      const id = await createList('Mine');
+      server.connected = true;
+      const push = server.sent('push').at(-1) as
+        { mutations: MutationInput[] } | undefined;
+      expect(push).toBeUndefined(); // offline: nothing pushed yet
+      server.autoAnswer = false;
+      server.socket.connect();
+      await settle();
+      server.connected = false; // swallow the poke…
+      server.answerPushes();
+      server.connected = true; // …but the ack still arrives
+      await settle();
+
+      const [entry] = await outbox();
+      expect(entry).toMatchObject({ ackedVersion: 2 });
+      await vi.waitFor(() => expect(engine.pendingCount()).toBe(1));
+
+      // A later poke (version 3) reveals the gap; the pull brings version 2 and settles it.
+      server.otherClient('list.create', { id: newId(), title: 'Later' });
+      await settle();
+
+      expect(await outbox()).toEqual([]);
+      expect(await serverList(id)).toMatchObject({ title: 'Mine', version: 2 });
+    });
+
+    it('pulls only once while a gap is being filled', async () => {
+      setup();
+      engine.start();
+      await settle();
+      server.autoAnswer = true;
+      const pullsBefore = server.sent('pull').length;
+      // Pokes far ahead, with the pull still unanswered.
+      const socket = server.socket as unknown as {
+        emit: (event: string, payload: unknown) => void;
+      };
+      const original = socket.emit;
+      const held: unknown[] = [];
+      socket.emit = (event, payload) => {
+        if (event === 'pull') held.push(payload);
+        else original(event, payload);
+      };
+      for (const version of [5, 6, 7]) {
+        server.fire('poke', {
+          spaceId: SPACE,
+          version,
+          rows: { lists: [], items: [] },
+        });
+      }
+      await settle();
+
+      expect(held).toHaveLength(1);
+      expect(server.sent('pull')).toHaveLength(pullsBefore);
+    });
+
+    it('ignores a malformed server message', async () => {
+      const { createSocket } = setup();
+      const handleError = vi.fn();
+      TestBed.inject(ErrorHandler).handleError = handleError;
+      engine.start();
+      await settle();
+      expect(createSocket).toHaveBeenCalled();
+
+      server.fire('rows', { spaceId: 'not-an-id', version: -1 });
+      await settle();
+
+      expect(handleError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: expect.stringContaining('invalid "rows"'),
+        }),
+      );
+      expect(await db.syncState.get(SPACE)).toMatchObject({ version: 0 });
+    });
+
+    it('drops fields a newer server adds before storing rows', async () => {
+      setup();
+      engine.start();
+      await settle();
+      const id = newId();
+      server.otherClient('list.create', { id, title: 'Camping' });
+      await settle();
+      const row = await serverList(id);
+
+      server.fire('poke', {
+        spaceId: SPACE,
+        version: 2,
+        rows: {
+          lists: [{ ...row, version: 2, icon: 'tent' }],
+          items: [],
+          includes: [],
+        },
+      });
+      await settle();
+
+      expect(await serverList(id)).not.toHaveProperty('icon');
+      expect(await visibleList(id)).toMatchObject({ version: 2 });
+    });
+
+    it('sends a change again when a snapshot shows the server lost it (restored database)', async () => {
+      setup();
+      engine.start();
+      await settle();
+      const mutationId = newId();
+      await db.outbox.add({
+        mutationId,
+        spaceId: SPACE,
+        mutation: {
+          mutationId,
+          spaceId: SPACE,
+          name: 'list.create',
+          args: { id: newId(), title: 'Lost' },
+        },
+        createdAt: 1,
+        ackedVersion: 9,
+      });
+
+      server.fire('rows', {
+        spaceId: SPACE,
+        version: 0,
+        snapshot: true,
+        rows: { lists: [], items: [] },
+      });
+      await settle();
+
+      expect(server.sent('push').at(-1)).toMatchObject({
+        mutations: [{ mutationId }],
+      });
     });
   });
 });

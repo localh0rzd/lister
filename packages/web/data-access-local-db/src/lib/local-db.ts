@@ -38,6 +38,20 @@ export interface SyncState {
   lastSyncedAt: number | null;
 }
 
+/** A change the server refused, kept until the UI has shown it (every tab reads these). */
+export interface Rejection {
+  mutationId: string;
+  reason: string;
+  at: number;
+}
+
+/** The leader tab's connection state, shared with the other tabs (`meta` key `status`). */
+export interface SyncStatus {
+  online: boolean;
+  syncing: boolean;
+  updateRequired: boolean;
+}
+
 /** Small per-device values, e.g. the client id. */
 export interface MetaEntry {
   key: string;
@@ -54,7 +68,8 @@ export interface MetaEntry {
  * - `outbox`: pending mutations in order; `syncState`: synced version per space; `meta`.
  *
  * Every server schema change (a Drizzle migration) comes with a new `this.version(n)` here, in
- * the same change (CLAUDE.md). Version 1 matches server migrations 0000–0001. Tombstones are
+ * the same change (CLAUDE.md). Version 1 matches server migrations 0000–0001; version 2 adds the
+ * client-only `rejections` table. Tombstones are
  * stored like other rows; queries leave them out (`deletedAt` can't be indexed while it's null).
  */
 export class LocalDb extends Dexie {
@@ -66,6 +81,7 @@ export class LocalDb extends Dexie {
   outbox!: EntityTable<OutboxEntry, 'seq'>;
   syncState!: Table<SyncState, string>;
   meta!: Table<MetaEntry, string>;
+  rejections!: Table<Rejection, string>;
 
   constructor(name = 'lister') {
     super(name);
@@ -79,6 +95,8 @@ export class LocalDb extends Dexie {
       syncState: 'spaceId',
       meta: 'key',
     });
+    // Client-only: rejections that every tab can show (no server migration).
+    this.version(2).stores({ rejections: 'mutationId, at' });
   }
 }
 

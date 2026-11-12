@@ -119,8 +119,8 @@ Every project needs exactly one `scope:*` tag and one `type:*` tag. The details,
 ### Shared libraries (`packages/shared/*`)
 
 - `api-contracts`: every request/response shape that crosses HTTP, as TypeScript interfaces. Both sides import it, so a contract change breaks both at compile time. Route paths are built with `apiPath(...)`.
-- `domain`: entity types, positions, flattening, cycle check, mutation apply rules — pure functions used by client and server alike.
-- `sync-protocol`: Zod schemas for mutations and socket messages, and the protocol version.
+- `domain`: entity types, ids, positions, flattening, cycle check — pure functions used by client and server alike.
+- `sync-protocol`: Zod schemas for mutations and socket messages, the protocol version, and `applyMutation()`: the mutation rules both the server (authoritative) and the client (prediction) run.
 - Allowed: plain TypeScript and Zod (plus `fractional-indexing` and `uuid`). Not allowed: Angular, NestJS, `class-validator`, Node built-ins or browser globals. Lint enforces it: shared libraries spread `sharedPlatformRules`, and `lint:workspace` checks that they do.
 - Sync protocol: strict about what clients send, tolerant (`z.object`) about what the server sends, so additive changes don't break cached old clients.
 

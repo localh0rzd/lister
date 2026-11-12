@@ -23,25 +23,7 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-009 — Web: sync engine with offline outbox
-
-- Milestone: M2 Sync walking skeleton
-- Area: web
-- Priority: high
-- Depends on: T-007, T-008
-- Done when:
-  - `packages/web/data-access-sync` (scope:web, type:data-access) offers `mutate(...)`: the change
-    is applied to the local database at once, using the shared rules, and queued in the outbox.
-  - The engine connects with `socket.io-client`, says hello, pulls, then pushes the outbox in
-    order. A mutation leaves the outbox once its version has arrived; a rejected one is rolled back
-    and reported.
-  - Pokes are applied; a version gap triggers a pull; pending mutations are re-applied on top of
-    incoming server rows.
-  - Signals: `online`, `syncing`, `pendingCount`, `lastSyncedAt`, `errors`.
-  - Only one tab syncs at a time (Web Locks); other tabs see changes through the local database.
-  - Unit tests with a fake socket cover offline queueing, flushing on reconnect, rejection
-    rollback, gap pull and rebase.
-- Notes: Uses the dev user and space until T-025.
+_Nothing in progress._
 
 ## Backlog
 
@@ -460,6 +442,28 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 - Notes: Found in T-009. Mobile users download the chunk on the first visit.
 
 ## Done
+
+### T-009 — Web: sync engine with offline outbox
+
+- Completed: 2026-11-12 — `packages/web/data-access-sync` (`SyncEngine`: optimistic `mutate`, outbox, leader-tab socket, pokes, gap pulls, acks, rollback, rebase, backoff, status signals; `provideSync` loads it lazily); shared `applyMutation` in `@lister/shared/sync-protocol`, now also used by the server.
+- Review: Changes requested (1 major, 8 minor, 1 nit); all fixed: status, last sync and rejections live in the local database so every tab sees them (Dexie version 2 adds `rejections`), server messages validated with the tolerant schemas, guarded emits (nothing buffered before hello), backoff reset only after a mutation is answered, one pull per gap, rebuild reads its context once, a snapshot behind an ack resends the change, tests for acks before their rows and the cross-tab outbox, CLAUDE.md.
+- Milestone: M2 Sync walking skeleton
+- Area: web
+- Priority: high
+- Depends on: T-007, T-008
+- Done when:
+  - `packages/web/data-access-sync` (scope:web, type:data-access) offers `mutate(...)`: the change
+    is applied to the local database at once, using the shared rules, and queued in the outbox.
+  - The engine connects with `socket.io-client`, says hello, pulls, then pushes the outbox in
+    order. A mutation leaves the outbox once its version has arrived; a rejected one is rolled back
+    and reported.
+  - Pokes are applied; a version gap triggers a pull; pending mutations are re-applied on top of
+    incoming server rows.
+  - Signals: `online`, `syncing`, `pendingCount`, `lastSyncedAt`, `errors`.
+  - Only one tab syncs at a time (Web Locks); other tabs see changes through the local database.
+  - Unit tests with a fake socket cover offline queueing, flushing on reconnect, rejection
+    rollback, gap pull and rebase.
+- Notes: Uses the dev user and space until T-025.
 
 ### T-008 — Web: local database with Dexie
 

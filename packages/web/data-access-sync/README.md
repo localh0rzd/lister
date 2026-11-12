@@ -12,6 +12,10 @@ The client sync engine (design §4.2). `provideSync()` starts it at bootstrap.
   rows are always the server copy plus the pending mutations (rebase).
 - After a server disconnect it reconnects with backoff (1 s, doubling, up to 30 s). After
   `updateRequired` it stops.
-- Signals: `online`, `syncing`, `pendingCount`, `lastSyncedAt`, `errors`, `updateRequired`.
+- Signals: `online`, `syncing`, `pendingCount`, `lastSyncedAt`, `errors`, `updateRequired`. They
+  come from the local database (`meta.status`, `syncState`, `rejections`, `outbox`), so every
+  tab shows the same, also after a reload.
+- Server messages are checked with the protocol's tolerant schemas: unknown fields are dropped,
+  and malformed messages are ignored.
 - Tests use a fake socket whose server applies the same shared rules
   (`sync-engine.spec.ts`).
