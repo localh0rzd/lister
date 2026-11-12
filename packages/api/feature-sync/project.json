@@ -1,0 +1,9 @@
+{
+  "name": "api-feature-sync",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/api/feature-sync/src",
+  "projectType": "library",
+  "tags": ["scope:api", "type:feature"],
+  "// targets": "to see all targets run: nx show project api-feature-sync --web",
+  "targets": {}
+}

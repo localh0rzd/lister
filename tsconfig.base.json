@@ -33,7 +33,8 @@
       "@lister/shared/domain": ["./packages/shared/domain/src/index.ts"],
       "@lister/shared/sync-protocol": [
         "./packages/shared/sync-protocol/src/index.ts"
-      ]
+      ],
+      "@lister/api/feature-sync": ["./packages/api/feature-sync/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

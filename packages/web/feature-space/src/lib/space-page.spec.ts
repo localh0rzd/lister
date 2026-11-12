@@ -26,6 +26,7 @@ describe('SpacePage', () => {
       .flush({
         status: 'ok',
         service: 'lister-api',
+        db: 'ok',
         timestamp: new Date().toISOString(),
       } satisfies HealthResponse);
   }

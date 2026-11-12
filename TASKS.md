@@ -23,10 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-_Nothing in progress._
-
-## Backlog
-
 ### T-006 — Server: lists and items as mutations
 
 - Milestone: M2 Sync walking skeleton
@@ -44,6 +40,24 @@ _Nothing in progress._
   - An update to a deleted row is ignored (delete wins); a repeated mutation id is applied once and
     gets the same answer; invalid arguments are rejected with a reason.
   - Integration tests on in-memory SQLite cover each rule.
+
+## Backlog
+
+### T-035 — Type-check every project in CI
+
+- Milestone: M2 Sync walking skeleton
+- Area: infra
+- Priority: normal
+- Done when:
+  - Every project has a `typecheck` target (`tsc --noEmit`) for its library or app tsconfig
+    **and** its spec tsconfig, and `nx affected -t typecheck` runs in CI and in the `verify`
+    skill.
+  - The generated `vitest.config.mts` / `vite.config.mts` files type-check too (today they fail
+    under the spec tsconfigs with TS1343), or are excluded on purpose.
+- Notes: Found in T-006. App builds type-check only through the app's tsconfig, and Vitest
+  doesn't type-check, so a library's stricter options (e.g. `noPropertyAccessFromIndexSignature`)
+  and stale types in specs went unnoticed. One spec still built a `HealthResponse` without `db`
+  after T-004 changed the contract.
 
 ### T-007 — Server: Socket.IO sync gateway
 
