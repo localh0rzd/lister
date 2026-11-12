@@ -23,25 +23,7 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-003 — Installable PWA with offline app shell and update prompt
-
-- Milestone: M1 Foundations
-- Area: web
-- Priority: high
-- Depends on: T-001
-- Done when:
-  - `@angular/service-worker` is set up for `lister-web` (via the `@angular/pwa` schematic) and
-    registers only in production builds.
-  - `ngsw-config.json` prefetches the app shell, caches assets including fonts and icons, has no
-    data groups, and excludes `/api/**` and `/socket.io/**` from the navigation fallback.
-  - Manifest: name and short name "Lister", standalone, `start_url` and `scope` `/`, theme and
-    background colours from the theme, and 192 px and 512 px icons including maskable ones: the
-    Material Symbols "checklist" glyph on the theme colour (D11).
-  - When a new version is ready, a snackbar offers "New version available — Reload".
-  - E2E against the production build: after one online visit, the app loads with the browser
-    offline.
-- Notes: The update logic lives in a `packages/web/util-pwa` library (scope:web, type:util). The
-  dev server has no service worker; use the production build (`serve-static`).
+_Nothing in progress._
 
 ## Backlog
 
@@ -171,6 +153,9 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   - Every change goes through the sync engine, works offline, and appears on another open device
     without a reload.
   - The app bar shows a small sync indicator: offline, or "N changes not synced".
+- Notes: MatSnackBar shows one snackbar at a time, so a new one replaces the update prompt
+  (`AppUpdates` in `@lister/web/util-pwa` re-offers it later) or another Undo. Snackbars that
+  must not be lost (Undo, rejections) go through one small queue; decide it here (T-003 review).
 
 ### T-011 — Web: list editor
 
@@ -538,6 +523,28 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 - Notes: Found in T-001. Until then the full variable font is bundled.
 
 ## Done
+
+### T-003 — Installable PWA with offline app shell and update prompt
+
+- Completed: 2026-11-12 — `@angular/service-worker` (prod only) with `ngsw-config.json`; manifest and checklist icons (`npm run icons`); `packages/web/util-pwa` (update prompt, unrecoverable reload, hourly/foreground checks); e2e against the production build (`*.pwa.spec.ts`, port 4300): offline load, update prompt and reload, manifest and icons.
+- Review: Approve with minor fixes (4 minor, 3 nit); all fixed: the update prompt is re-offered when another snackbar replaces it (queue for Undo noted in T-010), the production server is a Playwright webServer so atomized targets work, tests for no worker on the dev server and for the real update flow, `/api` and `/socket.io` without a trailing path excluded, manifest `id`, test and tooling tidy-ups.
+- Milestone: M1 Foundations
+- Area: web
+- Priority: high
+- Depends on: T-001
+- Done when:
+  - `@angular/service-worker` is set up for `lister-web` (via the `@angular/pwa` schematic) and
+    registers only in production builds.
+  - `ngsw-config.json` prefetches the app shell, caches assets including fonts and icons, has no
+    data groups, and excludes `/api/**` and `/socket.io/**` from the navigation fallback.
+  - Manifest: name and short name "Lister", standalone, `start_url` and `scope` `/`, theme and
+    background colours from the theme, and 192 px and 512 px icons including maskable ones: the
+    Material Symbols "checklist" glyph on the theme colour (D11).
+  - When a new version is ready, a snackbar offers "New version available — Reload".
+  - E2E against the production build: after one online visit, the app loads with the browser
+    offline.
+- Notes: The update logic lives in a `packages/web/util-pwa` library (scope:web, type:util). The
+  dev server has no service worker; use the production build (`serve-static`).
 
 ### T-002 — App shell with navigation bar and navigation rail
 

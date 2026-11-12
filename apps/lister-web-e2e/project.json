@@ -16,11 +16,6 @@
           "projects": ["lister-web"],
           "target": "serve",
           "waitFor": "ready"
-        },
-        {
-          "projects": ["lister-web"],
-          "target": "serve-static",
-          "waitFor": "ready"
         }
       ]
     }

@@ -23,26 +23,29 @@ const icons = [
 
 mkdirSync(out, { recursive: true });
 const browser = await chromium.launch();
-const page = await browser.newPage({ deviceScaleFactor: 1 });
-for (const icon of icons) {
-  await page.setViewportSize({ width: icon.size, height: icon.size });
-  await page.setContent(`
-    <style>
-      @font-face { font-family: Symbols; src: url(data:font/woff2;base64,${font}) format('woff2'); }
-      html, body { margin: 0; background: transparent; }
-      div {
-        width: ${icon.size}px; height: ${icon.size}px;
-        border-radius: ${icon.radius * 100}%;
-        background: ${SEED}; color: #fff;
-        display: grid; place-items: center;
-        font: ${Math.round(icon.size * icon.glyph)}px/1 Symbols;
-        font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 48;
-        font-feature-settings: 'liga';
-      }
-    </style>
-    <div>checklist</div>`);
-  await page.evaluate(() => document.fonts.ready);
-  await page.screenshot({ path: join(out, icon.file), omitBackground: true });
-  console.log(`${out}/${icon.file}`);
+try {
+  const page = await browser.newPage({ deviceScaleFactor: 1 });
+  for (const icon of icons) {
+    await page.setViewportSize({ width: icon.size, height: icon.size });
+    await page.setContent(`
+      <style>
+        @font-face { font-family: Symbols; src: url(data:font/woff2;base64,${font}) format('woff2'); }
+        html, body { margin: 0; background: transparent; }
+        div {
+          width: ${icon.size}px; height: ${icon.size}px;
+          border-radius: ${icon.radius * 100}%;
+          background: ${SEED}; color: #fff;
+          display: grid; place-items: center;
+          font: ${Math.round(icon.size * icon.glyph)}px/1 Symbols;
+          font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 48;
+          font-feature-settings: 'liga';
+        }
+      </style>
+      <div>checklist</div>`);
+    await page.evaluate(() => document.fonts.ready);
+    await page.screenshot({ path: join(out, icon.file), omitBackground: true });
+    console.log(`${out}/${icon.file}`);
+  }
+} finally {
+  await browser.close();
 }
-await browser.close();

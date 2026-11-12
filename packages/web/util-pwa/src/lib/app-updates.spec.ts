@@ -15,13 +15,19 @@ function setup({ enabled = true } = {}) {
     reason: string;
   }>();
   const action = new Subject<void>();
+  const dismissed = new Subject<void>();
   const swUpdate = {
     isEnabled: enabled,
     versionUpdates,
     unrecoverable,
     checkForUpdate: vi.fn(() => Promise.resolve(false)),
   };
-  const snackBar = { open: vi.fn(() => ({ onAction: () => action })) };
+  const snackBar = {
+    open: vi.fn(() => ({
+      onAction: () => action,
+      afterDismissed: () => dismissed,
+    })),
+  };
   const reload = vi.fn();
   TestBed.configureTestingModule({
     providers: [
@@ -31,7 +37,15 @@ function setup({ enabled = true } = {}) {
     ],
   });
   TestBed.inject(AppUpdates);
-  return { versionUpdates, unrecoverable, action, swUpdate, snackBar, reload };
+  return {
+    versionUpdates,
+    unrecoverable,
+    action,
+    dismissed,
+    swUpdate,
+    snackBar,
+    reload,
+  };
 }
 
 const versionReady: VersionEvent = {
@@ -41,7 +55,10 @@ const versionReady: VersionEvent = {
 };
 
 describe('AppUpdates', () => {
-  afterEach(() => vi.useRealTimers());
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
 
   it('offers a reload when a new version is ready', () => {
     const { versionUpdates, action, snackBar, reload } = setup();
@@ -75,7 +92,7 @@ describe('AppUpdates', () => {
   });
 
   it('offers a reload when the cached version is broken', () => {
-    const { unrecoverable, snackBar } = setup();
+    const { unrecoverable, action, snackBar, reload } = setup();
 
     unrecoverable.next({ type: 'UNRECOVERABLE_STATE', reason: 'gone' });
 
@@ -83,6 +100,8 @@ describe('AppUpdates', () => {
       'Lister needs to reload to keep working',
       'Reload',
     );
+    action.next();
+    expect(reload).toHaveBeenCalledTimes(1);
   });
 
   it('checks for updates hourly and when the app becomes visible again', () => {
@@ -100,6 +119,34 @@ describe('AppUpdates', () => {
     vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
     document.dispatchEvent(new Event('visibilitychange'));
     expect(swUpdate.checkForUpdate).toHaveBeenCalledTimes(2);
+  });
+
+  it('offers the update again after another snackbar replaced the prompt', () => {
+    vi.useFakeTimers();
+    const { versionUpdates, dismissed, snackBar, swUpdate } = setup();
+    versionUpdates.next(versionReady);
+    expect(snackBar.open).toHaveBeenCalledTimes(1);
+
+    // e.g. an Undo snackbar replaced it
+    dismissed.next();
+    vi.advanceTimersByTime(UPDATE_CHECK_INTERVAL_MS);
+
+    expect(snackBar.open).toHaveBeenCalledTimes(2);
+    expect(snackBar.open).toHaveBeenLastCalledWith(
+      'New version available',
+      'Reload',
+    );
+    expect(swUpdate.checkForUpdate).not.toHaveBeenCalled();
+  });
+
+  it('does not stack the prompt while it is still showing', () => {
+    vi.useFakeTimers();
+    const { versionUpdates, snackBar } = setup();
+    versionUpdates.next(versionReady);
+
+    vi.advanceTimersByTime(UPDATE_CHECK_INTERVAL_MS);
+
+    expect(snackBar.open).toHaveBeenCalledTimes(1);
   });
 
   it('does nothing without a service worker (dev server, unsupported browser)', () => {

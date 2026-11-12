@@ -222,6 +222,8 @@ Consequences:
   front of the app (D4), so the app itself only speaks HTTP.
 - **Manifest:** name "Lister", standalone display, maskable icons (D11), theme colour from the
   Material theme, optional shortcuts ("New list", "New run").
+  The manifest's `background_color` is the light surface, so dark-mode Android users see a light
+  splash screen; the manifest can't follow the colour scheme (accepted, T-003 review).
 - **Service worker** (`@angular/service-worker`) caches the app shell and assets only. Data lives in
   IndexedDB, not in the SW cache. `/api/**` and `/socket.io/**` are excluded from the navigation
   fallback, so that e.g. export downloads still reach the server.

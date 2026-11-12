@@ -5,8 +5,8 @@ import { getReadyUrl, workspaceRoot } from '@nx/devkit';
 // For CI, you may want to set BASE_URL to the deployed application.
 // getReadyUrl moves the address to the port the dev server task reported.
 const baseURL = process.env['BASE_URL'] || getReadyUrl('http://localhost:4200');
-// The production build with its service worker (lister-web:serve-static, started by the e2e
-// target), for *.pwa.spec.ts: the dev server has no service worker.
+// The production build with its service worker (lister-web:serve-static), for *.pwa.spec.ts:
+// the dev server has no service worker.
 const PWA_URL = 'http://localhost:4300';
 
 /**
@@ -33,12 +33,20 @@ export default defineConfig({
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
   },
-  webServer: {
-    command: 'npx nx run lister-web:serve',
-    url: getReadyUrl('http://localhost:4200'),
-    reuseExistingServer: true,
-    cwd: workspaceRoot,
-  },
+  webServer: [
+    {
+      command: 'npx nx run lister-web:serve',
+      url: getReadyUrl('http://localhost:4200'),
+      reuseExistingServer: true,
+      cwd: workspaceRoot,
+    },
+    {
+      command: 'npx nx run lister-web:serve-static',
+      url: PWA_URL,
+      reuseExistingServer: true,
+      cwd: workspaceRoot,
+    },
+  ],
   projects: [
     {
       name: 'chromium',

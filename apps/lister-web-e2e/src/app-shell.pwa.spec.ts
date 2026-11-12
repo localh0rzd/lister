@@ -54,6 +54,52 @@ test.describe('installable PWA (production build)', () => {
     expect(iconFontLoaded).toBe(true);
   });
 
+  test('offers a new version and reloads into it', async ({
+    page,
+    context,
+  }) => {
+    test.setTimeout(120_000);
+    await page.goto('/');
+    await page.evaluate(() => navigator.serviceWorker.ready);
+    await expect
+      .poll(() => shellIsCached(page), { timeout: 60_000 })
+      .toBe(true);
+    // The first visit isn't controlled by the worker yet; the update check needs it.
+    await page.reload();
+    await expect
+      .poll(() => page.evaluate(() => !!navigator.serviceWorker.controller))
+      .toBe(true);
+
+    // Publish a "new" version: the same files under a different manifest timestamp, which
+    // changes the version hash. Chromium routes the service worker's own fetches too.
+    await context.route('**/ngsw.json*', async (route) => {
+      const response = await route.fetch();
+      const manifest = await response.json();
+      await route.fulfill({
+        response,
+        json: { ...manifest, timestamp: manifest.timestamp + 1 },
+      });
+    });
+    await page.evaluate(() => {
+      (window as unknown as { beforeUpdate: boolean }).beforeUpdate = true;
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    await expect(page.getByText('New version available')).toBeVisible({
+      timeout: 30_000,
+    });
+    await page.getByRole('button', { name: 'Reload' }).click();
+
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Lists' }),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => (window as unknown as { beforeUpdate?: boolean }).beforeUpdate,
+      ),
+    ).toBeUndefined();
+  });
+
   test('has a manifest with name, scope, colours and icons', async ({
     page,
     request,

@@ -70,6 +70,19 @@ test.describe('navigation on a desktop (1280 px)', () => {
     }
   });
 
+  test('registers no service worker on the dev server', async ({ page }) => {
+    await page.goto('/lists');
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Lists' }),
+    ).toBeVisible();
+    await page.waitForLoadState('load');
+
+    const registration = await page.evaluate(async () =>
+      Boolean(await navigator.serviceWorker.getRegistration()),
+    );
+    expect(registration).toBe(false);
+  });
+
   test('can be used with the keyboard', async ({ page }) => {
     await page.goto('/lists');
     const runs = page
