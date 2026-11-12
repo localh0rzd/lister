@@ -1,68 +1,71 @@
 <h1 class="page-title">Lists</h1>
 
-@let v = view(); @if (v.kind === 'loading') {
-<lister-loading-hint />
+@let v = view();
+@if (v.kind === 'loading') {
+  <lister-loading-hint />
 } @else if (v.kind === 'error') {
-<p class="hint" role="alert">
-  Lister can't open its storage on this device. Check that the browser allows
-  site data, then reload.
-</p>
+  <p class="hint" role="alert">
+    Lister can't open its storage on this device. Check that the browser allows
+    site data, then reload.
+  </p>
 } @else if (v.kind === 'no-space') {
-<p class="hint">
-  Your lists appear here once Lister has connected to the server.
-</p>
+  <p class="hint">
+    Your lists appear here once Lister has connected to the server.
+  </p>
 } @else if (v.lists.length === 0) {
-<div class="empty">
-  <mat-icon class="empty-icon" aria-hidden="true">checklist</mat-icon>
-  <p class="empty-title">No lists yet</p>
-  <p class="hint">Create your first list with “New list”.</p>
-</div>
+  <div class="empty">
+    <mat-icon class="empty-icon" aria-hidden="true">checklist</mat-icon>
+    <p class="empty-title">No lists yet</p>
+    <p class="hint">Create your first list with “New list”.</p>
+  </div>
 } @else {
-<ul class="lists" aria-label="Lists">
-  @for (entry of v.lists; track entry.list.id) {
-  <li class="row">
-    <span class="avatar" aria-hidden="true"
-      >{{ initial(entry.list.title) }}</span
-    >
-    <div class="text">
-      <a class="title" [routerLink]="entry.list.id">{{ entry.list.title }}</a>
-      <span class="count">{{ itemCount(entry.count) }}</span>
-    </div>
-    <button
-      matIconButton
-      type="button"
-      [matMenuTriggerFor]="menu"
-      [attr.aria-label]="'More for ' + entry.list.title"
-    >
-      <mat-icon>more_vert</mat-icon>
-    </button>
-    <mat-menu #menu="matMenu">
-      <button mat-menu-item type="button" (click)="startRun(entry.list)">
-        <mat-icon>play_arrow</mat-icon>
-        <span>Start run</span>
-      </button>
-      <button mat-menu-item type="button" (click)="rename(entry.list)">
-        <mat-icon>edit</mat-icon>
-        <span>Rename</span>
-      </button>
-      <button mat-menu-item type="button" (click)="duplicate(entry.list)">
-        <mat-icon>content_copy</mat-icon>
-        <span>Duplicate</span>
-      </button>
-      <button mat-menu-item type="button" (click)="remove(entry.list)">
-        <mat-icon>delete</mat-icon>
-        <span>Delete</span>
-      </button>
-    </mat-menu>
-  </li>
-  }
-</ul>
+  <ul class="lists" aria-label="Lists">
+    @for (entry of v.lists; track entry.list.id) {
+      <li class="row">
+        <span class="avatar" aria-hidden="true">{{
+          initial(entry.list.title)
+        }}</span>
+        <div class="text">
+          <a class="title" [routerLink]="entry.list.id">{{
+            entry.list.title
+          }}</a>
+          <span class="count">{{ itemCount(entry.count) }}</span>
+        </div>
+        <button
+          matIconButton
+          type="button"
+          [matMenuTriggerFor]="menu"
+          [attr.aria-label]="'More for ' + entry.list.title"
+        >
+          <mat-icon>more_vert</mat-icon>
+        </button>
+        <mat-menu #menu="matMenu">
+          <button mat-menu-item type="button" (click)="startRun(entry.list)">
+            <mat-icon>play_arrow</mat-icon>
+            <span>Start run</span>
+          </button>
+          <button mat-menu-item type="button" (click)="rename(entry.list)">
+            <mat-icon>edit</mat-icon>
+            <span>Rename</span>
+          </button>
+          <button mat-menu-item type="button" (click)="duplicate(entry.list)">
+            <mat-icon>content_copy</mat-icon>
+            <span>Duplicate</span>
+          </button>
+          <button mat-menu-item type="button" (click)="remove(entry.list)">
+            <mat-icon>delete</mat-icon>
+            <span>Delete</span>
+          </button>
+        </mat-menu>
+      </li>
+    }
+  </ul>
 }
 
 <!-- Only where lists can be created, i.e. once a space is there. -->
 @if (v.kind === 'lists') {
-<button matFab extended class="fab" type="button" (click)="create()">
-  <mat-icon>add</mat-icon>
-  New list
-</button>
+  <button matFab extended class="fab" type="button" (click)="create()">
+    <mat-icon>add</mat-icon>
+    New list
+  </button>
 }

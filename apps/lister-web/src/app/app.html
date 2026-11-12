@@ -1,21 +1,21 @@
 <div class="shell" [class.wide]="wide()">
   @if (wide()) {
-  <lister-navigation-rail class="nav" [destinations]="destinations">
-    @defer (on idle) {
-    <lister-sync-indicator [compact]="true" />
-    }
-  </lister-navigation-rail>
-  } @else {
-  <header class="top-bar">
-    <mat-toolbar>
-      <span class="brand">{{ title() }}</span>
-      <span class="spacer"></span>
+    <lister-navigation-rail class="nav" [destinations]="destinations">
       @defer (on idle) {
-      <lister-sync-indicator />
+        <lister-sync-indicator [compact]="true" />
       }
-    </mat-toolbar>
-  </header>
-  <lister-navigation-bar class="nav" [destinations]="destinations" />
+    </lister-navigation-rail>
+  } @else {
+    <header class="top-bar">
+      <mat-toolbar>
+        <span class="brand">{{ title() }}</span>
+        <span class="spacer"></span>
+        @defer (on idle) {
+          <lister-sync-indicator />
+        }
+      </mat-toolbar>
+    </header>
+    <lister-navigation-bar class="nav" [destinations]="destinations" />
   }
   <main #content class="content">
     <router-outlet />

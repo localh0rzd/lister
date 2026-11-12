@@ -25,12 +25,13 @@
 <section aria-labelledby="about-heading">
   <h2 id="about-heading">About</h2>
   <p>
-    API status: @if (health.isLoading()) {
-    <span>checking…</span>
+    API status:
+    @if (health.isLoading()) {
+      <span>checking…</span>
     } @else if (health.error()) {
-    <span class="down">unreachable</span>
+      <span class="down">unreachable</span>
     } @else if (health.hasValue()) {
-    <span class="ok">{{ health.value().status }}</span>
+      <span class="ok">{{ health.value().status }}</span>
     }
   </p>
 </section>

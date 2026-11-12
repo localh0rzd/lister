@@ -6,44 +6,44 @@
 <h1 tabindex="-1">Trash</h1>
 <p class="hint">Deleted lists and items stay here for {{ keepDays }} days.</p>
 
-@let v = view(); @if (v.kind === 'loading') {
-<lister-loading-hint />
+@let v = view();
+@if (v.kind === 'loading') {
+  <lister-loading-hint />
 } @else if (v.kind === 'no-space') {
-<p class="hint">
-  Deleted lists and items appear here once Lister has connected to the server.
-</p>
+  <p class="hint">
+    Deleted lists and items appear here once Lister has connected to the server.
+  </p>
 } @else if (v.kind === 'error') {
-<p class="hint" role="alert">
-  Lister can't open its storage on this device. Check that the browser allows
-  site data, then reload.
-</p>
+  <p class="hint" role="alert">
+    Lister can't open its storage on this device. Check that the browser allows
+    site data, then reload.
+  </p>
 } @else if (v.entries.length === 0) {
-<div class="empty">
-  <mat-icon class="empty-icon" aria-hidden="true">delete_outline</mat-icon>
-  <p>The trash is empty.</p>
-</div>
+  <div class="empty">
+    <mat-icon class="empty-icon" aria-hidden="true">delete_outline</mat-icon>
+    <p>The trash is empty.</p>
+  </div>
 } @else {
-<ul class="entries" aria-label="Deleted lists and items">
-  @for (entry of v.entries; track entry.row.id) {
-  <li class="entry">
-    <mat-icon class="kind" aria-hidden="true"
-      >{{ entry.kind === 'list' ? 'checklist' : 'check_box_outline_blank'
-      }}</mat-icon
-    >
-    <div class="text">
-      <span class="title">{{ entry.row.title }}</span>
-      <span class="meta">{{ describe(entry) }}</span>
-    </div>
-    <button
-      matButton
-      type="button"
-      class="restore"
-      [attr.aria-label]="'Restore ' + entry.row.title"
-      (click)="restore(entry, $index)"
-    >
-      Restore
-    </button>
-  </li>
-  }
-</ul>
+  <ul class="entries" aria-label="Deleted lists and items">
+    @for (entry of v.entries; track entry.row.id) {
+      <li class="entry">
+        <mat-icon class="kind" aria-hidden="true">{{
+          entry.kind === 'list' ? 'checklist' : 'check_box_outline_blank'
+        }}</mat-icon>
+        <div class="text">
+          <span class="title">{{ entry.row.title }}</span>
+          <span class="meta">{{ describe(entry) }}</span>
+        </div>
+        <button
+          matButton
+          type="button"
+          class="restore"
+          [attr.aria-label]="'Restore ' + entry.row.title"
+          (click)="restore(entry, $index)"
+        >
+          Restore
+        </button>
+      </li>
+    }
+  </ul>
 }

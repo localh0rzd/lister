@@ -12,17 +12,17 @@
     />
   </mat-form-field>
   @if (data.lists.length === 0) {
-  <p class="hint">No other lists can be added here.</p>
+    <p class="hint">No other lists can be added here.</p>
   } @else if (matches().length === 0) {
-  <p class="hint">No list matches “{{ query() }}”.</p>
+    <p class="hint">No list matches “{{ query() }}”.</p>
   } @else {
-  <mat-action-list aria-label="Lists">
-    @for (list of matches(); track list.id) {
-    <button mat-list-item type="button" (click)="pick(list)">
-      {{ list.title }}
-    </button>
-    }
-  </mat-action-list>
+    <mat-action-list aria-label="Lists">
+      @for (list of matches(); track list.id) {
+        <button mat-list-item type="button" (click)="pick(list)">
+          {{ list.title }}
+        </button>
+      }
+    </mat-action-list>
   }
 </mat-dialog-content>
 <mat-dialog-actions align="end">

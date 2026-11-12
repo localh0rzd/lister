@@ -1,3 +1,9 @@
 {
-  "singleQuote": true
+  "singleQuote": true,
+  "overrides": [
+    {
+      "files": ["apps/lister-web/src/app/**/*.html", "packages/web/**/*.html"],
+      "options": { "parser": "angular" }
+    }
+  ]
 }

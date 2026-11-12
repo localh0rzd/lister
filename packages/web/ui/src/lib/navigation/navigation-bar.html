@@ -1,15 +1,15 @@
 <nav [attr.aria-label]="label()">
   @for (destination of destinations(); track destination.path) {
-  <a
-    class="item"
-    [routerLink]="destination.path"
-    routerLinkActive="active"
-    ariaCurrentWhenActive="page"
-  >
-    <span class="indicator">
-      <mat-icon aria-hidden="true">{{ destination.icon }}</mat-icon>
-    </span>
-    <span class="label">{{ destination.label }}</span>
-  </a>
+    <a
+      class="item"
+      [routerLink]="destination.path"
+      routerLinkActive="active"
+      ariaCurrentWhenActive="page"
+    >
+      <span class="indicator">
+        <mat-icon aria-hidden="true">{{ destination.icon }}</mat-icon>
+      </span>
+      <span class="label">{{ destination.label }}</span>
+    </a>
   }
 </nav>

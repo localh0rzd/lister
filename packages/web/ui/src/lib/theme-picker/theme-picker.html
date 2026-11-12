@@ -5,9 +5,9 @@
   hideSingleSelectionIndicator
 >
   @for (option of options; track option.value) {
-  <mat-button-toggle [value]="option.value">
-    <mat-icon aria-hidden="true">{{ option.icon }}</mat-icon>
-    {{ option.label }}
-  </mat-button-toggle>
+    <mat-button-toggle [value]="option.value">
+      <mat-icon aria-hidden="true">{{ option.icon }}</mat-icon>
+      {{ option.label }}
+    </mat-button-toggle>
   }
 </mat-button-toggle-group>

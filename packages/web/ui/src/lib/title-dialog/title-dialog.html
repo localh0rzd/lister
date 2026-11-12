@@ -4,9 +4,11 @@
     <mat-form-field class="field">
       <mat-label>Title</mat-label>
       <input matInput [formField]="titleForm.title" cdkFocusInitial />
-      @if ( titleForm.title().touched() && titleForm.title().errors()[0]; as
-      error ) {
-      <mat-error>{{ error.message }}</mat-error>
+      @if (
+        titleForm.title().touched() && titleForm.title().errors()[0];
+        as error
+      ) {
+        <mat-error>{{ error.message }}</mat-error>
       }
     </mat-form-field>
   </mat-dialog-content>
