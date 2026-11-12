@@ -52,8 +52,13 @@ export type SyncError = Rejection;
 /** What `mutate` answers: queued (applied locally), or refused before queueing. */
 export type MutateResult = { ok: true } | { ok: false; reason: string };
 
+/** `Omit` over each member of a union, so the name/args pairing survives. */
+type DistributiveOmit<T, K extends PropertyKey> = T extends unknown
+  ? Omit<T, K>
+  : never;
+
 /** A mutation as the UI asks for it: the engine adds the mutation id. */
-export type MutationRequest = Omit<MutationInput, 'mutationId'>;
+export type MutationRequest = DistributiveOmit<MutationInput, 'mutationId'>;
 
 const LOCK_NAME = 'lister-sync';
 const STATUS_KEY = 'status';

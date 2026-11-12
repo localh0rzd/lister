@@ -31,7 +31,7 @@
   aria-label="Items"
 >
   @for (item of v.items; track item.id) {
-  <li class="item" cdkDrag>
+  <li class="item" cdkDrag [cdkDragData]="item">
     <span class="handle" cdkDragHandle aria-hidden="true">
       <mat-icon>drag_indicator</mat-icon>
     </span>
@@ -50,6 +50,7 @@
       matIconButton
       type="button"
       [matMenuTriggerFor]="menu"
+      [attr.data-item-id]="item.id"
       [attr.aria-label]="'More for ' + item.title"
     >
       <mat-icon>more_vert</mat-icon>
@@ -63,7 +64,7 @@
         mat-menu-item
         type="button"
         [disabled]="$first"
-        (click)="move(item, $index - 1)"
+        (click)="step(item, $index - 1)"
       >
         <mat-icon>arrow_upward</mat-icon>
         <span>Move up</span>
@@ -72,7 +73,7 @@
         mat-menu-item
         type="button"
         [disabled]="$last"
-        (click)="move(item, $index + 1)"
+        (click)="step(item, $index + 1)"
       >
         <mat-icon>arrow_downward</mat-icon>
         <span>Move down</span>

@@ -23,18 +23,7 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-011 — Web: list editor
-
-- Milestone: M2 Sync walking skeleton
-- Area: web
-- Priority: high
-- Depends on: T-010
-- Done when:
-  - Opening a list shows its items in order; an inline field adds an item.
-  - Pasting several lines into that field creates one item per line.
-  - An item's title, quantity and note can be edited; deleting an item offers Undo.
-  - Items can be reordered by drag and drop, and with "Move up" / "Move down" in the item menu.
-  - Component tests cover adding, pasting, editing, deleting with undo, and reordering.
+_Nothing in progress._
 
 ## Backlog
 
@@ -422,6 +411,21 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 - Notes: Found in T-009. Mobile users download the chunk on the first visit.
 
 ## Done
+
+### T-011 — Web: list editor
+
+- Completed: 2026-11-12 — `ListEditorPage` at `/lists/:listId` (items in order, inline add, multi-line paste, `ItemDialog` for title/quantity/note, delete with Undo, drag and drop plus Move up/down), `SpaceChanges`, `moveTo` in the domain; unit and e2e tests.
+- Review: Changes requested (4 major, 3 minor, 2 nit); all fixed: drops move the dragged item (`cdkDragData`), `moveTo` re-keys tied rows so a move always takes effect, adds run one at a time from the last key handed out, keyboard moves keep the focus and announce the new position, pastes are validated before anything is added, long titles wrap and notes keep line breaks, the e2e checks the count and renames, the tab title names the list, `SpaceChanges` is typed without a cast.
+- Milestone: M2 Sync walking skeleton
+- Area: web
+- Priority: high
+- Depends on: T-010
+- Done when:
+  - Opening a list shows its items in order; an inline field adds an item.
+  - Pasting several lines into that field creates one item per line.
+  - An item's title, quantity and note can be edited; deleting an item offers Undo.
+  - Items can be reordered by drag and drop, and with "Move up" / "Move down" in the item menu.
+  - Component tests cover adding, pasting, editing, deleting with undo, and reordering.
 
 ### T-010 — Web: Lists page
 

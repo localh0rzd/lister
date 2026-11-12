@@ -1,4 +1,4 @@
-import { By } from '@angular/platform-browser';
+import { By, Title } from '@angular/platform-browser';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
@@ -305,6 +305,7 @@ describe('ListEditorPage', () => {
       .triggerEventHandler('cdkDropListDropped', {
         previousIndex: 0,
         currentIndex: 2,
+        item: { data: a },
       });
 
     await vi.waitFor(() => expect(requests).toHaveLength(1));
@@ -315,6 +316,113 @@ describe('ListEditorPage', () => {
     expect((requests[0].args as { position: string }).position > 'a2').toBe(
       true,
     );
+  });
+
+  it('moves the dragged item even if the list changed during the drag', async () => {
+    const rows = ['A', 'B', 'C', 'D', 'E'].map((t, i) => item(t, `a${i}`));
+    await db.items.bulkPut(rows);
+    const page = await render();
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(page.titles()).toEqual(['A', 'B', 'C', 'D', 'E']);
+    });
+
+    // Another device deletes A while C is being dragged to the end.
+    await db.items.put({ ...rows[0], deletedAt: 1 });
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(page.titles()).toEqual(['B', 'C', 'D', 'E']);
+    });
+    page.fixture.debugElement
+      .query(By.directive(CdkDropList))
+      .triggerEventHandler('cdkDropListDropped', {
+        previousIndex: 2,
+        currentIndex: 4,
+        item: { data: rows[2] },
+      });
+
+    await vi.waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0]).toMatchObject({
+      name: 'item.move',
+      args: { id: rows[2].id },
+    });
+  });
+
+  it('moves up into rows that share a position (re-keying them)', async () => {
+    // B1 and B2 were inserted at the same spot by two offline clients.
+    const [a, b1, b2, c] = [
+      item('A', 'a0'),
+      item('B1', 'a1'),
+      item('B2', 'a1'),
+      item('C', 'a2'),
+    ];
+    await db.items.bulkPut([a, b1, b2, c]);
+    const page = await render();
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(page.titles()).toHaveLength(4);
+    });
+    const order = page.titles();
+
+    const menu = await page.loader.getHarness(
+      MatMenuHarness.with({ selector: '[aria-label="More for C"]' }),
+    );
+    await menu.clickItem({ text: /Move up/ });
+
+    await vi.waitFor(() => expect(requests.length).toBeGreaterThan(0));
+    const keys = new Map(
+      [a, b1, b2, c].map((row) => [row.id, row.position] as [string, string]),
+    );
+    for (const r of requests) {
+      const args = r.args as { id: string; position: string };
+      keys.set(args.id, args.position);
+    }
+    const titleOf = new Map([a, b1, b2, c].map((row) => [row.id, row.title]));
+    const moved = sortByPosition(
+      [...keys].map(([id, position]) => ({ id, position })),
+    ).map((row) => titleOf.get(row.id));
+    expect(moved).toEqual([order[0], order[1], 'C', order[2]]);
+  });
+
+  it('keeps two quick pastes in order instead of interleaving them', async () => {
+    const page = await render();
+    const pasteLines = (text: string) => {
+      const paste = new Event('paste', { cancelable: true }) as ClipboardEvent;
+      Object.defineProperty(paste, 'clipboardData', {
+        value: { getData: () => text },
+      });
+      page.input().dispatchEvent(paste);
+    };
+
+    pasteLines('A1\nA2\nA3');
+    pasteLines('B1\nB2\nB3');
+
+    await vi.waitFor(() => expect(created()).toHaveLength(6));
+    expect(created()).toEqual(['A1', 'A2', 'A3', 'B1', 'B2', 'B3']);
+  });
+
+  it('adds nothing from a paste with an invalid line, and says which', async () => {
+    const page = await render();
+    const paste = new Event('paste', { cancelable: true }) as ClipboardEvent;
+    Object.defineProperty(paste, 'clipboardData', {
+      value: { getData: () => `Tent\n${'x'.repeat(201)}\nStove` },
+    });
+
+    page.input().dispatchEvent(paste);
+    await new Promise((resolve) => setTimeout(resolve));
+
+    expect(mutate).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Nothing added: line 2 — At most 200 characters',
+      }),
+    );
+  });
+
+  it('names the browser tab after the list', async () => {
+    await render();
+
+    expect(TestBed.inject(Title).getTitle()).toBe('Camping · Lister');
   });
 
   it('says so for a list that is missing or deleted', async () => {

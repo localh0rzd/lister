@@ -63,7 +63,7 @@ test.describe('list editor on a phone (375 px)', () => {
     page,
     expectAccessible,
   }) => {
-    await openNewList(page);
+    const title = await openNewList(page);
     await expect(page.getByText('No items yet')).toBeVisible();
 
     await test.step('add one item', async () => {
@@ -109,21 +109,34 @@ test.describe('list editor on a phone (375 px)', () => {
       ]);
     });
 
-    await test.step('move up with the menu (keyboard alternative to dragging)', async () => {
-      await itemMenu(page, 'Stove', 'Move up');
+    await test.step('move up by keyboard; the focus stays on the item', async () => {
+      const trigger = page.getByRole('button', { name: 'More for Stove' });
+      await trigger.focus();
+      await page.keyboard.press('Enter');
+      await page.getByRole('menuitem', { name: 'Move up' }).focus();
+      await page.keyboard.press('Enter');
       await expect(itemTitles(page)).toHaveText([
         'Tent',
         'Stove',
         'Sleeping bag',
         'Matches',
       ]);
+      await expect(trigger).toBeFocused();
+    });
+
+    await test.step('rename an item', async () => {
+      await itemMenu(page, 'Tent', 'Edit');
+      const dialog = page.getByRole('dialog', { name: 'Edit item' });
+      await dialog.getByLabel('Title').fill('Tent (2 people)');
+      await dialog.getByRole('button', { name: 'Save' }).click();
+      await expect(itemTitles(page).first()).toHaveText('Tent (2 people)');
     });
 
     await test.step('the list shows its item count', async () => {
       await page.getByRole('link', { name: 'All lists' }).click();
       await expect(
-        page.getByRole('heading', { level: 1, name: 'Lists' }),
-      ).toBeAttached();
+        page.getByRole('listitem').filter({ hasText: title }),
+      ).toContainText('4 items');
     });
   });
 });

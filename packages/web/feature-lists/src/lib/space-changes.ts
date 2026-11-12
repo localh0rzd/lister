@@ -3,8 +3,12 @@ import { CurrentSpace } from '@lister/web/data-access-local-db';
 import { type MutationRequest, SyncEngine } from '@lister/web/data-access-sync';
 import { NOTICE_DURATION_MS, Notifier } from '@lister/web/util-notify';
 
+type DistributiveOmit<T, K extends PropertyKey> = T extends unknown
+  ? Omit<T, K>
+  : never;
+
 /** A change in the current space, as the pages ask for it (the space is added here). */
-export type SpaceChange = Pick<MutationRequest, 'name' | 'args'>;
+export type SpaceChange = DistributiveOmit<MutationRequest, 'spaceId'>;
 
 /**
  * Sends changes to the current space through the sync engine and shows refusals. Pages use
@@ -46,7 +50,8 @@ export class SpaceChanges {
     if (outcome === 'action') await this.apply(undo);
   }
 
-  private tell(message: string): void {
+  /** Shows a short notice (e.g. why something wasn't done). */
+  tell(message: string): void {
     void this.notifier.notify({ message, duration: NOTICE_DURATION_MS });
   }
 }

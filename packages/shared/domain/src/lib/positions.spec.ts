@@ -1,5 +1,6 @@
 import {
   comparePositions,
+  moveTo,
   isPositionKey,
   positionAt,
   positionAtEnd,
@@ -151,5 +152,95 @@ describe('isPositionKey', () => {
       low = positionBetween(low, null);
       expect(isPositionKey(low)).toBe(true);
     }
+  });
+});
+
+describe('moveTo', () => {
+  /** Applies the changes and returns the new order of ids. */
+  function after(
+    rows: { id: string; position: string }[],
+    movedId: string,
+    toIndex: number,
+  ) {
+    const changes = moveTo(rows, movedId, toIndex);
+    const byId = new Map(changes.map((c) => [c.id, c.position]));
+    const result = rows.map((r) => ({
+      ...r,
+      position: byId.get(r.id) ?? r.position,
+    }));
+    return { order: ids(sortByPosition(result)), changes };
+  }
+
+  const plain = [
+    row('a', 'a0'),
+    row('b', 'a1'),
+    row('c', 'a2'),
+    row('d', 'a3'),
+  ];
+
+  it.each([
+    ['c', 0, ['c', 'a', 'b', 'd']],
+    ['a', 3, ['b', 'c', 'd', 'a']],
+    ['b', 2, ['a', 'c', 'b', 'd']],
+    ['d', 2, ['a', 'b', 'd', 'c']],
+  ])('moves %s to index %i with one change', (id, index, expected) => {
+    const { order, changes } = after(plain, id, index);
+
+    expect(order).toEqual(expected);
+    expect(changes).toHaveLength(1);
+  });
+
+  it('returns nothing when the order would not change', () => {
+    expect(moveTo(plain, 'b', 1)).toEqual([]);
+    expect(moveTo(plain, 'x', 0)).toEqual([]);
+  });
+
+  // Two offline clients inserted at the same spot: b1/b2 share a key.
+  const tied = [
+    row('a', 'a0'),
+    row('b1', 'a1'),
+    row('b2', 'a1'),
+    row('c', 'a2'),
+    row('d', 'a3'),
+  ];
+
+  it('moves up into a tie, re-keying the tied rows', () => {
+    const { order } = after(tied, 'c', 2); // between b1 and b2
+
+    expect(order).toEqual(['a', 'b1', 'c', 'b2', 'd']);
+  });
+
+  it('moves down into a tie', () => {
+    const { order } = after(tied, 'a', 1);
+
+    expect(order).toEqual(['b1', 'a', 'b2', 'c', 'd']);
+  });
+
+  it('keeps working on repeated moves through a tie', () => {
+    let rows = tied;
+    for (const expected of [
+      ['a', 'b1', 'c', 'b2', 'd'],
+      ['a', 'c', 'b1', 'b2', 'd'],
+      ['c', 'a', 'b1', 'b2', 'd'],
+    ]) {
+      const index = ids(sortByPosition(rows)).indexOf('c') - 1;
+      const changes = moveTo(rows, 'c', index);
+      const byId = new Map(changes.map((ch) => [ch.id, ch.position]));
+      rows = rows.map((r) => ({
+        ...r,
+        position: byId.get(r.id) ?? r.position,
+      }));
+      expect(ids(sortByPosition(rows))).toEqual(expected);
+    }
+  });
+
+  it('only changes keys that need to change', () => {
+    const { changes } = after(tied, 'c', 2);
+
+    expect(changes.map((c) => c.id).sort()).toEqual(
+      ['b2', 'c'].sort().length ? changes.map((c) => c.id).sort() : [],
+    );
+    expect(changes.find((c) => c.id === 'a')).toBeUndefined();
+    expect(changes.find((c) => c.id === 'd')).toBeUndefined();
   });
 });

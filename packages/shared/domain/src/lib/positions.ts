@@ -1,4 +1,4 @@
-import { generateKeyBetween } from 'fractional-indexing';
+import { generateKeyBetween, generateNKeysBetween } from 'fractional-indexing';
 import type { Id } from './entities';
 
 /**
@@ -75,4 +75,63 @@ export function positionAt(rows: readonly Positioned[], index: number): string {
     .slice(at)
     .find((row) => before === null || row.position > before);
   return positionBetween(before, next?.position ?? null);
+}
+
+/** A new key for one row, as `moveTo` returns them. */
+export interface PositionChange {
+  readonly id: Id;
+  readonly position: string;
+}
+
+/**
+ * The key changes that put `movedId` at `toIndex` of the sorted `rows` (0 = first). Usually
+ * that's one change for the moved row. When it lands among rows that share a key (a tie from
+ * two clients inserting at the same spot, design §2.4), the tied rows get fresh keys as well,
+ * so the move always takes effect. Returns `[]` when the order wouldn't change.
+ */
+export function moveTo(
+  rows: readonly Positioned[],
+  movedId: Id,
+  toIndex: number,
+): PositionChange[] {
+  const sorted = sortByPosition(rows);
+  const moved = sorted.find((row) => row.id === movedId);
+  if (!moved) return [];
+  const order = sorted.filter((row) => row.id !== movedId);
+  const at = Math.max(0, Math.min(toIndex, order.length));
+  order.splice(at, 0, moved);
+  if (order.every((row, i) => row.id === sorted[i].id)) return [];
+
+  const before = order[at - 1];
+  const after = order[at + 1];
+  if (!before || !after || before.position < after.position) {
+    return [
+      {
+        id: movedId,
+        position: positionBetween(
+          before?.position ?? null,
+          after?.position ?? null,
+        ),
+      },
+    ];
+  }
+
+  // Inside a tie (the others stay sorted, so the neighbours share one key): re-key the moved
+  // row together with every row that has that key.
+  const tieKey = before.position;
+  let start = at;
+  while (start > 0 && order[start - 1].position === tieKey) start--;
+  let end = at;
+  while (end < order.length - 1 && order[end + 1].position === tieKey) end++;
+
+  const lower = start > 0 ? order[start - 1].position : null;
+  const upper = end < order.length - 1 ? order[end + 1].position : null;
+  const keys = generateNKeysBetween(lower, upper, end - start + 1);
+  return order
+    .slice(start, end + 1)
+    .map((row, i) => ({ id: row.id, position: keys[i] }))
+    .filter((change) => {
+      const row = order.find((r) => r.id === change.id);
+      return change.id === movedId || row?.position !== change.position;
+    });
 }

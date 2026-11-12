@@ -1,4 +1,15 @@
-import { Component, computed, inject, input, signal } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  afterRenderEffect,
+  computed,
+  effect,
+  inject,
+  input,
+  signal,
+} from '@angular/core';
+import { LiveAnnouncer } from '@angular/cdk/a11y';
+import { Title } from '@angular/platform-browser';
 import {
   CdkDrag,
   type CdkDragDrop,
@@ -15,11 +26,12 @@ import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
 import { RouterLink } from '@angular/router';
 import {
   type Item,
+  moveTo,
   newId,
-  positionAt,
   positionAtEnd,
   positionBetween,
 } from '@lister/shared/domain';
+import { titleSchema } from '@lister/shared/sync-protocol';
 import { Repositories } from '@lister/web/data-access-local-db';
 import { ItemDialog, type ItemFields } from '@lister/web/ui';
 import { firstValueFrom } from 'rxjs';
@@ -75,6 +87,35 @@ export class ListEditorPage {
   private readonly draft = signal({ title: '' });
   protected readonly addForm = form(this.draft);
 
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly announcer = inject(LiveAnnouncer);
+  /** Adds run one at a time, each after the last key handed out, so they never interleave. */
+  private adding: Promise<unknown> = Promise.resolve();
+  private lastAdded: string | null = null;
+  /** After a keyboard move, the item whose menu button gets the focus back. */
+  private readonly refocus = signal<string | null>(null);
+
+  constructor() {
+    const title = inject(Title);
+    effect(() => {
+      const view = this.view();
+      if (view.kind === 'ready' || view.kind === 'deleted') {
+        title.setTitle(`${view.list.title} · Lister`);
+      }
+    });
+    // The moved row is re-rendered, which drops the focus: put it back on its menu button.
+    afterRenderEffect(() => {
+      const id = this.refocus();
+      this.view();
+      if (!id) return;
+      const trigger = this.host.nativeElement.querySelector<HTMLElement>(
+        `[data-item-id="${CSS.escape(id)}"]`,
+      );
+      if (trigger && trigger.ownerDocument.activeElement !== trigger)
+        trigger.focus();
+    });
+  }
+
   /** Adds the typed item (Enter or the + button). */
   protected add(event: Event): void {
     event.preventDefault();
@@ -85,7 +126,7 @@ export class ListEditorPage {
     });
   }
 
-  /** Pasting several lines adds one item per line. */
+  /** Pasting several lines adds one item per line, all or none. */
   protected paste(event: ClipboardEvent): void {
     const lines = (event.clipboardData?.getData('text') ?? '')
       .split(/\r?\n/)
@@ -93,6 +134,17 @@ export class ListEditorPage {
       .filter((line) => line.length > 0);
     if (lines.length < 2) return; // one line: an ordinary paste into the field
     event.preventDefault();
+    const invalid = lines.findIndex(
+      (line) => !titleSchema.safeParse(line).success,
+    );
+    if (invalid >= 0) {
+      const reason = titleSchema.safeParse(lines[invalid]).error?.issues[0]
+        ?.message;
+      this.changes.tell(
+        `Nothing added: line ${invalid + 1} — ${reason ?? 'invalid'}`,
+      );
+      return;
+    }
     void this.addItems(lines);
   }
 
@@ -120,32 +172,57 @@ export class ListEditorPage {
     );
   }
 
-  protected move(item: Item, toIndex: number): Promise<boolean> {
-    const others = this.currentItems().filter((other) => other.id !== item.id);
-    return this.changes.apply({
-      name: 'item.move',
-      args: { id: item.id, position: positionAt(others, toIndex) },
-    });
+  /** Move up / Move down from the item menu: keeps the keyboard focus on the item. */
+  protected async step(item: Item, toIndex: number): Promise<void> {
+    if (await this.move(item, toIndex)) {
+      this.refocus.set(item.id);
+      const count = this.currentItems().length;
+      void this.announcer.announce(
+        `${item.title} moved to position ${toIndex + 1} of ${count}`,
+      );
+    }
   }
 
-  protected drop(event: CdkDragDrop<unknown>): void {
+  protected drop(event: CdkDragDrop<unknown, unknown, Item>): void {
     if (event.previousIndex === event.currentIndex) return;
-    const item = this.currentItems()[event.previousIndex];
-    if (item) void this.move(item, event.currentIndex);
+    // The dragged item itself, not "whatever is at previousIndex now": rows may have changed
+    // during the drag (another device, a rollback).
+    void this.move(event.item.data, event.currentIndex);
+  }
+
+  /** Puts the item at `toIndex`; ties are re-keyed so the move always takes effect. */
+  private async move(item: Item, toIndex: number): Promise<boolean> {
+    const changes = moveTo(this.currentItems(), item.id, toIndex);
+    for (const change of changes) {
+      const moved = await this.changes.apply({
+        name: 'item.move',
+        args: change,
+      });
+      if (!moved) return false;
+    }
+    return changes.length > 0;
   }
 
   /** Appends items in order; stops at the first refusal (which is shown). */
-  private async addItems(titles: string[]): Promise<boolean> {
-    let position = positionAtEnd(this.currentItems());
-    for (const title of titles) {
-      const added = await this.changes.apply({
-        name: 'item.create',
-        args: { id: newId(), listId: this.listId(), title, position },
-      });
-      if (!added) return false;
-      position = positionBetween(position, null);
-    }
-    return true;
+  private addItems(titles: string[]): Promise<boolean> {
+    const run = this.adding.then(async () => {
+      for (const title of titles) {
+        const end = positionAtEnd(this.currentItems());
+        const position =
+          this.lastAdded && this.lastAdded >= end
+            ? positionBetween(this.lastAdded, null)
+            : end;
+        const added = await this.changes.apply({
+          name: 'item.create',
+          args: { id: newId(), listId: this.listId(), title, position },
+        });
+        if (!added) return false;
+        this.lastAdded = position;
+      }
+      return true;
+    });
+    this.adding = run;
+    return run;
   }
 
   private currentItems(): Item[] {
