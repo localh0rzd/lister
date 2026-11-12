@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-014 — Write down the synced-feature recipe
 
 - Milestone: M2 Sync walking skeleton
@@ -37,6 +35,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
     repository, e2e helpers) instead of the outline it has now.
   - `angular-feature`, `nest-feature` and `CLAUDE.md` match the code.
   - The recipe matches how lists and items were actually built in T-006 – T-013.
+
+## Backlog
 
 ### T-015 — Composition model: includes, flattening, cycle rejection
 

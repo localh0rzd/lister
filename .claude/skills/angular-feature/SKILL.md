@@ -71,7 +71,9 @@ export class ListCard {
   - Change it only with sync-engine mutations from `data-access-sync`.
   - The UI updates whenever the local database changes (locally, from another tab, or from the
     server), so components never refetch.
-  - T-008 and T-009 build these libraries. Don't build synced features before they exist.
+  - In practice: `inject(Repositories)` methods return `Signal<QueryState<T>>`; changes go
+    through `SpaceChanges` (`apply`, `withUndo`) in `feature-lists`, which calls
+    `SyncEngine.mutate()`. The whole recipe is Path A of the `fullstack-feature` skill.
 - **Sync state:** show it where it matters: pending ("not synced yet"), offline, and rejected
   changes (a snackbar with the reason, and Undo where it makes sense).
 - **Other HTTP** (sign-in, passkeys, user administration, spaces, export, health):

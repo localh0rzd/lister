@@ -56,7 +56,7 @@ migrated in-memory SQLite database.
     pipes and filters.
   - It swaps in a fresh in-memory database and listens on a random port (`app.listen(0)`).
   - Send HTTP requests with the global `fetch` to `await app.getUrl()`. Connect sockets with
-    `socket.io-client` (from T-007).
+    `socket.io-client`; `sync.integration.spec.ts` has `connect`/`next`/`collect` helpers.
   - Close the app in `afterEach`.
 - **Each HTTP route:**
   - The happy path: the status, the body (typed with the shared contract), and the effect in the

@@ -74,15 +74,21 @@ export class LoginDto implements LoginRequest {
 ## Synced data: mutation handlers
 
 Lists, items, includes and runs change only through the Socket.IO sync gateway
-(`docs/design.md` §4.2). A handler:
+(`docs/design.md` §4.2), in `packages/api/feature-sync`. There's no handler per mutation:
+`MutationService.apply()` (`mutation.service.ts`) does, for every pushed entry:
 
-1. **Authorizes:** the user is a member of the mutation's space.
-2. **Validates:** with the Zod schema from `@lister/shared/sync-protocol`, plus the domain rules
-   from `@lister/shared/domain` (for example `wouldCreateCycle`).
-3. **Applies** the per-field patch, sets `updatedBy`, and stamps every changed row with the
-   space's next version.
-4. **Answers** with an ack carrying the version, or a rejection with a human-readable reason
-   (users see it).
+1. **Replays:** a known `mutationId` gets its stored answer (`processed_mutations`).
+2. **Validates:** `parseMutation()` (the Zod schemas from `@lister/shared/sync-protocol`).
+3. **Authorizes:** the space exists; membership from T-025.
+4. **Applies** the shared rules, `applyMutation()` from `sync-protocol`, over `SqlRowStore`
+   (the transaction). The rules are also the client's prediction, so a new mutation is a
+   `case` there, not server code.
+5. **Stamps** the changed rows with the space's next version and records the answer.
+6. `SyncGateway` **answers** with an ack carrying the version, or a rejection with the rule's
+   human-readable reason (users see it), and pokes the changed rows to the space's room.
+
+The step-by-step recipe, with every file a new entity touches, is Path A of the
+`fullstack-feature` skill.
 
 Rules:
 
@@ -90,9 +96,10 @@ Rules:
   with no `await` inside. That's what keeps mutations strictly ordered.
 - **Idempotent:** mutations set values; they never toggle or increment. Creates use the
   client's id. A repeated mutation id returns the stored result.
-- **Delete wins:** updates to a tombstoned row are ignored.
-- **Not built yet:** the infrastructure arrives with T-006 and T-007. Once it exists, follow its
-  handlers.
+- **Delete wins:** updates to a tombstoned row (or to the items of a deleted list) are ignored
+  and acked at the current version.
+- **Tests:** `mutation.service.spec.ts` on `createTestDatabase()`, plus the socket integration
+  test `apps/lister-api/src/integration/sync.integration.spec.ts`.
 
 ## Errors
 
@@ -113,16 +120,18 @@ Rules:
 ## Persistence
 
 - **Database:** SQLite through Drizzle ORM 0.45 and `better-sqlite3` 13, in
-  `packages/api/data-access-db` (from T-004). Connection pragmas: WAL, `foreign_keys=ON`,
+  `packages/api/data-access-db` (`openDatabase()`, `DatabaseConnection`). Connection pragmas: WAL, `foreign_keys=ON`,
   `busy_timeout`, `synchronous=NORMAL`.
 - **Schema changes:**
-  - Edit the Drizzle schema and generate a migration with drizzle-kit. Migrations are committed
-    and applied on startup.
+  - Edit `src/lib/schema.ts` and generate a migration:
+    `npx nx run api-data-access-db:db-generate --name=<change>`. Migrations are committed and
+    applied on startup.
   - Bump the Dexie schema version on the client in the same change.
 - **Synced tables** carry `id` (a client UUIDv7), `space_id`, `version`, `deleted_at`,
   `created_by`, `updated_by` and timestamps (`docs/design.md` §3). Synced rows are never
   hard-deleted, except by the tombstone purge job.
-- **Tests:** use a fresh, migrated in-memory database (`:memory:`).
+- **Tests:** use a fresh, migrated in-memory database: `createTestDatabase()` from
+  `@lister/api/data-access-db`.
 - **No other stack:** don't introduce another database or ORM.
 
 ## Tests

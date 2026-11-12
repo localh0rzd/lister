@@ -54,7 +54,7 @@ The planned libraries and their tags are in docs/design.md §5; create each one 
 - **Local-first:** the web app reads synced data from IndexedDB (Dexie) and changes it only through **mutations** via the sync engine. The server applies each mutation in a SQLite transaction and pokes the changed rows to the space over Socket.IO. REST is only for sign-in, passkeys, user administration, spaces, bootstrap, export and health.
 - **Production:** one Docker container behind Traefik, which terminates HTTPS. The app speaks plain HTTP and takes its public URL from `PUBLIC_URL` (used for the WebSocket `Origin` check, `Secure` cookies and passkeys).
 - **Conflicts:** per field, the change that reaches the server last wins; deletes win (rows become tombstones); a mutation that breaks a rule (cycle, permission, validation) is rejected and rolled back on the client.
-- The sync infrastructure is built by T-004 – T-014. Don't build synced features on REST CRUD as a stopgap before it exists.
+- Synced features follow Path A of the `fullstack-feature` skill (lists and items are the worked example). Never build synced data on REST CRUD.
 - UI text is English only.
 
 ## Commands
@@ -149,7 +149,7 @@ Every project needs exactly one `scope:*` tag and one `type:*` tag. The details,
 - One Nest module per feature (`<feature>.module.ts`, `.controller.ts`, `.service.ts`), imported into `AppModule`.
 - Global prefix `api` (from `API_PREFIX`). A global `ValidationPipe` with `whitelist` + `transform` is on: request bodies are DTO **classes** with `class-validator` decorators that `implements` the shared interface.
 - Controllers stay thin; logic lives in services. Throw Nest HTTP exceptions (`NotFoundException`, …), don't build error responses by hand.
-- Synced data has no REST CRUD endpoints. It changes only through mutation handlers in the sync feature: authorize → validate (Zod schema from `sync-protocol`) → apply → bump the space version, all inside one synchronous SQLite transaction — never `await` inside it. Mutations set values; they never toggle or increment.
+- Synced data has no REST CRUD endpoints. It changes only through `MutationService.apply()` in `feature-sync`: replay → validate (Zod schema from `sync-protocol`) → authorize → `applyMutation()` (the rules shared with the client) → bump the space version, all inside one synchronous SQLite transaction — never `await` inside it. A new mutation is a schema and a `case` in `sync-protocol`, not a server handler. Mutations set values; they never toggle or increment.
 - Database: SQLite via Drizzle + `better-sqlite3` in `@lister/api/data-access-db` (inject `DatabaseConnection`, query `connection.db`). Schema in `src/lib/schema.ts`; generate migrations with `npx nx run api-data-access-db:db-generate --name=<change>` and commit them; they apply on startup. Every schema change is a Drizzle migration **and** a matching Dexie version bump on the client, in the same change. `better-sqlite3`'s install script is approved in `package.json > allowScripts` (npm 11 blocks unapproved ones); re-approve after upgrading it (`npm install-scripts approve better-sqlite3`).
 - Config comes from env vars (`PORT`, …). No secrets in the repo.
 - Tests:
