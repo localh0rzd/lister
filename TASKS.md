@@ -23,10 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-_Nothing in progress._
-
-## Backlog
-
 ### T-005 — Shared `domain` and `sync-protocol` libraries
 
 - Milestone: M1 Foundations
@@ -44,6 +40,8 @@ _Nothing in progress._
     including two clients inserting at the same spot.
 - Notes: No Angular, Nest, Node or browser-only imports. Includes and runs are added by T-015 and
   T-019.
+
+## Backlog
 
 ### T-006 — Server: lists and items as mutations
 

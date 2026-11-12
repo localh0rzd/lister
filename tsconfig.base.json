@@ -29,6 +29,10 @@
       "@lister/web/util-pwa": ["./packages/web/util-pwa/src/index.ts"],
       "@lister/api/data-access-db": [
         "./packages/api/data-access-db/src/index.ts"
+      ],
+      "@lister/shared/domain": ["./packages/shared/domain/src/index.ts"],
+      "@lister/shared/sync-protocol": [
+        "./packages/shared/sync-protocol/src/index.ts"
       ]
     }
   },

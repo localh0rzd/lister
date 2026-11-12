@@ -28,6 +28,8 @@ apps/
   lister-api-e2e/      Vitest + axios e2e     (scope:api,  type:e2e)
 packages/
   shared/api-contracts/  DTO types + route helpers, @lister/shared/api-contracts (scope:shared, type:util)
+  shared/domain/         entities, ids, positions, domain rules, @lister/shared/domain (scope:shared, type:util)
+  shared/sync-protocol/  Zod schemas: mutations, socket messages, rows, @lister/shared/sync-protocol (scope:shared, type:util)
   api/data-access-db/    SQLite + Drizzle, migrations, test database, @lister/api/data-access-db (scope:api, type:data-access)
   web/feature-lists/     Lists destination, @lister/web/feature-lists (scope:web, type:feature)
   web/feature-runs/      Runs destination, @lister/web/feature-runs (scope:web, type:feature)
@@ -115,8 +117,8 @@ Every project needs exactly one `scope:*` tag and one `type:*` tag. The details,
 ### Shared libraries (`packages/shared/*`)
 
 - `api-contracts`: every request/response shape that crosses HTTP, as TypeScript interfaces. Both sides import it, so a contract change breaks both at compile time. Route paths are built with `apiPath(...)`.
-- `domain` (from T-005): entity types, positions, flattening, cycle check, mutation apply rules — pure functions used by client and server alike.
-- `sync-protocol` (from T-005): Zod schemas for mutations and socket messages, and the protocol version.
+- `domain`: entity types, positions, flattening, cycle check, mutation apply rules — pure functions used by client and server alike.
+- `sync-protocol`: Zod schemas for mutations and socket messages, and the protocol version.
 - Allowed: plain TypeScript and Zod. Not allowed: Angular, NestJS, `class-validator`, Node or browser-only APIs.
 
 ### Angular (`lister-web`)

@@ -88,9 +88,12 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "drizzle-orm": "^0.45.4",
+    "fractional-indexing": "^3.4.0",
     "material-symbols": "^0.48.3",
     "reflect-metadata": "^0.2.0",
-    "rxjs": "^7.8.0"
+    "rxjs": "^7.8.0",
+    "uuid": "^13.0.2",
+    "zod": "^4.6.7"
   },
   "engines": {
     "node": ">=24"

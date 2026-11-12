@@ -1,0 +1,155 @@
+import { newId } from '@lister/shared/domain';
+import { PROTOCOL_VERSION } from './common';
+import {
+  MAX_PUSH_MUTATIONS,
+  ackSchema,
+  helloSchema,
+  pokeSchema,
+  pullSchema,
+  pushSchema,
+  rejectSchema,
+  rowsSchema,
+  updateRequiredSchema,
+  welcomeSchema,
+} from './messages';
+
+const syncMetadata = () => ({
+  id: newId(),
+  spaceId: newId(),
+  version: 3,
+  deletedAt: null,
+  createdBy: newId(),
+  updatedBy: newId(),
+  createdAt: 1_700_000_000_000,
+  updatedAt: 1_700_000_000_000,
+});
+
+const list = () => ({ ...syncMetadata(), title: 'Camping', description: '' });
+
+const item = (listId: string) => ({
+  ...syncMetadata(),
+  listId,
+  title: 'Tent',
+  quantity: '',
+  note: '',
+  position: 'a0',
+});
+
+const deleteMutation = () => ({
+  mutationId: newId(),
+  spaceId: newId(),
+  name: 'item.delete',
+  args: { id: newId() },
+});
+
+describe('socket messages', () => {
+  it('has a positive protocol version', () => {
+    expect(PROTOCOL_VERSION).toBeGreaterThan(0);
+    expect(
+      helloSchema.safeParse({
+        protocolVersion: PROTOCOL_VERSION,
+        clientId: newId(),
+      }).success,
+    ).toBe(true);
+    expect(
+      updateRequiredSchema.safeParse({ protocolVersion: PROTOCOL_VERSION })
+        .success,
+    ).toBe(true);
+  });
+
+  it('pulls from version 0 (snapshot) or later, never negative', () => {
+    expect(pullSchema.safeParse({ spaceId: newId(), since: 0 }).success).toBe(
+      true,
+    );
+    expect(pullSchema.safeParse({ spaceId: newId(), since: 12 }).success).toBe(
+      true,
+    );
+    expect(pullSchema.safeParse({ spaceId: newId(), since: -1 }).success).toBe(
+      false,
+    );
+    expect(pullSchema.safeParse({ spaceId: newId(), since: 1.5 }).success).toBe(
+      false,
+    );
+  });
+
+  it(`pushes 1 to ${MAX_PUSH_MUTATIONS} valid mutations`, () => {
+    const push = (n: number) => ({
+      mutations: Array.from({ length: n }, deleteMutation),
+    });
+
+    expect(pushSchema.safeParse(push(1)).success).toBe(true);
+    expect(pushSchema.safeParse(push(MAX_PUSH_MUTATIONS)).success).toBe(true);
+    expect(pushSchema.safeParse(push(0)).success).toBe(false);
+    expect(pushSchema.safeParse(push(MAX_PUSH_MUTATIONS + 1)).success).toBe(
+      false,
+    );
+    expect(
+      pushSchema.safeParse({
+        mutations: [{ ...deleteMutation(), name: 'item.toggle' }],
+      }).success,
+    ).toBe(false);
+  });
+
+  it('describes welcome, rows, ack, reject and poke', () => {
+    const l = list();
+    const rows = { lists: [l], items: [item(l.id)] };
+
+    expect(
+      welcomeSchema.safeParse({
+        userId: newId(),
+        spaces: [
+          {
+            id: newId(),
+            name: 'Home',
+            version: 7,
+            members: [{ userId: newId(), displayName: 'Ann' }],
+          },
+        ],
+      }).success,
+    ).toBe(true);
+    expect(
+      rowsSchema.safeParse({
+        spaceId: newId(),
+        version: 7,
+        snapshot: true,
+        rows,
+      }).success,
+    ).toBe(true);
+    expect(
+      pokeSchema.safeParse({ spaceId: newId(), version: 8, rows }).success,
+    ).toBe(true);
+    expect(
+      ackSchema.safeParse({ mutationId: newId(), version: 8 }).success,
+    ).toBe(true);
+    expect(
+      rejectSchema.safeParse({
+        mutationId: newId(),
+        reason: 'Would create a loop',
+      }).success,
+    ).toBe(true);
+    expect(
+      rejectSchema.safeParse({ mutationId: newId(), reason: '' }).success,
+    ).toBe(false);
+  });
+
+  it('carries tombstones and rejects unknown row fields', () => {
+    const tombstone = { ...list(), deletedAt: 1_700_000_000_500 };
+
+    expect(
+      rowsSchema.safeParse({
+        spaceId: newId(),
+        version: 1,
+        snapshot: false,
+        rows: { lists: [tombstone], items: [] },
+      }).success,
+    ).toBe(true);
+    expect(
+      rowsSchema.safeParse({
+        spaceId: newId(),
+        version: 1,
+        snapshot: false,
+        rows: { lists: [{ ...list(), secret: 'x' }], items: [] },
+      }).success,
+    ).toBe(false);
+  });
+});
