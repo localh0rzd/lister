@@ -1,0 +1,5 @@
+{
+  "name": "@lister/web-data-access-local-db",
+  "private": true,
+  "sideEffects": false
+}

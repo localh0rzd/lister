@@ -34,7 +34,10 @@
       "@lister/shared/sync-protocol": [
         "./packages/shared/sync-protocol/src/index.ts"
       ],
-      "@lister/api/feature-sync": ["./packages/api/feature-sync/src/index.ts"]
+      "@lister/api/feature-sync": ["./packages/api/feature-sync/src/index.ts"],
+      "@lister/web/data-access-local-db": [
+        "./packages/web/data-access-local-db/src/index.ts"
+      ]
     }
   },
   "exclude": ["node_modules", "tmp"]

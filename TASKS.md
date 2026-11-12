@@ -23,7 +23,19 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-_Nothing in progress._
+### T-008 — Web: local database with Dexie
+
+- Milestone: M2 Sync walking skeleton
+- Area: web
+- Priority: high
+- Depends on: T-005
+- Done when:
+  - `packages/web/data-access-local-db` (scope:web, type:data-access) defines a versioned Dexie
+    database with tables for spaces, lists, items, the outbox and sync metadata.
+  - A helper turns Dexie `liveQuery` results into Angular signals.
+  - Repository queries: the lists of a space (by title) and the items of a list (by position),
+    without tombstoned rows.
+  - Tests with `fake-indexeddb` show the signals update when rows change.
 
 ## Backlog
 
@@ -42,20 +54,6 @@ _Nothing in progress._
   doesn't type-check, so a library's stricter options (e.g. `noPropertyAccessFromIndexSignature`)
   and stale types in specs went unnoticed. One spec still built a `HealthResponse` without `db`
   after T-004 changed the contract.
-
-### T-008 — Web: local database with Dexie
-
-- Milestone: M2 Sync walking skeleton
-- Area: web
-- Priority: high
-- Depends on: T-005
-- Done when:
-  - `packages/web/data-access-local-db` (scope:web, type:data-access) defines a versioned Dexie
-    database with tables for spaces, lists, items, the outbox and sync metadata.
-  - A helper turns Dexie `liveQuery` results into Angular signals.
-  - Repository queries: the lists of a space (by title) and the items of a list (by position),
-    without tombstoned rows.
-  - Tests with `fake-indexeddb` show the signals update when rows change.
 
 ### T-009 — Web: sync engine with offline outbox
 
