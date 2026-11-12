@@ -27,6 +27,7 @@ npm start          # API + web together; web proxies /api to the API
 ```bash
 npx nx test lister-web               # one project
 npx nx affected -t lint test build   # everything your change touches
+npm run lint:workspace               # project tags, library placement and import aliases (CI runs it)
 npx nx e2e lister-web-e2e            # first run: npx playwright install chromium
 npx nx graph                         # project graph
 npx nx format:write
@@ -43,5 +44,12 @@ npx nx format:write
 - `docs/design.md` — design, decisions, and the **open decisions** (answer them in chat or edit the file).
 - `CLAUDE.md` — stack, layout, conventions, definition of done.
 - `TASKS.md` — the backlog. Add tasks there and ask Claude to "work on the next task".
-- `.claude/skills/` — project skills: `tasks`, `fullstack-feature`, `angular-feature`, `nest-feature`, `verify`.
+- How Claude works through the backlog:
+  - Each task is one commit on the `work/v1` branch, and nothing is pushed or merged without asking.
+  - After each task, a separate review session reviews the commit critically and writes its report to `tmp/reviews/<task>.md`. Claude fixes the findings in a second commit before starting the next task.
+  - Claude stops at the end of each milestone with a summary.
+- `.claude/skills/` — project skills:
+  - `best-practices`, `testing` and `module-boundaries` apply to every change;
+  - `tasks` and `task-review` cover the backlog and the reviews;
+  - `fullstack-feature`, `angular-feature`, `nest-feature` and `verify` cover feature work and the final checks.
 - `.claude/settings.json` enables the official Nx plugin (Nx MCP server + Nx skills).

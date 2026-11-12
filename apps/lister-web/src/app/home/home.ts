@@ -1,10 +1,9 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { Component } from '@angular/core';
 import { httpResource } from '@angular/common/http';
 import { apiPath, type HealthResponse } from '@lister/shared/api-contracts';
 
 @Component({
   selector: 'lister-home',
-  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <p>
       API status:

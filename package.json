@@ -7,6 +7,7 @@
     "build": "nx run-many -t build",
     "test": "nx run-many -t test",
     "lint": "nx run-many -t lint",
+    "lint:workspace": "node tools/check-workspace.mjs",
     "e2e": "nx run-many -t e2e",
     "affected": "nx affected -t lint test build",
     "format": "nx format:write",

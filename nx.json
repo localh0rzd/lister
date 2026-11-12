@@ -72,12 +72,10 @@
       "linter": "eslint",
       "unitTestRunner": "vitest-angular",
       "style": "scss",
-      "prefix": "lister",
-      "changeDetection": "OnPush"
+      "prefix": "lister"
     },
     "@nx/angular:component": {
-      "style": "scss",
-      "changeDetection": "OnPush"
+      "style": "scss"
     },
     "@nx/nest:application": {
       "linter": "eslint",
@@ -94,5 +92,5 @@
       "unitTestRunner": "vitest"
     }
   },
-  "defaultBase": "main"
+  "defaultBase": "master"
 }

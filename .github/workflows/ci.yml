@@ -3,7 +3,7 @@ name: CI
 on:
   push:
     branches:
-      - main
+      - master
   pull_request:
 
 permissions:
@@ -27,8 +27,11 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
 
-      # Sets NX_BASE / NX_HEAD so `nx affected` compares against the last green main
+      # Sets NX_BASE / NX_HEAD so `nx affected` compares against the last green master
       - uses: nrwl/nx-set-shas@v4
+        with:
+          main-branch-name: master
 
       - run: npx nx format:check
+      - run: npm run lint:workspace
       - run: npx nx affected -t lint test build e2e

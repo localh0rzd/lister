@@ -12,8 +12,9 @@ How to write a task:
   `Depends on:` T-xxx, `Decisions:` open decisions from `docs/design.md` it needs, `Notes:`.
 - Order the backlog by priority — the top unblocked task is "next".
 
-Statuses: tasks move **Backlog → In progress → Done**. Claude moves them and adds a one-line
-summary when it finishes. Anything blocked or needing a decision goes back with a `Blocked:` note.
+Statuses: tasks move **Backlog → In progress → Done**. Claude moves them, commits each task on
+`work/v1`, has a separate session review it, and closes it with a one-line summary once the
+review is resolved. Anything blocked or needing a decision goes back with a `Blocked:` note.
 
 Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composition · **M4** Runs ·
 **M5** Accounts and spaces · **M6** Collaboration polish · **M7** Deployment
@@ -94,6 +95,10 @@ _Nothing in progress._
     applied when the API starts.
   - `GET /api/health` also reports the database (`db: 'ok'`), and the API e2e test checks it.
   - A test helper gives each test a fresh, migrated in-memory database.
+  - `createTestApp()` in `apps/lister-api/src/testing/` starts the real `AppModule` with the same
+    setup as `main.ts` (a shared `configureApp()`), on a fresh in-memory database and a random
+    port, for the integration tests in `apps/lister-api/src/integration/` (`testing` skill). An
+    integration test covers `GET /api/health`.
   - `data/` is git-ignored, and `DATABASE_PATH` is in the README's environment table.
 - Notes: Make sure the webpack build keeps `better-sqlite3` external and the built `main.js`
   starts.
@@ -150,9 +155,9 @@ _Nothing in progress._
   - The handshake checks the `Origin` header against `PUBLIC_URL` (in development, the dev
     server's origin).
   - The web dev proxy forwards `/socket.io` with WebSockets enabled.
-  - API e2e (Vitest + `socket.io-client`): A pushes and B gets the poke; B reconnects after missing
-    changes and catches up by pulling; a resent mutation isn't applied twice; a foreign origin is
-    refused.
+  - Integration tests (`socket.io-client` against `createTestApp()`): A pushes and B gets the
+    poke; B reconnects after missing changes and catches up by pulling; a resent mutation isn't
+    applied twice; a foreign origin is refused.
 
 ### T-008 — Web: local database with Dexie
 
@@ -271,7 +276,7 @@ _Nothing in progress._
     once and cycles can't loop.
   - Shared `wouldCreateCycle(parent, child)`. The server rejects an include that would create a
     cycle, including when two offline clients each add one half of a loop (the second is rejected).
-  - Unit tests for flattening (nesting, order, diamonds) and cycles; an API e2e test for the
+  - Unit tests for flattening (nesting, order, diamonds) and cycles; an integration test for the
     two-client loop.
 
 ### T-016 — Composition UI
@@ -438,7 +443,7 @@ _Nothing in progress._
   - Mutations are stamped with the real user; a member who is removed is disconnected from that
     space at once.
   - The web sync engine syncs all of the user's spaces.
-  - API e2e: a non-member can neither read nor change a space.
+  - Integration tests: a non-member can neither read nor change a space, over HTTP or the socket.
 
 ### T-026 — Web: sign-in, profile, user administration and spaces
 
@@ -547,8 +552,8 @@ _Nothing in progress._
   - Nightly backups with `VACUUM INTO` go to `/data/backups`; the last 14 are kept (D15).
   - Tombstones and finished runs older than 30 days (D15) are purged daily, and each space
     remembers its purge point.
-  - A client whose last version is older than the purge point gets a full snapshot on pull (API
-    e2e test).
+  - A client whose last version is older than the purge point gets a full snapshot on pull
+    (integration test).
   - Restoring from a backup is documented.
 
 ## Done

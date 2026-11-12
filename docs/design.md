@@ -460,8 +460,9 @@ relational in SQLite, and implements exactly the rules in §2.4.
 apps/
   lister-web               Angular shell: routes, layout, providers
   lister-web-e2e           Playwright, incl. multi-user, offline and passkey scenarios
-  lister-api               Nest bootstrap, module wiring, static hosting
-  lister-api-e2e           Vitest: HTTP and socket tests
+  lister-api               Nest bootstrap, module wiring, static hosting; integration tests
+                           for every route and socket event
+  lister-api-e2e           Vitest: smoke tests against the built server
 packages/
   shared/
     domain                 entities, flatten(), cycle check, positions, mutation rules  scope:shared type:util
@@ -486,6 +487,14 @@ packages/
 
 Conventions that follow from this (also in `CLAUDE.md`):
 
+- **Every bigger feature is its own library** from its first line of code: one with its own route
+  or page, controller or gateway, entity, table or mutation type, or more than a few components
+  or services. The apps only wire libraries together. A new library is added to the tree above
+  in the same change.
+- **Module boundaries are strict.** `@nx/enforce-module-boundaries` bans imports across scopes
+  and up the layers, including npm packages that belong to the other side, transitive
+  dependencies and circular dependencies. `npm run lint:workspace` checks tags, placement and
+  import aliases. A violation is fixed by moving code, never by loosening a rule.
 - **Zod** is allowed in `shared/*` libraries (still no Angular, Nest, Node or browser-only imports),
   so mutation and message schemas are defined once and validated on the server. HTTP request
   bodies keep using class-validator DTOs.
@@ -495,11 +504,24 @@ Conventions that follow from this (also in `CLAUDE.md`):
 
 ## 6. Testing strategy
 
+Required for every change (the `testing` skill has the details):
+
+- **Unit tests** for every new or changed unit, on the web side, the API side and in shared code.
+- **Integration tests for every backend call**: each HTTP route and Socket.IO event goes through
+  the real app (`AppModule` with `main.ts`'s setup) over real HTTP or a real socket, against a
+  fresh migrated in-memory SQLite database. They cover the happy path and the failures (validation,
+  authentication, authorization, not found, rejected mutations, retries).
+- **A Playwright happy path for every user-facing feature**, at phone and desktop widths, with an
+  axe accessibility check.
+
+On top of that:
+
 - **Convergence tests** for the sync rules: simulate several clients making random edits with random
   disconnects (property-based, fast-check), then assert that everyone ends with the server's state.
 - **Domain rules** (flattening, merging identical items, finishing): plain unit tests with many
   small cases.
-- **API:** integration tests against in-memory SQLite (real SQL, still fast).
+- **API:** integration tests against in-memory SQLite (real SQL, still fast); `lister-api-e2e`
+  only smoke-tests the built server (startup, migrations, health, static hosting, origin check).
 - **Web:** the sync engine with a fake socket and `fake-indexeddb`; components with TestBed.
 - **E2E (Playwright):**
   - two browser contexts on the same list or run (real time);
