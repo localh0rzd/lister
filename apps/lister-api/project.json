@@ -59,9 +59,10 @@
         "signal": true
       },
       "options": {
-        "buildTarget": "lister-api:build:development",
+        "buildTarget": "lister-api:build",
         "runBuildTargetDependencies": false,
-        "watch": false
+        "watch": false,
+        "inspect": false
       }
     },
     "serve-prod": {
@@ -88,24 +89,31 @@
     },
     "serve-prod-e2e": {
       "continuous": true,
-      "executor": "nx:run-commands",
+      "executor": "@nx/js:node",
       "dependsOn": [
         "build",
         {
           "projects": ["lister-web"],
           "target": "build"
-        }
+        },
+        "reset-e2e-db"
       ],
+      "readyWhen": {
+        "signal": true
+      },
       "options": {
-        "command": "node dist/apps/lister-api/main.js",
-        "cwd": "{workspaceRoot}",
-        "env": {
-          "NODE_ENV": "production",
-          "PORT": "3100",
-          "PUBLIC_URL": "http://localhost:3100",
-          "DATABASE_PATH": "tmp/e2e/prod.db",
-          "LISTER_DEV_SEED": "true"
-        }
+        "buildTarget": "lister-api:build",
+        "runBuildTargetDependencies": false,
+        "watch": false,
+        "inspect": false
+      }
+    },
+    "reset-e2e-db": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "rm -f tmp/e2e/prod.db tmp/e2e/prod.db-wal tmp/e2e/prod.db-shm",
+        "cwd": "{workspaceRoot}"
       }
     }
   }

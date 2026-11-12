@@ -23,18 +23,7 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-012 — Serve the web app from the API (one origin)
-
-- Milestone: M2 Sync walking skeleton
-- Area: api, web
-- Priority: high
-- Depends on: T-003, T-007
-- Done when:
-  - The production API serves the built web app (`dist/apps/lister-web/browser`) with SPA
-    fallback; `/api/**` and `/socket.io/**` are never answered with `index.html`.
-  - One documented command builds both and starts the production setup locally.
-  - Playwright can run against this setup, with the service worker active.
-- Notes: This is the deployment topology (design §2.9), and the offline e2e tests need it.
+_Nothing in progress._
 
 ## Backlog
 
@@ -365,6 +354,10 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   - The served app sends a Content Security Policy (design §2.9). Inline scripts, such as the
     theme script in `index.html`, are allowed by hash (Angular's `security.autoCsp`) or moved
     out.
+  - Security headers on every response, static files included (register them **before**
+    `serveWebApp()`, whose Express middleware runs ahead of Nest's): `X-Content-Type-Options:
+nosniff`, `Referrer-Policy`, `frame-ancestors` in the CSP, and `app.disable('x-powered-by')`
+    (T-012 review).
 - Notes: TLS stays in Traefik (D4); the app never handles certificates.
 
 ### T-033 — Backups and purge
@@ -409,6 +402,21 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 - Notes: Found in T-009. Mobile users download the chunk on the first visit.
 
 ## Done
+
+### T-012 — Serve the web app from the API (one origin)
+
+- Completed: 2026-11-12 — `serveWebApp()` in the API (SPA fallback, cache headers, `/api` and `/socket.io` never get the page), `npm run start:prod` (port 3100), `LISTER_DEV_SEED`, Playwright `pwa` project on the production setup; integration and e2e tests.
+- Review: Changes requested (2 major, 3 minor, 2 nit); all fixed: only extension-less paths are pages, so missing files 404 under browser `Accept` headers; Nx owns the production e2e server (`lister-api:serve-prod-e2e`, ready signal, fresh database each run) and Playwright no longer starts or reuses it; hashes with `-` are immutable; a wrong explicit `WEB_ROOT` stops startup; both e2e servers use one production build; the same-origin e2e checks the WebSocket; reserved paths from `API_PREFIX`, case-insensitive; `serve-static` removed. Security headers noted for T-032.
+- Milestone: M2 Sync walking skeleton
+- Area: api, web
+- Priority: high
+- Depends on: T-003, T-007
+- Done when:
+  - The production API serves the built web app (`dist/apps/lister-web/browser`) with SPA
+    fallback; `/api/**` and `/socket.io/**` are never answered with `index.html`.
+  - One documented command builds both and starts the production setup locally.
+  - Playwright can run against this setup, with the service worker active.
+- Notes: This is the deployment topology (design §2.9), and the offline e2e tests need it.
 
 ### T-011 — Web: list editor
 

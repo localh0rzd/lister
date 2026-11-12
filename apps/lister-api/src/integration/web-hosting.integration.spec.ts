@@ -13,6 +13,7 @@ describe('serving the web app (one origin)', () => {
     webRoot = mkdtempSync(join(tmpdir(), 'lister-web-'));
     writeFileSync(join(webRoot, 'index.html'), INDEX);
     writeFileSync(join(webRoot, 'main-ABCD1234.js'), 'console.log(1)');
+    writeFileSync(join(webRoot, 'chunk-AB-cd_12.js'), 'console.log(2)');
     writeFileSync(join(webRoot, 'ngsw.json'), '{}');
     mkdirSync(join(webRoot, 'icons'));
     writeFileSync(join(webRoot, 'icons', 'icon-192.png'), 'png');
@@ -40,6 +41,11 @@ describe('serving the web app (one origin)', () => {
   });
 
   it('serves hashed build files for a year, and the service worker files fresh', async () => {
+    for (const name of ['/main-ABCD1234.js', '/chunk-AB-cd_12.js']) {
+      expect((await get(name, '*/*')).headers.get('cache-control'), name).toBe(
+        'public, max-age=31536000, immutable',
+      );
+    }
     const script = await get('/main-ABCD1234.js', '*/*');
     expect(script.status).toBe(200);
     expect(script.headers.get('content-type')).toContain('javascript');
@@ -68,10 +74,34 @@ describe('serving the web app (one origin)', () => {
     }
   });
 
-  it('does not answer missing files that are not pages with index.html', async () => {
-    const response = await get('/icons/missing.png', 'image/png');
+  it.each([
+    ['/chunk-MISSING1.js', '*/*'],
+    [
+      '/icons/missing.png',
+      'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+    ],
+    ['/data.json', '*/*'],
+    ['/.hidden', 'text/html'],
+  ])(
+    'answers a missing file %s with 404, not the page (as browsers ask)',
+    async (path, accept) => {
+      const response = await get(path, accept);
 
-    expect(response.status).toBe(404);
+      expect(response.status).toBe(404);
+      expect(await response.text()).not.toBe(INDEX);
+    },
+  );
+
+  it('answers pages whatever the browser accepts', async () => {
+    const response = await get('/lists', '*/*');
+
+    expect(await response.text()).toBe(INDEX);
+  });
+
+  it('never answers the API with the page, whatever the case', async () => {
+    const response = await get('/API/nope');
+
+    expect(await response.text()).not.toBe(INDEX);
   });
 });
 

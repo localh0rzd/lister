@@ -13,6 +13,10 @@ async function bootstrap() {
   const webRoot =
     process.env.WEB_ROOT || join(__dirname, '../lister-web/browser');
   const servesWeb = existsSync(join(webRoot, 'index.html'));
+  if (process.env.WEB_ROOT && !servesWeb) {
+    // Asked for explicitly (e.g. the Docker image) but not there: don't start API-only.
+    throw new Error(`WEB_ROOT has no index.html: ${process.env.WEB_ROOT}`);
+  }
   configureApp(app, { webRoot: servesWeb ? webRoot : undefined });
 
   const port = Number(process.env.PORT ?? 3000);

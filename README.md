@@ -21,6 +21,7 @@ Node version is pinned in `.nvmrc` (use `fnm use` or `nvm use`).
 npm install
 npm start          # API + web together; web proxies /api to the API
 npm run start:prod # production builds; the API serves the web app on one origin: http://localhost:3100
+                   # (don't run it at the same time as `npm start`: both write dist/apps/lister-api)
 ```
 
 ## Common commands

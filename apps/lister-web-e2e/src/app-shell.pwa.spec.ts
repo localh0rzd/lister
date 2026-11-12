@@ -156,6 +156,11 @@ test.describe('one origin (production setup)', () => {
     const title = `Prod ${Date.now().toString(36)}`;
     const origins = new Set<string>();
     page.on('request', (request) => origins.add(new URL(request.url()).origin));
+    // The sync socket is WebSocket-only, which 'request' doesn't report.
+    const sockets: string[] = [];
+    page.on('websocket', (socket) => {
+      sockets.push(new URL(socket.url()).origin.replace(/^ws/, 'http'));
+    });
 
     await page.goto('/lists');
     await expect(page.getByRole('button', { name: 'New list' })).toBeVisible();
@@ -165,7 +170,7 @@ test.describe('one origin (production setup)', () => {
     await dialog.getByRole('button', { name: 'Create' }).click();
     await expect(page.getByRole('link', { name: title })).toBeVisible();
 
-    // It reached the server: a reload (served by the API) still shows it once synced.
+    // Synced to the server over the socket (local-first: the list shows before that).
     await expect(
       page
         .getByRole('banner')
@@ -174,7 +179,10 @@ test.describe('one origin (production setup)', () => {
     ).not.toContainText('not synced');
     await page.reload();
     await expect(page.getByRole('link', { name: title })).toBeVisible();
-    expect([...origins]).toEqual([new URL(String(baseURL)).origin]);
+    const appOrigin = new URL(String(baseURL)).origin;
+    expect([...origins]).toEqual([appOrigin]);
+    expect(sockets.length).toBeGreaterThan(0);
+    expect(new Set(sockets)).toEqual(new Set([appOrigin]));
   });
 
   test('deep links load the app, and the API is not the app', async ({

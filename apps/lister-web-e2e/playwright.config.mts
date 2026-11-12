@@ -5,8 +5,9 @@ import { getReadyUrl, workspaceRoot } from '@nx/devkit';
 // For CI, you may want to set BASE_URL to the deployed application.
 // getReadyUrl moves the address to the port the dev server task reported.
 const baseURL = process.env['BASE_URL'] || getReadyUrl('http://localhost:4200');
-// The production setup (lister-api:serve-prod-e2e: the API serving the production web build on
-// one origin, with the service worker), for *.pwa.spec.ts: the dev server has no service worker.
+// The production setup (lister-api:serve-prod-e2e, started by the e2e target: the API serving the
+// production web build on one origin, with the service worker, on a fresh database), for
+// *.pwa.spec.ts: the dev server has no service worker.
 const PWA_URL = 'http://localhost:3100';
 
 /**
@@ -39,13 +40,6 @@ export default defineConfig({
       url: getReadyUrl('http://localhost:4200'),
       reuseExistingServer: true,
       cwd: workspaceRoot,
-    },
-    {
-      command: 'npx nx run lister-api:serve-prod-e2e',
-      url: `${PWA_URL}/api/health`,
-      reuseExistingServer: true,
-      cwd: workspaceRoot,
-      timeout: 300_000,
     },
   ],
   projects: [

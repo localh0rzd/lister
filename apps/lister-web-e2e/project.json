@@ -16,6 +16,11 @@
           "projects": ["lister-web"],
           "target": "serve",
           "waitFor": "ready"
+        },
+        {
+          "projects": ["lister-api"],
+          "target": "serve-prod-e2e",
+          "waitFor": "ready"
         }
       ]
     }
