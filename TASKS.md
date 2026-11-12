@@ -23,23 +23,7 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-010 — Web: Lists page
-
-- Milestone: M2 Sync walking skeleton
-- Area: web
-- Priority: high
-- Depends on: T-002, T-009
-- Done when:
-  - A `packages/web/feature-lists` library (scope:web, type:feature) provides the Lists
-    destination: all lists of the space with their item counts, and an empty state.
-  - A FAB creates a list (title dialog). Lists can be renamed and deleted; deleting offers Undo in
-    a snackbar.
-  - Every change goes through the sync engine, works offline, and appears on another open device
-    without a reload.
-  - The app bar shows a small sync indicator: offline, or "N changes not synced".
-- Notes: MatSnackBar shows one snackbar at a time, so a new one replaces the update prompt
-  (`AppUpdates` in `@lister/web/util-pwa` re-offers it later) or another Undo. Snackbars that
-  must not be lost (Undo, rejections) go through one small queue; decide it here (T-003 review).
+_Nothing in progress._
 
 ## Backlog
 
@@ -440,6 +424,26 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 - Notes: Found in T-009. Mobile users download the chunk on the first visit.
 
 ## Done
+
+### T-010 — Web: Lists page
+
+- Completed: 2026-11-12 — `packages/web/feature-lists` (Lists page: counts, empty/loading/error/not-connected states, New list FAB, rename, delete with Undo, all via the sync engine); `TitleDialog` and `SyncBadge` in `ui`; deferred `SyncIndicator` in the shell; `Notifier` snackbar queue (`util-notify`); `CurrentSpace` and item counts; engine follows browser offline/online. E2E: create/rename/delete/undo, two contexts, offline with the badge.
+- Review: Changes requested (1 blocker, 2 major, 5 minor, 3 nit); fixed (offline e2e and indicator wiring, Notifier sticky replacement, accessible compact badge, FAB states, quick Undo, destination title, design §2.7/§5, `submit()`, count errors, empty state). Re-review: Approve with minor fixes (2 minor, 1 nit), all fixed: going offline closes only the transport (Socket.IO keeps reconnecting), no reconnect after `updateRequired`, every queued notice is cut short, FAB with built-in control flow. Declined with reasons in design §2.7: FAB in the rail, flat rows; `SyncIndicator` stays in the app.
+- Milestone: M2 Sync walking skeleton
+- Area: web
+- Priority: high
+- Depends on: T-002, T-009
+- Done when:
+  - A `packages/web/feature-lists` library (scope:web, type:feature) provides the Lists
+    destination: all lists of the space with their item counts, and an empty state.
+  - A FAB creates a list (title dialog). Lists can be renamed and deleted; deleting offers Undo in
+    a snackbar.
+  - Every change goes through the sync engine, works offline, and appears on another open device
+    without a reload.
+  - The app bar shows a small sync indicator: offline, or "N changes not synced".
+- Notes: MatSnackBar shows one snackbar at a time, so a new one replaces the update prompt
+  (`AppUpdates` in `@lister/web/util-pwa` re-offers it later) or another Undo. Snackbars that
+  must not be lost (Undo, rejections) go through one small queue; decide it here (T-003 review).
 
 ### T-009 — Web: sync engine with offline outbox
 

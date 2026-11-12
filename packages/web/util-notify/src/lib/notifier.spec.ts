@@ -84,6 +84,25 @@ describe('Notifier', () => {
     expect(snackBar.visible).toBeUndefined();
   });
 
+  it('cuts every queued notice short, so the latest comes quickly', () => {
+    vi.useFakeTimers();
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    for (const name of ['A', 'B', 'C']) {
+      void notifier.notify({
+        message: `Deleted ${name}`,
+        action: 'Undo',
+        duration: NOTICE_DURATION_MS,
+      });
+    }
+
+    vi.advanceTimersByTime(MIN_NOTICE_MS);
+    expect(snackBar.visible).toBe('Deleted B');
+    vi.advanceTimersByTime(MIN_NOTICE_MS);
+    expect(snackBar.visible).toBe('Deleted C');
+  });
+
   it('settles a notice the user acts on before it is cut short', async () => {
     const first = notifier.notify({
       message: 'Deleted A',

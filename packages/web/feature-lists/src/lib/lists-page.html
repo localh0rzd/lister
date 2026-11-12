@@ -17,7 +17,6 @@
   <p class="empty-title">No lists yet</p>
   <p class="hint">Create your first list with “New list”.</p>
 </div>
-<ng-container *ngTemplateOutlet="fab" />
 } @else {
 <ul class="lists" aria-label="Lists">
   @for (entry of v.lists; track entry.list.id) {
@@ -50,13 +49,12 @@
   </li>
   }
 </ul>
-<ng-container *ngTemplateOutlet="fab" />
 }
 
 <!-- Only where lists can be created, i.e. once a space is there. -->
-<ng-template #fab>
-  <button matFab extended class="fab" type="button" (click)="create()">
-    <mat-icon>add</mat-icon>
-    New list
-  </button>
-</ng-template>
+@if (v.kind === 'lists') {
+<button matFab extended class="fab" type="button" (click)="create()">
+  <mat-icon>add</mat-icon>
+  New list
+</button>
+}

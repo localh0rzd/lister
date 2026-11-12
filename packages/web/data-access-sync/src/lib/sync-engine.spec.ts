@@ -48,6 +48,7 @@ class FakeServer {
     get connected() {
       return server.connected;
     },
+    io: { engine: { close: () => server.drop('transport close') } },
     connect: () => {
       this.connectCalls++;
       this.connected = true;
@@ -512,16 +513,32 @@ describe('SyncEngine', () => {
       setup();
       engine.start();
       await settle();
+      const drops: string[] = [];
+      server.socket.on('disconnect', (reason: string) => drops.push(reason));
 
       window.dispatchEvent(new Event('offline'));
       await settle();
-      expect(server.connected).toBe(false);
+      // Only the transport closes, so Socket.IO's own reconnect loop keeps going.
+      expect(drops).toEqual(['transport close']);
       await eventually(() => expect(engine.online()).toBe(false));
 
       window.dispatchEvent(new Event('online'));
       await settle();
       expect(server.connectCalls).toBe(2);
       await eventually(() => expect(engine.online()).toBe(true));
+    });
+
+    it('does not reconnect on "online" after the server asked for an update', async () => {
+      setup();
+      engine.start();
+      await settle();
+      server.fire('updateRequired', { protocolVersion: PROTOCOL_VERSION + 1 });
+      server.drop('io server disconnect');
+
+      window.dispatchEvent(new Event('online'));
+      await settle();
+
+      expect(server.connectCalls).toBe(1);
     });
 
     it('reconnects with backoff after the server disconnects it', async () => {

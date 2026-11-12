@@ -69,19 +69,21 @@ export class Notifier {
         const current = this.current;
         if (current?.notice.duration === undefined) {
           current?.interrupt(); // a sticky notice makes way and comes back later
-        } else {
-          const wait = Math.max(
-            0,
-            MIN_NOTICE_MS - (Date.now() - current.shownAt),
-          );
-          clearTimeout(this.cutShort);
-          this.cutShort = setTimeout(() => {
-            if (this.current === current) current.interrupt();
-          }, wait);
+        } else if (current) {
+          this.cutShortLater(current);
         }
       }
       if (!this.current) this.showNext();
     });
+  }
+
+  /** Interrupts `notice` once it has shown for `MIN_NOTICE_MS`. */
+  private cutShortLater(notice: NonNullable<Notifier['current']>): void {
+    const wait = Math.max(0, MIN_NOTICE_MS - (Date.now() - notice.shownAt));
+    clearTimeout(this.cutShort);
+    this.cutShort = setTimeout(() => {
+      if (this.current === notice) notice.interrupt();
+    }, wait);
   }
 
   private showNext(): void {
@@ -92,7 +94,7 @@ export class Notifier {
     });
     let actedOn = false;
     let interrupted = false;
-    this.current = {
+    const shown = {
       notice: next,
       shownAt: Date.now(),
       interrupt: () => {
@@ -100,6 +102,11 @@ export class Notifier {
         ref.dismiss();
       },
     };
+    this.current = shown;
+    // Something newer is already waiting: this one only gets the minimum time.
+    if (next.duration !== undefined && this.timed.length > 0) {
+      this.cutShortLater(shown);
+    }
     ref.onAction().subscribe(() => (actedOn = true));
     ref.afterDismissed().subscribe(() => {
       this.current = undefined;

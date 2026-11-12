@@ -237,9 +237,12 @@ export class SyncEngine {
     );
 
     // The browser knows about lost networks long before Socket.IO's ping timeout (up to 45 s).
-    const goOffline = () => socket.disconnect();
+    // Closing only the transport keeps Socket.IO's own reconnect loop running, so a false
+    // `offline` (VPN adapters, flapping networks) heals by itself even if `online` never comes.
+    const goOffline = () => socket.io.engine?.close();
     const goOnline = () => {
-      if (!socket.connected) socket.connect();
+      if (!socket.connected && !this.connection.updateRequired)
+        socket.connect();
     };
     this.window?.addEventListener('offline', goOffline);
     this.window?.addEventListener('online', goOnline);

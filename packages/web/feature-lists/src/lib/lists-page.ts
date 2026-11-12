@@ -1,5 +1,4 @@
 import { Component, computed, inject } from '@angular/core';
-import { NgTemplateOutlet } from '@angular/common';
 import { MatFabButton, MatIconButton } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
@@ -21,7 +20,6 @@ import { firstValueFrom } from 'rxjs';
     MatMenu,
     MatMenuItem,
     MatMenuTrigger,
-    NgTemplateOutlet,
   ],
   templateUrl: './lists-page.html',
   styleUrl: './lists-page.scss',
