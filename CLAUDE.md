@@ -69,7 +69,7 @@ Targets are mostly _inferred_ by plugins in `nx.json` — `project.json` may not
 ## Generating code
 
 Use Nx generators; don't hand-write project scaffolding (`project.json`, tsconfigs, eslint/vitest configs).
-Defaults live in `nx.json > generators`: scss, the `lister` prefix, vitest-angular for Angular, and vitest for Nest and TS libraries. OnPush is Angular 22's default, so generated components don't set it. Always `--dry-run` first.
+Defaults live in `nx.json > generators`: scss, the `lister` prefix, vitest-angular for Angular apps, vitest-analog for Angular libraries (see `module-boundaries`), and vitest for Nest and TS libraries. OnPush is Angular 22's default, so generated components don't set it. Always `--dry-run` first.
 Library names follow `packages/<scope>/<name>`, project `<scope>-<name>`, import path `@lister/<scope>/<name>`.
 
 ```bash

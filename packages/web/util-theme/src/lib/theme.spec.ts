@@ -26,7 +26,7 @@ function addThemeColorMetas() {
   for (const scheme of ['light', 'dark'] as const) {
     const meta = document.createElement('meta');
     meta.name = 'theme-color';
-    meta.media = `(prefers-color-scheme: ${scheme})`;
+    meta.setAttribute('media', `(prefers-color-scheme: ${scheme})`);
     meta.content = THEME_SURFACE[scheme];
     document.head.append(meta);
   }
@@ -50,7 +50,7 @@ describe('Theme', () => {
 
   beforeEach(() => {
     localStorage.clear();
-    delete document.documentElement.dataset['theme'];
+    document.documentElement.style.colorScheme = '';
     document.head
       .querySelectorAll('meta[name="theme-color"]')
       .forEach((m) => m.remove());
@@ -67,7 +67,7 @@ describe('Theme', () => {
 
     expect(theme.preference()).toBe('system');
     expect(theme.scheme()).toBe('dark');
-    expect(document.documentElement.dataset['theme']).toBeUndefined();
+    expect(document.documentElement.style.colorScheme).toBe('');
     expect(metaContents()).toEqual([THEME_SURFACE.light, THEME_SURFACE.dark]);
   });
 
@@ -89,7 +89,7 @@ describe('Theme', () => {
     TestBed.tick();
 
     expect(theme.scheme()).toBe('dark');
-    expect(document.documentElement.dataset['theme']).toBe('dark');
+    expect(document.documentElement.style.colorScheme).toBe('dark');
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
     expect(metaContents()).toEqual([THEME_SURFACE.dark, THEME_SURFACE.dark]);
   });
@@ -103,7 +103,7 @@ describe('Theme', () => {
     TestBed.tick();
 
     expect(theme.scheme()).toBe('light');
-    expect(document.documentElement.dataset['theme']).toBeUndefined();
+    expect(document.documentElement.style.colorScheme).toBe('');
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBeNull();
     expect(metaContents()).toEqual([THEME_SURFACE.light, THEME_SURFACE.dark]);
   });
@@ -116,7 +116,7 @@ describe('Theme', () => {
 
     expect(theme.preference()).toBe('light');
     expect(theme.scheme()).toBe('light');
-    expect(document.documentElement.dataset['theme']).toBe('light');
+    expect(document.documentElement.style.colorScheme).toBe('light');
   });
 
   it.each(['purple', ''])('ignores an unknown stored value (%j)', (stored) => {
@@ -148,6 +148,28 @@ describe('Theme', () => {
 
     theme.setPreference('dark');
     expect(theme.scheme()).toBe('dark');
+  });
+
+  it('picks up a choice made in another tab', () => {
+    fakeSystemScheme(false);
+    const theme = createTheme();
+
+    window.dispatchEvent(
+      new StorageEvent('storage', { key: THEME_STORAGE_KEY, newValue: 'dark' }),
+    );
+    TestBed.tick();
+    expect(theme.scheme()).toBe('dark');
+    expect(document.documentElement.style.colorScheme).toBe('dark');
+
+    window.dispatchEvent(
+      new StorageEvent('storage', { key: THEME_STORAGE_KEY, newValue: null }),
+    );
+    expect(theme.preference()).toBe('system');
+
+    window.dispatchEvent(
+      new StorageEvent('storage', { key: 'other', newValue: 'x' }),
+    );
+    expect(theme.preference()).toBe('system');
   });
 
   it('stops listening to the system scheme when destroyed', () => {

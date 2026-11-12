@@ -13,7 +13,7 @@ import { Home } from './home';
 describe('Home', () => {
   beforeEach(() => {
     window.localStorage.clear();
-    delete document.documentElement.dataset['theme'];
+    document.documentElement.style.colorScheme = '';
     TestBed.configureTestingModule({
       imports: [Home],
       providers: [provideHttpClient(), provideHttpClientTesting()],
@@ -55,7 +55,7 @@ describe('Home', () => {
     await dark.check();
     TestBed.tick();
 
-    expect(document.documentElement.dataset['theme']).toBe('dark');
+    expect(document.documentElement.style.colorScheme).toBe('dark');
     expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
   });
 });

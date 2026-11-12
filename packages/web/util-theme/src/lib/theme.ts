@@ -37,13 +37,14 @@ export const THEME_SURFACE: Readonly<Record<ColorScheme, string>> = {
   dark: '#101413',
 };
 
-export function isThemePreference(value: unknown): value is ThemePreference {
+function isThemePreference(value: unknown): value is ThemePreference {
   return THEME_PREFERENCES.includes(value as ThemePreference);
 }
 
 /**
- * The colour theme. A manual choice sets `data-theme` on `<html>`, which pins `color-scheme`
- * in the global styles; `system` removes it so the browser's setting applies.
+ * The colour theme. A manual choice pins `color-scheme` with an inline style on `<html>` (no
+ * stylesheet rule needed, so it also holds before the CSS has loaded); `system` removes it so
+ * the global styles' `color-scheme: light dark` follows the browser.
  */
 @Service()
 export class Theme {
@@ -67,9 +68,21 @@ export class Theme {
     const onSystemChange = (event: MediaQueryListEvent) =>
       this.systemDark.set(event.matches);
     this.darkQuery?.addEventListener('change', onSystemChange);
-    inject(DestroyRef).onDestroy(() =>
-      this.darkQuery?.removeEventListener('change', onSystemChange),
-    );
+
+    // A choice made in another tab or window of the app applies here too.
+    const view = this.document.defaultView;
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== THEME_STORAGE_KEY && event.key !== null) return;
+      this.preferenceState.set(
+        isThemePreference(event.newValue) ? event.newValue : 'system',
+      );
+    };
+    view?.addEventListener('storage', onStorage);
+
+    inject(DestroyRef).onDestroy(() => {
+      this.darkQuery?.removeEventListener('change', onSystemChange);
+      view?.removeEventListener('storage', onStorage);
+    });
 
     // Document-level side effect outside Angular's rendering: <html> and <head>.
     effect(() => this.apply(this.preference()));
@@ -97,15 +110,16 @@ export class Theme {
   }
 
   private apply(preference: ThemePreference): void {
-    const root = this.document.documentElement;
-    if (preference === 'system') delete root.dataset['theme'];
-    else root.dataset['theme'] = preference;
+    this.document.documentElement.style.colorScheme =
+      preference === 'system' ? '' : preference;
 
     const metas = this.document.head.querySelectorAll<HTMLMetaElement>(
       'meta[name="theme-color"]',
     );
     for (const meta of metas) {
-      const metaScheme: ColorScheme = meta.media.includes('dark')
+      const metaScheme: ColorScheme = meta
+        .getAttribute('media')
+        ?.includes('dark')
         ? 'dark'
         : 'light';
       meta.content =

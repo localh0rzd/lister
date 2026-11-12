@@ -23,22 +23,7 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-001 — Material 3 theme, self-hosted fonts, light and dark
-
-- Milestone: M1 Foundations
-- Area: web
-- Priority: high
-- Done when:
-  - Angular Material and CDK 22 are installed, and `lister-web` uses one Material 3 theme
-    (`mat.theme`) defined in the global styles, generated from the deep teal seed colour
-    `#00796B` (D11).
-  - Light and dark follow the system setting; a manual choice (system / light / dark) is
-    remembered on the device.
-  - Roboto and Material Symbols are bundled from npm packages, and the app makes no requests to
-    Google Fonts (checked in an e2e test).
-  - `<meta name="theme-color">` matches the theme in light and dark.
-- Notes: Generate the palettes with Angular Material's `theme-color` schematic. Material's `ng-add`
-  adds Google Fonts links to `index.html`; remove them. Design §2.7.
+_Nothing in progress._
 
 ## Backlog
 
@@ -538,6 +523,9 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   - The README has an example `docker-compose.yml` with Traefik labels (router, entrypoint, TLS)
     and lists every environment variable.
   - The image builds for linux/amd64 and linux/arm64.
+  - The served app sends a Content Security Policy (design §2.9). Inline scripts, such as the
+    theme script in `index.html`, are allowed by hash (Angular's `security.autoCsp`) or moved
+    out.
 - Notes: TLS stays in Traefik (D4); the app never handles certificates.
 
 ### T-033 — Backups and purge
@@ -570,4 +558,21 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## Done
 
-_Nothing done yet._
+### T-001 — Material 3 theme, self-hosted fonts, light and dark
+
+- Completed: 2026-11-12 — Material 3 theme from #00796B in `lister-web` styles; `packages/web/util-theme` (Theme: system/light/dark, remembered, synced across tabs, theme-color metas, pre-boot pin in index.html); `packages/web/ui` ThemePicker; Roboto and Material Symbols self-hosted; unit, index.html and e2e (axe) tests.
+- Review: Changes requested (1 major, 3 minor, 1 nit); all fixed: the pin is an inline `color-scheme` style so the production first paint is right, the inline script is tested against util-theme, cross-tab sync, CLAUDE.md, a smaller public API. CSP note added to T-032.
+- Milestone: M1 Foundations
+- Area: web
+- Priority: high
+- Done when:
+  - Angular Material and CDK 22 are installed, and `lister-web` uses one Material 3 theme
+    (`mat.theme`) defined in the global styles, generated from the deep teal seed colour
+    `#00796B` (D11).
+  - Light and dark follow the system setting; a manual choice (system / light / dark) is
+    remembered on the device.
+  - Roboto and Material Symbols are bundled from npm packages, and the app makes no requests to
+    Google Fonts (checked in an e2e test).
+  - `<meta name="theme-color">` matches the theme in light and dark.
+- Notes: Generate the palettes with Angular Material's `theme-color` schematic. Material's `ng-add`
+  adds Google Fonts links to `index.html`; remove them. Design §2.7.

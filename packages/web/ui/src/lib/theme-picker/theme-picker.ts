@@ -4,17 +4,21 @@ import {
   MatButtonToggleGroup,
 } from '@angular/material/button-toggle';
 import { MatIcon } from '@angular/material/icon';
-import type { ThemePreference } from '@lister/web/util-theme';
+import {
+  THEME_PREFERENCES,
+  type ThemePreference,
+} from '@lister/web/util-theme';
 
-const OPTIONS: readonly {
-  value: ThemePreference;
-  label: string;
-  icon: string;
-}[] = [
-  { value: 'system', label: 'System', icon: 'brightness_auto' },
-  { value: 'light', label: 'Light', icon: 'light_mode' },
-  { value: 'dark', label: 'Dark', icon: 'dark_mode' },
-];
+const OPTION_DETAILS: Record<ThemePreference, { label: string; icon: string }> =
+  {
+    system: { label: 'System', icon: 'brightness_auto' },
+    light: { label: 'Light', icon: 'light_mode' },
+    dark: { label: 'Dark', icon: 'dark_mode' },
+  };
+const OPTIONS = THEME_PREFERENCES.map((value) => ({
+  value,
+  ...OPTION_DETAILS[value],
+}));
 
 /** Choose System, Light or Dark (Space › Appearance in the mock-ups). */
 @Component({
