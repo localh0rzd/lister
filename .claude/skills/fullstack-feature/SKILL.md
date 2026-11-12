@@ -36,9 +36,9 @@ a rejection rolls back and a poke rebases (design §4.2).
 
 ### 1. Domain — `packages/shared/domain`
 
-- Entity type in `src/lib/entities.ts` (see `List`, `Item`): the sync metadata `id`, `spaceId`,
-  `version`, `deletedAt` (`null` or a timestamp: tombstone), `createdBy`, `updatedBy`,
-  `createdAt`, `updatedAt`, then the fields.
+- Entity type in `src/lib/entities.ts` that `extends SyncMetadata`, as `List` and `Item` do
+  (`id`, `spaceId`, `version`, `deletedAt`: `null` or a timestamp for a tombstone, `createdBy`,
+  `updatedBy`, `createdAt`, `updatedAt`), plus its fields.
 - Text limits in `src/lib/limits.ts` (`LIMITS`), ordering with `src/lib/positions.ts`
   (`sortByPosition`, `positionAtEnd`, `positionAt`, `positionBetween`, `moveTo`; fractional-indexing keys), ids with `newId()`
   (UUIDv7).
@@ -64,8 +64,13 @@ satisfies z.ZodType<Entity>`, tolerant (`z.object`, not `strictObject`): it's wh
   only through the `RowStore`, checks everything before writing, and returns `changed` (with the
   row ids), `unchanged` (e.g. the row is a tombstone: delete wins) or `reject(reason)`. The
   reason is a sentence users see ("This list doesn't exist").
-  - New table: `get<Entity>`/`put<Entity>` on `RowStore` and `MemoryRowStore`, and a key in
+  - New table: `get<Entity>`/`put<Entity>` on `RowStore`; on `MemoryRowStore` a constructor
+    argument and a public map (the engine reads `store.lists` / `store.items`); a key in
     `ApplyOutcome`'s `changed` arm.
+  - A rule that reads by relation, not by id (e.g. "includes whose parent is X" for the cycle
+    check), adds a query method to `RowStore`: `SqlRowStore` with an index on that column,
+    `MemoryRowStore` by scan. On the client such a mutation needs every row of the relation in
+    the store (step 4, `rebuild()`).
 - **Tests:** `apply.spec.ts` (over `MemoryRowStore`: applies, retries are harmless, delete wins,
   rejections carry their reason, nothing is written on a rejection) and `mutations.spec.ts`
   (schema accepts/refuses).
@@ -97,14 +102,27 @@ satisfies z.ZodType<Entity>`, tolerant (`z.object`, not `strictObject`): it's wh
   `this.version(n).stores({...})` in the same commit; say in the class comment which migration
   it matches. New table → **two** tables: the visible one (`<entities>`) and the server copy
   (`server<Entities>`), both indexed by `id, spaceId` plus the parent id.
-- **Engine** (`src/lib/sync-engine.ts`), new table only — it names lists and items explicitly:
+  - **New synced table or field → snapshot.** Row schemas are tolerant, so a cached older app
+    dropped the new table or field from every poke while still advancing its version; a plain
+    pull after the update would never bring those rows back. The version that adds it clears the
+    sync position, so the next pull is a full snapshot (the outbox survives):
+    `this.version(n).stores({...}).upgrade((tx) => tx.table('syncState').clear())`. Test it in
+    `local-db.spec.ts` (open the old version with data, then the new one: `syncState` is empty,
+    `outbox` isn't).
+- **Engine** (`src/lib/sync-engine.ts`), new table only — it names lists and items explicitly,
+  and nothing fails to compile if you miss a place:
+  - `mutate()`: load the new visible table into the `MemoryRowStore` it predicts with,
+    otherwise the rule can't find the row and refuses the change locally;
   - `syncTables()`: both tables (so the rebuild runs in one transaction);
   - `storeServerRows()`: store `rows.<entities>` in the server table, clear it on a snapshot,
     and add the ids to `touched`;
   - `rebuild()`: load the server rows (all of the space, or by touched id) into the
-    `MemoryRowStore` and write the visible rows back (`changes()`);
-  - `touchedBy()`: map the new mutation names to their table, plus every row its rule reads
-    (today anything not `list.*` counts as an item);
+    `MemoryRowStore` and write the visible rows back (`changes()`). The incremental path also
+    loads rows the rules reach through references (today: each touched item's list); add the
+    new table's (e.g. an include's parent and child lists). For a rule that reads by relation,
+    load that whole relation for the space;
+  - `touchedBy()`: map the new mutation names to their table and read their own argument names
+    (today it reads only `id` and `listId`, and anything not `list.*` counts as an item);
   - its spec (`sync-engine.spec.ts`, fake socket + fake-indexeddb): local apply, ack, poke,
     reject rolls back, rebase.
 - **Reads:** a method on `Repositories` (`src/lib/repositories.ts`) returning
@@ -128,9 +146,10 @@ satisfies z.ZodType<Entity>`, tolerant (`z.object`, not `strictObject`): it's wh
 
 ### 6. E2E — `apps/lister-web-e2e`
 
-- Use `support/app.ts`: `unique()`, `createList`, `openList`, `addItem`, `pasteItems`,
-  `itemMenu`, `editItemTitle`, `otherDevice(browser)` (a second browser context),
-  `syncStatus`, `synced(page)` (nothing left to sync). Add helpers for the new feature there.
+- Use `support/app.ts`: `unique()`, `createList`, `openList`, `itemTitles`, `addItem`,
+  `pasteItems`, `itemMenu`, `editItemTitle`, `otherDevice(browser)` (a second browser
+  context), `syncStatus`, `synced(page)` (nothing left to sync), `shellIsCached` (before going
+  offline in a `*.pwa.spec.ts`). Add helpers for the new feature there.
 - A happy path at phone and desktop widths with `expectAccessible()` (`support/fixtures.ts`).
 - Real time (`sync.spec.ts`): a change in A appears in B without a reload.
 - Offline: `context.setOffline(true)` → change → `setOffline(false)` → `synced()` → both
@@ -161,11 +180,12 @@ satisfies z.ZodType<Entity>`, tolerant (`z.object`, not `strictObject`): it's wh
 - [ ] Right path chosen (synced or request/response)
 - [ ] Bigger parts live in their own libraries with the right tags; the apps only wire them in
 - [ ] Shared types and schemas are exported; no web ↔ api imports (lint enforces this)
-- [ ] Path A: the Drizzle migration and the Dexie version bump match
+- [ ] Path A: the Drizzle migration and the Dexie version bump match; a new synced table or
+      field clears `syncState` in that Dexie version (next pull is a snapshot)
 - [ ] Path A, new table: added everywhere lists and items are named (`rowSetSchema`, `RowStore`
-      and `MemoryRowStore`, `ApplyOutcome`, `SqlRowStore`, `MutationService` rows,
-      `SyncReader.rowsSince`, both Dexie tables, the engine's `syncTables` / `storeServerRows` /
-      `rebuild` / `touchedBy`)
+      and `MemoryRowStore` (constructor, map), `ApplyOutcome`, `SqlRowStore`, `MutationService`
+      rows, `SyncReader.rowsSince`, both Dexie tables, the engine's `mutate` / `syncTables` /
+      `storeServerRows` / `rebuild` (incl. referenced rows) / `touchedBy`)
 - [ ] Rejected and offline states are visible in the UI
 - [ ] Unit tests on both sides, integration tests for every backend call, a Playwright happy path
       (`testing` skill)

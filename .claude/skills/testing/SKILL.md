@@ -8,12 +8,12 @@ description: The tests every Lister change needs and how to write them — unit 
 No behaviour change ships without tests. A task isn't done until every kind below that applies
 exists and passes.
 
-| What changed                                                                                                                                                                                  | Required                                                           |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| A unit, new or changed: component, directive, pipe, service, guard, interceptor, repository, Nest service, mutation handler, pure function or schema, on the web side, the API side or shared | **Unit tests** next to it                                          |
-| A backend call, new or changed: HTTP route, Socket.IO event or mutation type                                                                                                                  | **Integration test** through the real app                          |
-| User-facing behaviour, new or changed                                                                                                                                                         | **Playwright happy-path e2e**                                      |
-| Synced data (lists, items, includes, runs)                                                                                                                                                    | Also the two-context and offline specs (`fullstack-feature` skill) |
+| What changed                                                                                                                                                                               | Required                                                           |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| A unit, new or changed: component, directive, pipe, service, guard, interceptor, repository, Nest service, mutation rule, pure function or schema, on the web side, the API side or shared | **Unit tests** next to it                                          |
+| A backend call, new or changed: HTTP route, Socket.IO event or mutation type                                                                                                               | **Integration test** through the real app                          |
+| User-facing behaviour, new or changed                                                                                                                                                      | **Playwright happy-path e2e**                                      |
+| Synced data (lists, items, includes, runs)                                                                                                                                                 | Also the two-context and offline specs (`fullstack-feature` skill) |
 
 How to write each kind well (Vitest, TestBed and Playwright idioms) is in the `best-practices`
 skill.

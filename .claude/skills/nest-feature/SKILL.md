@@ -24,7 +24,7 @@ npx nx g @nx/nest:service packages/api/<lib>/src/lib/<feature>/<name> --dry-run
 ```
 
 Delete the generated files you don't need. **Synced data (lists, items, includes, runs) never
-gets REST CRUD endpoints.** It changes through mutation handlers (see below).
+gets REST CRUD endpoints.** It changes through mutations, applied by `MutationService` with the shared rules (see below).
 
 ## Structure
 
@@ -71,7 +71,7 @@ export class LoginDto implements LoginRequest {
 - **Update DTOs:** use `PartialType` from `@nestjs/mapped-types`.
 - **Path params:** `@Param('id', ParseUUIDPipe)`, or the right `Parse*Pipe`.
 
-## Synced data: mutation handlers
+## Synced data: mutations
 
 Lists, items, includes and runs change only through the Socket.IO sync gateway
 (`docs/design.md` §4.2), in `packages/api/feature-sync`. There's no handler per mutation:

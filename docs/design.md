@@ -214,6 +214,9 @@ Consequences:
   after signing in again.
 - **Old app, new server:** the service worker may serve a cached older version of the app. The sync
   protocol is versioned, changes to it are additive, and the server can ask a client to update.
+  An old client drops tables and fields it doesn't know while its sync position moves on, so the
+  client version that adds a synced table or field clears the sync position (a Dexie upgrade):
+  its next pull is a full snapshot and nothing it skipped is lost.
 - **Two schemas** (SQLite on the server, IndexedDB in the browser) must evolve together. Both come
   from shared domain types.
 
@@ -381,7 +384,7 @@ apply the same shared rule for the optimistic UI. Unchecking or adding an item r
 │ Local DB (IndexedDB via Dexie)        │ Socket.IO  │  │   push mutations → ack              │
 │   server rows + pending outbox        │◄──────────►│  │   pull rows since version           │
 │   ▲                                   │ (WebSocket)│  │   poke changed rows to the space    │
-│   │ apply / rebase                    │            │  ├ Mutation handlers (shared rules)    │
+│   │ apply / rebase                    │            │  ├ Mutation rules (applyMutation)      │
 │ Sync engine (one tab, via Web Locks)  │            │  └ Drizzle → SQLite (WAL)              │
 │                                       │            │ Static hosting of the web build        │
 │ Service worker: app shell cache       │            └────────────────────────────────────────┘
@@ -488,14 +491,14 @@ apps/
   lister-api-e2e           Vitest: smoke tests against the built server
 packages/
   shared/
-    domain                 entities, flatten(), cycle check, positions, mutation rules  scope:shared type:util
-    sync-protocol          Zod schemas: mutations, socket messages, protocol version   scope:shared type:util
+    domain                 entities, flatten(), cycle check, positions                  scope:shared type:util
+    sync-protocol          mutation schemas and rules, messages, protocol version       scope:shared type:util
     api-contracts          REST types (exists)                                          scope:shared type:util
   api/
     data-access-db         Drizzle schema, migrations, DB provider                      scope:api type:data-access
     feature-auth           sessions, sign-in, passkeys, user administration, guards     scope:api type:feature
     feature-spaces         spaces, memberships                                          scope:api type:feature
-    feature-sync           gateway, push/pull/poke, mutation handlers                   scope:api type:feature
+    feature-sync           gateway, push/pull/poke, MutationService                     scope:api type:feature
   web/
     data-access-local-db   Dexie schema, repositories → signals                         scope:web type:data-access
     data-access-sync       sync engine, outbox, socket client, status                   scope:web type:data-access
@@ -594,7 +597,7 @@ it changes a decision above.
 - Assigning items to people
 - Search, tags, favourites
 - An icon or colour per list (deferred in T-005; additive later: a column, a Dexie bump and an
-  optional row field, which old clients ignore)
+  optional row field, which old clients ignore; the Dexie version that adds it forces a snapshot, §2.5)
 - Import/export (JSON, Markdown), print view
 - Self-registration and invite links (admins create accounts)
 - Languages other than English

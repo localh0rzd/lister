@@ -23,19 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-014 — Write down the synced-feature recipe
-
-- Milestone: M2 Sync walking skeleton
-- Area: infra
-- Priority: normal
-- Depends on: T-013
-- Done when:
-  - The `fullstack-feature` skill's synced-data path names the real files, APIs and commands
-    (mutation schema, migration command, handler registration, Dexie version bump, local apply,
-    repository, e2e helpers) instead of the outline it has now.
-  - `angular-feature`, `nest-feature` and `CLAUDE.md` match the code.
-  - The recipe matches how lists and items were actually built in T-006 – T-013.
-
 ## Backlog
 
 ### T-015 — Composition model: includes, flattening, cycle rejection
@@ -381,6 +368,22 @@ nosniff`, `Referrer-Policy`, `frame-ancestors` in the CSP, and `app.disable('x-p
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
 
 ## Done
+
+### T-014 — Write down the synced-feature recipe
+
+- Completed: 2026-11-12 — `fullstack-feature` Path A is the real recipe (files, APIs, commands, e2e helpers, a checklist of every place a new table goes); `nest-feature`, `angular-feature`, `testing`, CLAUDE.md and design §4.2/§5 describe `MutationService` + shared `applyMutation()` rules instead of per-mutation handlers.
+- Review: Changes requested (2 major, 2 minor, 1 nit); all fixed: the engine steps add `mutate()`'s store, rows reached through references and `touchedBy`'s argument names; a new synced table or field clears `syncState` in its Dexie version so old clients get a snapshot (design §2.5); relation queries on `RowStore`; "mutation handlers" wording removed everywhere; `SyncMetadata`, missing e2e helpers.
+
+- Milestone: M2 Sync walking skeleton
+- Area: infra
+- Priority: normal
+- Depends on: T-013
+- Done when:
+  - The `fullstack-feature` skill's synced-data path names the real files, APIs and commands
+    (mutation schema, migration command, handler registration, Dexie version bump, local apply,
+    repository, e2e helpers) instead of the outline it has now.
+  - `angular-feature`, `nest-feature` and `CLAUDE.md` match the code.
+  - The recipe matches how lists and items were actually built in T-006 – T-013.
 
 ### T-035 — Type-check every project in CI
 
