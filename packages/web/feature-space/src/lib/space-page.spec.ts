@@ -8,6 +8,7 @@ import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MatButtonToggleHarness } from '@angular/material/button-toggle/testing';
 import type { HealthResponse } from '@lister/shared/api-contracts';
 import { THEME_STORAGE_KEY } from '@lister/web/util-theme';
+import { provideRouter } from '@angular/router';
 import { SpacePage } from './space-page';
 
 describe('SpacePage', () => {
@@ -16,7 +17,11 @@ describe('SpacePage', () => {
     document.documentElement.style.colorScheme = '';
     TestBed.configureTestingModule({
       imports: [SpacePage],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+      ],
     });
   });
 
@@ -58,5 +63,18 @@ describe('SpacePage', () => {
 
     expect(document.documentElement.style.colorScheme).toBe('dark');
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
+  });
+
+  it('links to the trash', async () => {
+    const fixture = TestBed.createComponent(SpacePage);
+    fixture.detectChanges();
+    flushHealth();
+    await fixture.whenStable();
+
+    const link = (fixture.nativeElement as HTMLElement).querySelector(
+      'a.row-link',
+    );
+    expect(link?.textContent).toContain('Trash');
+    expect(link?.getAttribute('href')).toBe('/trash');
   });
 });

@@ -351,3 +351,81 @@ describe('Repositories.compositionOfSpace', () => {
     });
   });
 });
+
+describe('Repositories.trashOfSpace', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const NOW = 100 * DAY;
+
+  it('lists recently deleted lists and items, newest first', async () => {
+    const camping = list('Camping', { deletedAt: NOW - DAY });
+    const beach = list('Beach');
+    const old = list('Old', { deletedAt: NOW - 31 * DAY });
+    const other = {
+      ...list('Elsewhere', { deletedAt: NOW }),
+      spaceId: OTHER_SPACE,
+    };
+    await db.lists.bulkPut([camping, beach, old, other]);
+    await db.items.bulkPut([
+      item(camping.id, 'Tent', 'a0'), // comes back with Camping
+      item(camping.id, 'Stove', 'a1', { deletedAt: NOW - 2 * DAY }), // inside a deleted list
+      item(beach.id, 'Towel', 'a0', { deletedAt: NOW - 3 * DAY }),
+      item(beach.id, 'Hat', 'a1'),
+    ]);
+    const trash = TestBed.runInInjectionContext(() =>
+      repositories.trashOfSpace(
+        () => SPACE,
+        () => NOW,
+      ),
+    );
+
+    await vi.waitFor(() => {
+      TestBed.tick();
+      expect(
+        valueOf(trash())?.map((entry) =>
+          entry.kind === 'list'
+            ? `list ${entry.row.title} (${entry.itemCount})`
+            : `item ${entry.row.title} in ${entry.listTitle}`,
+        ),
+      ).toEqual(['list Camping (1)', 'item Towel in Beach']);
+    });
+  });
+
+  it('drops an entry once it is restored', async () => {
+    const beach = list('Beach', { deletedAt: NOW });
+    await db.lists.put(beach);
+    const trash = TestBed.runInInjectionContext(() =>
+      repositories.trashOfSpace(
+        () => SPACE,
+        () => NOW,
+      ),
+    );
+    await vi.waitFor(() => {
+      TestBed.tick();
+      expect(valueOf(trash())).toHaveLength(1);
+    });
+
+    await db.lists.put({ ...beach, deletedAt: null });
+    await vi.waitFor(() => {
+      TestBed.tick();
+      expect(valueOf(trash())).toEqual([]);
+    });
+  });
+});
+
+describe('Repositories.currentUserId', () => {
+  it('is the user id from the last welcome, and undefined before', async () => {
+    const userId = TestBed.runInInjectionContext(() =>
+      repositories.currentUserId(),
+    );
+    await vi.waitFor(() => {
+      TestBed.tick();
+      expect(userId()).toEqual({ status: 'ready', value: undefined });
+    });
+
+    await db.meta.put({ key: 'userId', value: 'u-1' });
+    await vi.waitFor(() => {
+      TestBed.tick();
+      expect(valueOf(userId())).toBe('u-1');
+    });
+  });
+});

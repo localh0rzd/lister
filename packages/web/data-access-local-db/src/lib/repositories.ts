@@ -1,5 +1,6 @@
 import { Service, type Signal, inject } from '@angular/core';
 import {
+  TRASH_KEEP_MS,
   type CompositionSource,
   type Include,
   type Item,
@@ -11,6 +12,11 @@ import { type QueryState, liveQuerySignal } from './live-query-signal';
 
 /** Case- and accent-insensitive, numbers by value ("List 9" before "List 10"); design §3. */
 const byTitle = new Intl.Collator('en', { sensitivity: 'base', numeric: true });
+
+/** Something in the trash: a deleted list (its items come back with it) or a deleted item. */
+export type TrashEntry =
+  | { kind: 'list'; row: List; itemCount: number }
+  | { kind: 'item'; row: Item; listTitle: string };
 
 /** A space's lists, items and includes (tombstones included), for flattening and loop checks. */
 export interface SpaceComposition extends CompositionSource {
@@ -130,5 +136,54 @@ export class Repositories {
           await this.db.includes.where('spaceId').equals(id).toArray(),
         );
     });
+  }
+
+  /**
+   * The space's trash, newest first: lists deleted within `TRASH_KEEP_MS` (with how many items
+   * come back with them), and items deleted within it whose list isn't deleted (an item of a
+   * deleted list comes back with its list).
+   */
+  trashOfSpace(
+    spaceId: () => string | undefined,
+    now: () => number = Date.now,
+  ): Signal<QueryState<TrashEntry[]>> {
+    return liveQuerySignal(() => {
+      const id = spaceId();
+      if (!id) return undefined;
+      return async () => {
+        const since = now() - TRASH_KEEP_MS;
+        const lists = await this.db.lists.where('spaceId').equals(id).toArray();
+        const items = await this.db.items.where('spaceId').equals(id).toArray();
+        const listsById = new Map(lists.map((list) => [list.id, list]));
+        const recent = (row: { deletedAt: number | null }) =>
+          row.deletedAt !== null && row.deletedAt >= since;
+        const entries: TrashEntry[] = [
+          ...lists.filter(recent).map((row) => ({
+            kind: 'list' as const,
+            row,
+            itemCount: items.filter(
+              (item) => item.listId === row.id && item.deletedAt === null,
+            ).length,
+          })),
+          ...items.flatMap((row) => {
+            const list = listsById.get(row.listId);
+            if (!recent(row) || !list || list.deletedAt !== null) return [];
+            return [{ kind: 'item' as const, row, listTitle: list.title }];
+          }),
+        ];
+        return entries.sort(
+          (a, b) =>
+            (b.row.deletedAt ?? 0) - (a.row.deletedAt ?? 0) ||
+            (a.row.id < b.row.id ? -1 : 1),
+        );
+      };
+    });
+  }
+
+  /** The signed-in user's id, as the server's welcome told this device (until then `undefined`). */
+  currentUserId(): Signal<QueryState<string | undefined>> {
+    return liveQuerySignal(
+      () => async () => (await this.db.meta.get('userId'))?.value,
+    );
   }
 }

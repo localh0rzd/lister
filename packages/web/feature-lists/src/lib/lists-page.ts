@@ -7,8 +7,8 @@ import { RouterLink } from '@angular/router';
 import { type List, flattenEntries, newId } from '@lister/shared/domain';
 import { CurrentSpace, Repositories } from '@lister/web/data-access-local-db';
 import { TitleDialog, type TitleDialogData } from '@lister/web/ui';
+import { SpaceChanges } from '@lister/web/data-access-sync';
 import { firstValueFrom } from 'rxjs';
-import { SpaceChanges } from './space-changes';
 
 /** What a list holds: its own items, all items with included lists, and those lists. */
 export interface ListCounts {

@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-017 — Trash and restore
 
 - Milestone: M3 Composition
@@ -36,6 +34,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
     who deleted them and when.
   - Restore brings back a list or an item and syncs like any other change.
   - Deleting a list doesn't delete its items, so restoring the list brings them back too.
+
+## Backlog
 
 ### T-018 — Duplicate a list
 

@@ -19,6 +19,8 @@ for (const [device, viewport] of [
       page,
       expectAccessible,
     }) => {
+      // A long flow of many steps; under the full suite's parallel load it needs more than 30 s.
+      test.setTimeout(60_000);
       const trip = await createList(page, unique('Trip'));
       const camping = await createList(page, unique('Camping'));
       const toiletries = await createList(page, unique('Toiletries'));

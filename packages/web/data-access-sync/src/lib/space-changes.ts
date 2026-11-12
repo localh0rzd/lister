@@ -1,6 +1,6 @@
 import { Service, inject } from '@angular/core';
 import { CurrentSpace } from '@lister/web/data-access-local-db';
-import { type MutationRequest, SyncEngine } from '@lister/web/data-access-sync';
+import { type MutationRequest, SyncEngine } from './sync-engine';
 import { NOTICE_DURATION_MS, Notifier } from '@lister/web/util-notify';
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown
@@ -11,8 +11,8 @@ type DistributiveOmit<T, K extends PropertyKey> = T extends unknown
 export type SpaceChange = DistributiveOmit<MutationRequest, 'spaceId'>;
 
 /**
- * Sends changes to the current space through the sync engine and shows refusals. Pages use
- * this instead of the engine directly.
+ * Sends changes to the current space through the sync engine and shows refusals. Feature pages
+ * use this instead of the engine directly.
  */
 @Service()
 export class SpaceChanges {

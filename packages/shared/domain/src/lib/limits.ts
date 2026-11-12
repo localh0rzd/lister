@@ -6,3 +6,6 @@ export const LIMITS = {
   note: 2000,
   spaceName: 100,
 } as const;
+
+/** How long deleted lists and items stay in the trash before they're purged (D15). */
+export const TRASH_KEEP_MS = 30 * 24 * 60 * 60 * 1000;

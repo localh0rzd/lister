@@ -49,8 +49,8 @@ import {
   ListPickerDialog,
   type ListPickerData,
 } from '@lister/web/ui';
+import { SpaceChanges } from '@lister/web/data-access-sync';
 import { firstValueFrom } from 'rxjs';
-import { SpaceChanges } from './space-changes';
 
 /** A row of the list itself: one of its own items, or an included list (a section). */
 export type EditorRow =
