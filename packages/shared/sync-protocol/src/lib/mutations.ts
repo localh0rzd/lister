@@ -110,8 +110,8 @@ export const mutationArgs = {
   /**
    * "Save as list" (D13), in one step like `list.duplicate`: a new list `listId` titled `title`
    * with a copy (title, quantity, note) of each listed run item, in the order given — the run's
-   * order as shown. Items removed or merged away since the client looked are skipped. The run
-   * itself is unchanged.
+   * order as shown. Items removed since the client looked are skipped; one merged away since
+   * (D16) is copied once, as the item it became. The run itself is unchanged.
    */
   'run.saveAsList': z.strictObject({
     runId: idSchema,

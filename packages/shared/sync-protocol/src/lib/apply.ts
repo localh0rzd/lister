@@ -548,17 +548,20 @@ export function applyMutation(
         description: '',
       });
       const items: string[] = [];
+      const copied = new Set<string>();
       let position: string | null = null;
       for (const { from, id } of args.items) {
-        const source = store.getRunItem(from);
+        // An id merged away (D16), e.g. added offline before the save, is the item it became:
+        // copied once, as that live item.
+        const source = runItemHere(from);
         if (
           !source ||
-          source.spaceId !== ctx.spaceId ||
           source.runId !== run.id ||
           source.deletedAt !== null ||
-          source.mergedInto !== null
+          copied.has(source.id)
         )
           continue;
+        copied.add(source.id);
         position = positionBetween(position, null);
         store.putItem({
           ...created,

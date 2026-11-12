@@ -233,14 +233,17 @@ export class RunPage {
     );
     const title = await firstValueFrom(ref.afterClosed());
     if (!title) return;
-    const { sections } = layoutRun(view.items, () => undefined, false);
+    // The run as it is now: items may have been added or moved while the dialog was open.
+    const now = this.view();
+    if (now.kind !== 'ready') return;
+    const { sections } = layoutRun(now.items, () => undefined, false);
     const items = sections.flatMap((section) =>
       section.rows.map(({ item }) => ({ from: item.id, id: newId() })),
     );
     const listId = newId();
     const saved = await this.changes.apply({
       name: 'run.saveAsList',
-      args: { runId: view.run.id, listId, title, items },
+      args: { runId: now.run.id, listId, title, items },
     });
     if (!saved) return;
     const outcome = await this.notifier.notify({

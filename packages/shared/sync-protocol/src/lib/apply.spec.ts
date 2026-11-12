@@ -1136,6 +1136,37 @@ describe('run.saveAsList', () => {
     expect(s.store.items.size).toBe(0);
   });
 
+  it('copies an item merged away since the client looked as the item it became, once', () => {
+    const s = runWith();
+    // Milk added again (offline, say) merges into the run's Milk (D16): its id is an alias.
+    const alias = newId();
+    apply(
+      s.store,
+      'run.addItems',
+      {
+        runId: s.runId,
+        items: [
+          { id: alias, title: 'milk', quantity: '', note: '', sources: [] },
+        ],
+      },
+      3,
+    );
+    expect(s.store.getRunItem(alias)?.mergedInto).toBe(s.milk);
+    const save = (from: string[]) => {
+      const listId = newId();
+      apply(s.store, 'run.saveAsList', {
+        runId: s.runId,
+        listId,
+        title: 'Gear',
+        items: from.map((id) => ({ from: id, id: newId() })),
+      });
+      return copies(s, listId).map((item) => item.title);
+    };
+
+    expect(save([s.tent, alias])).toEqual(['Tent', 'Milk']);
+    expect(save([alias, s.milk, s.tent])).toEqual(['Milk', 'Tent']);
+  });
+
   it('refuses an item id that already exists', () => {
     const s = runWith();
     const first = {

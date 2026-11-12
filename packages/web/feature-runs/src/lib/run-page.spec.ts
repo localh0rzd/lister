@@ -11,7 +11,7 @@ import {
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { type MutationRequest, SyncEngine } from '@lister/web/data-access-sync';
 import { Notifier } from '@lister/web/util-notify';
-import { of } from 'rxjs';
+import { Observable, Subject, of } from 'rxjs';
 import { DoneSectionPreference } from './done-section-preference';
 import { RunPage } from './run-page';
 
@@ -99,7 +99,12 @@ async function render(doneSection = false) {
       {
         provide: MatDialog,
         useValue: {
-          open: vi.fn(() => ({ afterClosed: () => of(dialogAnswer) })),
+          open: vi.fn(() => ({
+            afterClosed: () =>
+              dialogAnswer instanceof Observable
+                ? dialogAnswer
+                : of(dialogAnswer),
+          })),
         },
       },
     ],
@@ -490,6 +495,31 @@ describe('RunPage', () => {
       }),
     );
     expect(page.navigate).toHaveBeenCalledWith(['/lists', request.args.listId]);
+  });
+
+  it('saves the run as it is when the dialog closes, with items added meanwhile', async () => {
+    const tent = runItem('Tent', 'a0');
+    await db.runItems.put(tent);
+    const page = await render();
+    await page.settle(() => expect(page.checkbox('Tent')).toBeTruthy());
+    const closed = new Subject<string>();
+    dialogAnswer = closed;
+
+    const saving = (
+      page.fixture.componentInstance as unknown as {
+        saveAsList(): Promise<void>;
+      }
+    ).saveAsList();
+    // Someone else adds an item while the title is being typed.
+    const stove = runItem('Stove', 'a1');
+    await db.runItems.put(stove);
+    await page.settle(() => expect(page.checkbox('Stove')).toBeTruthy());
+    closed.next('Gear');
+    closed.complete();
+    await saving;
+
+    const request = requests[0] as { args: { items: { from: string }[] } };
+    expect(request.args.items.map((i) => i.from)).toEqual([tent.id, stove.id]);
   });
 
   it('saves nothing when the dialog is cancelled, and stays when the save is refused', async () => {
