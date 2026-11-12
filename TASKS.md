@@ -23,28 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-020 — Runs UI
-
-- Milestone: M4 Runs
-- Area: web
-- Priority: normal
-- Depends on: T-019, T-016
-- Done when:
-  - A `packages/web/feature-runs` library (scope:web, type:feature). "Start run" on a list creates a
-    run (title prefilled with the list name and date) and opens it.
-  - "New run" on the Runs page creates an empty ad-hoc run; items are typed or pasted straight in.
-  - The Runs destination shows the active runs with their progress. Finished runs appear nowhere:
-    not there, and not where runs are started (D10).
-  - A run shows its items grouped by the list they came from (merged items also say which other
-    lists they come from), with check, uncheck and skip, and a progress bar.
-  - Checked items stay in place, struck through. A toggle, remembered on the device, moves them into
-    a "Done" section while it's on (D12).
-  - Items can be added, edited and removed, and a whole list can be added — all only in this run.
-  - When everything is checked or skipped, the run disappears and the snackbar offers Undo, which
-    reverts the last check.
-  - E2E: two people checking items in the same run see each other's checks live, and both see the
-    run disappear when it's finished.
-
 ## Backlog
 
 ### T-021 — Save a run as a list
@@ -286,6 +264,31 @@ nosniff`, `Referrer-Policy`, `frame-ancestors` in the CSP, and `app.disable('x-p
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
 
 ## Done
+
+### T-020 — Runs UI
+
+- Completed: 2026-11-12 — Runs UI in `packages/web/feature-runs` (Runs page, run page, RunStarter), Start run in feature-lists, run repositories, two-person e2e.
+- Review: Changes requested; 7 fixed (2 substantive, 5 trivial), 0 skipped, 0 disagreed; re-review rounds: 1
+
+- Milestone: M4 Runs
+- Area: web
+- Priority: normal
+- Depends on: T-019, T-016
+- Done when:
+  - A `packages/web/feature-runs` library (scope:web, type:feature). "Start run" on a list creates a
+    run (title prefilled with the list name and date) and opens it.
+  - "New run" on the Runs page creates an empty ad-hoc run; items are typed or pasted straight in.
+  - The Runs destination shows the active runs with their progress. Finished runs appear nowhere:
+    not there, and not where runs are started (D10).
+  - A run shows its items grouped by the list they came from (merged items also say which other
+    lists they come from), with check, uncheck and skip, and a progress bar.
+  - Checked items stay in place, struck through. A toggle, remembered on the device, moves them into
+    a "Done" section while it's on (D12).
+  - Items can be added, edited and removed, and a whole list can be added — all only in this run.
+  - When everything is checked or skipped, the run disappears and the snackbar offers Undo, which
+    reverts the last check.
+  - E2E: two people checking items in the same run see each other's checks live, and both see the
+    run disappear when it's finished.
 
 ### T-019 — Run model, including ad-hoc runs
 

@@ -34,6 +34,7 @@
   </mat-menu>
 </div>
 
+@if (v.items.length > 0) {
 <div class="progress">
   <mat-progress-bar
     mode="determinate"
@@ -49,8 +50,7 @@
   (change)="doneSection.set($event.checked)"
   >Move checked items to “Done”</mat-slide-toggle
 >
-
-@if (v.items.length === 0) {
+} @else {
 <p class="hint">No items yet. Type them below, or add a list.</p>
 } @for (section of v.layout.sections; track section.key) {
 <section class="section" [attr.aria-label]="section.title ?? 'Items'">
@@ -151,7 +151,7 @@
   </button>
 </form>
 <button
-  matButton
+  matButton="tonal"
   type="button"
   class="add-list"
   [disabled]="!v.listsReady"

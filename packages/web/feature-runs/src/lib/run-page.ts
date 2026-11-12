@@ -243,11 +243,15 @@ export class RunPage {
       items.filter((i) => i.id !== item.id),
     );
     if (finishes) this.finishedHere = true;
-    const applied = await this.changes.withUndo(
-      change,
-      `Removed “${item.title}”`,
-      { name: 'runItem.restore', args: { id: item.id } },
-    );
+    const view = this.view();
+    const message =
+      finishes && view.kind === 'ready'
+        ? `Removed “${item.title}”: “${view.run.title}” is finished`
+        : `Removed “${item.title}”`;
+    const applied = await this.changes.withUndo(change, message, {
+      name: 'runItem.restore',
+      args: { id: item.id },
+    });
     if (finishes && !applied) this.finishedHere = false;
   }
 

@@ -128,7 +128,7 @@ for (const [device, viewport] of [
       await expect(
         page.getByRole('heading', { level: 1, name: title }),
       ).toBeVisible();
-      await expect(page.getByText('No items yet')).toHaveCount(2);
+      await expect(page.getByText('No items yet')).toHaveCount(1);
 
       await addItem(page, 'Milk');
       await pasteItems(page, ['Bread', 'milk']);

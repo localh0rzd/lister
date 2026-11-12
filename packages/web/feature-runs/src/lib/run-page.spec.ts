@@ -386,6 +386,122 @@ describe('RunPage', () => {
     ]);
   });
 
+  it('skips an item and takes the skip back, by setting its state', async () => {
+    const tent = runItem('Tent', 'a0');
+    const stove = runItem('Stove', 'a1', { state: 'skipped' });
+    await db.runItems.bulkPut([tent, stove, runItem('Milk', 'a2')]);
+    const page = await render();
+    const component = page.fixture.componentInstance as unknown as {
+      setState(item: RunItem, state: string): Promise<void>;
+    };
+    await component.setState(tent, 'skipped');
+    await component.setState(stove, 'unchecked');
+
+    expect(requests.map((r) => [r.name, r.args])).toEqual([
+      ['runItem.setState', { id: tent.id, state: 'skipped' }],
+      ['runItem.setState', { id: stove.id, state: 'unchecked' }],
+    ]);
+  });
+
+  it('edits an item of this run only, and says so for an item from a list', async () => {
+    const tent = runItem('Tent', 'a0', { sources: [camping.id] });
+    await db.runItems.put(tent);
+    const page = await render();
+    dialogAnswer = { title: 'Big tent', quantity: '1' };
+    await (
+      page.fixture.componentInstance as unknown as {
+        edit(item: RunItem): Promise<void>;
+      }
+    ).edit(tent);
+
+    expect(TestBed.inject(MatDialog).open).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        data: expect.objectContaining({ notice: 'Changes this run only' }),
+      }),
+    );
+    expect(requests).toEqual([
+      {
+        spaceId: SPACE,
+        name: 'runItem.update',
+        args: { id: tent.id, patch: { title: 'Big tent', quantity: '1' } },
+      },
+    ]);
+  });
+
+  it('renames the run', async () => {
+    const page = await render();
+    dialogAnswer = 'Dolomites';
+    await (
+      page.fixture.componentInstance as unknown as { rename(): Promise<void> }
+    ).rename();
+
+    expect(requests).toEqual([
+      {
+        spaceId: SPACE,
+        name: 'run.update',
+        args: { id: alps.id, patch: { title: 'Dolomites' } },
+      },
+    ]);
+  });
+
+  it('adds nothing from a paste with a line over 200 characters, and says which line', async () => {
+    const page = await render();
+    const input = page.element.querySelector(
+      'input:not([type])',
+    ) as HTMLInputElement;
+    const paste = new Event('paste', { cancelable: true }) as ClipboardEvent;
+    Object.defineProperty(paste, 'clipboardData', {
+      value: { getData: () => `Bread\n${'x'.repeat(201)}` },
+    });
+    input.dispatchEvent(paste);
+
+    await page.settle(() =>
+      expect(notify).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: expect.stringMatching(/^Nothing added: line 2 — /),
+        }),
+      ),
+    );
+    expect(requests).toEqual([]);
+  });
+
+  it('says the run is finished when removing its last unchecked item, and goes back without a second notice', async () => {
+    const tent = runItem('Tent', 'a0');
+    await db.runItems.bulkPut([
+      tent,
+      runItem('Stove', 'a1', { state: 'checked' }),
+    ]);
+    const page = await render();
+    await (
+      page.fixture.componentInstance as unknown as {
+        remove(item: RunItem): Promise<void>;
+      }
+    ).remove(tent);
+    expect(requests.map((r) => r.name)).toEqual(['runItem.remove']);
+    expect(notify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Removed “Tent”: “Alps” is finished',
+        action: 'Undo',
+      }),
+    );
+    await db.runs.put({ ...alps, finishedAt: 5 });
+
+    await page.settle(() =>
+      expect(page.navigate).toHaveBeenCalledWith(['/runs']),
+    );
+    expect(notify).not.toHaveBeenCalledWith(
+      expect.objectContaining({ message: '“Alps” is finished' }),
+    );
+  });
+
+  it('shows no progress or Done toggle while the run has no items', async () => {
+    const page = await render();
+    expect(page.element.querySelector('mat-progress-bar')).toBeNull();
+    expect(page.element.querySelector('mat-slide-toggle')).toBeNull();
+    expect(page.element.textContent).toContain('No items yet. Type them below');
+  });
+
   it('says when the run does not exist here', async () => {
     await db.runs.delete(alps.id);
     const page = await render();

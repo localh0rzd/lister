@@ -30,9 +30,7 @@
   font: var(--mat-sys-body-large);
   color: inherit;
   text-decoration: none;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 
   &::after {
     content: '';
