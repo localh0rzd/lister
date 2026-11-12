@@ -23,18 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-021 — Save a run as a list
-
-- Milestone: M4 Runs
-- Area: web
-- Priority: normal
-- Depends on: T-020
-- Done when:
-  - "Save as list" in a run's menu creates a new reusable list with copies of the run's items, in
-    order. The run itself is unchanged.
-  - The app never suggests it (not when a run finishes, not for ad-hoc runs) and never requires it
-    (D13).
-
 ## Backlog
 
 ### T-022 — Accounts, sessions and the admin role
@@ -264,6 +252,20 @@ nosniff`, `Referrer-Policy`, `frame-ancestors` in the CSP, and `app.disable('x-p
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
 
 ## Done
+
+### T-021 — Save a run as a list
+
+- Completed: 2026-11-12 — "Save as list" in the run menu via the new atomic `run.saveAsList` mutation (sync-protocol, sync engine, feature-runs run page), design §2.2
+- Review: Changes requested; 3 fixed (2 substantive, 1 trivial), 0 skipped, 0 disagreed; re-review rounds: 1
+- Milestone: M4 Runs
+- Area: web
+- Priority: normal
+- Depends on: T-020
+- Done when:
+  - "Save as list" in a run's menu creates a new reusable list with copies of the run's items, in
+    order. The run itself is unchanged.
+  - The app never suggests it (not when a run finishes, not for ad-hoc runs) and never requires it
+    (D13).
 
 ### T-020 — Runs UI
 

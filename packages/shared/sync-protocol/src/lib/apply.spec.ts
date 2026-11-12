@@ -1180,5 +1180,20 @@ describe('run.saveAsList', () => {
     expect(
       apply(s.store, 'run.saveAsList', { ...first, listId: newId() }),
     ).toEqual({ kind: 'rejected', reason: 'This item already exists' });
+
+    const twice = newId();
+    const lists = s.store.lists.size;
+    expect(
+      apply(s.store, 'run.saveAsList', {
+        runId: s.runId,
+        listId: newId(),
+        title: 'B',
+        items: [
+          { from: s.tent, id: twice },
+          { from: s.milk, id: twice },
+        ],
+      }),
+    ).toEqual({ kind: 'rejected', reason: 'This item already exists' });
+    expect(s.store.lists.size).toBe(lists);
   });
 });

@@ -537,9 +537,12 @@ export function applyMutation(
       }
       const run = runHere(args.runId);
       if (!run || run.deletedAt !== null) return reject(RUN_MISSING);
-      // Everything is checked before anything is written.
+      // Everything is checked before anything is written; a new id may appear only once.
+      const seen = new Set<string>();
       for (const { id } of args.items) {
-        if (store.getItem(id)) return reject('This item already exists');
+        if (store.getItem(id) || seen.has(id))
+          return reject('This item already exists');
+        seen.add(id);
       }
       store.putList({
         ...created,
