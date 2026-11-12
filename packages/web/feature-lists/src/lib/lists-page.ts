@@ -13,6 +13,7 @@ import {
 import { CurrentSpace, Repositories } from '@lister/web/data-access-local-db';
 import { TitleDialog, type TitleDialogData, LoadingHint } from '@lister/web/ui';
 import { SpaceChanges } from '@lister/web/data-access-sync';
+import { RunStarter } from '@lister/web/feature-runs';
 import { NOTICE_DURATION_MS, Notifier } from '@lister/web/util-notify';
 import { firstValueFrom } from 'rxjs';
 
@@ -49,6 +50,7 @@ export class ListsPage {
   private readonly dialog = inject(MatDialog);
   private readonly notifier = inject(Notifier);
   private readonly router = inject(Router);
+  private readonly starter = inject(RunStarter);
 
   private readonly lists = this.repositories.listsOfSpace(this.space.id);
   private readonly composition = this.repositories.compositionOfSpace(
@@ -93,6 +95,16 @@ export class ListsPage {
         name: 'list.create',
         args: { id: newId(), title },
       });
+  }
+
+  /** "Start run" from a list's menu: copies its items (included lists' too) and opens the run. */
+  protected startRun(list: List): Promise<void> {
+    const composition = this.composition();
+    if (composition.status !== 'ready') {
+      this.changes.tell("Can't start a run right now: try again in a moment");
+      return Promise.resolve();
+    }
+    return this.starter.fromList(list, composition.value);
   }
 
   protected async rename(list: List): Promise<void> {

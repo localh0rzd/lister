@@ -37,6 +37,10 @@
       <mat-icon>more_vert</mat-icon>
     </button>
     <mat-menu #menu="matMenu">
+      <button mat-menu-item type="button" (click)="startRun(entry.list)">
+        <mat-icon>play_arrow</mat-icon>
+        <span>Start run</span>
+      </button>
       <button mat-menu-item type="button" (click)="rename(entry.list)">
         <mat-icon>edit</mat-icon>
         <span>Rename</span>

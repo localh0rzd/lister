@@ -1,6 +1,6 @@
 import { By, Title } from '@angular/platform-browser';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { CdkDropList } from '@angular/cdk/drag-drop';
 import { MatDialog } from '@angular/material/dialog';
@@ -172,6 +172,40 @@ describe('ListEditorPage', () => {
     await new Promise((resolve) => setTimeout(resolve));
 
     expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it('starts a run with a copy of the list from "Start run" and opens it', async () => {
+    await db.items.bulkPut([item('Tent', 'a0'), item('Stove', 'a1')]);
+    const page = await render();
+    const navigate = vi
+      .spyOn(TestBed.inject(Router), 'navigate')
+      .mockResolvedValue(true);
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(page.titles()).toEqual(['Tent', 'Stove']);
+    });
+
+    (
+      [...page.element.querySelectorAll('button')].find((b) =>
+        b.textContent?.includes('Start run'),
+      ) as HTMLButtonElement
+    ).click();
+
+    await vi.waitFor(() => expect(requests).toHaveLength(1));
+    const [request] = requests;
+    expect(request).toMatchObject({
+      name: 'run.start',
+      args: {
+        sourceListId: camping.id,
+        items: [{ title: 'Tent' }, { title: 'Stove' }],
+      },
+    });
+    await vi.waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith([
+        '/runs',
+        request.name === 'run.start' ? request.args.id : '',
+      ]),
+    );
   });
 
   it('adds one item per pasted line, in order', async () => {

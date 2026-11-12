@@ -208,6 +208,51 @@ describe('ListsPage', () => {
     expect(mutate).not.toHaveBeenCalled();
   });
 
+  it('starts a run from the list menu with its items, those of included lists too, and opens it', async () => {
+    const camping = list('Camping');
+    const basics = list('Basics');
+    const tent = { ...item(camping.id), title: 'Tent', position: 'a0' };
+    const lamp = { ...item(basics.id), title: 'Lamp', quantity: '2' };
+    const include: Include = {
+      ...meta,
+      id: newId(),
+      parentListId: camping.id,
+      childListId: basics.id,
+      position: 'a1',
+    };
+    await db.lists.bulkPut([camping, basics]);
+    await db.items.bulkPut([tent, lamp]);
+    await db.includes.put(include);
+    const { loader, settle } = await render();
+    await settle();
+    const navigate = vi
+      .spyOn(TestBed.inject(Router), 'navigate')
+      .mockResolvedValue(true);
+
+    const menu = await loader.getHarness(
+      MatMenuHarness.with({ selector: '[aria-label="More for Camping"]' }),
+    );
+    await menu.clickItem({ text: /Start run/ });
+
+    await vi.waitFor(() => expect(mutate).toHaveBeenCalled());
+    const [request] = mutate.mock.calls[0];
+    expect(request).toMatchObject({
+      spaceId: SPACE,
+      name: 'run.start',
+      args: {
+        title: expect.stringMatching(/^Camping · \d{1,2} \w{3} \d{4}$/),
+        sourceListId: camping.id,
+        items: [
+          { title: 'Tent', quantity: '', sources: [camping.id] },
+          { title: 'Lamp', quantity: '2', sources: [basics.id] },
+        ],
+      },
+    });
+    await vi.waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith(['/runs', request.args.id]),
+    );
+  });
+
   it('renames a list from its menu', async () => {
     const camping = list('Camping');
     await db.lists.put(camping);

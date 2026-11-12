@@ -5,6 +5,7 @@ import {
   wouldCreateCycle,
 } from './composition';
 import type { Include, Item, List } from './entities';
+import { runItemsFromList } from './runs';
 
 const meta = {
   spaceId: 'space',
@@ -272,5 +273,30 @@ describe('wouldCreateCycle', () => {
   it('terminates on a graph that already has a cycle', () => {
     const graph = includesOf(['A>B@a0', 'B>A@a0']);
     expect(wouldCreateCycle('C', 'A', graph)).toBe(false);
+  });
+});
+
+describe('runItemsFromList (what a run copies)', () => {
+  const source = space({
+    lists: ['trip', 'camp', 'basic'],
+    items: ['trip:Tent@a1', 'camp:Stove@a0', 'basic:Lamp@a0', 'trip:Gone@a3'],
+    includes: ['trip>camp@a2', 'camp>basic@a1', 'trip>basic@a4'],
+    deletedRows: ['Gone'],
+  });
+
+  it('copies the flattened items in order, each with its own list as source and a new id', () => {
+    let n = 0;
+    const items = runItemsFromList('trip', source, () => `id-${++n}`);
+    expect(items).toEqual([
+      { id: 'id-1', title: 'Tent', quantity: '', note: '', sources: ['trip'] },
+      { id: 'id-2', title: 'Stove', quantity: '', note: '', sources: ['camp'] },
+      { id: 'id-3', title: 'Lamp', quantity: '', note: '', sources: ['basic'] },
+    ]);
+  });
+
+  it('copies nothing from an empty list', () => {
+    expect(
+      runItemsFromList('basic', space({ lists: ['basic'] }), () => 'x'),
+    ).toEqual([]);
   });
 });

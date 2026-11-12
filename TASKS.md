@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-020 — Runs UI
 
 - Milestone: M4 Runs
@@ -46,6 +44,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
     reverts the last check.
   - E2E: two people checking items in the same run see each other's checks live, and both see the
     run disappear when it's finished.
+
+## Backlog
 
 ### T-021 — Save a run as a list
 

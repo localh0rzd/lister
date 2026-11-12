@@ -1,4 +1,5 @@
 import type { Id, RunItem } from './entities';
+import { type CompositionSource, flatten } from './composition';
 import { LIMITS } from './limits';
 
 /** Titles that count as the same item (D16): ignoring case and surrounding spaces. */
@@ -85,4 +86,32 @@ export function isRunFinished(
 ): boolean {
   const live = items.filter((item) => item.deletedAt === null);
   return live.length > 0 && live.every((item) => item.state !== 'unchecked');
+}
+
+/** An item about to enter a run, as `run.start` and `run.addItems` carry it. */
+export interface NewRunItem {
+  id: Id;
+  title: string;
+  quantity: string;
+  note: string;
+  sources: Id[];
+}
+
+/**
+ * A list's items, included lists' too, as they enter a run (design §3): flattened, in order,
+ * each with the list it belongs to as its source, and a new id from `newId`. Merging identical
+ * items is the run rule's job (D16), so nothing is merged here.
+ */
+export function runItemsFromList(
+  listId: Id,
+  source: CompositionSource,
+  newId: () => Id,
+): NewRunItem[] {
+  return flatten(listId, source).map(({ item, listId: from }) => ({
+    id: newId(),
+    title: item.title,
+    quantity: item.quantity,
+    note: item.note,
+    sources: [from],
+  }));
 }

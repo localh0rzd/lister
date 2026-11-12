@@ -5,6 +5,8 @@ import {
   type Include,
   type Item,
   type List,
+  type Run,
+  type RunItem,
   sortByPosition,
 } from '@lister/shared/domain';
 import { LOCAL_DB } from './local-db';
@@ -24,6 +26,14 @@ export type TrashEntry =
       deletedItemCount: number;
     }
   | { kind: 'item'; row: Item; listTitle: string };
+
+/** An active run with its progress, as the Runs page shows it. */
+export interface RunSummary {
+  run: Run;
+  /** Items checked or skipped. */
+  done: number;
+  total: number;
+}
 
 /** A space's lists, items and includes (tombstones included), for flattening and loop checks. */
 export interface SpaceComposition extends CompositionSource {
@@ -189,6 +199,61 @@ export class Repositories {
             (a.row.id < b.row.id ? -1 : 1),
         );
       };
+    });
+  }
+
+  /**
+   * The space's active runs, newest first, with their progress. Finished and deleted runs are
+   * left out: they appear nowhere (D10).
+   */
+  activeRunsOfSpace(
+    spaceId: () => string | undefined,
+  ): Signal<QueryState<RunSummary[]>> {
+    return liveQuerySignal(() => {
+      const id = spaceId();
+      if (!id) return undefined;
+      return async () => {
+        const runs = (await this.db.runs.where('spaceId').equals(id).toArray())
+          .filter((run) => run.deletedAt === null && run.finishedAt === null)
+          .sort((a, b) => b.createdAt - a.createdAt || (a.id < b.id ? 1 : -1));
+        const items = await this.db.runItems
+          .where('runId')
+          .anyOf(runs.map((run) => run.id))
+          .toArray();
+        return runs.map((run) => {
+          const live = items.filter(
+            (item) => item.runId === run.id && item.deletedAt === null,
+          );
+          return {
+            run,
+            done: live.filter((item) => item.state !== 'unchecked').length,
+            total: live.length,
+          };
+        });
+      };
+    });
+  }
+
+  /** One run by id, finished or not (`undefined` if it doesn't exist here). */
+  run(runId: () => string | undefined): Signal<QueryState<Run | undefined>> {
+    return liveQuerySignal(() => {
+      const id = runId();
+      if (!id) return undefined;
+      return () => this.db.runs.get(id);
+    });
+  }
+
+  /** The items of a run, by position, without removed ones (merged-away aliases are removed rows, so they're left out too). */
+  itemsOfRun(runId: () => string | undefined): Signal<QueryState<RunItem[]>> {
+    return liveQuerySignal(() => {
+      const id = runId();
+      if (!id) return undefined;
+      return async () =>
+        sortByPosition(
+          (await this.db.runItems.where('runId').equals(id).toArray()).filter(
+            (item) => item.deletedAt === null,
+          ),
+        );
     });
   }
 

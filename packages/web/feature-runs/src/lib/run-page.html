@@ -1,0 +1,163 @@
+<a class="back" routerLink="/runs">
+  <mat-icon aria-hidden="true">arrow_back</mat-icon>
+  All runs
+</a>
+
+@let v = view(); @if (v.kind === 'loading' || v.kind === 'finished') {
+<lister-loading-hint />
+} @else if (v.kind === 'error') {
+<p class="hint" role="alert">
+  Lister can't open its storage on this device. Check that the browser allows
+  site data, then reload.
+</p>
+} @else if (v.kind === 'missing') {
+<h1>Run not found</h1>
+<p class="hint">
+  This run doesn't exist on this device. It may not have synced yet.
+</p>
+} @else {
+<div class="header">
+  <h1>{{ v.run.title }}</h1>
+  <button
+    matIconButton
+    type="button"
+    [matMenuTriggerFor]="runMenu"
+    aria-label="More for this run"
+  >
+    <mat-icon>more_vert</mat-icon>
+  </button>
+  <mat-menu #runMenu="matMenu">
+    <button mat-menu-item type="button" (click)="rename()">
+      <mat-icon>edit</mat-icon>
+      <span>Rename</span>
+    </button>
+  </mat-menu>
+</div>
+
+<div class="progress">
+  <mat-progress-bar
+    mode="determinate"
+    [value]="v.percent"
+    aria-label="Progress"
+  />
+  <span class="hint">{{ v.progress }}</span>
+</div>
+
+<mat-slide-toggle
+  class="done-toggle"
+  [checked]="doneSection.on()"
+  (change)="doneSection.set($event.checked)"
+  >Move checked items to “Done”</mat-slide-toggle
+>
+
+@if (v.items.length === 0) {
+<p class="hint">No items yet. Type them below, or add a list.</p>
+} @for (section of v.layout.sections; track section.key) {
+<section class="section" [attr.aria-label]="section.title ?? 'Items'">
+  @if (section.title) {
+  <h2 class="section-title">{{ section.title }}</h2>
+  }
+  <ul
+    class="items"
+    [attr.aria-label]="'Items of ' + (section.title ?? 'this run')"
+  >
+    @for (row of section.rows; track row.item.id) {
+    <ng-container
+      *ngTemplateOutlet="rowTemplate; context: { $implicit: row }"
+    />
+    }
+  </ul>
+</section>
+} @if (v.layout.done.length > 0) {
+<section class="section" aria-label="Done">
+  <h2 class="section-title">Done</h2>
+  <ul class="items" aria-label="Items of Done">
+    @for (row of v.layout.done; track row.item.id) {
+    <ng-container
+      *ngTemplateOutlet="rowTemplate; context: { $implicit: row }"
+    />
+    }
+  </ul>
+</section>
+}
+
+<ng-template #rowTemplate let-row>
+  @let item = row.item;
+  <li
+    class="item"
+    [class.checked]="item.state === 'checked'"
+    [class.skipped]="item.state === 'skipped'"
+  >
+    <mat-checkbox
+      class="check"
+      [checked]="item.state === 'checked'"
+      (change)="check(item, $event.checked)"
+    >
+      <span class="text">
+        <span class="title">{{ item.title }}</span>
+        @if (item.state === 'skipped') {
+        <span class="note">Skipped</span>
+        } @if (item.note) {
+        <span class="note">{{ item.note }}</span>
+        } @if (row.alsoFrom.length > 0) {
+        <span class="note">Also from {{ row.alsoFrom.join(', ') }}</span>
+        }
+      </span>
+    </mat-checkbox>
+    @if (item.quantity) {
+    <span class="quantity" [attr.aria-label]="'Quantity ' + item.quantity">
+      {{ item.quantity }}
+    </span>
+    }
+    <button
+      matIconButton
+      type="button"
+      [matMenuTriggerFor]="menu"
+      [attr.aria-label]="'More for ' + item.title"
+    >
+      <mat-icon>more_vert</mat-icon>
+    </button>
+    <mat-menu #menu="matMenu">
+      @if (item.state === 'skipped') {
+      <button mat-menu-item type="button" (click)="setState(item, 'unchecked')">
+        <mat-icon>undo</mat-icon>
+        <span>Don't skip</span>
+      </button>
+      } @else {
+      <button mat-menu-item type="button" (click)="setState(item, 'skipped')">
+        <mat-icon>redo</mat-icon>
+        <span>Skip</span>
+      </button>
+      }
+      <button mat-menu-item type="button" (click)="edit(item)">
+        <mat-icon>edit</mat-icon>
+        <span>Edit</span>
+      </button>
+      <button mat-menu-item type="button" (click)="remove(item)">
+        <mat-icon>delete</mat-icon>
+        <span>Remove</span>
+      </button>
+    </mat-menu>
+  </li>
+</ng-template>
+
+<form class="add" novalidate (submit)="add($event)">
+  <mat-form-field class="add-field" subscriptSizing="dynamic">
+    <mat-label>Add item</mat-label>
+    <input matInput [formField]="addForm.title" (paste)="paste($event)" />
+  </mat-form-field>
+  <button matIconButton type="submit" aria-label="Add">
+    <mat-icon>add</mat-icon>
+  </button>
+</form>
+<button
+  matButton
+  type="button"
+  class="add-list"
+  [disabled]="!v.listsReady"
+  (click)="addList()"
+>
+  <mat-icon>playlist_add</mat-icon>
+  Add list
+</button>
+}

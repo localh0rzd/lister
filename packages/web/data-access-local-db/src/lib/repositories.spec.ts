@@ -4,6 +4,8 @@ import {
   type Include,
   type Item,
   type List,
+  type Run,
+  type RunItem,
   flatten,
   newId,
 } from '@lister/shared/domain';
@@ -431,5 +433,95 @@ describe('Repositories.currentUserId', () => {
       TestBed.tick();
       expect(valueOf(userId())).toBe('u-1');
     });
+  });
+});
+
+const run = (title: string, extra: Partial<Run> = {}): Run => ({
+  ...meta(),
+  id: newId(),
+  title,
+  sourceListId: null,
+  finishedAt: null,
+  ...extra,
+});
+const runItem = (
+  runId: string,
+  title: string,
+  position: string,
+  extra: Partial<RunItem> = {},
+): RunItem => ({
+  ...meta(),
+  id: newId(),
+  runId,
+  title,
+  quantity: '',
+  note: '',
+  position,
+  sources: [],
+  state: 'unchecked',
+  stateBy: null,
+  stateAt: null,
+  mergedInto: null,
+  ...extra,
+});
+
+describe('Repositories.activeRunsOfSpace', () => {
+  it('lists active runs newest first with progress, never finished, deleted or other spaces’ runs', async () => {
+    const older = run('Older', { createdAt: 1 });
+    const newer = run('Newer', { createdAt: 2 });
+    await db.runs.bulkPut([
+      older,
+      newer,
+      run('Finished', { createdAt: 3, finishedAt: 3 }),
+      run('Deleted', { createdAt: 4, deletedAt: 4 }),
+      run('Elsewhere', { ...meta(OTHER_SPACE), createdAt: 5 }),
+    ]);
+    await db.runItems.bulkPut([
+      runItem(older.id, 'A', 'a0', { state: 'checked' }),
+      runItem(older.id, 'B', 'a1', { state: 'skipped' }),
+      runItem(older.id, 'C', 'a2'),
+      runItem(older.id, 'Removed', 'a3', { deletedAt: 1, state: 'checked' }),
+    ]);
+    const runs = TestBed.runInInjectionContext(() =>
+      repositories.activeRunsOfSpace(() => SPACE),
+    );
+    await expectEventually(runs, [
+      { run: newer, done: 0, total: 0 },
+      { run: older, done: 2, total: 3 },
+    ]);
+  });
+
+  it('drops a run once it finishes', async () => {
+    const alps = run('Alps');
+    await db.runs.put(alps);
+    const runs = TestBed.runInInjectionContext(() =>
+      repositories.activeRunsOfSpace(() => SPACE),
+    );
+    await expectEventually(runs, [{ run: alps, done: 0, total: 0 }]);
+    await db.runs.put({ ...alps, finishedAt: 9 });
+    await expectEventually(runs, []);
+  });
+});
+
+describe('Repositories.run and itemsOfRun', () => {
+  it('finds a run and its live items by position', async () => {
+    const alps = run('Alps');
+    const tent = runItem(alps.id, 'Tent', 'a1');
+    const stove = runItem(alps.id, 'Stove', 'a0');
+    await db.runs.put(alps);
+    await db.runItems.bulkPut([
+      tent,
+      stove,
+      runItem(alps.id, 'Gone', 'a2', { deletedAt: 1 }),
+      runItem(newId(), 'Other run', 'a0'),
+    ]);
+    const found = TestBed.runInInjectionContext(() =>
+      repositories.run(() => alps.id),
+    );
+    const items = TestBed.runInInjectionContext(() =>
+      repositories.itemsOfRun(() => alps.id),
+    );
+    await expectEventually(found, alps);
+    await expectEventually(items, [stove, tent]);
   });
 });

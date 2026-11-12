@@ -19,7 +19,13 @@
 <h1>{{ v.list.title }}</h1>
 <p class="hint">This list was deleted.</p>
 } @else {
-<h1>{{ v.list.title }}</h1>
+<div class="header">
+  <h1>{{ v.list.title }}</h1>
+  <button matButton="tonal" type="button" (click)="startRun()">
+    <mat-icon>play_arrow</mat-icon>
+    Start run
+  </button>
+</div>
 
 @if (v.rows.length === 0) {
 <p class="hint">No items yet. Add the first one below, or add a list.</p>

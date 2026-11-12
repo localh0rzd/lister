@@ -1,0 +1,42 @@
+<h1 class="page-title">Runs</h1>
+
+@let v = view(); @if (v.kind === 'loading') {
+<lister-loading-hint />
+} @else if (v.kind === 'error') {
+<p class="hint" role="alert">
+  Lister can't open its storage on this device. Check that the browser allows
+  site data, then reload.
+</p>
+} @else if (v.kind === 'no-space') {
+<p class="hint">
+  Your runs appear here once Lister has connected to the server.
+</p>
+} @else if (v.runs.length === 0) {
+<div class="empty">
+  <mat-icon class="empty-icon" aria-hidden="true">checklist_rtl</mat-icon>
+  <p class="empty-title">No active runs</p>
+  <p class="hint">
+    Start one with “Start run” on a list, or with “New run” for a one-off
+    checklist.
+  </p>
+</div>
+} @else {
+<ul class="runs" aria-label="Runs">
+  @for (entry of v.runs; track entry.run.id) {
+  <li class="row">
+    <a class="title" [routerLink]="entry.run.id">{{ entry.run.title }}</a>
+    <mat-progress-bar
+      mode="determinate"
+      [value]="entry.percent"
+      [attr.aria-label]="'Progress of ' + entry.run.title"
+    />
+    <span class="hint">{{ entry.text }}</span>
+  </li>
+  }
+</ul>
+} @if (v.kind === 'runs') {
+<button matFab extended class="fab" type="button" (click)="create()">
+  <mat-icon>add</mat-icon>
+  New run
+</button>
+}

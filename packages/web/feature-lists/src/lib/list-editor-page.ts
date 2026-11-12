@@ -51,6 +51,7 @@ import {
   LoadingHint,
 } from '@lister/web/ui';
 import { SpaceChanges } from '@lister/web/data-access-sync';
+import { RunStarter } from '@lister/web/feature-runs';
 import { firstValueFrom } from 'rxjs';
 
 /** A row of the list itself: one of its own items, or an included list (a section). */
@@ -128,6 +129,7 @@ export class ListEditorPage {
   private readonly repositories = inject(Repositories);
   private readonly changes = inject(SpaceChanges);
   private readonly dialog = inject(MatDialog);
+  private readonly starter = inject(RunStarter);
 
   private readonly list = this.repositories.list(this.listId);
   private readonly spaceId = computed(() => {
@@ -263,6 +265,13 @@ export class ListEditorPage {
       if (trigger && trigger.ownerDocument.activeElement !== trigger)
         trigger.focus();
     });
+  }
+
+  /** "Start run": a run with a copy of this list's items, included lists' too (D2), opened. */
+  protected startRun(): Promise<void> {
+    const view = this.view();
+    if (view.kind !== 'ready') return Promise.resolve();
+    return this.starter.fromList(view.list, view.space);
   }
 
   /** Adds the typed item (Enter or the + button). */
