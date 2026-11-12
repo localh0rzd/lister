@@ -5,6 +5,32 @@
     <title>Lister</title>
     <base href="/" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- M3 surface colours of the theme; Theme (@lister/web/util-theme) keeps them in sync. -->
+    <meta
+      name="theme-color"
+      media="(prefers-color-scheme: light)"
+      content="#f6faf8"
+    />
+    <meta
+      name="theme-color"
+      media="(prefers-color-scheme: dark)"
+      content="#101413"
+    />
+    <script>
+      // Apply a remembered light/dark choice before the app starts, so the page never flashes
+      // in the other scheme. Same key and colours as Theme in @lister/web/util-theme.
+      try {
+        var theme = localStorage.getItem('lister.theme');
+        if (theme === 'light' || theme === 'dark') {
+          document.documentElement.dataset.theme = theme;
+          document
+            .querySelectorAll('meta[name="theme-color"]')
+            .forEach(function (meta) {
+              meta.content = theme === 'dark' ? '#101413' : '#f6faf8';
+            });
+        }
+      } catch (e) {}
+    </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
   </head>
   <body>

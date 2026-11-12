@@ -1,0 +1,10 @@
+{
+  "name": "web-util-theme",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/web/util-theme/src",
+  "prefix": "lister",
+  "projectType": "library",
+  "tags": ["scope:web", "type:util"],
+  "// targets": "to see all targets run: nx show project web-util-theme --web",
+  "targets": {}
+}

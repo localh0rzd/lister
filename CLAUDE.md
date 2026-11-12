@@ -11,12 +11,12 @@ Nx monorepo: **Angular** web app + **NestJS** API, sharing TypeScript libraries.
 ## Stack (installed versions — check `package.json` before assuming APIs)
 
 - Nx 24 (integrated layout: `project.json` + `tsconfig.base.json` paths, one root `package.json`)
-- Angular 22: standalone, zoneless, signals, esbuild (`@angular/build`), Vitest via `@angular/build:unit-test`
+- Angular 22: standalone, zoneless, signals, esbuild (`@angular/build`), Vitest via `@angular/build:unit-test` (libraries: Vitest with the Analog Angular plugin); Angular Material 22 + CDK, Roboto and Material Symbols from npm
 - NestJS 11 on Express 5, bundled with webpack (`@nx/webpack`)
 - **Vitest for every unit, integration and API e2e test** (no Jest anywhere), Playwright for web e2e
 - TypeScript 6, ESLint 9 flat config, Prettier
 - Node from `.nvmrc` (managed with fnm), npm as package manager. `.npmrc` sets `legacy-peer-deps=false` and `strict-peer-deps=true`: installs fail on peer conflicts
-- Planned, each added by its task (don't swap in alternatives; reasons in docs/design.md §4): Angular Material 22 + CDK, `@angular/service-worker`, Dexie 4, Socket.IO 4 (`@nestjs/platform-socket.io` 11.x), Drizzle 0.45 + `better-sqlite3` 13, Zod 4, `fractional-indexing`, `uuid` (v7), `@simplewebauthn/server` + `@simplewebauthn/browser` 14
+- Planned, each added by its task (don't swap in alternatives; reasons in docs/design.md §4): `@angular/service-worker`, Dexie 4, Socket.IO 4 (`@nestjs/platform-socket.io` 11.x), Drizzle 0.45 + `better-sqlite3` 13, Zod 4, `fractional-indexing`, `uuid` (v7), `@simplewebauthn/server` + `@simplewebauthn/browser` 14
 
 ## Layout
 
@@ -28,6 +28,8 @@ apps/
   lister-api-e2e/      Vitest + axios e2e     (scope:api,  type:e2e)
 packages/
   shared/api-contracts/  DTO types + route helpers, @lister/shared/api-contracts (scope:shared, type:util)
+  web/ui/                presentational components, @lister/web/ui (scope:web, type:ui)
+  web/util-theme/        theme preference + theme-color, @lister/web/util-theme (scope:web, type:util)
 ```
 
 New libraries go in `packages/<scope>/<name>`, where scope is `web`, `api` or `shared`, with import path `@lister/<scope>/<name>`.

@@ -1,9 +1,13 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { httpResource } from '@angular/common/http';
 import { apiPath, type HealthResponse } from '@lister/shared/api-contracts';
+import { ThemePicker } from '@lister/web/ui';
+import { Theme } from '@lister/web/util-theme';
 
+// Placeholder start page. T-002 moves the API status and the appearance setting to Space.
 @Component({
   selector: 'lister-home',
+  imports: [ThemePicker],
   template: `
     <p>
       API status:
@@ -15,17 +19,29 @@ import { apiPath, type HealthResponse } from '@lister/shared/api-contracts';
         <span class="ok">{{ health.value().status }}</span>
       }
     </p>
+
+    <section aria-labelledby="appearance-heading">
+      <h2 id="appearance-heading">Appearance</h2>
+      <lister-theme-picker
+        [value]="theme.preference()"
+        (valueChange)="theme.setPreference($event)"
+      />
+    </section>
   `,
   styles: `
     .ok {
-      color: green;
+      color: var(--mat-sys-primary);
     }
     .down {
-      color: crimson;
+      color: var(--mat-sys-error);
+    }
+    h2 {
+      font: var(--mat-sys-title-medium);
     }
   `,
 })
 export class Home {
+  protected readonly theme = inject(Theme);
   protected readonly health = httpResource<HealthResponse>(() =>
     apiPath('health'),
   );

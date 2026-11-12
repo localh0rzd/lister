@@ -123,7 +123,11 @@ What's required is in the `testing` skill: unit tests for everything, plus a Pla
 path for every user-facing change. How to write them:
 
 - **Running:** Vitest through `npx nx test lister-web`, or the library's project name. Each spec
-  sits next to its file.
+  sits next to its file. The app runs Vitest through `@angular/build:unit-test`; libraries run it
+  through the Analog Angular plugin (their `vite.config.mts`).
+- **Storage in tests:** Node 26's own experimental `localStorage` hides jsdom's in the app's test
+  runner, so `apps/lister-web/src/testing/web-storage.ts` installs an in-memory one. Code reads
+  storage through `inject(DOCUMENT).defaultView` and copes with it being blocked.
 - **Setup:**
   `TestBed.configureTestingModule({ imports: [Cmp], providers: [provideHttpClient(), provideHttpClientTesting()] })`.
 - **Inputs and effects:** set inputs with `fixture.componentRef.setInput('list', value)`, and

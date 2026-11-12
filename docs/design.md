@@ -483,6 +483,7 @@ packages/
     feature-space          spaces and members                                           scope:web type:feature
     ui                     nav bar/rail, item row, section header, sync status, dialogs scope:web type:ui
     util-pwa               SW updates, install hint, storage persistence, online signal scope:web type:util
+    util-theme             theme preference (system/light/dark), theme-color meta tags  scope:web type:util
 ```
 
 Conventions that follow from this (also in `CLAUDE.md`):

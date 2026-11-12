@@ -70,7 +70,7 @@
     },
     "@nx/angular:library": {
       "linter": "eslint",
-      "unitTestRunner": "vitest-angular",
+      "unitTestRunner": "vitest-analog",
       "style": "scss",
       "prefix": "lister"
     },

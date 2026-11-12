@@ -31,7 +31,7 @@ Split a feature by layer rather than building one big library:
 | `feature`     | web: routed pages and smart components; api: a Nest module with controllers, gateways and handlers | `packages/web/feature-lists`, `packages/api/feature-sync`      |
 | `ui`          | presentational components: inputs and outputs only, no data services                               | `packages/web/ui`                                              |
 | `data-access` | web: state, repositories, HTTP and socket clients; api: database access                            | `packages/web/data-access-sync`, `packages/api/data-access-db` |
-| `util`        | pure functions and types, no framework state                                                       | `packages/shared/domain`, `packages/web/util-pwa`              |
+| `util`        | pure functions and types, or small framework services that own no data (theme, PWA updates)        | `packages/shared/domain`, `packages/web/util-pwa`              |
 
 Shared code (`packages/shared/*`) is always `type:util`: plain TypeScript and Zod, with no
 Angular, Nest, Node or browser-only APIs.
@@ -63,6 +63,10 @@ npx nx g @nx/js:library packages/shared/domain --name=shared-domain --importPath
   - `npm run lint:workspace` and `npx nx lint <project>` must pass.
 - **Targets:** tests are generated with Vitest (the defaults in `nx.json`), and
   `npx nx show project <name>` lists the inferred targets.
+- **Never `--buildable`:** libraries aren't buildable. A buildable library may only depend on
+  buildable ones (`enforceBuildableLibDependency`), and the shared libraries aren't. Angular
+  libraries therefore test with `vitest-analog` (the `nx.json` default); `vitest-angular` needs
+  a buildable library.
 
 ## Public API
 

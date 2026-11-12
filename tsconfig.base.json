@@ -16,7 +16,9 @@
     "paths": {
       "@lister/shared/api-contracts": [
         "./packages/shared/api-contracts/src/index.ts"
-      ]
+      ],
+      "@lister/web/util-theme": ["./packages/web/util-theme/src/index.ts"],
+      "@lister/web/ui": ["./packages/web/ui/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

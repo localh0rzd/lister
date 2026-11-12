@@ -4,6 +4,8 @@ import {
 } from '@angular/core';
 import { provideHttpClient, withFetch } from '@angular/common/http';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
+import { MAT_ICON_DEFAULT_OPTIONS } from '@angular/material/icon';
+import { provideTheme } from '@lister/web/util-theme';
 import { appRoutes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
@@ -11,5 +13,11 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideHttpClient(withFetch()),
     provideRouter(appRoutes, withComponentInputBinding()),
+    provideTheme(),
+    // Self-hosted Material Symbols (material-symbols on npm), not the Google Fonts ligatures.
+    {
+      provide: MAT_ICON_DEFAULT_OPTIONS,
+      useValue: { fontSet: 'material-symbols-outlined' },
+    },
   ],
 };

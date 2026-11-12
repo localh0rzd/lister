@@ -21,7 +21,11 @@
             "input": "apps/lister-web/public"
           }
         ],
-        "styles": ["apps/lister-web/src/styles.scss"]
+        "styles": [
+          "node_modules/@fontsource-variable/roboto/index.css",
+          "node_modules/material-symbols/outlined.css",
+          "apps/lister-web/src/styles.scss"
+        ]
       },
       "configurations": {
         "production": {
@@ -68,7 +72,8 @@
     "test": {
       "executor": "@angular/build:unit-test",
       "options": {
-        "watch": false
+        "watch": false,
+        "setupFiles": ["apps/lister-web/src/testing/web-storage.ts"]
       }
     },
     "serve-static": {
