@@ -445,6 +445,90 @@ describe('RunPage', () => {
     ]);
   });
 
+  it('saves the run as a new list, its items in the order shown, ignoring the Done toggle, and opens it on request', async () => {
+    // Grouped as shown: Camping's section first, then the typed item after it.
+    const tent = runItem('Tent', 'a0', { sources: [camping.id] });
+    const typed = runItem('Milk', 'a1', { state: 'checked' });
+    const stove = runItem('Stove', 'a2', {
+      sources: [camping.id],
+      state: 'skipped',
+    });
+    await db.runItems.bulkPut([typed, tent, stove]);
+    notify.mockResolvedValue('action');
+    const page = await render(true);
+    await page.settle(() => expect(page.checkbox('Tent')).toBeTruthy());
+    dialogAnswer = 'Alps gear';
+    const shown = page.sections().filter((section) => section.title !== 'Done');
+    expect(shown.flatMap((section) => section.items)).toEqual(['Tent']);
+
+    await (
+      page.fixture.componentInstance as unknown as {
+        saveAsList(): Promise<void>;
+      }
+    ).saveAsList();
+
+    expect(requests).toHaveLength(1);
+    const request = requests[0] as {
+      name: string;
+      args: {
+        runId: string;
+        listId: string;
+        title: string;
+        items: { from: string }[];
+      };
+    };
+    expect(request.name).toBe('run.saveAsList');
+    expect(request.args).toMatchObject({ runId: alps.id, title: 'Alps gear' });
+    // As shown with the toggle off: by section, checked and skipped items included.
+    expect(request.args.items.map((i) => i.from)).toEqual(
+      [tent, stove, typed].map((i) => i.id),
+    );
+    expect(notify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Saved “Alps gear” as a list',
+        action: 'Open',
+      }),
+    );
+    expect(page.navigate).toHaveBeenCalledWith(['/lists', request.args.listId]);
+  });
+
+  it('saves nothing when the dialog is cancelled, and stays when the save is refused', async () => {
+    await db.runItems.put(runItem('Tent', 'a0'));
+    const page = await render();
+    const save = () =>
+      (
+        page.fixture.componentInstance as unknown as {
+          saveAsList(): Promise<void>;
+        }
+      ).saveAsList();
+
+    await save();
+    expect(requests).toEqual([]);
+
+    dialogAnswer = 'Gear';
+    refuse = true;
+    await save();
+    expect(requests).toHaveLength(1);
+    expect(notify).not.toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'Open' }),
+    );
+    expect(page.navigate).not.toHaveBeenCalled();
+  });
+
+  it('offers "Save as list" only in the run menu, never as a suggestion when a run finishes', async () => {
+    const tent = runItem('Tent', 'a0');
+    await db.runItems.put(tent);
+    const page = await render();
+    await page.settle(() => expect(page.checkbox('Tent')).toBeTruthy());
+    expect(page.element.textContent).not.toContain('Save as list');
+
+    page.checkbox('Tent').click();
+
+    await page.settle(() => expect(notify).toHaveBeenCalled());
+    for (const [notice] of notify.mock.calls)
+      expect(JSON.stringify(notice)).not.toMatch(/list/i);
+  });
+
   it('adds nothing from a paste with a line over 200 characters, and says which line', async () => {
     const page = await render();
     const input = page.element.querySelector(

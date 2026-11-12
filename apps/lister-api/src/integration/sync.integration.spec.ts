@@ -620,6 +620,82 @@ describe('sync gateway', () => {
       });
     });
 
+    it('saves a run as a list in one change, poked to the other member, leaving the run unchanged', async () => {
+      const anna = await helloed();
+      const ben = await helloed();
+      const pokes = collect(ben.client, 'poke');
+      const runId = newId();
+      const [tent, milk] = [newId(), newId()];
+      await push(
+        anna.client,
+        mutation('run.start', {
+          id: runId,
+          title: 'Alps',
+          sourceListId: null,
+          items: [
+            { id: tent, title: 'Tent', quantity: '2', note: 'big' },
+            { id: milk, title: 'Milk' },
+          ],
+        }),
+        mutation('runItem.setState', { id: milk, state: 'checked' }),
+      );
+      await vi.waitFor(() => expect(pokes).toHaveLength(2));
+
+      const listId = newId();
+      const save = mutation('run.saveAsList', {
+        runId,
+        listId,
+        title: 'Alps gear',
+        items: [
+          { from: milk, id: newId() },
+          { from: tent, id: newId() },
+        ],
+      });
+      const [answer] = await push(anna.client, save);
+
+      expect(answer).toEqual({ mutationId: save.mutationId, version: 3 });
+      await vi.waitFor(() => expect(pokes).toHaveLength(3));
+      const poke = pokes[2];
+      expect(poke.rows.lists).toEqual([
+        expect.objectContaining({ id: listId, title: 'Alps gear' }),
+      ]);
+      expect(
+        poke.rows.items.map((item) => [
+          item.listId,
+          item.title,
+          item.quantity,
+          item.note,
+        ]),
+      ).toEqual([
+        [listId, 'Milk', '', ''],
+        [listId, 'Tent', '2', 'big'],
+      ]);
+      expect(poke.rows.runs).toEqual([]);
+      expect(poke.rows.runItems).toEqual([]);
+
+      // A retry is answered without a second copy.
+      const [again] = await push(anna.client, save);
+      expect(again).toEqual({ mutationId: save.mutationId, version: 3 });
+    });
+
+    it('refuses saving a run that does not exist as a list, or one in another space', async () => {
+      const { client } = await helloed();
+      const save = () =>
+        mutation('run.saveAsList', {
+          runId: newId(),
+          listId: newId(),
+          title: 'Gear',
+          items: [],
+        });
+      const [unknown, foreign] = await push(client, save(), {
+        ...save(),
+        spaceId: newId(),
+      });
+
+      expect(unknown).toMatchObject({ reason: "This run doesn't exist" });
+      expect(foreign).toMatchObject({ reason: "You can't change this space" });
+    });
+
     it('refuses changes to items of a run that does not exist', async () => {
       const { client } = await helloed();
       const [answer] = await push(

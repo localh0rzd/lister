@@ -39,6 +39,7 @@ import {
   TitleDialog,
   type TitleDialogData,
 } from '@lister/web/ui';
+import { NOTICE_DURATION_MS, Notifier } from '@lister/web/util-notify';
 import { firstValueFrom } from 'rxjs';
 import { DoneSectionPreference } from './done-section-preference';
 import { layoutRun, progressText } from './run-sections';
@@ -80,6 +81,7 @@ export class RunPage {
   private readonly changes = inject(SpaceChanges);
   private readonly dialog = inject(MatDialog);
   private readonly router = inject(Router);
+  private readonly notifier = inject(Notifier);
   protected readonly doneSection = inject(DoneSectionPreference);
 
   private readonly run = this.repositories.run(this.runId);
@@ -208,6 +210,45 @@ export class RunPage {
         name: 'run.update',
         args: { id: view.run.id, patch: { title } },
       });
+  }
+
+  /**
+   * "Save as list" (D13): a new reusable list with copies of this run's items, in the order shown
+   * (sections, ignoring the Done toggle). Only ever offered here, never suggested; the run stays
+   * as it is.
+   */
+  protected async saveAsList(): Promise<void> {
+    const view = this.view();
+    if (view.kind !== 'ready') return;
+    const ref = this.dialog.open<TitleDialog, TitleDialogData, string>(
+      TitleDialog,
+      {
+        data: {
+          heading: 'Save as list',
+          confirm: 'Save',
+          title: view.run.title,
+        },
+        autoFocus: 'first-tabbable',
+      },
+    );
+    const title = await firstValueFrom(ref.afterClosed());
+    if (!title) return;
+    const { sections } = layoutRun(view.items, () => undefined, false);
+    const items = sections.flatMap((section) =>
+      section.rows.map(({ item }) => ({ from: item.id, id: newId() })),
+    );
+    const listId = newId();
+    const saved = await this.changes.apply({
+      name: 'run.saveAsList',
+      args: { runId: view.run.id, listId, title, items },
+    });
+    if (!saved) return;
+    const outcome = await this.notifier.notify({
+      message: `Saved “${title}” as a list`,
+      action: 'Open',
+      duration: NOTICE_DURATION_MS,
+    });
+    if (outcome === 'action') await this.router.navigate(['/lists', listId]);
   }
 
   /** Edits an item of this run only; the list it came from stays as it is. */

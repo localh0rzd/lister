@@ -812,6 +812,51 @@ describe('SyncEngine', () => {
       expect((await db.runs.get(runId))?.finishedAt).toBeNull();
     });
 
+    it('shows a run saved as a list at once and keeps it through a poke for the run item', async () => {
+      setup();
+      engine.start();
+      await settle();
+      const { runId, ids } = await startRun(['Milk', 'Bread']);
+      await settle();
+      server.autoAnswer = false;
+
+      const listId = newId();
+      const [milkCopy, breadCopy] = [newId(), newId()];
+      expect(
+        await engine.mutate({
+          spaceId: SPACE,
+          name: 'run.saveAsList',
+          args: {
+            runId,
+            listId,
+            title: 'Shopping',
+            items: [
+              { from: ids[1], id: breadCopy },
+              { from: ids[0], id: milkCopy },
+            ],
+          },
+        }),
+      ).toEqual({ ok: true });
+      expect(await visibleList(listId)).toMatchObject({ title: 'Shopping' });
+      expect(await db.items.get(breadCopy)).toMatchObject({
+        listId,
+        title: 'Bread',
+      });
+
+      // Someone renames the run's Milk meanwhile: the pending copy is rebuilt from it.
+      server.otherClient('runItem.update', {
+        id: ids[0],
+        patch: { title: 'Oat milk' },
+      });
+      await settle();
+      expect(await db.items.get(milkCopy)).toMatchObject({ title: 'Oat milk' });
+
+      server.answerPushes();
+      await settle();
+      expect(await outbox()).toEqual([]);
+      expect(await db.serverItems.get(milkCopy)).toMatchObject({ listId });
+    });
+
     it('reopens when an item is added to a finished run', async () => {
       setup({ leader: false });
       engine.start();

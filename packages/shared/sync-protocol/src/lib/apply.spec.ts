@@ -1008,3 +1008,146 @@ describe('runs', () => {
     });
   });
 });
+
+describe('run.saveAsList', () => {
+  function runWith() {
+    const store = new MemoryRowStore();
+    const runId = newId();
+    const [tent, milk, soap, gone] = [newId(), newId(), newId(), newId()];
+    const entry = (id: string, title: string, extra = {}) => ({
+      id,
+      title,
+      quantity: '',
+      note: '',
+      sources: [],
+      ...extra,
+    });
+    apply(store, 'run.start', {
+      id: runId,
+      title: 'Alps',
+      sourceListId: null,
+      items: [
+        entry(tent, 'Tent', { quantity: '2', note: 'big' }),
+        entry(milk, 'Milk'),
+        entry(soap, 'Soap'),
+        entry(gone, 'Gone'),
+      ],
+    });
+    apply(store, 'runItem.setState', { id: milk, state: 'checked' }, 2);
+    apply(store, 'runItem.setState', { id: soap, state: 'skipped' }, 2);
+    apply(store, 'runItem.remove', { id: gone }, 2);
+    return { store, runId, tent, milk, soap, gone };
+  }
+  const copies = (s: { store: MemoryRowStore }, listId: string) =>
+    [...s.store.items.values()]
+      .filter((item) => item.listId === listId)
+      .sort((a, b) => (a.position < b.position ? -1 : 1));
+
+  it('creates a list with copies of the live run items in the given order, leaving the run as it is', () => {
+    const s = runWith();
+    const before = JSON.stringify([...s.store.runItems.values()]);
+    const listId = newId();
+    const ids = [newId(), newId(), newId(), newId()];
+
+    const outcome = apply(
+      s.store,
+      'run.saveAsList',
+      {
+        runId: s.runId,
+        listId,
+        title: 'Alps gear',
+        items: [
+          { from: s.soap, id: ids[0] },
+          { from: s.tent, id: ids[1] },
+          { from: s.gone, id: ids[2] },
+          { from: s.milk, id: ids[3] },
+        ],
+      },
+      3,
+    );
+
+    expect(outcome).toEqual({
+      kind: 'changed',
+      lists: [listId],
+      items: [ids[0], ids[1], ids[3]],
+      includes: [],
+      runs: [],
+      runItems: [],
+    });
+    expect(s.store.getList(listId)).toMatchObject({
+      title: 'Alps gear',
+      description: '',
+      spaceId: SPACE,
+      version: 3,
+    });
+    expect(
+      copies(s, listId).map(({ id, title, quantity, note }) => ({
+        id,
+        title,
+        quantity,
+        note,
+      })),
+    ).toEqual([
+      { id: ids[0], title: 'Soap', quantity: '', note: '' },
+      { id: ids[1], title: 'Tent', quantity: '2', note: 'big' },
+      { id: ids[3], title: 'Milk', quantity: '', note: '' },
+    ]);
+    expect(JSON.stringify([...s.store.runItems.values()])).toBe(before);
+  });
+
+  it('is harmless when retried', () => {
+    const s = runWith();
+    const args = {
+      runId: s.runId,
+      listId: newId(),
+      title: 'Alps gear',
+      items: [{ from: s.tent, id: newId() }],
+    };
+    apply(s.store, 'run.saveAsList', args, 3);
+
+    expect(apply(s.store, 'run.saveAsList', args, 4)).toEqual({
+      kind: 'unchanged',
+    });
+    expect(copies(s, args.listId)).toHaveLength(1);
+  });
+
+  it('refuses an unknown, foreign or deleted run and writes nothing', () => {
+    const s = runWith();
+    const tryWith = (runId: string) =>
+      apply(s.store, 'run.saveAsList', {
+        runId,
+        listId: newId(),
+        title: 'X',
+        items: [{ from: s.tent, id: newId() }],
+      });
+    const lists = s.store.lists.size;
+
+    expect(tryWith(newId())).toEqual({
+      kind: 'rejected',
+      reason: "This run doesn't exist",
+    });
+    const run = s.store.getRun(s.runId);
+    if (!run) throw new Error('no run');
+    s.store.putRun({ ...run, deletedAt: 5 });
+    expect(tryWith(s.runId)).toMatchObject({ kind: 'rejected' });
+    s.store.putRun({ ...run, spaceId: newId() });
+    expect(tryWith(s.runId)).toMatchObject({ kind: 'rejected' });
+    expect(s.store.lists.size).toBe(lists);
+    expect(s.store.items.size).toBe(0);
+  });
+
+  it('refuses an item id that already exists', () => {
+    const s = runWith();
+    const first = {
+      runId: s.runId,
+      listId: newId(),
+      title: 'A',
+      items: [{ from: s.tent, id: newId() }],
+    };
+    apply(s.store, 'run.saveAsList', first);
+
+    expect(
+      apply(s.store, 'run.saveAsList', { ...first, listId: newId() }),
+    ).toEqual({ kind: 'rejected', reason: 'This item already exists' });
+  });
+});

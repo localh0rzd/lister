@@ -129,6 +129,10 @@ uses of the same list, and runs would be hard to add later.
   list that includes it. A run copies the list's items when it starts, since it's used once (§2.1).
   A separate "Duplicate list" action covers forking a list: one `list.duplicate` mutation
   (the client picks every new id), so the copy appears complete, everywhere, and never half-made.
+  "Save as list" on a run (D13) works the same way: one `run.saveAsList` mutation creates a new
+  list with copies (title, quantity, note) of the run's live items in the order the run shows
+  them (by section, the Done toggle ignored); checked and skipped items are copied too, the run
+  is unchanged. Afterwards the run stays open and the notice offers "Open" for the new list.
 - **Nesting:** any depth (A includes B includes C). The graph must stay free of cycles. Offline
   edits can create a cycle neither client could see (Anna adds A → B while Ben adds B → A); the
   server rejects whichever arrives second, and that client is told why. A list includes another

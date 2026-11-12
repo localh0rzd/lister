@@ -36,6 +36,15 @@ describe('mutationSchema', () => {
           items: [{ id: newId(), title: 'Milk', quantity: '2' }],
         },
       },
+      {
+        name: 'run.saveAsList',
+        args: {
+          runId: id,
+          listId: newId(),
+          title: 'Alps gear',
+          items: [{ from: newId(), id: newId() }],
+        },
+      },
       { name: 'runItem.update', args: { id, patch: { note: 'cold' } } },
       { name: 'runItem.move', args: { id, position: 'a1' } },
       { name: 'runItem.remove', args: { id } },

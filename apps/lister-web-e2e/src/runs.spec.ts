@@ -136,6 +136,56 @@ for (const [device, viewport] of [
       await expect(page.locator('.item .title')).toHaveText(['Milk', 'Bread']);
       await expectAccessible();
     });
+
+    test('Save as list in a run menu copies its items into a new list; the run stays as it is', async ({
+      page,
+      expectAccessible,
+    }) => {
+      const title = unique('Weekend');
+      await page.goto('/runs');
+      await page.getByRole('button', { name: 'New run' }).click();
+      const start = page.getByRole('dialog', { name: 'New run' });
+      await start.getByLabel('Title').fill(title);
+      await start.getByRole('button', { name: 'Start' }).click();
+      await pasteItems(page, ['Tent', 'Stove', 'Map']);
+      await expect(page.locator('.item .title')).toHaveText([
+        'Tent',
+        'Stove',
+        'Map',
+      ]);
+      await checkbox(page, 'Stove').check();
+      // Never suggested: only the run menu offers it.
+      await expect(page.getByText('Save as list')).toHaveCount(0);
+
+      await page.getByRole('button', { name: 'More for this run' }).click();
+      await page.getByRole('menuitem', { name: 'Save as list' }).click();
+      const dialog = page.getByRole('dialog', { name: 'Save as list' });
+      const field = dialog.getByLabel('Title');
+      await expect(field).toBeFocused();
+      await expect(field).toHaveValue(title);
+      await expectAccessible();
+      const listTitle = unique('Weekend gear');
+      await field.fill(listTitle);
+      await dialog.getByRole('button', { name: 'Save' }).click();
+
+      await expect(
+        page.getByText(`Saved “${listTitle}” as a list`),
+      ).toBeVisible();
+      // The run is unchanged.
+      await expect(page.locator('.item .title')).toHaveText([
+        'Tent',
+        'Stove',
+        'Map',
+      ]);
+      await expect(page.locator('.checked .title')).toHaveText('Stove');
+
+      await page.getByRole('button', { name: 'Open' }).click();
+      await expect(
+        page.getByRole('heading', { level: 1, name: listTitle }),
+      ).toBeVisible();
+      await expect(itemTitles(page)).toHaveText(['Tent', 'Stove', 'Map']);
+      await expectAccessible();
+    });
   });
 }
 

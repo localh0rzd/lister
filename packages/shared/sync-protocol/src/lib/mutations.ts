@@ -107,6 +107,18 @@ export const mutationArgs = {
     runId: idSchema,
     items: z.array(newRunItem).min(1).max(MAX_RUN_ITEMS),
   }),
+  /**
+   * "Save as list" (D13), in one step like `list.duplicate`: a new list `listId` titled `title`
+   * with a copy (title, quantity, note) of each listed run item, in the order given — the run's
+   * order as shown. Items removed or merged away since the client looked are skipped. The run
+   * itself is unchanged.
+   */
+  'run.saveAsList': z.strictObject({
+    runId: idSchema,
+    listId: idSchema,
+    title: titleSchema,
+    items: z.array(copyOf).max(MAX_DUPLICATE_ROWS),
+  }),
   'runItem.update': z.strictObject({
     id: idSchema,
     patch: patch({
@@ -159,6 +171,7 @@ export const mutationSchema = z.discriminatedUnion('name', [
   mutationOf('run.start'),
   mutationOf('run.update'),
   mutationOf('run.addItems'),
+  mutationOf('run.saveAsList'),
   mutationOf('runItem.update'),
   mutationOf('runItem.move'),
   mutationOf('runItem.remove'),

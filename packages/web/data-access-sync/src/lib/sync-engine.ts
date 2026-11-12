@@ -145,6 +145,16 @@ function touchedBy(
         if (a.childListId) into.lists.add(a.childListId);
         break;
       case 'run':
+        if (name === 'run.saveAsList') {
+          // Reads the run's items and writes a new list with copies of them.
+          if (a.runId) into.runs.add(a.runId);
+          if (a.listId) into.lists.add(a.listId);
+          for (const row of a.items ?? []) {
+            into.items.add(row.id);
+            if (row.from) into.runItems.add(row.from);
+          }
+          break;
+        }
         if (a.id) into.runs.add(a.id); // run.start, run.update
         if (a.runId) into.runs.add(a.runId); // run.addItems
         if (a.sourceListId) into.lists.add(a.sourceListId); // run.start checks it

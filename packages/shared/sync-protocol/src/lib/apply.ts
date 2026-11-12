@@ -527,6 +527,52 @@ export function applyMutation(
       if (runItems.length === 0 && runs.length === 0) return unchanged;
       return changed({ runItems, runs });
     }
+    case 'run.saveAsList': {
+      const args = mutation.args;
+      const existing = store.getList(args.listId);
+      if (existing) {
+        return existing.spaceId === ctx.spaceId
+          ? unchanged
+          : reject('This list already exists');
+      }
+      const run = runHere(args.runId);
+      if (!run || run.deletedAt !== null) return reject(RUN_MISSING);
+      // Everything is checked before anything is written.
+      for (const { id } of args.items) {
+        if (store.getItem(id)) return reject('This item already exists');
+      }
+      store.putList({
+        ...created,
+        id: args.listId,
+        title: args.title,
+        description: '',
+      });
+      const items: string[] = [];
+      let position: string | null = null;
+      for (const { from, id } of args.items) {
+        const source = store.getRunItem(from);
+        if (
+          !source ||
+          source.spaceId !== ctx.spaceId ||
+          source.runId !== run.id ||
+          source.deletedAt !== null ||
+          source.mergedInto !== null
+        )
+          continue;
+        position = positionBetween(position, null);
+        store.putItem({
+          ...created,
+          id,
+          listId: args.listId,
+          title: source.title,
+          quantity: source.quantity,
+          note: source.note,
+          position,
+        });
+        items.push(id);
+      }
+      return changed({ lists: [args.listId], items });
+    }
     case 'runItem.update': {
       const item = liveRunItem(mutation.args.id);
       return isOutcome(item)

@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-021 — Save a run as a list
 
 - Milestone: M4 Runs
@@ -36,6 +34,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
     order. The run itself is unchanged.
   - The app never suggests it (not when a run finishes, not for ad-hoc runs) and never requires it
     (D13).
+
+## Backlog
 
 ### T-022 — Accounts, sessions and the admin role
 
