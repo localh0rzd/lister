@@ -97,3 +97,19 @@ export function shellIsCached(page: Page) {
     );
   });
 }
+
+/** "Add list" in the open list editor: picks `title` in the picker. */
+export async function includeList(page: Page, title: string) {
+  await page.getByRole('button', { name: 'Add list' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Add list' });
+  await expect(dialog.getByLabel('Search lists')).toBeFocused();
+  await dialog.getByLabel('Search lists').fill(title);
+  await dialog.getByRole('button', { name: title, exact: true }).click();
+  await expect(dialog).toBeHidden();
+  // The change is local first: wait for it before navigating away (a reload would drop it).
+  await expect(section(page, title)).toBeVisible();
+}
+
+/** An included list's section in the open list editor. */
+export const section = (page: Page, title: string) =>
+  page.getByRole('listitem', { name: `List ${title}`, exact: true });

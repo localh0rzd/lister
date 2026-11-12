@@ -6,6 +6,7 @@ import { CdkDropList } from '@angular/cdk/drag-drop';
 import { MatDialog } from '@angular/material/dialog';
 import { MatMenuHarness } from '@angular/material/menu/testing';
 import {
+  type Include,
   type Item,
   type List,
   newId,
@@ -434,5 +435,249 @@ describe('ListEditorPage', () => {
     const deleted = await render();
     expect(deleted.element.textContent).toContain('This list was deleted');
     expect(deleted.element.querySelector('form')).toBeNull();
+  });
+});
+
+describe('ListEditorPage — included lists', () => {
+  const list = (title: string, extra: Partial<List> = {}): List => ({
+    ...meta,
+    id: newId(),
+    title,
+    description: '',
+    ...extra,
+  });
+  const include = (
+    parentListId: string,
+    childListId: string,
+    position: string,
+    extra: Partial<Include> = {},
+  ): Include => ({
+    ...meta,
+    id: newId(),
+    parentListId,
+    childListId,
+    position,
+    ...extra,
+  });
+  const itemOf = (listId: string, title: string, position: string) =>
+    item(title, position, { listId });
+  const sectionTitles = (element: HTMLElement) =>
+    [...element.querySelectorAll('.section-title')].map((t) =>
+      t.textContent?.trim(),
+    );
+  const openDialog = () =>
+    TestBed.inject(MatDialog).open as unknown as ReturnType<typeof vi.fn>;
+
+  it('shows included lists as sections among the items, with their items', async () => {
+    const toiletries = list('Toiletries');
+    const kitchen = list('Kitchen');
+    await db.lists.bulkPut([toiletries, kitchen]);
+    await db.items.bulkPut([
+      item('Tent', 'a0'),
+      item('Map', 'a3'),
+      itemOf(toiletries.id, 'Soap', 'a0'),
+      itemOf(kitchen.id, 'Stove', 'a0'),
+    ]);
+    await db.includes.bulkPut([
+      include(camping.id, toiletries.id, 'a1'),
+      include(toiletries.id, kitchen.id, 'a1'), // nested
+    ]);
+    const page = await render();
+
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(page.titles()).toEqual(['Tent', 'Map']);
+      expect(sectionTitles(page.element)).toEqual(['Toiletries']);
+    });
+    const rows = [...page.element.querySelectorAll('.items > li')].map((li) =>
+      li.classList.contains('section') ? 'section' : 'item',
+    );
+    expect(rows).toEqual(['item', 'section', 'item']);
+    const nested = [
+      ...page.element.querySelectorAll(
+        '.section-entries .title, .section-entries .nested-section',
+      ),
+    ].map((el) => el.textContent?.trim());
+    expect(nested).toEqual(['Soap', 'Kitchen', 'Stove']);
+  });
+
+  it('folds and unfolds a section', async () => {
+    const toiletries = list('Toiletries');
+    await db.lists.put(toiletries);
+    await db.items.put(itemOf(toiletries.id, 'Soap', 'a0'));
+    await db.includes.put(include(camping.id, toiletries.id, 'a1'));
+    const page = await render();
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(page.element.querySelector('.section-entries')).not.toBeNull();
+    });
+    const toggle = page.element.querySelector(
+      '.section-toggle',
+    ) as HTMLButtonElement;
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+
+    toggle.click();
+    await page.fixture.whenStable();
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(page.element.querySelector('.section-entries')).toBeNull();
+  });
+
+  it('shows a list in the trash as a placeholder, and a repeat as shown above', async () => {
+    const gone = list('Gone', { deletedAt: 3 });
+    const a = list('A');
+    const shared = list('Shared');
+    await db.lists.bulkPut([gone, a, shared]);
+    await db.includes.bulkPut([
+      include(camping.id, gone.id, 'a0'),
+      include(camping.id, shared.id, 'a1'),
+      include(camping.id, a.id, 'a2'),
+      include(a.id, shared.id, 'a0'),
+    ]);
+    const page = await render();
+
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(sectionTitles(page.element)).toEqual([
+        'Deleted list',
+        'Shared',
+        'A',
+      ]);
+    });
+    expect(page.element.textContent).toContain('This list is in the trash.');
+    expect(page.element.textContent).toContain('Shared (shown above)');
+  });
+
+  it('offers only lists that may be added, then adds the picked one at the end', async () => {
+    const a = list('A');
+    const b = list('B');
+    const parent = list('Parent'); // includes Camping: adding it would loop
+    const trashed = list('Trashed', { deletedAt: 1 });
+    await db.lists.bulkPut([a, b, parent, trashed]);
+    await db.items.put(item('Tent', 'a0'));
+    await db.includes.bulkPut([
+      include(camping.id, a.id, 'a1'),
+      include(parent.id, camping.id, 'a0'),
+    ]);
+    const page = await render();
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(sectionTitles(page.element)).toEqual(['A']);
+    });
+    dialogAnswer = b.id;
+
+    (page.element.querySelector('.add-list') as HTMLButtonElement).click();
+
+    await vi.waitFor(() => expect(requests).toHaveLength(1));
+    expect(openDialog().mock.calls[0][1]).toMatchObject({
+      data: { lists: [{ id: b.id, title: 'B' }] },
+    });
+    expect(requests[0]).toMatchObject({
+      name: 'include.create',
+      args: { parentListId: camping.id, childListId: b.id },
+    });
+    const { position } = requests[0].args as { position: string };
+    expect(position > 'a1').toBe(true);
+  });
+
+  it('removes a section with Undo, and moves it among the items', async () => {
+    const toiletries = list('Toiletries');
+    await db.lists.put(toiletries);
+    const tent = item('Tent', 'a0');
+    await db.items.put(tent);
+    const row = include(camping.id, toiletries.id, 'a1');
+    await db.includes.put(row);
+    const page = await render();
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(sectionTitles(page.element)).toEqual(['Toiletries']);
+    });
+    const menu = () =>
+      page.loader.getHarness(
+        MatMenuHarness.with({
+          selector: '[aria-label="More for list Toiletries"]',
+        }),
+      );
+
+    await (await menu()).clickItem({ text: /Move up/ });
+    await vi.waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0]).toMatchObject({
+      name: 'include.move',
+      args: { id: row.id },
+    });
+    expect((requests[0].args as { position: string }).position < 'a0').toBe(
+      true,
+    );
+
+    notify.mockResolvedValueOnce('action');
+    await (await menu()).clickItem({ text: /Remove from this list/ });
+    await vi.waitFor(() =>
+      expect(requests.slice(1).map((r) => r.name)).toEqual([
+        'include.delete',
+        'include.restore',
+      ]),
+    );
+    expect(notify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Removed “Toiletries” from this list',
+        action: 'Undo',
+      }),
+    );
+  });
+
+  it('edits an item of an included list, saying which list it changes and who else uses it', async () => {
+    const toiletries = list('Toiletries');
+    const hostel = list('Hostel');
+    const beach = list('Beach');
+    await db.lists.bulkPut([toiletries, hostel, beach]);
+    const soap = itemOf(toiletries.id, 'Soap', 'a0');
+    await db.items.put(soap);
+    await db.includes.bulkPut([
+      include(camping.id, toiletries.id, 'a1'),
+      include(hostel.id, toiletries.id, 'a0'),
+      include(beach.id, hostel.id, 'a0'), // uses Toiletries through Hostel
+    ]);
+    const page = await render();
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(page.element.textContent).toContain('Also in 2 other lists');
+    });
+    dialogAnswer = { title: 'Olive soap' };
+
+    (
+      page.element.querySelector(
+        '[aria-label="Edit Soap"]',
+      ) as HTMLButtonElement
+    ).click();
+
+    await vi.waitFor(() => expect(requests).toHaveLength(1));
+    expect(openDialog().mock.calls[0][1]).toMatchObject({
+      data: {
+        title: 'Soap',
+        notice: 'Changes “Toiletries”, also used in 2 other lists',
+      },
+    });
+    expect(requests[0]).toMatchObject({
+      name: 'item.update',
+      args: { id: soap.id, patch: { title: 'Olive soap' } },
+    });
+  });
+
+  it('adds new items after the sections', async () => {
+    const toiletries = list('Toiletries');
+    await db.lists.put(toiletries);
+    await db.includes.put(include(camping.id, toiletries.id, 'a5'));
+    const page = await render();
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(sectionTitles(page.element)).toEqual(['Toiletries']);
+    });
+
+    await page.type('Lamp');
+    await page.submit();
+
+    await vi.waitFor(() => expect(requests).toHaveLength(1));
+    expect((requests[0].args as { position: string }).position > 'a5').toBe(
+      true,
+    );
   });
 });

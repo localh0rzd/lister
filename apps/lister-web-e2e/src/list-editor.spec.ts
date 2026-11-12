@@ -125,6 +125,14 @@ test.describe('list editor on a phone (375 px)', () => {
         'Matches',
       ]);
       await expect(trigger).toBeFocused();
+
+      // Back to typing: the next change re-renders the list, and the focus must stay put.
+      const field = page.getByLabel('Add item');
+      await field.fill('Rope');
+      await field.press('Enter');
+      await expect(itemTitles(page).last()).toHaveText('Rope');
+      await expect(field).toBeFocused();
+      await itemMenu(page, 'Rope', 'Delete');
     });
 
     await test.step('rename an item', async () => {

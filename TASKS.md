@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-016 — Composition UI
 
 - Milestone: M3 Composition
@@ -41,6 +39,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   - An included list that is in the trash shows as a "deleted list" placeholder.
   - A rejected include (someone else created the other half of a loop) shows a snackbar with the
     reason.
+
+## Backlog
 
 ### T-017 — Trash and restore
 
@@ -244,7 +244,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 - Priority: normal
 - Depends on: T-026
 - Done when:
-  - Every rejected change shows a snackbar with a readable reason.
+  - Every rejected change shows a snackbar with a readable reason. (Done early in T-016:
+    `RejectionNotices` in `data-access-sync`; check its wording here.)
   - Editing an item that someone else just deleted shows "Deleted by Ben", with Restore.
   - Undo is offered after deleting lists and items and after removing includes.
 

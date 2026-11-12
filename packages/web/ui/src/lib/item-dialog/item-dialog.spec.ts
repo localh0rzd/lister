@@ -1,8 +1,12 @@
 import { TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { ItemDialog, type ItemFields } from './item-dialog';
+import {
+  ItemDialog,
+  type ItemDialogData,
+  type ItemFields,
+} from './item-dialog';
 
-async function render(item: ItemFields) {
+async function render(item: ItemDialogData) {
   const close = vi.fn();
   TestBed.configureTestingModule({
     providers: [
@@ -84,4 +88,23 @@ describe('ItemDialog', () => {
       expect(dialog.element.textContent).toContain(message);
     },
   );
+
+  it('shows a notice above the fields and leaves it out of the changes', async () => {
+    const dialog = await render({
+      ...tent,
+      notice: 'Changes “Camping”, also used in 2 other lists',
+    });
+    expect(dialog.element.querySelector('.notice')?.textContent).toBe(
+      'Changes “Camping”, also used in 2 other lists',
+    );
+
+    await dialog.type(dialog.title, 'Big tent');
+    await dialog.submit();
+    expect(dialog.close).toHaveBeenCalledWith({ title: 'Big tent' });
+  });
+
+  it('has no notice unless given one', async () => {
+    const dialog = await render(tent);
+    expect(dialog.element.querySelector('.notice')).toBeNull();
+  });
 });

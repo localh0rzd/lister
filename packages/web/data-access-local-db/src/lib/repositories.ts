@@ -1,10 +1,70 @@
 import { Service, type Signal, inject } from '@angular/core';
-import { type Item, type List, sortByPosition } from '@lister/shared/domain';
+import {
+  type CompositionSource,
+  type Include,
+  type Item,
+  type List,
+  sortByPosition,
+} from '@lister/shared/domain';
 import { LOCAL_DB } from './local-db';
 import { type QueryState, liveQuerySignal } from './live-query-signal';
 
 /** Case- and accent-insensitive, numbers by value ("List 9" before "List 10"); design §3. */
 const byTitle = new Intl.Collator('en', { sensitivity: 'base', numeric: true });
+
+/** A space's lists, items and includes (tombstones included), for flattening and loop checks. */
+export interface SpaceComposition extends CompositionSource {
+  /** The live includes of the space. */
+  readonly includes: readonly Include[];
+  /** The live lists that include this list, directly or through other lists. */
+  usersOf(listId: string): ReadonlySet<string>;
+}
+
+function composition(
+  lists: readonly List[],
+  items: readonly Item[],
+  includes: readonly Include[],
+): SpaceComposition {
+  const listsById = new Map(lists.map((list) => [list.id, list]));
+  const group = <T>(rows: readonly T[], key: (row: T) => string) => {
+    const map = new Map<string, T[]>();
+    for (const row of rows)
+      map.set(key(row), [...(map.get(key(row)) ?? []), row]);
+    return map;
+  };
+  const itemsByList = group(items, (item) => item.listId);
+  const includesByParent = group(includes, (row) => row.parentListId);
+  const live = includes.filter(
+    (row) =>
+      row.deletedAt === null &&
+      listsById.get(row.parentListId)?.deletedAt === null,
+  );
+  const parentsOf = new Map<string, Set<string>>();
+  for (const row of live) {
+    const parents = parentsOf.get(row.childListId) ?? new Set<string>();
+    parents.add(row.parentListId);
+    parentsOf.set(row.childListId, parents);
+  }
+  const usersOf = (listId: string) => {
+    const users = new Set<string>();
+    const stack = [listId];
+    while (stack.length > 0) {
+      for (const parent of parentsOf.get(stack.pop() as string) ?? []) {
+        if (parent === listId || users.has(parent)) continue;
+        users.add(parent);
+        stack.push(parent);
+      }
+    }
+    return users;
+  };
+  return {
+    includes: includes.filter((row) => row.deletedAt === null),
+    list: (id) => listsById.get(id),
+    itemsOf: (listId) => itemsByList.get(listId) ?? [],
+    includesOf: (listId) => includesByParent.get(listId) ?? [],
+    usersOf,
+  };
+}
 
 /**
  * Read-only queries on the local database, as signals. Changes go through the sync engine's
@@ -71,6 +131,25 @@ export class Repositories {
           (await this.db.items.where('listId').equals(id).toArray()).filter(
             (item) => item.deletedAt === null,
           ),
+        );
+    });
+  }
+
+  /**
+   * Every list, item and include of a space, kept current: what `flattenEntries` and
+   * `wouldCreateCycle` read (the list editor, the include picker).
+   */
+  compositionOfSpace(
+    spaceId: () => string | undefined,
+  ): Signal<QueryState<SpaceComposition>> {
+    return liveQuerySignal(() => {
+      const id = spaceId();
+      if (!id) return undefined;
+      return async () =>
+        composition(
+          await this.db.lists.where('spaceId').equals(id).toArray(),
+          await this.db.items.where('spaceId').equals(id).toArray(),
+          await this.db.includes.where('spaceId').equals(id).toArray(),
         );
     });
   }

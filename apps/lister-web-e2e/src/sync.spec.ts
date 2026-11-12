@@ -3,11 +3,13 @@ import {
   addItem,
   createList,
   editItemTitle,
+  includeList,
   itemMenu,
   itemTitles,
   openList,
   otherDevice,
   pasteItems,
+  section,
   synced,
   syncStatus,
 } from './support/app';
@@ -119,6 +121,38 @@ test.describe('offline', () => {
     await expect
       .poll(async () => (await contents(b)).join('|'))
       .toBe((await contents(a)).join('|'));
+    await b.context().close();
+  });
+});
+
+test.describe('a loop made on two devices', () => {
+  test('the half that arrives second is rolled back with a notice', async ({
+    page: a,
+    context,
+    browser,
+  }) => {
+    const x = await createList(a);
+    const y = await createList(a);
+    await synced(a);
+    const b = await otherDevice(browser);
+
+    await openList(a, x);
+    await context.setOffline(true);
+    await expect(syncStatus(a)).toContainText('Offline');
+    await includeList(a, y); // A, offline: X includes Y
+
+    await openList(b, y);
+    await includeList(b, x); // B, online: Y includes X — reaches the server first
+    await synced(b);
+
+    await context.setOffline(false);
+    await expect(
+      a.getByText(
+        `Change not saved: That would make a loop: “${y}” already contains “${x}”`,
+      ),
+    ).toBeVisible();
+    await expect(section(a, y)).toBeHidden();
+    await synced(a);
     await b.context().close();
   });
 });

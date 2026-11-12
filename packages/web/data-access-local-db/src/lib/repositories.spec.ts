@@ -1,6 +1,12 @@
 import { type Signal, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { type Item, type List, newId } from '@lister/shared/domain';
+import {
+  type Include,
+  type Item,
+  type List,
+  flatten,
+  newId,
+} from '@lister/shared/domain';
 import { LOCAL_DB, LocalDb } from './local-db';
 import { type QueryState, valueOf } from './live-query-signal';
 import { Repositories } from './repositories';
@@ -314,6 +320,64 @@ describe('Repositories.list', () => {
     await vi.waitFor(() => {
       TestBed.tick();
       expect(found()).toEqual({ status: 'ready', value: undefined });
+    });
+  });
+});
+
+describe('Repositories.compositionOfSpace', () => {
+  const include = (
+    parentListId: string,
+    childListId: string,
+    extra: Partial<Include> = {},
+  ): Include => ({
+    ...meta(),
+    id: newId(),
+    parentListId,
+    childListId,
+    position: 'a1',
+    ...extra,
+  });
+
+  it('flattens through the live data and finds the lists that use a list', async () => {
+    const trip = list('Trip');
+    const weekend = list('Weekend');
+    const camping = list('Camping');
+    const gone = list('Gone', { deletedAt: 5 });
+    await db.lists.bulkPut([trip, weekend, camping, gone]);
+    await db.items.bulkPut([item(camping.id, 'Tent', 'a0')]);
+    await db.includes.bulkPut([
+      include(trip.id, camping.id),
+      include(weekend.id, camping.id),
+      include(gone.id, camping.id), // a list in the trash doesn't count as a user
+      include(trip.id, weekend.id, { deletedAt: 3 }),
+    ]);
+    const state = TestBed.runInInjectionContext(() =>
+      repositories.compositionOfSpace(() => SPACE),
+    );
+
+    await vi.waitFor(() => {
+      TestBed.tick();
+      const space = valueOf(state());
+      expect(space && flatten(trip.id, space).map((f) => f.item.title)).toEqual(
+        ['Tent'],
+      );
+      // Trip and Weekend directly; Gone is in the trash.
+      expect([...(space?.usersOf(camping.id) ?? [])].sort()).toEqual(
+        [trip.id, weekend.id].sort(),
+      );
+      expect(space?.usersOf(trip.id).size).toBe(0);
+      expect(space?.includes).toHaveLength(3);
+    });
+
+    // Through another list: Big trip → Trip → Camping.
+    const bigTrip = list('Big trip');
+    await db.lists.put(bigTrip);
+    await db.includes.put(include(bigTrip.id, trip.id));
+    await vi.waitFor(() => {
+      TestBed.tick();
+      const space = valueOf(state());
+      expect(space?.includes).toHaveLength(4);
+      expect(space?.usersOf(camping.id).has(bigTrip.id)).toBe(true);
     });
   });
 });

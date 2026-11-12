@@ -501,11 +501,9 @@ describe('SyncEngine', () => {
       setup({ leader: false });
       engine.start();
       const id = await createList('Mine');
-      const other = {
-        ...(await visibleList(id))!,
-        id: newId(),
-        spaceId: newId(),
-      };
+      const mine = await visibleList(id);
+      if (!mine) throw new Error('not created');
+      const other = { ...mine, id: newId(), spaceId: newId() };
       await db.serverLists.put(other);
       await db.lists.put(other);
 

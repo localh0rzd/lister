@@ -33,6 +33,11 @@ export interface ItemFields {
   note: string;
 }
 
+export interface ItemDialogData extends ItemFields {
+  /** Shown above the fields, e.g. "Changes “Camping”, also used in 2 other lists". */
+  notice?: string;
+}
+
 /**
  * Edits an item's title, quantity (free text, empty means 1, D6) and note. Closes with only the
  * fields that changed (trimmed), or `undefined` when cancelled or nothing changed. Validation is
@@ -57,6 +62,9 @@ export interface ItemFields {
     <h2 mat-dialog-title>Edit item</h2>
     <form novalidate (submit)="save($event)">
       <mat-dialog-content class="fields">
+        @if (item.notice) {
+          <p class="notice">{{ item.notice }}</p>
+        }
         <mat-form-field>
           <mat-label>Title</mat-label>
           <input matInput [formField]="itemForm.title" cdkFocusInitial />
@@ -96,6 +104,10 @@ export interface ItemFields {
     </form>
   `,
   styles: `
+    .notice {
+      margin: 0 0 8px;
+      color: var(--mat-sys-on-surface-variant);
+    }
     .fields {
       display: flex;
       flex-direction: column;
@@ -105,11 +117,15 @@ export interface ItemFields {
   `,
 })
 export class ItemDialog {
-  private readonly item = inject<ItemFields>(MAT_DIALOG_DATA);
+  protected readonly item = inject<ItemDialogData>(MAT_DIALOG_DATA);
   private readonly dialog =
     inject<MatDialogRef<ItemDialog, Partial<ItemFields>>>(MatDialogRef);
 
-  private readonly model = signal<ItemFields>({ ...this.item });
+  private readonly model = signal<ItemFields>({
+    title: this.item.title,
+    quantity: this.item.quantity,
+    note: this.item.note,
+  });
   protected readonly itemForm = form(this.model, (path) => {
     validateStandardSchema(path.title, titleSchema);
     validateStandardSchema(path.quantity, quantitySchema);

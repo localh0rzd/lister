@@ -21,8 +21,8 @@
 } @else {
 <h1>{{ v.list.title }}</h1>
 
-@if (v.items.length === 0) {
-<p class="hint">No items yet. Add the first one below.</p>
+@if (v.rows.length === 0) {
+<p class="hint">No items yet. Add the first one below, or add a list.</p>
 }
 <ul
   class="items"
@@ -30,8 +30,9 @@
   (cdkDropListDropped)="drop($event)"
   aria-label="Items"
 >
-  @for (item of v.items; track item.id) {
-  <li class="item" cdkDrag [cdkDragData]="item">
+  @for (row of v.rows; track row.id) { @if (row.kind === 'item') { @let item =
+  row.item;
+  <li class="item" cdkDrag [cdkDragData]="row">
     <span class="handle" cdkDragHandle aria-hidden="true">
       <mat-icon>drag_indicator</mat-icon>
     </span>
@@ -64,7 +65,7 @@
         mat-menu-item
         type="button"
         [disabled]="$first"
-        (click)="step(item, $index - 1)"
+        (click)="step(row, $index - 1)"
       >
         <mat-icon>arrow_upward</mat-icon>
         <span>Move up</span>
@@ -73,7 +74,7 @@
         mat-menu-item
         type="button"
         [disabled]="$last"
-        (click)="step(item, $index + 1)"
+        (click)="step(row, $index + 1)"
       >
         <mat-icon>arrow_downward</mat-icon>
         <span>Move down</span>
@@ -84,7 +85,123 @@
       </button>
     </mat-menu>
   </li>
-  }
+  } @else { @let title = sectionTitle(row); @let open = row.state === 'live' &&
+  !collapsed().has(row.id);
+  <li
+    class="section"
+    cdkDrag
+    [cdkDragData]="row"
+    [attr.aria-label]="'List ' + title"
+  >
+    <div class="section-header" [class.deleted]="row.state === 'deleted'">
+      <span class="handle" cdkDragHandle aria-hidden="true">
+        <mat-icon>drag_indicator</mat-icon>
+      </span>
+      @if (row.state === 'live') {
+      <button
+        class="section-toggle"
+        type="button"
+        [attr.aria-expanded]="open"
+        [attr.aria-controls]="'section-' + row.id"
+        (click)="toggle(row.id)"
+      >
+        <mat-icon aria-hidden="true"
+          >{{ open ? 'expand_less' : 'expand_more' }}</mat-icon
+        >
+        <span class="section-text">
+          <span class="section-title">{{ title }}</span>
+          @if (row.otherUsers > 0) {
+          <span class="note"
+            >Also in {{ row.otherUsers }} other {{ row.otherUsers === 1 ? 'list'
+            : 'lists' }}</span
+          >
+          }
+        </span>
+      </button>
+      } @else {
+      <span class="section-text">
+        <span class="section-title">{{ title }}</span>
+        <span class="note">This list is in the trash.</span>
+      </span>
+      }
+      <button
+        matIconButton
+        type="button"
+        [matMenuTriggerFor]="sectionMenu"
+        [attr.data-item-id]="row.id"
+        [attr.aria-label]="'More for list ' + title"
+      >
+        <mat-icon>more_vert</mat-icon>
+      </button>
+      <mat-menu #sectionMenu="matMenu">
+        <button
+          mat-menu-item
+          type="button"
+          [disabled]="$first"
+          (click)="step(row, $index - 1)"
+        >
+          <mat-icon>arrow_upward</mat-icon>
+          <span>Move up</span>
+        </button>
+        <button
+          mat-menu-item
+          type="button"
+          [disabled]="$last"
+          (click)="step(row, $index + 1)"
+        >
+          <mat-icon>arrow_downward</mat-icon>
+          <span>Move down</span>
+        </button>
+        <button mat-menu-item type="button" (click)="removeSection(row)">
+          <mat-icon>playlist_remove</mat-icon>
+          <span>Remove from this list</span>
+        </button>
+      </mat-menu>
+    </div>
+    @if (open) {
+    <ul
+      class="section-entries"
+      [id]="'section-' + row.id"
+      [attr.aria-label]="'Items of ' + title"
+    >
+      @for (entry of row.entries; track $index) { @if (entry.kind === 'item') {
+      <li class="nested" [style.--depth]="entry.depth">
+        <div class="text">
+          <span class="title">{{ entry.item.title }}</span>
+          @if (entry.item.note) {
+          <span class="note">{{ entry.item.note }}</span>
+          }
+        </div>
+        @if (entry.item.quantity) {
+        <span
+          class="quantity"
+          [attr.aria-label]="'Quantity ' + entry.item.quantity"
+        >
+          {{ entry.item.quantity }}
+        </span>
+        }
+        <button
+          matIconButton
+          type="button"
+          [attr.aria-label]="'Edit ' + entry.item.title"
+          (click)="edit(entry.item)"
+        >
+          <mat-icon>edit</mat-icon>
+        </button>
+      </li>
+      } @else {
+      <li class="nested nested-section" [style.--depth]="entry.depth">
+        {{ nestedTitle(entry) }}
+      </li>
+      } } @empty {
+      <li class="nested hint" [style.--depth]="1">
+        No items in this list yet.
+      </li>
+      }
+    </ul>
+    }
+  </li>
+  } }
 </ul>
 
 <form class="add" novalidate (submit)="add($event)">
@@ -96,4 +213,8 @@
     <mat-icon>add</mat-icon>
   </button>
 </form>
+<button matButton type="button" class="add-list" (click)="addList()">
+  <mat-icon>playlist_add</mat-icon>
+  Add list
+</button>
 }

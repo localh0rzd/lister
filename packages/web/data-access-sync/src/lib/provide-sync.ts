@@ -9,7 +9,8 @@ import {
 import { isPlatformBrowser } from '@angular/common';
 
 /**
- * Starts the sync engine after the app boots in a browser. The engine is loaded with a dynamic
+ * Starts the sync engine after the app boots in a browser, with notices for the changes the
+ * server refuses (`RejectionNotices`, which starts the engine through its injection). The engine is loaded with a dynamic
  * import, so Zod, Dexie and Socket.IO stay out of the initial bundle and the shell renders first.
  */
 export function provideSync(): EnvironmentProviders {
@@ -17,9 +18,9 @@ export function provideSync(): EnvironmentProviders {
     provideAppInitializer(() => {
       if (!isPlatformBrowser(inject(PLATFORM_ID))) return;
       const injector = inject(EnvironmentInjector);
-      void import('./sync-engine').then(({ SyncEngine }) =>
-        injector.get(SyncEngine).start(),
-      );
+      void import('./rejection-notices').then(({ RejectionNotices }) => {
+        injector.get(RejectionNotices).start();
+      });
     }),
   ]);
 }
