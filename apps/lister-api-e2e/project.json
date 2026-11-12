@@ -6,7 +6,7 @@
   "targets": {
     "e2e": {
       "command": "vitest run",
-      "dependsOn": ["lister-api:build", "lister-api:serve"],
+      "dependsOn": ["lister-api:build", "lister-api:serve-e2e"],
       "options": {
         "cwd": "apps/lister-api-e2e"
       }

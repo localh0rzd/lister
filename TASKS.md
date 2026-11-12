@@ -23,27 +23,7 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-004 — SQLite database layer with Drizzle and migrations
-
-- Milestone: M1 Foundations
-- Area: api
-- Priority: high
-- Done when:
-  - A `packages/api/data-access-db` library (scope:api, type:data-access) provides a Nest module
-    with Drizzle on `better-sqlite3`, configured by `DATABASE_PATH` (default `data/lister.db`;
-    tests use `:memory:`).
-  - On connect: `journal_mode=WAL`, `foreign_keys=ON`, `busy_timeout=5000`, `synchronous=NORMAL`.
-  - Migrations are generated with drizzle-kit through a documented Nx target, committed, and
-    applied when the API starts.
-  - `GET /api/health` also reports the database (`db: 'ok'`), and the API e2e test checks it.
-  - A test helper gives each test a fresh, migrated in-memory database.
-  - `createTestApp()` in `apps/lister-api/src/testing/` starts the real `AppModule` with the same
-    setup as `main.ts` (a shared `configureApp()`), on a fresh in-memory database and a random
-    port, for the integration tests in `apps/lister-api/src/integration/` (`testing` skill). An
-    integration test covers `GET /api/health`.
-  - `data/` is git-ignored, and `DATABASE_PATH` is in the README's environment table.
-- Notes: Make sure the webpack build keeps `better-sqlite3` external and the built `main.js`
-  starts.
+_Nothing in progress._
 
 ## Backlog
 
@@ -521,6 +501,30 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 - Notes: Found in T-001. Until then the full variable font is bundled.
 
 ## Done
+
+### T-004 — SQLite database layer with Drizzle and migrations
+
+- Completed: 2026-11-12 — `packages/api/data-access-db` (Drizzle on better-sqlite3, pragmas, migrations via `db-generate`, applied on startup with foreign keys checked); health reports the database; `createTestDatabase()` and `createTestApp()` with the first integration tests; e2e servers use their own database (`lister-api:serve-e2e`).
+- Review: Changes requested (1 major, 3 minor, 2 nit); all fixed: migrations run with foreign keys off and are checked afterwards (a parent-table rebuild had cascade-deleted children), an empty `DATABASE_PATH` is rejected, e2e no longer touches `data/lister.db`, test helpers documented as test-only, `better-sqlite3` pinned to its approved version, library README.
+- Milestone: M1 Foundations
+- Area: api
+- Priority: high
+- Done when:
+  - A `packages/api/data-access-db` library (scope:api, type:data-access) provides a Nest module
+    with Drizzle on `better-sqlite3`, configured by `DATABASE_PATH` (default `data/lister.db`;
+    tests use `:memory:`).
+  - On connect: `journal_mode=WAL`, `foreign_keys=ON`, `busy_timeout=5000`, `synchronous=NORMAL`.
+  - Migrations are generated with drizzle-kit through a documented Nx target, committed, and
+    applied when the API starts.
+  - `GET /api/health` also reports the database (`db: 'ok'`), and the API e2e test checks it.
+  - A test helper gives each test a fresh, migrated in-memory database.
+  - `createTestApp()` in `apps/lister-api/src/testing/` starts the real `AppModule` with the same
+    setup as `main.ts` (a shared `configureApp()`), on a fresh in-memory database and a random
+    port, for the integration tests in `apps/lister-api/src/integration/` (`testing` skill). An
+    integration test covers `GET /api/health`.
+  - `data/` is git-ignored, and `DATABASE_PATH` is in the README's environment table.
+- Notes: Make sure the webpack build keeps `better-sqlite3` external and the built `main.js`
+  starts.
 
 ### T-003 — Installable PWA with offline app shell and update prompt
 

@@ -50,6 +50,19 @@
           "buildTarget": "lister-api:build:production"
         }
       }
+    },
+    "serve-e2e": {
+      "continuous": true,
+      "executor": "@nx/js:node",
+      "dependsOn": ["build"],
+      "readyWhen": {
+        "signal": true
+      },
+      "options": {
+        "buildTarget": "lister-api:build:development",
+        "runBuildTargetDependencies": false,
+        "watch": false
+      }
     }
   }
 }

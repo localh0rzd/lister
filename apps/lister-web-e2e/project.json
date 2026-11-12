@@ -9,7 +9,7 @@
       "dependsOn": [
         {
           "projects": ["lister-api"],
-          "target": "serve",
+          "target": "serve-e2e",
           "waitFor": "ready"
         },
         {
