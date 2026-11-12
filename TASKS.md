@@ -23,23 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-016 — Composition UI
-
-- Milestone: M3 Composition
-- Area: web
-- Priority: normal
-- Depends on: T-015, T-011
-- Done when:
-  - In the list editor, "Add list" opens a searchable picker that leaves out the list itself, lists
-    already included and lists that would create a loop.
-  - Included lists appear as collapsible sections named after the list, with their items and
-    nested includes. Sections can be reordered among the items and removed.
-  - Editing an item inside a section edits its source list, and the UI says how many other lists
-    use that list.
-  - An included list that is in the trash shows as a "deleted list" placeholder.
-  - A rejected include (someone else created the other half of a loop) shows a snackbar with the
-    reason.
-
 ## Backlog
 
 ### T-017 — Trash and restore
@@ -352,6 +335,26 @@ nosniff`, `Referrer-Policy`, `frame-ancestors` in the CSP, and `app.disable('x-p
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
 
 ## Done
+
+### T-016 — Composition UI
+
+- Completed: 2026-11-12 — list editor with included lists as foldable sections among the items (move, remove with Undo, trash placeholder, "shown above" repeats), "Add list" picker (`ListPickerDialog`) without the list itself, lists it already contains and loops; editing inside a section edits the source list and says who else uses it; `Repositories.compositionOfSpace()`; `RejectionNotices` for refused changes (from T-029); keyboard-move focus fix.
+- Review: Changes requested (1 blocker, 3 minor, 1 nit); all fixed, re-review approved: top-level repeats labelled correctly and kept out of the picker; search icon prefix; refocus can't linger; "other lists" excludes lists reaching it through this one; nested entries tracked by id; duplicated comment.
+
+- Milestone: M3 Composition
+- Area: web
+- Priority: normal
+- Depends on: T-015, T-011
+- Done when:
+  - In the list editor, "Add list" opens a searchable picker that leaves out the list itself, lists
+    already included and lists that would create a loop.
+  - Included lists appear as collapsible sections named after the list, with their items and
+    nested includes. Sections can be reordered among the items and removed.
+  - Editing an item inside a section edits its source list, and the UI says how many other lists
+    use that list.
+  - An included list that is in the trash shows as a "deleted list" placeholder.
+  - A rejected include (someone else created the other half of a loop) shows a snackbar with the
+    reason.
 
 ### T-015 — Composition model: includes, flattening, cycle rejection
 

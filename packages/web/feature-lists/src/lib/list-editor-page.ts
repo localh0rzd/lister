@@ -188,8 +188,10 @@ export class ListEditorPage {
   /** Adds run one at a time, each after the last key handed out, so they never interleave. */
   private adding: Promise<unknown> = Promise.resolve();
   private lastAdded: string | null = null;
-  /** After a keyboard move, the item whose menu button gets the focus back. */
-  /** The row moved by keyboard, with its position before and after the move. */
+  /**
+   * After a keyboard move, the row whose menu button gets the focus back, with its position
+   * before and after the move.
+   */
   private readonly refocus = signal<{
     id: string;
     from: string;
