@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MatDialog } from '@angular/material/dialog';
 import { MatMenuHarness } from '@angular/material/menu/testing';
@@ -52,6 +53,7 @@ async function render(options: { space?: boolean } = {}) {
   notify = vi.fn(async () => 'dismissed');
   TestBed.configureTestingModule({
     providers: [
+      provideRouter([]),
       { provide: LOCAL_DB, useValue: db },
       { provide: SyncEngine, useValue: { mutate } },
       { provide: Notifier, useValue: { notify } },

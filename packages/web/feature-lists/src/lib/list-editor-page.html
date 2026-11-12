@@ -1,0 +1,98 @@
+<a class="back" routerLink="/lists">
+  <mat-icon aria-hidden="true">arrow_back</mat-icon>
+  All lists
+</a>
+
+@let v = view(); @if (v.kind === 'loading') {
+<p class="hint">Loading…</p>
+} @else if (v.kind === 'error') {
+<p class="hint" role="alert">
+  Lister can't open its storage on this device. Check that the browser allows
+  site data, then reload.
+</p>
+} @else if (v.kind === 'missing') {
+<h1>List not found</h1>
+<p class="hint">
+  This list doesn't exist on this device. It may not have synced yet.
+</p>
+} @else if (v.kind === 'deleted') {
+<h1>{{ v.list.title }}</h1>
+<p class="hint">This list was deleted.</p>
+} @else {
+<h1>{{ v.list.title }}</h1>
+
+@if (v.items.length === 0) {
+<p class="hint">No items yet. Add the first one below.</p>
+}
+<ul
+  class="items"
+  cdkDropList
+  (cdkDropListDropped)="drop($event)"
+  aria-label="Items"
+>
+  @for (item of v.items; track item.id) {
+  <li class="item" cdkDrag>
+    <span class="handle" cdkDragHandle aria-hidden="true">
+      <mat-icon>drag_indicator</mat-icon>
+    </span>
+    <div class="text">
+      <span class="title">{{ item.title }}</span>
+      @if (item.note) {
+      <span class="note">{{ item.note }}</span>
+      }
+    </div>
+    @if (item.quantity) {
+    <span class="quantity" [attr.aria-label]="'Quantity ' + item.quantity">
+      {{ item.quantity }}
+    </span>
+    }
+    <button
+      matIconButton
+      type="button"
+      [matMenuTriggerFor]="menu"
+      [attr.aria-label]="'More for ' + item.title"
+    >
+      <mat-icon>more_vert</mat-icon>
+    </button>
+    <mat-menu #menu="matMenu">
+      <button mat-menu-item type="button" (click)="edit(item)">
+        <mat-icon>edit</mat-icon>
+        <span>Edit</span>
+      </button>
+      <button
+        mat-menu-item
+        type="button"
+        [disabled]="$first"
+        (click)="move(item, $index - 1)"
+      >
+        <mat-icon>arrow_upward</mat-icon>
+        <span>Move up</span>
+      </button>
+      <button
+        mat-menu-item
+        type="button"
+        [disabled]="$last"
+        (click)="move(item, $index + 1)"
+      >
+        <mat-icon>arrow_downward</mat-icon>
+        <span>Move down</span>
+      </button>
+      <button mat-menu-item type="button" (click)="remove(item)">
+        <mat-icon>delete</mat-icon>
+        <span>Delete</span>
+      </button>
+    </mat-menu>
+  </li>
+  }
+</ul>
+
+<form class="add" novalidate (submit)="add($event)">
+  <mat-form-field class="add-field" subscriptSizing="dynamic">
+    <mat-label>Add item</mat-label>
+    <input matInput [formField]="addForm.title" (paste)="paste($event)" />
+  </mat-form-field>
+  <button matIconButton type="submit" aria-label="Add">
+    <mat-icon>add</mat-icon>
+  </button>
+</form>
+}

@@ -23,7 +23,18 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-_Nothing in progress._
+### T-011 — Web: list editor
+
+- Milestone: M2 Sync walking skeleton
+- Area: web
+- Priority: high
+- Depends on: T-010
+- Done when:
+  - Opening a list shows its items in order; an inline field adds an item.
+  - Pasting several lines into that field creates one item per line.
+  - An item's title, quantity and note can be edited; deleting an item offers Undo.
+  - Items can be reordered by drag and drop, and with "Move up" / "Move down" in the item menu.
+  - Component tests cover adding, pasting, editing, deleting with undo, and reordering.
 
 ## Backlog
 
@@ -42,19 +53,6 @@ _Nothing in progress._
   doesn't type-check, so a library's stricter options (e.g. `noPropertyAccessFromIndexSignature`)
   and stale types in specs went unnoticed. One spec still built a `HealthResponse` without `db`
   after T-004 changed the contract.
-
-### T-011 — Web: list editor
-
-- Milestone: M2 Sync walking skeleton
-- Area: web
-- Priority: high
-- Depends on: T-010
-- Done when:
-  - Opening a list shows its items in order; an inline field adds an item.
-  - Pasting several lines into that field creates one item per line.
-  - An item's title, quantity and note can be edited; deleting an item offers Undo.
-  - Items can be reordered by drag and drop, and with "Move up" / "Move down" in the item menu.
-  - Component tests cover adding, pasting, editing, deleting with undo, and reordering.
 
 ### T-012 — Serve the web app from the API (one origin)
 

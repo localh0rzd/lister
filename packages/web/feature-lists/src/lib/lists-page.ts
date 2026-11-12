@@ -3,12 +3,12 @@ import { MatFabButton, MatIconButton } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
 import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
+import { RouterLink } from '@angular/router';
 import { type List, newId } from '@lister/shared/domain';
 import { CurrentSpace, Repositories } from '@lister/web/data-access-local-db';
-import { type MutationRequest, SyncEngine } from '@lister/web/data-access-sync';
 import { TitleDialog, type TitleDialogData } from '@lister/web/ui';
-import { NOTICE_DURATION_MS, Notifier } from '@lister/web/util-notify';
 import { firstValueFrom } from 'rxjs';
+import { SpaceChanges } from './space-changes';
 
 /** The Lists destination: every list of the space with its item count (design §2.7). */
 @Component({
@@ -20,6 +20,7 @@ import { firstValueFrom } from 'rxjs';
     MatMenu,
     MatMenuItem,
     MatMenuTrigger,
+    RouterLink,
   ],
   templateUrl: './lists-page.html',
   styleUrl: './lists-page.scss',
@@ -27,9 +28,8 @@ import { firstValueFrom } from 'rxjs';
 export class ListsPage {
   private readonly space = inject(CurrentSpace);
   private readonly repositories = inject(Repositories);
-  private readonly sync = inject(SyncEngine);
+  private readonly changes = inject(SpaceChanges);
   private readonly dialog = inject(MatDialog);
-  private readonly notifier = inject(Notifier);
 
   private readonly lists = this.repositories.listsOfSpace(this.space.id);
   private readonly counts = this.repositories.itemCountsOfSpace(this.space.id);
@@ -61,7 +61,10 @@ export class ListsPage {
       confirm: 'Create',
     });
     if (title)
-      await this.change({ name: 'list.create', args: { id: newId(), title } });
+      await this.changes.apply({
+        name: 'list.create',
+        args: { id: newId(), title },
+      });
   }
 
   protected async rename(list: List): Promise<void> {
@@ -71,24 +74,19 @@ export class ListsPage {
       title: list.title,
     });
     if (title && title !== list.title) {
-      await this.change({
+      await this.changes.apply({
         name: 'list.update',
         args: { id: list.id, patch: { title } },
       });
     }
   }
 
-  protected async remove(list: List): Promise<void> {
-    if (!(await this.change({ name: 'list.delete', args: { id: list.id } })))
-      return;
-    const outcome = await this.notifier.notify({
-      message: `Deleted “${list.title}”`,
-      action: 'Undo',
-      duration: NOTICE_DURATION_MS,
-    });
-    if (outcome === 'action') {
-      await this.change({ name: 'list.restore', args: { id: list.id } });
-    }
+  protected remove(list: List): Promise<void> {
+    return this.changes.withUndo(
+      { name: 'list.delete', args: { id: list.id } },
+      `Deleted “${list.title}”`,
+      { name: 'list.restore', args: { id: list.id } },
+    );
   }
 
   protected itemCount(count: number | null): string {
@@ -109,24 +107,5 @@ export class ListsPage {
       },
     );
     return firstValueFrom(ref.afterClosed());
-  }
-
-  /** Sends a change through the sync engine; a refusal is shown to the user. */
-  private async change(
-    request: Pick<MutationRequest, 'name' | 'args'>,
-  ): Promise<boolean> {
-    const spaceId = this.space.id();
-    if (!spaceId) return false;
-    const result = await this.sync.mutate({
-      ...request,
-      spaceId,
-    } as MutationRequest);
-    if (!result.ok) {
-      void this.notifier.notify({
-        message: result.reason,
-        duration: NOTICE_DURATION_MS,
-      });
-    }
-    return result.ok;
   }
 }

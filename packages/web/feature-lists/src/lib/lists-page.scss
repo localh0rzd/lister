@@ -42,6 +42,8 @@
 
 .title {
   font: var(--mat-sys-body-large);
+  color: inherit;
+  text-decoration: none;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -82,4 +84,28 @@
     right: 24px;
     bottom: 24px;
   }
+}
+
+// The whole row opens the list; the menu button sits above the link's area.
+.row {
+  position: relative;
+}
+
+.title::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+.title:focus-visible {
+  outline: none;
+}
+
+.row:has(.title:focus-visible) {
+  outline: 2px solid var(--mat-sys-primary);
+}
+
+.row button {
+  position: relative;
+  z-index: 1;
 }

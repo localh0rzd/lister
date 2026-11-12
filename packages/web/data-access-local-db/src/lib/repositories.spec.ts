@@ -289,3 +289,29 @@ describe('Repositories.itemCountsOfSpace', () => {
     await vi.waitFor(() => expect(valueOf(counts())?.get(camping)).toBe(3));
   });
 });
+
+describe('Repositories.list', () => {
+  it('finds one list, also when deleted, and follows changes', async () => {
+    const camping = list('Camping');
+    await db.lists.put(camping);
+    const found = TestBed.runInInjectionContext(() =>
+      repositories.list(() => camping.id),
+    );
+
+    await expectEventually(found, camping);
+
+    await db.lists.put({ ...camping, deletedAt: 9 });
+    await vi.waitFor(() => expect(valueOf(found())?.deletedAt).toBe(9));
+  });
+
+  it('is undefined for an unknown id', async () => {
+    const found = TestBed.runInInjectionContext(() =>
+      repositories.list(() => newId()),
+    );
+
+    await vi.waitFor(() => {
+      TestBed.tick();
+      expect(found()).toEqual({ status: 'ready', value: undefined });
+    });
+  });
+});

@@ -52,6 +52,15 @@ export class Repositories {
     });
   }
 
+  /** One list by id, deleted or not (`undefined` if it doesn't exist here). */
+  list(listId: () => string | undefined): Signal<QueryState<List | undefined>> {
+    return liveQuerySignal(() => {
+      const id = listId();
+      if (!id) return undefined;
+      return () => this.db.lists.get(id);
+    });
+  }
+
   /** The items of a list, by position, without deleted ones. */
   itemsOfList(listId: () => string | undefined): Signal<QueryState<Item[]>> {
     return liveQuerySignal(() => {
