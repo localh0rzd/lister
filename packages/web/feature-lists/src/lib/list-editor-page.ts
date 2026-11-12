@@ -329,7 +329,7 @@ export class ListEditorPage {
       });
   }
 
-  protected remove(item: Item): Promise<void> {
+  protected remove(item: Item): Promise<boolean> {
     return this.changes.withUndo(
       { name: 'item.delete', args: { id: item.id } },
       `Deleted “${item.title}”`,

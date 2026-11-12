@@ -55,6 +55,28 @@ describe('SpaceChanges', () => {
     );
   });
 
+  it('says whether the change with Undo was applied', async () => {
+    const { changes, mutate, notify } = setup('space-1');
+    mutate.mockResolvedValueOnce({ ok: false, reason: 'Nope' } as never);
+    expect(
+      await changes.withUndo(
+        { name: 'item.delete', args: { id: 'i1' } },
+        'Deleted “Tent”',
+        { name: 'item.restore', args: { id: 'i1' } },
+      ),
+    ).toBe(false);
+    expect(notify).not.toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'Undo' }),
+    );
+    expect(
+      await changes.withUndo(
+        { name: 'item.delete', args: { id: 'i1' } },
+        'Deleted “Tent”',
+        { name: 'item.restore', args: { id: 'i1' } },
+      ),
+    ).toBe(true);
+  });
+
   it('applies the undo change when Undo is tapped', async () => {
     const { changes, mutate, notify } = setup('space-1');
     notify.mockResolvedValueOnce('action' as never);

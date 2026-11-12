@@ -142,6 +142,16 @@ export class RunPage {
 
   constructor() {
     const title = inject(Title);
+    // A sent state is done with once the local data shows anything else than the state before
+    // it: kept longer, a later change by someone else back to that state would count as sent.
+    effect(() => {
+      const items = this.items();
+      if (items.status !== 'ready') return;
+      const states = new Map(items.value.map((item) => [item.id, item.state]));
+      for (const [id, sent] of this.sentStates) {
+        if (states.get(id) !== sent.from) this.sentStates.delete(id);
+      }
+    });
     effect(() => {
       const view = this.view();
       if (view.kind === 'ready') title.setTitle(`${view.run.title} · Lister`);
@@ -172,11 +182,10 @@ export class RunPage {
       items.map((i) => (i.id === item.id ? { ...i, state } : i)),
     );
     this.sentStates.set(item.id, { from: item.state, to: state });
-    if (finishes) {
-      await this.finish(change, undo);
-    } else if (!(await this.changes.apply(change))) {
-      this.sentStates.delete(item.id);
-    }
+    const applied = finishes
+      ? await this.finish(change, undo)
+      : await this.changes.apply(change);
+    if (!applied) this.sentStates.delete(item.id);
   }
 
   protected async rename(): Promise<void> {
@@ -230,12 +239,16 @@ export class RunPage {
       args: { id: item.id },
     };
     // Removing the last unchecked item finishes the run, too.
-    if (this.finishes((items) => items.filter((i) => i.id !== item.id)))
-      this.finishedHere = true;
-    await this.changes.withUndo(change, `Removed “${item.title}”`, {
-      name: 'runItem.restore',
-      args: { id: item.id },
-    });
+    const finishes = this.finishes((items) =>
+      items.filter((i) => i.id !== item.id),
+    );
+    if (finishes) this.finishedHere = true;
+    const applied = await this.changes.withUndo(
+      change,
+      `Removed “${item.title}”`,
+      { name: 'runItem.restore', args: { id: item.id } },
+    );
+    if (finishes && !applied) this.finishedHere = false;
   }
 
   /** Adds the typed item (Enter or the + button); an identical item is merged (D16). */
@@ -334,11 +347,23 @@ export class RunPage {
     return isRunFinished(change(items));
   }
 
-  /** A change that finishes the run: gone from here, with Undo in the snackbar (D10). */
-  private async finish(change: SpaceChange, undo: SpaceChange): Promise<void> {
+  /**
+   * A change that finishes the run: gone from here, with Undo in the snackbar (D10). Resolves
+   * whether it was applied.
+   */
+  private async finish(
+    change: SpaceChange,
+    undo: SpaceChange,
+  ): Promise<boolean> {
     const view = this.view();
     const title = view.kind === 'ready' ? view.run.title : 'Run';
     this.finishedHere = true;
-    await this.changes.withUndo(change, `Finished “${title}”`, undo);
+    const applied = await this.changes.withUndo(
+      change,
+      `Finished “${title}”`,
+      undo,
+    );
+    if (!applied) this.finishedHere = false;
+    return applied;
   }
 }

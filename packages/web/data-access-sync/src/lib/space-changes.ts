@@ -35,19 +35,23 @@ export class SpaceChanges {
     return result.ok;
   }
 
-  /** Applies a change; if the user taps Undo on the notice, applies `undo`. */
+  /**
+   * Applies a change; if the user taps Undo on the notice, applies `undo`. Resolves `false` at
+   * once when the change isn't applied, otherwise `true` once the notice is gone.
+   */
   async withUndo(
     change: SpaceChange,
     message: string,
     undo: SpaceChange,
-  ): Promise<void> {
-    if (!(await this.apply(change))) return;
+  ): Promise<boolean> {
+    if (!(await this.apply(change))) return false;
     const outcome = await this.notifier.notify({
       message,
       action: 'Undo',
       duration: NOTICE_DURATION_MS,
     });
     if (outcome === 'action') await this.apply(undo);
+    return true;
   }
 
   /** Shows a short notice (e.g. why something wasn't done). */

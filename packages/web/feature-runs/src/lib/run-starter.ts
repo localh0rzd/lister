@@ -14,6 +14,8 @@ import { runTitle } from './run-sections';
 export class RunStarter {
   private readonly changes = inject(SpaceChanges);
   private readonly router = inject(Router);
+  /** A start in flight: a double tap on "Start run" must not start two runs. */
+  private starting = false;
 
   /**
    * "Start run" on a list: copies its items, included lists' too, into a new run (D2), titled
@@ -37,11 +39,17 @@ export class RunStarter {
     sourceListId: string | null,
     items: ReturnType<typeof runItemsFromList>,
   ): Promise<void> {
-    const id = newId();
-    const started = await this.changes.apply({
-      name: 'run.start',
-      args: { id, title, sourceListId, items },
-    });
-    if (started) await this.router.navigate(['/runs', id]);
+    if (this.starting) return;
+    this.starting = true;
+    try {
+      const id = newId();
+      const started = await this.changes.apply({
+        name: 'run.start',
+        args: { id, title, sourceListId, items },
+      });
+      if (started) await this.router.navigate(['/runs', id]);
+    } finally {
+      this.starting = false;
+    }
   }
 }

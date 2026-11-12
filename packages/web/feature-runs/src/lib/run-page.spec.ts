@@ -63,6 +63,8 @@ let db: LocalDb;
 let requests: MutationRequest[];
 let notify: ReturnType<typeof vi.fn>;
 let dialogAnswer: unknown;
+/** Set to make the engine refuse every change. */
+let refuse: boolean;
 
 beforeEach(async () => {
   db = new LocalDb(`test-${newId()}`);
@@ -72,6 +74,7 @@ beforeEach(async () => {
   requests = [];
   notify = vi.fn(async () => 'dismissed');
   dialogAnswer = undefined;
+  refuse = false;
 });
 afterEach(async () => {
   TestBed.resetTestingModule();
@@ -88,7 +91,7 @@ async function render(doneSection = false) {
         useValue: {
           mutate: vi.fn(async (request: MutationRequest) => {
             requests.push(request);
-            return { ok: true };
+            return refuse ? { ok: false, reason: 'Nope' } : { ok: true };
           }),
         },
       },
@@ -287,6 +290,47 @@ describe('RunPage', () => {
     await page.settle(() =>
       expect(notify).toHaveBeenCalledWith(
         expect.objectContaining({ message: 'Finished “Alps”', action: 'Undo' }),
+      ),
+    );
+  });
+
+  it('does not count a check made here once someone else has undone it', async () => {
+    const tent = runItem('Tent', 'a0');
+    const stove = runItem('Stove', 'a1');
+    await db.runItems.bulkPut([tent, stove]);
+    const page = await render();
+    await page.settle(() => expect(page.checkbox('Stove')).toBeTruthy());
+
+    page.checkbox('Tent').click();
+    await page.settle(() => expect(requests).toHaveLength(1));
+    // The local data shows the check, then someone else unchecks Tent again.
+    await db.runItems.put({ ...tent, state: 'checked' });
+    await page.settle(() => expect(page.checkbox('Tent').checked).toBe(true));
+    await db.runItems.put({ ...tent, state: 'unchecked' });
+    await page.settle(() => expect(page.checkbox('Tent').checked).toBe(false));
+    page.checkbox('Stove').click();
+
+    await page.settle(() => expect(requests).toHaveLength(2));
+    expect(requests[1].args).toEqual({ id: stove.id, state: 'checked' });
+    expect(notify).not.toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'Finished “Alps”' }),
+    );
+  });
+
+  it('still says the run is finished elsewhere after its own finishing check was refused', async () => {
+    const tent = runItem('Tent', 'a0');
+    await db.runItems.put(tent);
+    refuse = true;
+    const page = await render();
+    await page.settle(() => expect(page.checkbox('Tent')).toBeTruthy());
+
+    page.checkbox('Tent').click();
+    await page.settle(() => expect(requests).toHaveLength(1));
+    await db.runs.put({ ...alps, finishedAt: 5 });
+
+    await page.settle(() =>
+      expect(notify).toHaveBeenCalledWith(
+        expect.objectContaining({ message: '“Alps” is finished' }),
       ),
     );
   });

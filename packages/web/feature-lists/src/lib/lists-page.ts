@@ -121,7 +121,7 @@ export class ListsPage {
     }
   }
 
-  protected remove(list: List): Promise<void> {
+  protected remove(list: List): Promise<boolean> {
     return this.changes.withUndo(
       { name: 'list.delete', args: { id: list.id } },
       `Deleted “${list.title}”`,
