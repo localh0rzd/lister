@@ -23,26 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-_Nothing in progress._
-
-## Backlog
-
-### T-035 — Type-check every project in CI
-
-- Milestone: M2 Sync walking skeleton
-- Area: infra
-- Priority: normal
-- Done when:
-  - Every project has a `typecheck` target (`tsc --noEmit`) for its library or app tsconfig
-    **and** its spec tsconfig, and `nx affected -t typecheck` runs in CI and in the `verify`
-    skill.
-  - The generated `vitest.config.mts` / `vite.config.mts` files type-check too (today they fail
-    under the spec tsconfigs with TS1343), or are excluded on purpose.
-- Notes: Found in T-006. App builds type-check only through the app's tsconfig, and Vitest
-  doesn't type-check, so a library's stricter options (e.g. `noPropertyAccessFromIndexSignature`)
-  and stale types in specs went unnoticed. One spec still built a `HealthResponse` without `db`
-  after T-004 changed the contract.
-
 ### T-009 — Web: sync engine with offline outbox
 
 - Milestone: M2 Sync walking skeleton
@@ -62,6 +42,24 @@ _Nothing in progress._
   - Unit tests with a fake socket cover offline queueing, flushing on reconnect, rejection
     rollback, gap pull and rebase.
 - Notes: Uses the dev user and space until T-025.
+
+## Backlog
+
+### T-035 — Type-check every project in CI
+
+- Milestone: M2 Sync walking skeleton
+- Area: infra
+- Priority: normal
+- Done when:
+  - Every project has a `typecheck` target (`tsc --noEmit`) for its library or app tsconfig
+    **and** its spec tsconfig, and `nx affected -t typecheck` runs in CI and in the `verify`
+    skill.
+  - The generated `vitest.config.mts` / `vite.config.mts` files type-check too (today they fail
+    under the spec tsconfigs with TS1343), or are excluded on purpose.
+- Notes: Found in T-006. App builds type-check only through the app's tsconfig, and Vitest
+  doesn't type-check, so a library's stricter options (e.g. `noPropertyAccessFromIndexSignature`)
+  and stale types in specs went unnoticed. One spec still built a `HealthResponse` without `db`
+  after T-004 changed the contract.
 
 ### T-010 — Web: Lists page
 
@@ -447,6 +445,19 @@ _Nothing in progress._
   - A check (lint or test) fails when the code uses an icon that the subset lacks.
   - The service worker prefetch stays small; the app still makes no requests to Google Fonts.
 - Notes: Found in T-001. Until then the full variable font is bundled.
+
+### T-036 — Slim the sync engine chunk
+
+- Milestone: M7 Deployment
+- Area: web
+- Priority: low
+- Done when:
+  - The lazily loaded sync-engine chunk is well under its 589 kB raw / 123 kB transferred size
+    from T-009 (mostly Zod 4 classic), e.g. by validating on the client with `zod/mini` or by
+    sharing only the types and parsing server messages more cheaply. The server keeps full
+    validation.
+  - The initial bundle stays within its budget, and a check (budget or test) catches regressions.
+- Notes: Found in T-009. Mobile users download the chunk on the first visit.
 
 ## Done
 

@@ -4,14 +4,11 @@ import { DatabaseConnection, schema } from '@lister/api/data-access-db';
 import {
   type Mutation,
   type RowSet,
+  applyMutation,
   parseMutation,
 } from '@lister/shared/sync-protocol';
 import { CLOCK, type Clock } from './clock';
-import {
-  type HandlerContext,
-  type HandlerOutcome,
-  mutationHandlers as h,
-} from './mutation-handlers';
+import { SqlRowStore } from './sql-row-store';
 
 const { items, lists, processedMutations, spaces } = schema;
 
@@ -113,8 +110,10 @@ export class MutationService {
       if (!space) return rejectWith("This space doesn't exist");
 
       const version = space.version + 1;
-      const outcome = runHandler(
-        { tx, spaceId: space.id, userId: context.userId, now, version },
+      // The shared rules (also the client's prediction), over this transaction.
+      const outcome = applyMutation(
+        new SqlRowStore(tx),
+        { spaceId: space.id, userId: context.userId, now, version },
         mutation,
       );
 
@@ -167,28 +166,4 @@ function toResult(mutationId: string, stored: StoredResult): MutationResult {
   return 'version' in stored
     ? { mutationId, status: 'ack', version: stored.version }
     : { mutationId, status: 'reject', reason: stored.reason };
-}
-
-/** Typed dispatch: each mutation goes to its own handler with its own argument type. */
-function runHandler(ctx: HandlerContext, m: Mutation): HandlerOutcome {
-  switch (m.name) {
-    case 'list.create':
-      return h['list.create'](ctx, m.args);
-    case 'list.update':
-      return h['list.update'](ctx, m.args);
-    case 'list.delete':
-      return h['list.delete'](ctx, m.args);
-    case 'list.restore':
-      return h['list.restore'](ctx, m.args);
-    case 'item.create':
-      return h['item.create'](ctx, m.args);
-    case 'item.update':
-      return h['item.update'](ctx, m.args);
-    case 'item.move':
-      return h['item.move'](ctx, m.args);
-    case 'item.delete':
-      return h['item.delete'](ctx, m.args);
-    case 'item.restore':
-      return h['item.restore'](ctx, m.args);
-  }
 }

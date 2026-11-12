@@ -34,6 +34,7 @@ packages/
   web/feature-lists/     Lists destination, @lister/web/feature-lists (scope:web, type:feature)
   web/feature-runs/      Runs destination, @lister/web/feature-runs (scope:web, type:feature)
   web/feature-space/     Space destination, @lister/web/feature-space (scope:web, type:feature)
+  web/data-access-sync/  sync engine: mutate(), outbox, socket, status, @lister/web/data-access-sync (scope:web, type:data-access)
   web/data-access-local-db/ Dexie database, liveQuery signals, repositories, @lister/web/data-access-local-db (scope:web, type:data-access)
   web/ui/                nav bar and rail, theme picker, @lister/web/ui (scope:web, type:ui)
   web/util-theme/        theme preference + theme-color, @lister/web/util-theme (scope:web, type:util)
