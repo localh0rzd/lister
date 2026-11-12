@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-018 — Duplicate a list
 
 - Milestone: M3 Composition
@@ -35,6 +33,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   - "Duplicate" on a list creates "Copy of <title>" with copies of its items (same order, new ids)
     and the same includes (still references).
   - It works offline (the ids come from the client).
+
+## Backlog
 
 ### T-019 — Run model, including ad-hoc runs
 

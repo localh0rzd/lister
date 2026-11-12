@@ -41,6 +41,10 @@
         <mat-icon>edit</mat-icon>
         <span>Rename</span>
       </button>
+      <button mat-menu-item type="button" (click)="duplicate(entry.list)">
+        <mat-icon>content_copy</mat-icon>
+        <span>Duplicate</span>
+      </button>
       <button mat-menu-item type="button" (click)="remove(entry.list)">
         <mat-icon>delete</mat-icon>
         <span>Delete</span>

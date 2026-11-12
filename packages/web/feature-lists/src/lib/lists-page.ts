@@ -4,7 +4,13 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
 import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
 import { RouterLink } from '@angular/router';
-import { type List, flattenEntries, newId } from '@lister/shared/domain';
+import {
+  LIMITS,
+  type List,
+  flattenEntries,
+  newId,
+  sortByPosition,
+} from '@lister/shared/domain';
 import { CurrentSpace, Repositories } from '@lister/web/data-access-local-db';
 import { TitleDialog, type TitleDialogData, LoadingHint } from '@lister/web/ui';
 import { SpaceChanges } from '@lister/web/data-access-sync';
@@ -110,6 +116,53 @@ export class ListsPage {
   }
 
   /** "3 items", or "3 items · 12 in total · 2 lists included" for a list that includes others. */
+  /**
+   * Duplicate: a new list "Copy of <title>" with copies of the list's items (same order, new
+   * ids) and the same includes (still live references). Every id comes from this device, so it
+   * works offline. Stops at the first refusal, which is shown.
+   */
+  protected async duplicate(list: List): Promise<void> {
+    const composition = this.composition();
+    if (composition.status !== 'ready') return;
+    const source = composition.value;
+    const id = newId();
+    const title = copyTitle(list.title);
+    const changes = [
+      {
+        name: 'list.create' as const,
+        args: { id, title, description: list.description },
+      },
+      ...sortByPosition(
+        source.itemsOf(list.id).filter((item) => item.deletedAt === null),
+      ).map((item) => ({
+        name: 'item.create' as const,
+        args: {
+          id: newId(),
+          listId: id,
+          title: item.title,
+          quantity: item.quantity,
+          note: item.note,
+          position: item.position,
+        },
+      })),
+      ...sortByPosition(
+        source.includesOf(list.id).filter((row) => row.deletedAt === null),
+      ).map((row) => ({
+        name: 'include.create' as const,
+        args: {
+          id: newId(),
+          parentListId: id,
+          childListId: row.childListId,
+          position: row.position,
+        },
+      })),
+    ];
+    for (const change of changes) {
+      if (!(await this.changes.apply(change))) return;
+    }
+    this.changes.tell(`Created “${title}”`);
+  }
+
   protected itemCount(count: ListCounts | null): string {
     if (count === null) return '–';
     const items = (n: number) => (n === 1 ? '1 item' : `${n} items`);
@@ -132,4 +185,9 @@ export class ListsPage {
     );
     return firstValueFrom(ref.afterClosed());
   }
+}
+
+/** "Copy of <title>", shortened to the title limit if needed. */
+export function copyTitle(title: string): string {
+  return [...`Copy of ${title}`].slice(0, LIMITS.title).join('').trimEnd();
 }

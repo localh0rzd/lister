@@ -13,7 +13,7 @@ import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { SyncEngine } from '@lister/web/data-access-sync';
 import { Notifier } from '@lister/web/util-notify';
 import { of } from 'rxjs';
-import { ListsPage } from './lists-page';
+import { ListsPage, copyTitle } from './lists-page';
 
 const SPACE = newId();
 const meta = {
@@ -253,6 +253,121 @@ describe('ListsPage', () => {
     });
   });
 
+  it('duplicates a list with its items in order and the same includes', async () => {
+    const camping = { ...list('Camping'), description: 'Summer' };
+    const toiletries = list('Toiletries');
+    await db.lists.bulkPut([camping, toiletries]);
+    const tent = {
+      ...item(camping.id),
+      title: 'Tent',
+      position: 'a1',
+      quantity: '1',
+      note: '2 people',
+    };
+    const stove = { ...item(camping.id), title: 'Stove', position: 'a0' };
+    const gone = {
+      ...item(camping.id),
+      title: 'Gone',
+      position: 'a2',
+      deletedAt: 3,
+    };
+    await db.items.bulkPut([tent, stove, gone]);
+    await db.includes.put({
+      ...meta,
+      id: newId(),
+      parentListId: camping.id,
+      childListId: toiletries.id,
+      position: 'a5',
+    });
+    const { loader, element, fixture } = await render();
+    // The copy is made from the loaded composition: wait until the counts show it.
+    await vi.waitFor(async () => {
+      await fixture.whenStable();
+      expect(rows(element)).toContain(
+        'Camping · 2 items · 2 in total · 1 list included',
+      );
+    });
+
+    const menu = await loader.getHarness(
+      MatMenuHarness.with({ selector: '[aria-label="More for Camping"]' }),
+    );
+    await menu.clickItem({ text: /Duplicate/ });
+
+    await vi.waitFor(() => expect(mutate).toHaveBeenCalledTimes(4));
+    const requests = mutate.mock.calls.map(([request]) => request);
+    const copyId = requests[0].args.id;
+    expect(copyId).not.toBe(camping.id);
+    expect(requests).toEqual([
+      {
+        spaceId: SPACE,
+        name: 'list.create',
+        args: { id: copyId, title: 'Copy of Camping', description: 'Summer' },
+      },
+      {
+        spaceId: SPACE,
+        name: 'item.create',
+        args: {
+          id: expect.any(String),
+          listId: copyId,
+          title: 'Stove',
+          quantity: '',
+          note: '',
+          position: 'a0',
+        },
+      },
+      {
+        spaceId: SPACE,
+        name: 'item.create',
+        args: {
+          id: expect.any(String),
+          listId: copyId,
+          title: 'Tent',
+          quantity: '1',
+          note: '2 people',
+          position: 'a1',
+        },
+      },
+      {
+        spaceId: SPACE,
+        name: 'include.create',
+        args: {
+          id: expect.any(String),
+          parentListId: copyId,
+          childListId: toiletries.id,
+          position: 'a5',
+        },
+      },
+    ]);
+    const newIds = requests.map((r) => r.args.id);
+    expect(newIds).not.toContain(tent.id);
+    expect(new Set(newIds).size).toBe(4);
+    await vi.waitFor(() =>
+      expect(notify).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'Created “Copy of Camping”' }),
+      ),
+    );
+  });
+
+  it('stops duplicating at the first refusal', async () => {
+    const camping = list('Camping');
+    await db.lists.put(camping);
+    await db.items.put(item(camping.id));
+    const { loader } = await render();
+    mutate.mockResolvedValueOnce({ ok: false, reason: 'Nope' });
+
+    const menu = await loader.getHarness(
+      MatMenuHarness.with({ selector: '[aria-label="More for Camping"]' }),
+    );
+    await menu.clickItem({ text: /Duplicate/ });
+
+    await vi.waitFor(() =>
+      expect(notify).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'Nope' }),
+      ),
+    );
+    expect(mutate).toHaveBeenCalledTimes(1);
+  });
+
   it('shows why a change was refused', async () => {
     const { element } = await render();
     mutate.mockResolvedValueOnce({
@@ -268,5 +383,14 @@ describe('ListsPage', () => {
         expect.objectContaining({ message: 'At most 200 characters' }),
       ),
     );
+  });
+});
+
+describe('copyTitle', () => {
+  it('prefixes "Copy of" and stays within the title limit', () => {
+    expect(copyTitle('Camping')).toBe('Copy of Camping');
+    const long = 'x'.repeat(200);
+    expect([...copyTitle(long)]).toHaveLength(200);
+    expect(copyTitle('🏕'.repeat(199))).toBe(`Copy of ${'🏕'.repeat(192)}`);
   });
 });
