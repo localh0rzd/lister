@@ -6,6 +6,10 @@ describe('GET /api/health', () => {
     const res = await axios.get<HealthResponse>('/api/health');
 
     expect(res.status).toBe(200);
-    expect(res.data).toMatchObject({ status: 'ok', service: 'lister-api' });
+    expect(res.data).toMatchObject({
+      status: 'ok',
+      service: 'lister-api',
+      db: 'ok',
+    });
   });
 });

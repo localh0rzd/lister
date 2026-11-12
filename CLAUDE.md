@@ -28,6 +28,7 @@ apps/
   lister-api-e2e/      Vitest + axios e2e     (scope:api,  type:e2e)
 packages/
   shared/api-contracts/  DTO types + route helpers, @lister/shared/api-contracts (scope:shared, type:util)
+  api/data-access-db/    SQLite + Drizzle, migrations, test database, @lister/api/data-access-db (scope:api, type:data-access)
   web/feature-lists/     Lists destination, @lister/web/feature-lists (scope:web, type:feature)
   web/feature-runs/      Runs destination, @lister/web/feature-runs (scope:web, type:feature)
   web/feature-space/     Space destination, @lister/web/feature-space (scope:web, type:feature)
@@ -140,11 +141,11 @@ Every project needs exactly one `scope:*` tag and one `type:*` tag. The details,
 - Global prefix `api` (from `API_PREFIX`). A global `ValidationPipe` with `whitelist` + `transform` is on: request bodies are DTO **classes** with `class-validator` decorators that `implements` the shared interface.
 - Controllers stay thin; logic lives in services. Throw Nest HTTP exceptions (`NotFoundException`, …), don't build error responses by hand.
 - Synced data has no REST CRUD endpoints. It changes only through mutation handlers in the sync feature: authorize → validate (Zod schema from `sync-protocol`) → apply → bump the space version, all inside one synchronous SQLite transaction — never `await` inside it. Mutations set values; they never toggle or increment.
-- Database (from T-004): SQLite via Drizzle + `better-sqlite3`. Every schema change is a Drizzle migration **and** a matching Dexie version bump on the client, in the same change.
+- Database: SQLite via Drizzle + `better-sqlite3` in `@lister/api/data-access-db` (inject `DatabaseConnection`, query `connection.db`). Schema in `src/lib/schema.ts`; generate migrations with `npx nx run api-data-access-db:db-generate --name=<change>` and commit them; they apply on startup. Every schema change is a Drizzle migration **and** a matching Dexie version bump on the client, in the same change. `better-sqlite3`'s install script is approved in `package.json > allowScripts` (npm 11 blocks unapproved ones); re-approve after upgrading it (`npm install-scripts approve better-sqlite3`).
 - Config comes from env vars (`PORT`, …). No secrets in the repo.
 - Tests:
   - Units: Vitest + `@nestjs/testing`. Decorator metadata works out of the box; no SWC plugin is needed.
-  - Integration: every route and socket event, tested through the real app in `apps/lister-api/src/integration/` (`createTestApp()`, from T-004).
+  - Integration: every route and socket event, tested through the real app in `apps/lister-api/src/integration/` with `createTestApp()` (`apps/lister-api/src/testing/`).
   - Smoke: `apps/lister-api-e2e` (Vitest + axios) tests the built server.
 
 ## Definition of done

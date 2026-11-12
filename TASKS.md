@@ -23,10 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-_Nothing in progress._
-
-## Backlog
-
 ### T-004 — SQLite database layer with Drizzle and migrations
 
 - Milestone: M1 Foundations
@@ -48,6 +44,8 @@ _Nothing in progress._
   - `data/` is git-ignored, and `DATABASE_PATH` is in the README's environment table.
 - Notes: Make sure the webpack build keeps `better-sqlite3` external and the built `main.js`
   starts.
+
+## Backlog
 
 ### T-005 — Shared `domain` and `sync-protocol` libraries
 

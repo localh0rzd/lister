@@ -31,14 +31,16 @@ npm run lint:workspace               # project tags, library placement and impor
 npx nx e2e lister-web-e2e            # first run: npx playwright install chromium
 npx nx graph                         # project graph
 npm run icons                        # regenerate the PWA icons (tools/generate-pwa-icons.mjs)
+npx nx run api-data-access-db:db-generate --name=<change>   # migration from the Drizzle schema
 npx nx format:write
 ```
 
 ## Environment variables
 
-| Var    | Used by    | Default |
-| ------ | ---------- | ------- |
-| `PORT` | lister-api | `3000`  |
+| Var             | Used by    | Default                                                                     |
+| --------------- | ---------- | --------------------------------------------------------------------------- |
+| `PORT`          | lister-api | `3000`                                                                      |
+| `DATABASE_PATH` | lister-api | `data/lister.db` (relative to the working directory; the folder is created) |
 
 ## Working with Claude Code
 

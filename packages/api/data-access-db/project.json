@@ -1,0 +1,17 @@
+{
+  "name": "api-data-access-db",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/api/data-access-db/src",
+  "projectType": "library",
+  "tags": ["scope:api", "type:data-access"],
+  "// targets": "to see all targets run: nx show project api-data-access-db --web",
+  "targets": {
+    "db-generate": {
+      "command": "drizzle-kit generate --config packages/api/data-access-db/drizzle.config.ts",
+      "options": {
+        "cwd": "{workspaceRoot}"
+      },
+      "cache": false
+    }
+  }
+}

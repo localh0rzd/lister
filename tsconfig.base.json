@@ -26,7 +26,10 @@
       "@lister/web/feature-space": [
         "./packages/web/feature-space/src/index.ts"
       ],
-      "@lister/web/util-pwa": ["./packages/web/util-pwa/src/index.ts"]
+      "@lister/web/util-pwa": ["./packages/web/util-pwa/src/index.ts"],
+      "@lister/api/data-access-db": [
+        "./packages/api/data-access-db/src/index.ts"
+      ]
     }
   },
   "exclude": ["node_modules", "tmp"]

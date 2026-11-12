@@ -134,7 +134,7 @@ What's required is in the `testing` skill. For the API:
   (`{ provide: X, useValue: mock }`), or a fresh in-memory database when the logic is SQL.
 - **Integration (every route and socket event):**
   - Put them in `apps/lister-api/src/integration/<area>.integration.spec.ts`.
-  - `createTestApp()` (from T-004) gives the real `AppModule` with `main.ts`'s setup, a fresh
+  - `createTestApp()` (`apps/lister-api/src/testing/`) gives the real `AppModule` with `main.ts`'s setup, a fresh
     in-memory database and a random port. Call it with `fetch`, or with `socket.io-client` for
     the gateway.
   - Cover the happy path and the failures: 400, 401, 403, 404 and 409 for HTTP; acks,

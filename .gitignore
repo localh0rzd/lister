@@ -53,3 +53,6 @@ Thumbs.db
 __screenshots__/
 vitest.config.*.timestamp*
 .vitest
+
+# SQLite database of local runs (DATABASE_PATH)
+/data

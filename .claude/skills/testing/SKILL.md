@@ -34,8 +34,8 @@ skill.
 - **API:**
   - Build a module with `Test.createTestingModule()` containing the class under test, and replace
     its collaborators with `{ provide: X, useValue: … }`.
-  - When the logic is SQL, use a fresh in-memory database instead of mocks (T-004 adds the
-    helper).
+  - When the logic is SQL, use a fresh in-memory database instead of mocks:
+    `createTestDatabase()` from `@lister/api/data-access-db`.
 - **Shared:**
   - Pure functions get table-driven cases with `it.each`, including empty, one, many, duplicates,
     unicode and boundary values.
@@ -50,7 +50,8 @@ migrated in-memory SQLite database.
 
 - **Where:** `apps/lister-api/src/integration/<area>.integration.spec.ts`, so the tests can use
   the whole `AppModule`. They run as part of `npx nx test lister-api`.
-- **The app:** `createTestApp()` (added by T-004) starts the real `AppModule`.
+- **The app:** `createTestApp()` (`apps/lister-api/src/testing/create-test-app.ts`) starts the
+  real `AppModule`; `health.integration.spec.ts` is the example to copy.
   - It uses the same setup as `main.ts`: one shared `configureApp()` applies the global prefix,
     pipes and filters.
   - It swaps in a fresh in-memory database and listens on a random port (`app.listen(0)`).
