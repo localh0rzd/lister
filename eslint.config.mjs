@@ -1,3 +1,4 @@
+import { builtinModules } from 'node:module';
 import nx from '@nx/eslint-plugin';
 
 // npm packages that belong to one side only. They are banned on the other side and in shared
@@ -152,6 +153,56 @@ export const angularBestPractices = [
       '@angular-eslint/template/button-has-type': 'error',
       '@angular-eslint/template/no-positive-tabindex': 'error',
       '@angular-eslint/template/no-any': 'error',
+    },
+  },
+];
+
+// Shared libraries run in the browser and on the server, so their source may use neither Node
+// built-ins nor browser globals (CLAUDE.md). Every scope:shared project's eslint.config.mjs
+// spreads this; `npm run lint:workspace` checks that it does.
+export const sharedPlatformRules = [
+  {
+    files: ['**/*.ts'],
+    ignores: ['**/*.spec.ts', '**/*.test.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          // Exact names: as a pattern, the built-in `domain` would also match @lister/shared/domain.
+          paths: builtinModules.map((name) => ({
+            name,
+            message: 'Shared code runs in the browser too: no Node built-ins.',
+          })),
+          patterns: [
+            {
+              group: ['node:*'],
+              message:
+                'Shared code runs in the browser too: no Node built-ins.',
+            },
+          ],
+        },
+      ],
+      'no-restricted-globals': [
+        'error',
+        ...[
+          'window',
+          'document',
+          'navigator',
+          'localStorage',
+          'sessionStorage',
+          'indexedDB',
+          'location',
+        ].map((name) => ({
+          name,
+          message: 'Shared code runs on the server too: no browser globals.',
+        })),
+        ...['process', 'Buffer', '__dirname', '__filename', 'require'].map(
+          (name) => ({
+            name,
+            message: 'Shared code runs in the browser too: no Node globals.',
+          }),
+        ),
+      ],
     },
   },
 ];

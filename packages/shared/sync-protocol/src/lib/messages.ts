@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { LIMITS } from '@lister/shared/domain';
 import { idSchema, versionSchema } from './common';
-import { mutationSchema } from './mutations';
+import type { MutationInput } from './mutations';
 import { rowSetSchema } from './rows';
 
 /** Most mutations a client sends in one push; it sends the rest after the acks. */
@@ -21,33 +21,40 @@ export const pullSchema = z.strictObject({
   since: versionSchema,
 });
 
+/**
+ * The envelope only checks that every entry names its mutation; each entry is then validated on
+ * its own with `parseMutation`, so one invalid mutation is rejected by id and the rest still
+ * apply. A push whose entries don't even carry a readable `mutationId` is a protocol error.
+ */
 export const pushSchema = z.strictObject({
-  mutations: z.array(mutationSchema).min(1).max(MAX_PUSH_MUTATIONS),
+  mutations: z
+    .array(z.looseObject({ mutationId: idSchema }))
+    .min(1)
+    .max(MAX_PUSH_MUTATIONS),
 });
 
-// Server → client
+// Server → client: tolerant (`z.object` drops unknown fields), so older clients keep working
+// when the server adds something (design §2.5).
 
-export const welcomeSchema = z.strictObject({
+export const welcomeSchema = z.object({
   userId: idSchema,
   spaces: z.array(
-    z.strictObject({
+    z.object({
       id: idSchema,
       name: z.string().max(LIMITS.spaceName),
       version: versionSchema,
-      members: z.array(
-        z.strictObject({ userId: idSchema, displayName: z.string() }),
-      ),
+      members: z.array(z.object({ userId: idSchema, displayName: z.string() })),
     }),
   ),
 });
 
 /** The client's protocol is too old; it must reload to the new app version. */
-export const updateRequiredSchema = z.strictObject({
+export const updateRequiredSchema = z.object({
   protocolVersion: z.int().positive(),
 });
 
 /** Answer to `pull`: everything changed after `since`, up to `version`. */
-export const rowsSchema = z.strictObject({
+export const rowsSchema = z.object({
   spaceId: idSchema,
   version: versionSchema,
   /** True when this is the space's whole state (since 0, or `since` predates purged tombstones). */
@@ -55,20 +62,20 @@ export const rowsSchema = z.strictObject({
   rows: rowSetSchema,
 });
 
-export const ackSchema = z.strictObject({
+export const ackSchema = z.object({
   mutationId: idSchema,
   /** The space version that includes the mutation's effect. */
   version: versionSchema,
 });
 
-export const rejectSchema = z.strictObject({
+export const rejectSchema = z.object({
   mutationId: idSchema,
   /** Human-readable; shown to the user. */
   reason: z.string().min(1),
 });
 
 /** Rows changed by one mutation, broadcast to everyone in the space. */
-export const pokeSchema = z.strictObject({
+export const pokeSchema = z.object({
   spaceId: idSchema,
   version: versionSchema,
   rows: rowSetSchema,
@@ -76,7 +83,10 @@ export const pokeSchema = z.strictObject({
 
 export type Hello = z.infer<typeof helloSchema>;
 export type Pull = z.infer<typeof pullSchema>;
-export type Push = z.input<typeof pushSchema>;
+/** What a client sends; the server reads it with `pushSchema`, then `parseMutation` per entry. */
+export interface Push {
+  mutations: MutationInput[];
+}
 export type Welcome = z.infer<typeof welcomeSchema>;
 export type UpdateRequired = z.infer<typeof updateRequiredSchema>;
 export type Rows = z.infer<typeof rowsSchema>;

@@ -83,10 +83,25 @@ describe('socket messages', () => {
     expect(pushSchema.safeParse(push(MAX_PUSH_MUTATIONS + 1)).success).toBe(
       false,
     );
+  });
+
+  it('accepts a push with an invalid mutation, so that one can be rejected by id', () => {
+    const bad = { ...deleteMutation(), name: 'item.toggle' };
+
+    const result = pushSchema.safeParse({ mutations: [deleteMutation(), bad] });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.mutations[1]).toMatchObject({
+      mutationId: bad.mutationId,
+    });
+  });
+
+  it('refuses a push whose entries carry no readable mutation id', () => {
     expect(
-      pushSchema.safeParse({
-        mutations: [{ ...deleteMutation(), name: 'item.toggle' }],
-      }).success,
+      pushSchema.safeParse({ mutations: [{ name: 'item.delete' }] }).success,
+    ).toBe(false);
+    expect(
+      pushSchema.safeParse({ mutations: [{ mutationId: 'abc' }] }).success,
     ).toBe(false);
   });
 
@@ -132,7 +147,7 @@ describe('socket messages', () => {
     ).toBe(false);
   });
 
-  it('carries tombstones and rejects unknown row fields', () => {
+  it('carries tombstones', () => {
     const tombstone = { ...list(), deletedAt: 1_700_000_000_500 };
 
     expect(
@@ -143,13 +158,30 @@ describe('socket messages', () => {
         rows: { lists: [tombstone], items: [] },
       }).success,
     ).toBe(true);
+  });
+
+  it('ignores fields and tables a newer server adds (old clients keep working)', () => {
+    const result = rowsSchema.safeParse({
+      spaceId: newId(),
+      version: 1,
+      snapshot: false,
+      futureFlag: true,
+      rows: { lists: [{ ...list(), icon: 'hiking' }], items: [], includes: [] },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data).not.toHaveProperty('futureFlag');
+    expect(result.data?.rows).not.toHaveProperty('includes');
+    expect(result.data?.rows.lists[0]).not.toHaveProperty('icon');
     expect(
-      rowsSchema.safeParse({
-        spaceId: newId(),
-        version: 1,
-        snapshot: false,
-        rows: { lists: [{ ...list(), secret: 'x' }], items: [] },
-      }).success,
+      welcomeSchema.safeParse({ userId: newId(), spaces: [], isAdmin: true })
+        .success,
+    ).toBe(true);
+  });
+
+  it('stays strict about what clients send', () => {
+    expect(
+      pullSchema.safeParse({ spaceId: newId(), since: 0, extra: 1 }).success,
     ).toBe(false);
   });
 });

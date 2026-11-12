@@ -319,7 +319,7 @@ clients only get the display names of the members of their spaces.
 | `passkeys`              | user, credential id, public key, sign counter, transports, name, created at, last used at                                    |
 | `sessions`              | user, expiry                                                                                                                 |
 | `spaces`, `memberships` | space name, current version; role                                                                                            |
-| `lists`                 | title, description, icon/colour                                                                                              |
+| `lists`                 | title, description (icon/colour deferred, §8)                                                                                |
 | `items`                 | list, title, quantity, note, position                                                                                        |
 | `includes`              | parent list, child list, position                                                                                            |
 | `runs`                  | source list (none for ad-hoc), title, finished at                                                                            |
@@ -568,6 +568,8 @@ it changes a decision above.
 - Presence ("Ben is looking at this list")
 - Assigning items to people
 - Search, tags, favourites
+- An icon or colour per list (deferred in T-005; additive later: a column, a Dexie bump and an
+  optional row field, which old clients ignore)
 - Import/export (JSON, Markdown), print view
 - Self-registration and invite links (admins create accounts)
 - Languages other than English

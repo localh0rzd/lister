@@ -5,7 +5,8 @@
 // - Apps and e2e projects live in apps/. Libraries live in packages/<scope>/<name>, carry the
 //   matching scope tag, and are imported only as @lister/<scope>/<name>, which points at their
 //   src/index.ts (no aliases into a library's internals).
-// - Every project is linted, and Angular projects include the shared Angular best-practice rules.
+// - Every project is linted; Angular projects include the shared Angular best-practice rules, and
+//   shared projects the platform rules (no Node built-ins, no browser globals).
 // - Web libraries declare `"sideEffects": false`, so unused barrel exports don't reach a bundle.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -79,6 +80,11 @@ for (const { name, data } of Object.values(graph.nodes)) {
     fail('has no eslint.config.mjs; every project is linted');
   } else {
     const source = readFileSync(eslintConfig, 'utf8');
+    if (scopes[0] === 'shared' && !source.includes('sharedPlatformRules')) {
+      fail(
+        'eslint.config.mjs must spread sharedPlatformRules from the root config',
+      );
+    }
     if (
       source.includes("'flat/angular'") &&
       !source.includes('angularBestPractices')

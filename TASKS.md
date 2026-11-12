@@ -23,23 +23,7 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-005 — Shared `domain` and `sync-protocol` libraries
-
-- Milestone: M1 Foundations
-- Area: shared
-- Priority: high
-- Done when:
-  - `packages/shared/domain` (scope:shared, type:util) exports the entity types for spaces, lists
-    and items with the sync metadata from design §3, a UUIDv7 id helper, and position helpers on
-    `fractional-indexing` (between two neighbours, append; equal keys ordered by id).
-  - `packages/shared/sync-protocol` (scope:shared, type:util) exports `PROTOCOL_VERSION` and Zod
-    schemas with inferred types for the socket messages (hello, welcome, pull, rows, push, ack,
-    reject, poke) and for the list and item mutations (create, update, move, delete, restore).
-  - Item quantity is optional free text; empty means 1 (D6).
-  - Unit tests: schemas accept valid and reject invalid examples; positions sort correctly,
-    including two clients inserting at the same spot.
-- Notes: No Angular, Nest, Node or browser-only imports. Includes and runs are added by T-015 and
-  T-019.
+_Nothing in progress._
 
 ## Backlog
 
@@ -499,6 +483,26 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 - Notes: Found in T-001. Until then the full variable font is bundled.
 
 ## Done
+
+### T-005 — Shared `domain` and `sync-protocol` libraries
+
+- Completed: 2026-11-12 — `packages/shared/domain` (entities, UUIDv7 ids, fractional positions with id tie-break, D6 quantity, limits) and `packages/shared/sync-protocol` (`PROTOCOL_VERSION`, mutation, message and row schemas, `parseMutation`, typed Socket.IO events), with unit tests.
+- Review: Changes requested (3 major, 5 minor, 2 nit); all fixed: server → client schemas tolerate unknown fields (additive changes keep old clients working), `push` is validated per mutation so one bad entry is rejected by id, malformed position keys are refused (`isPositionKey`), `positionBetween` refuses ties, `undefined`-only patches, lower-case ids, control characters and invisible titles refused, row limits from `LIMITS`, new `sharedPlatformRules` lint (no Node built-ins or browser globals in shared code). List icon/colour deferred (design §8).
+- Milestone: M1 Foundations
+- Area: shared
+- Priority: high
+- Done when:
+  - `packages/shared/domain` (scope:shared, type:util) exports the entity types for spaces, lists
+    and items with the sync metadata from design §3, a UUIDv7 id helper, and position helpers on
+    `fractional-indexing` (between two neighbours, append; equal keys ordered by id).
+  - `packages/shared/sync-protocol` (scope:shared, type:util) exports `PROTOCOL_VERSION` and Zod
+    schemas with inferred types for the socket messages (hello, welcome, pull, rows, push, ack,
+    reject, poke) and for the list and item mutations (create, update, move, delete, restore).
+  - Item quantity is optional free text; empty means 1 (D6).
+  - Unit tests: schemas accept valid and reject invalid examples; positions sort correctly,
+    including two clients inserting at the same spot.
+- Notes: No Angular, Nest, Node or browser-only imports. Includes and runs are added by T-015 and
+  T-019.
 
 ### T-004 — SQLite database layer with Drizzle and migrations
 

@@ -1,5 +1,6 @@
 import {
   comparePositions,
+  isPositionKey,
   positionAt,
   positionAtEnd,
   positionBetween,
@@ -32,10 +33,11 @@ describe('positionBetween', () => {
     }
   });
 
-  it('goes right after a tie when both neighbours share a key', () => {
+  it('refuses neighbours that are tied or out of order (positionAt handles ties)', () => {
     const key = positionBetween(null, null);
 
-    expect(positionBetween(key, key) > key).toBe(true);
+    expect(() => positionBetween(key, key)).toThrow(/positionAt/);
+    expect(() => positionBetween(positionBetween(key, null), key)).toThrow();
   });
 });
 
@@ -128,5 +130,26 @@ describe('positionAtEnd and positionAt', () => {
       'new',
       'd',
     ]);
+  });
+});
+
+describe('isPositionKey', () => {
+  it.each(['a0', 'a1', 'a0V', 'Zz', 'b0V'])('accepts %j', (key) => {
+    expect(isPositionKey(key)).toBe(true);
+  });
+
+  it.each(['', 'a', 'a00', 'zzz', 'b0', 'a 0', 'A' + '0'.repeat(26), 42, null])(
+    'rejects %j',
+    (key) => {
+      expect(isPositionKey(key)).toBe(false);
+    },
+  );
+
+  it('accepts every key the helpers create', () => {
+    let low: string | null = null;
+    for (let i = 0; i < 30; i++) {
+      low = positionBetween(low, null);
+      expect(isPositionKey(low)).toBe(true);
+    }
   });
 });

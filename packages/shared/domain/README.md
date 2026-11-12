@@ -1,7 +1,8 @@
 # @lister/shared/domain
 
-Plain TypeScript used by the web app and the API alike (no Angular, Nest, Node or browser-only
-APIs; lint enforces it).
+Plain TypeScript used by the web app and the API alike. Lint enforces that it uses no Angular,
+Nest or other framework packages (`@nx/enforce-module-boundaries`), no Node built-ins and no
+browser globals (`sharedPlatformRules`).
 
 - `entities.ts`: `Space`, `List`, `Item` and the `SyncMetadata` every synced row carries
   (design §3). Timestamps are epoch milliseconds.

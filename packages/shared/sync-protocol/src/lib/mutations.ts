@@ -13,7 +13,11 @@ const patch = <T extends z.ZodRawShape>(shape: T) =>
   z
     .strictObject(shape)
     .partial()
-    .refine((value) => Object.keys(value).length > 0, 'Nothing to change');
+    .refine(
+      // `undefined` values vanish in JSON, so they don't count as a change.
+      (value) => Object.values(value).some((v) => v !== undefined),
+      'Nothing to change',
+    );
 
 const byId = z.strictObject({ id: idSchema });
 
@@ -84,3 +88,20 @@ export type Mutation = z.output<typeof mutationSchema>;
 export type MutationArgs<N extends MutationName> = z.output<
   (typeof mutationArgs)[N]
 >;
+
+export type ParsedMutation =
+  | { ok: true; mutation: Mutation }
+  | { ok: false; mutationId: string; reason: string };
+
+/** Validates one pushed entry; a failure carries a readable reason for the `reject` message. */
+export function parseMutation(entry: { mutationId: string }): ParsedMutation {
+  const result = mutationSchema.safeParse(entry);
+  if (result.success) return { ok: true, mutation: result.data };
+  const issue = result.error.issues[0];
+  const where = issue?.path.length ? ` (${issue.path.join('.')})` : '';
+  return {
+    ok: false,
+    mutationId: entry.mutationId,
+    reason: `${issue?.message ?? 'Invalid change'}${where}`,
+  };
+}

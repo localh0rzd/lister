@@ -15,6 +15,7 @@ describe('newId', () => {
     42,
     null,
     '3b241101-e2bb-4255-8caf-4136c566a962', // v4
+    '0190A000-0000-7000-8000-000000000001', // upper case
   ])('rejects %j', (value) => {
     expect(isId(value)).toBe(false);
   });

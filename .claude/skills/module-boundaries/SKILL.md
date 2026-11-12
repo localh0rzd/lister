@@ -58,7 +58,8 @@ npx nx g @nx/js:library packages/shared/domain --name=shared-domain --importPath
   that the parent route uses `loadChildren`.
 - **After generating:**
   - Angular libraries: spread `angularBestPractices` in the new `eslint.config.mjs`, the way
-    `apps/lister-web/eslint.config.mjs` does.
+    `apps/lister-web/eslint.config.mjs` does. Shared libraries: spread `sharedPlatformRules`
+    (no Node built-ins, no browser globals).
   - Web libraries: add a `package.json` with `{ "name": "@lister/web-<name>", "private": true, "sideEffects": false }`,
     so esbuild drops unused barrel exports and lazy-only components stay out of the initial
     bundle (`lint:workspace` checks it).
@@ -128,7 +129,8 @@ can't:
 - every project has exactly one `scope:*` tag and one `type:*` tag;
 - apps and e2e projects live in `apps/`;
 - libraries live in `packages/<scope>/<name>`, with the matching scope tag and alias;
-- every project is linted, and every Angular project includes `angularBestPractices`;
+- every project is linted, every Angular project includes `angularBestPractices`, and every
+  shared project includes `sharedPlatformRules`;
 - every web library is marked `"sideEffects": false`.
 
 ## When a boundary is in your way

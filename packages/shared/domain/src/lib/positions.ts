@@ -23,17 +23,34 @@ export function sortByPosition<T extends Positioned>(rows: readonly T[]): T[] {
 }
 
 /**
- * A key between two neighbours' keys; `null` means the start or the end. When the neighbours
- * share a key (a tie), the new key goes right after it.
+ * A key between two neighbours' keys; `null` means the start or the end. The neighbours must be
+ * in order and distinct: for a drop between rows that may share a key, use `positionAt`, which
+ * skips ties.
  */
 export function positionBetween(
   before: string | null,
   after: string | null,
 ): string {
   if (before !== null && after !== null && before >= after) {
-    return generateKeyBetween(before, null);
+    throw new Error(
+      `positionBetween needs before < after (got ${before}, ${after}); use positionAt`,
+    );
   }
   return generateKeyBetween(before, after);
+}
+
+/** True for a well-formed fractional-index key that the helpers above can build on. */
+export function isPositionKey(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^[0-9A-Za-z]{1,100}$/.test(value)) {
+    return false;
+  }
+  try {
+    generateKeyBetween(value, null);
+    generateKeyBetween(null, value);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** A key after all of `rows` (to append). */

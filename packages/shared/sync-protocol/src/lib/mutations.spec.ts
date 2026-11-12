@@ -1,5 +1,5 @@
 import { newId } from '@lister/shared/domain';
-import { MUTATION_NAMES, mutationSchema } from './mutations';
+import { MUTATION_NAMES, mutationSchema, parseMutation } from './mutations';
 
 const envelope = () => ({ mutationId: newId(), spaceId: newId() });
 
@@ -85,6 +85,29 @@ describe('mutationSchema', () => {
       { name: 'item.move', args: { id: newId(), position: 'a 0' } },
     ],
     [
+      'a malformed position key',
+      { name: 'item.move', args: { id: newId(), position: 'a00' } },
+    ],
+    [
+      'an upper-case id',
+      { name: 'list.delete', args: { id: newId().toUpperCase() } },
+    ],
+    [
+      'a patch whose values are all undefined',
+      {
+        name: 'item.update',
+        args: { id: newId(), patch: { title: undefined } },
+      },
+    ],
+    [
+      'a title with a line break',
+      { name: 'list.create', args: { id: newId(), title: 'a\nb' } },
+    ],
+    [
+      'an invisible title',
+      { name: 'list.create', args: { id: newId(), title: '\u200b' } },
+    ],
+    [
       'a too long quantity',
       {
         name: 'item.update',
@@ -112,5 +135,33 @@ describe('mutationSchema', () => {
     });
 
     expect(result.error?.issues[0]?.message).toBe('A title is required');
+  });
+});
+
+describe('parseMutation', () => {
+  it('returns the validated mutation', () => {
+    const mutation = {
+      ...envelope(),
+      name: 'list.delete',
+      args: { id: newId() },
+    };
+
+    expect(parseMutation(mutation)).toEqual({ ok: true, mutation });
+  });
+
+  it('names the mutation and gives a readable reason when it is invalid', () => {
+    const mutationId = newId();
+    const result = parseMutation({
+      mutationId,
+      spaceId: newId(),
+      name: 'list.create',
+      args: { id: newId(), title: ' ' },
+    } as { mutationId: string });
+
+    expect(result).toEqual({
+      ok: false,
+      mutationId,
+      reason: 'A title is required (args.title)',
+    });
   });
 });
