@@ -130,7 +130,9 @@ uses of the same list, and runs would be hard to add later.
   A separate "Duplicate list" action covers forking a list.
 - **Nesting:** any depth (A includes B includes C). The graph must stay free of cycles. Offline
   edits can create a cycle neither client could see (Anna adds A → B while Ben adds B → A); the
-  server rejects whichever arrives second, and that client is told why.
+  server rejects whichever arrives second, and that client is told why. A list includes another
+  list at most once; a second include of the same list is rejected the same way (also when two
+  clients add it offline).
 - **Diamonds:** if _Hostel_ and _Camping_ both include _Toiletries_, it appears **once**.
 - **Same item in two lists:** _Basic_ and _Camping_ both contain "Headlamp". In the lists they stay
   two separate items, each shown under its source list. In a run they are merged into one (D16).
@@ -143,7 +145,10 @@ uses of the same list, and runs would be hard to add later.
   source. Editing one edits the source, and the UI says "also used in 3 other lists".
 - **Deleting an included list:** goes to the trash (soft delete). Lists that include it show a
   "deleted list" placeholder until it's restored or purged. Deleting never needs to be blocked,
-  which keeps it safe when people edit concurrently.
+  which keeps it safe when people edit concurrently. A list in the trash may still be included,
+  and its includes still count for the loop check, so restoring it can never bring a loop back.
+  (The refusal names the lists, e.g. "“A” already contains “C”", even when the path runs through
+  a list in the trash.)
 
 ### 2.3 Users, sign-in and sharing — Decided (D3, D9, D14)
 
@@ -349,6 +354,10 @@ included lists and to copy a list into a run:
 2. Item → emit it, together with its source list.
 3. Include → recurse into the child list unless it was already visited (this removes diamonds and
    also guards against cycles).
+
+`flatten()` returns the items (what a run copies); `flattenEntries()` is the same walk with a
+section entry for every include (what the editor shows): `live` with its entries, `deleted` for a
+list in the trash (the placeholder) or `repeated` for a list already shown above.
 
 **Starting a run:** the client flattens the source list from its local database and sends one
 mutation that creates the run and its items, so starting works offline. Adding a list to an active

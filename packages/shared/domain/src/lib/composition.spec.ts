@@ -1,6 +1,7 @@
 import {
   type CompositionSource,
   flatten,
+  flattenEntries,
   wouldCreateCycle,
 } from './composition';
 import type { Include, Item, List } from './entities';
@@ -143,6 +144,101 @@ describe('flatten', () => {
   it('orders equal positions by id, the same on every client', () => {
     const source = space({ lists: ['A'], items: ['A:b@a0', 'A:a@a0'] });
     expect(flat('A', source)).toEqual(['A:a', 'A:b']);
+  });
+});
+
+describe('flatten, edge cases', () => {
+  it.each([
+    ['an empty list', 'A', space({ lists: ['A'] }), []],
+    ['an unknown list', 'nope', space({ lists: [] }), []],
+    ['one item', 'A', space({ lists: ['A'], items: ['A:x@a0'] }), ['A:x']],
+    [
+      'a root in the trash (its own items still flatten; callers decide)',
+      'A',
+      space({ lists: ['A'], items: ['A:x@a0'], deletedLists: ['A'] }),
+      ['A:x'],
+    ],
+    [
+      'an include of an empty list',
+      'A',
+      space({ lists: ['A', 'B'], items: ['A:x@a0'], includes: ['A>B@a1'] }),
+      ['A:x'],
+    ],
+    [
+      'unicode titles, kept as they are',
+      'A',
+      space({ lists: ['A'], items: ['A:Zahnbürste 🪥@a0', 'A:Ölzeug@a1'] }),
+      ['A:Zahnbürste 🪥', 'A:Ölzeug'],
+    ],
+    [
+      'a deep chain',
+      'L0',
+      space({
+        lists: ['L0', 'L1', 'L2', 'L3', 'L4', 'L5'],
+        items: ['L5:deep@a0'],
+        includes: ['L0>L1@a0', 'L1>L2@a0', 'L2>L3@a0', 'L3>L4@a0', 'L4>L5@a0'],
+      }),
+      ['L5:deep'],
+    ],
+  ])('%s', (_, root, source, expected) => {
+    expect(flat(root, source)).toEqual(expected);
+  });
+});
+
+describe('flattenEntries (the editor view)', () => {
+  const view = (listId: string, source: CompositionSource) =>
+    flattenEntries(listId, source).map((entry) =>
+      entry.kind === 'item'
+        ? `${'  '.repeat(entry.depth)}${entry.listId}:${entry.item.title}`
+        : `${'  '.repeat(entry.depth)}[${entry.include.childListId} ${entry.state}]`,
+    );
+
+  it('shows each include as a section, also when the list is empty', () => {
+    const source = space({
+      lists: ['Trip', 'Toiletries', 'Camping'],
+      items: ['Trip:map@a0', 'Camping:tent@a0'],
+      includes: ['Trip>Toiletries@a1', 'Trip>Camping@a2'],
+    });
+    expect(view('Trip', source)).toEqual([
+      'Trip:map',
+      '[Toiletries live]',
+      '[Camping live]',
+      '  Camping:tent',
+    ]);
+  });
+
+  it('marks a list in the trash as a deleted placeholder, and a repeat as repeated', () => {
+    const source = space({
+      lists: ['Trip', 'Hostel', 'Camping', 'Toiletries', 'Old'],
+      items: ['Toiletries:soap@a0', 'Old:junk@a0'],
+      includes: [
+        'Trip>Hostel@a0',
+        'Trip>Camping@a1',
+        'Trip>Old@a2',
+        'Hostel>Toiletries@a0',
+        'Camping>Toiletries@a0',
+      ],
+      deletedLists: ['Old'],
+    });
+    expect(view('Trip', source)).toEqual([
+      '[Hostel live]',
+      '  [Toiletries live]',
+      '    Toiletries:soap',
+      '[Camping live]',
+      '  [Toiletries repeated]',
+      '[Old deleted]',
+    ]);
+  });
+
+  it('gives the section its list, or none when the list is missing', () => {
+    const source = space({ lists: ['A', 'B'], includes: ['A>B@a0', 'A>X@a1'] });
+    const sections = flattenEntries('A', source).filter(
+      (entry) => entry.kind === 'section',
+    );
+    expect(sections.map((s) => [s.list?.title, s.state])).toEqual([
+      ['B', 'live'],
+      [undefined, 'deleted'],
+    ]);
   });
 });
 

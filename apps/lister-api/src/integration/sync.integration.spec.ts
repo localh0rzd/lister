@@ -436,6 +436,58 @@ describe('sync gateway', () => {
         position: 'a1',
       });
 
+    it('moves, removes and restores an include, poking the other member each time', async () => {
+      const anna = await helloed();
+      const ben = await helloed();
+      const pokes = collect(ben.client, 'poke');
+      const trip = mutation('list.create', { id: newId(), title: 'Trip' });
+      const camping = mutation('list.create', {
+        id: newId(),
+        title: 'Camping',
+      });
+      const create = include(trip.args.id, camping.args.id);
+      const id = create.args.id;
+      const steps = [
+        trip,
+        camping,
+        create,
+        mutation('include.move', { id, position: 'a5' }),
+        mutation('include.delete', { id }),
+        mutation('include.move', { id, position: 'a9' }), // delete wins: no change
+        mutation('include.restore', { id }),
+      ];
+      const answers = steps.map((step) => answer(anna.client, step));
+      anna.client.emit('push', { mutations: steps });
+      const versions = (await Promise.all(answers)).map((a) =>
+        'version' in a ? a.version : a.reason,
+      );
+
+      expect(versions).toEqual([1, 2, 3, 4, 5, 5, 6]);
+      await vi.waitFor(() => expect(pokes).toHaveLength(6));
+      const includeRows = pokes.flatMap((poke) => poke.rows.includes);
+      expect(
+        includeRows.map((row) => [
+          row.version,
+          row.position,
+          row.deletedAt === null,
+        ]),
+      ).toEqual([
+        [3, 'a1', true],
+        [4, 'a5', true],
+        [5, 'a5', false],
+        [6, 'a5', true],
+      ]);
+
+      // A retried create is answered again without a change.
+      const again = answer(anna.client, create);
+      anna.client.emit('push', { mutations: [create] });
+      expect(await again).toEqual({
+        mutationId: create.mutationId,
+        version: 3,
+      });
+      expect(pokes).toHaveLength(6);
+    });
+
     it('rejects the second half of a loop two offline clients each made', async () => {
       const anna = await helloed();
       const ben = await helloed();

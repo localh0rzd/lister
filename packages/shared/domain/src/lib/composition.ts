@@ -17,16 +17,41 @@ export interface FlatItem {
 }
 
 /**
- * A list's items with those of its included lists, in position order (design §3, Flattening):
- * walk the list's own items and includes by position; an item is emitted with its list, an
- * include recurses into its child unless that list was already visited. So a list reached twice
- * (a diamond) appears once, and a cycle can't loop. Deleted items, includes and lists are left
- * out.
+ * An entry of a list as the editor shows it: an item, or an included list's section header.
+ * `depth` is 0 for the list's own entries, 1 inside an included list, and so on.
+ * A section's `state` says what follows it: `live` (its entries), `deleted` (the list is in the
+ * trash or missing: a placeholder, nothing follows) or `repeated` (already shown above, in a
+ * diamond or a loop: nothing follows).
  */
-export function flatten(listId: Id, source: CompositionSource): FlatItem[] {
-  const out: FlatItem[] = [];
+export type FlatEntry =
+  | {
+      readonly kind: 'item';
+      readonly item: Item;
+      readonly listId: Id;
+      readonly depth: number;
+    }
+  | {
+      readonly kind: 'section';
+      readonly include: Include;
+      readonly list: List | undefined;
+      readonly state: 'live' | 'deleted' | 'repeated';
+      readonly depth: number;
+    };
+
+/**
+ * A list's entries with those of its included lists, in position order (design §3, Flattening):
+ * walk the list's own items and includes by position; an item is emitted with its list, an
+ * include emits its section and recurses into its child unless that list was already visited.
+ * So a list reached twice (a diamond) appears once, and a cycle can't loop. Deleted items and
+ * includes are left out; an included list in the trash is a `deleted` section.
+ */
+export function flattenEntries(
+  listId: Id,
+  source: CompositionSource,
+): FlatEntry[] {
+  const out: FlatEntry[] = [];
   const visited = new Set<Id>();
-  const visit = (id: Id) => {
+  const visit = (id: Id, depth: number) => {
     visited.add(id);
     const entries: (
       { kind: 'item'; row: Item } | { kind: 'include'; row: Include }
@@ -43,17 +68,32 @@ export function flatten(listId: Id, source: CompositionSource): FlatItem[] {
     entries.sort((a, b) => comparePositions(a.row, b.row));
     for (const entry of entries) {
       if (entry.kind === 'item') {
-        out.push({ item: entry.row, listId: id });
+        out.push({ kind: 'item', item: entry.row, listId: id, depth });
         continue;
       }
-      const child = entry.row.childListId;
-      if (visited.has(child)) continue;
-      if (source.list(child)?.deletedAt !== null) continue; // missing or in the trash
-      visit(child);
+      const list = source.list(entry.row.childListId);
+      const state =
+        list?.deletedAt !== null
+          ? 'deleted' // missing or in the trash
+          : visited.has(list.id)
+            ? 'repeated'
+            : 'live';
+      out.push({ kind: 'section', include: entry.row, list, state, depth });
+      if (state === 'live' && list) visit(list.id, depth + 1);
     }
   };
-  visit(listId);
+  visit(listId, 0);
   return out;
+}
+
+/**
+ * A list's items with those of its included lists, in order, each with its source list: what a
+ * run copies (design §3). The same walk as `flattenEntries`, without the section headers.
+ */
+export function flatten(listId: Id, source: CompositionSource): FlatItem[] {
+  return flattenEntries(listId, source).flatMap((entry) =>
+    entry.kind === 'item' ? [{ item: entry.item, listId: entry.listId }] : [],
+  );
 }
 
 /**

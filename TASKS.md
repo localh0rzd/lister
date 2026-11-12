@@ -23,23 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-015 — Composition model: includes, flattening, cycle rejection
-
-- Milestone: M3 Composition
-- Area: shared, api, web
-- Priority: normal
-- Depends on: T-013
-- Done when:
-  - Includes exist in the domain, in SQLite (migration) and in Dexie (version bump), with mutations
-    to add, move and remove one.
-  - Shared `flatten(listId)` returns a list's items in position order across its own items and its
-    included lists. It recurses into nested lists and visits each list once, so diamonds appear
-    once and cycles can't loop.
-  - Shared `wouldCreateCycle(parent, child)`. The server rejects an include that would create a
-    cycle, including when two offline clients each add one half of a loop (the second is rejected).
-  - Unit tests for flattening (nesting, order, diamonds) and cycles; an integration test for the
-    two-client loop.
-
 ## Backlog
 
 ### T-016 — Composition UI
@@ -368,6 +351,26 @@ nosniff`, `Referrer-Policy`, `frame-ancestors` in the CSP, and `app.disable('x-p
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
 
 ## Done
+
+### T-015 — Composition model: includes, flattening, cycle rejection
+
+- Completed: 2026-11-12 — `Include` with `include.create/move/delete/restore` (migration 0002, Dexie v4 with a forced snapshot); shared rules reject self-includes, duplicates and loops (also on restore); `flatten()` / `flattenEntries()` (sections: live, deleted, repeated) and `wouldCreateCycle()` in `domain`; the engine predicts and rebuilds with every include of the space; two-client loop tested over the socket.
+- Review: Approve with minor fixes (4 minor, 1 nit); minors fixed: socket test for move/delete/restore and a retried create; the duplicate and trash rules are in design §2.2; `flattenEntries()` gives the editor its sections; table-driven edge cases. Declined the nit (per-list scan in `MemoryRowStore.includesOf`): fine at tens of includes. Non-member pokes are tested once memberships exist (T-025).
+
+- Milestone: M3 Composition
+- Area: shared, api, web
+- Priority: normal
+- Depends on: T-013
+- Done when:
+  - Includes exist in the domain, in SQLite (migration) and in Dexie (version bump), with mutations
+    to add, move and remove one.
+  - Shared `flatten(listId)` returns a list's items in position order across its own items and its
+    included lists. It recurses into nested lists and visits each list once, so diamonds appear
+    once and cycles can't loop.
+  - Shared `wouldCreateCycle(parent, child)`. The server rejects an include that would create a
+    cycle, including when two offline clients each add one half of a loop (the second is rejected).
+  - Unit tests for flattening (nesting, order, diamonds) and cycles; an integration test for the
+    two-client loop.
 
 ### T-014 — Write down the synced-feature recipe
 
