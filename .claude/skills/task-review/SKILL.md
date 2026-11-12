@@ -40,7 +40,7 @@ bugs until you've looked. Don't approve on trust, and don't invent problems eith
 3. **Run the checks** on the reviewed commit:
    - `npm run lint:workspace`
    - `npx nx format:check`
-   - `NX_TUI=false npx nx affected -t lint test build --base=<base> --head=<head> --outputStyle=static`
+   - `NX_TUI=false npx nx affected -t lint typecheck test build --base=<base> --head=<head> --outputStyle=static`
    - the e2e suites, when user-facing behaviour or a backend call changed.
    - Record exactly what passed and what failed.
 4. **Review** against the checklist below.

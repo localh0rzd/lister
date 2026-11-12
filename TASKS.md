@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-035 — Type-check every project in CI
 
 - Milestone: M2 Sync walking skeleton
@@ -40,6 +38,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   doesn't type-check, so a library's stricter options (e.g. `noPropertyAccessFromIndexSignature`)
   and stale types in specs went unnoticed. One spec still built a `HealthResponse` without `db`
   after T-004 changed the contract.
+
+## Backlog
 
 ### T-014 — Write down the synced-feature recipe
 

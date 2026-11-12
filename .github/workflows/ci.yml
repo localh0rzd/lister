@@ -34,4 +34,4 @@ jobs:
 
       - run: npx nx format:check
       - run: npm run lint:workspace
-      - run: npx nx affected -t lint test build e2e
+      - run: npx nx affected -t lint typecheck test build e2e

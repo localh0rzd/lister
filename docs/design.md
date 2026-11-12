@@ -548,6 +548,9 @@ On top of that:
 - **API:** integration tests against in-memory SQLite (real SQL, still fast); `lister-api-e2e`
   only smoke-tests the built server (startup, migrations, health, static hosting, origin check).
 - **Web:** the sync engine with a fake socket and `fake-indexeddb`; components with TestBed.
+- **Types:** Vitest and Playwright don't type-check, so every project has a `typecheck` target
+  (`tsc --noEmit` on its app/lib and spec tsconfigs, inferred by `tools/typecheck-plugin.mjs`).
+  CI runs `nx affected -t lint typecheck test build e2e`.
 - **E2E (Playwright):**
   - two browser contexts on the same list or run (real time);
   - `context.setOffline(true)` → edit → back online → both converge;

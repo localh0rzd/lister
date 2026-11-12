@@ -46,6 +46,12 @@
         "testMode": "run"
       },
       "exclude": ["apps/lister-api-e2e/**/*"]
+    },
+    {
+      "plugin": "./tools/typecheck-plugin.mjs",
+      "options": {
+        "targetName": "typecheck"
+      }
     }
   ],
   "analytics": false,

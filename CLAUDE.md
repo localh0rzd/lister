@@ -66,7 +66,7 @@ Always run through Nx, from the repo root (`npx nx …`). Never call `ng`, `vite
 | Dev (API + web, proxied)                   | `npm start` → http://localhost:4200, API at `/api`                                           |
 | One project                                | `npx nx serve lister-api` / `npx nx serve lister-web`                                        |
 | Test / lint / build one project            | `npx nx test lister-web`, `npx nx lint lister-api`, `npx nx build lister-web`                |
-| Everything touched by your change          | `npx nx affected -t lint test build`                                                         |
+| Everything touched by your change          | `npx nx affected -t lint typecheck test build`                                               |
 | Workspace rules (tags, placement, aliases) | `npm run lint:workspace`                                                                     |
 | E2E                                        | `npx nx e2e lister-web-e2e`, `npx nx e2e lister-api-e2e` (they start the servers themselves) |
 | Format                                     | `npx nx format:write` (CI runs `format:check`)                                               |
@@ -81,6 +81,7 @@ Targets are mostly _inferred_ by plugins in `nx.json` — `project.json` may not
 Use Nx generators; don't hand-write project scaffolding (`project.json`, tsconfigs, eslint/vitest configs).
 Defaults live in `nx.json > generators`: scss, the `lister` prefix, vitest-angular for Angular apps, vitest-analog for Angular libraries (see `module-boundaries`), and vitest for Nest and TS libraries. OnPush is Angular 22's default, so generated components don't set it. Always `--dry-run` first.
 Library names follow `packages/<scope>/<name>`, project `<scope>-<name>`, import path `@lister/<scope>/<name>`.
+Every project gets a `typecheck` target (`tsc --noEmit` on each of its `tsconfig.*.json`) from the local plugin `tools/typecheck-plugin.mjs`. Nest and TS library generators write `"module": "commonjs"`, under which `vitest.config.mts` fails with TS1343: set `"module": "esnext"` in the new library's `tsconfig.spec.json`.
 
 ```bash
 npx nx g @nx/angular:library packages/web/feature-lists --name=web-feature-lists --importPath=@lister/web/feature-lists --tags=scope:web,type:feature --dry-run
@@ -158,7 +159,7 @@ Every project needs exactly one `scope:*` tag and one `type:*` tag. The details,
 
 ## Definition of done
 
-1. `npm run lint:workspace` and `npx nx affected -t lint test build` pass. Run `e2e` too when user-facing behaviour or a backend call changed.
+1. `npm run lint:workspace` and `npx nx affected -t lint typecheck test build` pass. Run `e2e` too when user-facing behaviour or a backend call changed.
 2. `npx nx format:check` is clean.
 3. The tests the `testing` skill requires exist: unit tests on both sides, an integration test for every backend call, and a Playwright happy path for every user-facing change.
 4. The code follows the `best-practices` and `module-boundaries` skills.

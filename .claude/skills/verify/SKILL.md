@@ -10,7 +10,7 @@ Run these from the repo root, with static output so the results are readable:
 ```bash
 npm run lint:workspace
 NX_TUI=false npx nx format:check
-NX_TUI=false npx nx affected -t lint test build --outputStyle=static
+NX_TUI=false npx nx affected -t lint typecheck test build --outputStyle=static
 ```
 
 - `affected` compares against `master` (`defaultBase` in `nx.json`), and it includes uncommitted
@@ -19,7 +19,7 @@ NX_TUI=false npx nx affected -t lint test build --outputStyle=static
 - If `affected` errors about the base, run everything instead:
 
 ```bash
-NX_TUI=false npx nx run-many -t lint test build --outputStyle=static
+NX_TUI=false npx nx run-many -t lint typecheck test build --outputStyle=static
 ```
 
 API integration tests run as part of `test`, in `lister-api`.

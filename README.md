@@ -28,7 +28,7 @@ npm run start:prod # production builds; the API serves the web app on one origin
 
 ```bash
 npx nx test lister-web               # one project
-npx nx affected -t lint test build   # everything your change touches
+npx nx affected -t lint typecheck test build   # everything your change touches
 npm run lint:workspace               # project tags, library placement and import aliases (CI runs it)
 npx nx e2e lister-web-e2e            # first run: npx playwright install chromium
 npx nx graph                         # project graph

@@ -85,6 +85,9 @@ test.describe('list editor on a phone (375 px)', () => {
     await test.step('edit quantity and note', async () => {
       await itemMenu(page, 'Stove', 'Edit');
       const dialog = page.getByRole('dialog', { name: 'Edit item' });
+      // The dialog focuses Title once it has finished opening; filling another field before
+      // that would type into Title.
+      await expect(dialog.getByLabel('Title')).toBeFocused();
       await dialog.getByLabel('Quantity').fill('2');
       await dialog.getByLabel('Note').fill('with gas');
       await dialog.getByRole('button', { name: 'Save' }).click();

@@ -63,8 +63,11 @@ npx nx g @nx/js:library packages/shared/domain --name=shared-domain --importPath
   - Web libraries: add a `package.json` with `{ "name": "@lister/web-<name>", "private": true, "sideEffects": false }`,
     so esbuild drops unused barrel exports and lazy-only components stay out of the initial
     bundle (`lint:workspace` checks it).
+  - Nest and TS libraries: set `"module": "esnext"` in `tsconfig.spec.json`. The generated
+    `"commonjs"` makes `vitest.config.mts` fail to type-check (TS1343, `import.meta`).
   - Delete placeholder code you won't use (example component, service, spec).
-  - `npm run lint:workspace` and `npx nx lint <project>` must pass.
+  - `npm run lint:workspace`, `npx nx lint <project>` and `npx nx typecheck <project>` must
+    pass. The `typecheck` target is inferred for every project by `tools/typecheck-plugin.mjs`.
 - **Targets:** tests are generated with Vitest (the defaults in `nx.json`), and
   `npx nx show project <name>` lists the inferred targets.
 - **Never `--buildable`:** libraries aren't buildable. A buildable library may only depend on
