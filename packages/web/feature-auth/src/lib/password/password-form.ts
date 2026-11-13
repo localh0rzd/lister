@@ -32,7 +32,7 @@ import { AuthSession, describeAuthError } from '@lister/web/data-access-auth';
     MatLabel,
   ],
   templateUrl: './password-form.html',
-  styleUrl: '../auth-page.scss',
+  styleUrl: './password-form.scss',
 })
 export class PasswordForm {
   private readonly session = inject(AuthSession);

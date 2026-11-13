@@ -46,10 +46,10 @@
         </button>
         <mat-menu #menu="matMenu">
           <button mat-menu-item type="button" (click)="edit(user)">Edit</button>
-          <button mat-menu-item type="button" (click)="resetPassword(user)">
-            Reset password
-          </button>
           @if (user.id !== myId()) {
+            <button mat-menu-item type="button" (click)="resetPassword(user)">
+              Reset password
+            </button>
             <button
               mat-menu-item
               type="button"

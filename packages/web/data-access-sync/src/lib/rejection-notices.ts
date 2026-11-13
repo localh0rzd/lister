@@ -1,5 +1,7 @@
 import { EnvironmentInjector, Service, effect, inject } from '@angular/core';
-import { Router } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { NavigationEnd, Router } from '@angular/router';
+import { filter, map } from 'rxjs';
 import { DOCUMENT } from '@angular/common';
 import { AuthSession, isBarePath } from '@lister/web/data-access-auth';
 import { DISCARDED_CHANGES_KEY } from '@lister/web/data-access-local-db';
@@ -19,6 +21,14 @@ export class RejectionNotices {
   private readonly session = inject(AuthSession);
   private readonly window = inject(DOCUMENT).defaultView;
   private readonly injector = inject(EnvironmentInjector);
+  /** The current URL as a signal, so the sign-in notice reacts to navigating. */
+  private readonly url = toSignal(
+    this.router.events.pipe(
+      filter((event) => event instanceof NavigationEnd),
+      map(() => this.router.url),
+    ),
+    { initialValue: this.router.url },
+  );
   private readonly shown = new Set<string>();
   private started = false;
   private askedToSignIn = false;
@@ -59,7 +69,7 @@ export class RejectionNotices {
         if (
           this.askedToSignIn ||
           !this.session.user() ||
-          isBarePath(this.router.url)
+          isBarePath(this.url())
         )
           return;
         this.askedToSignIn = true;
@@ -71,7 +81,9 @@ export class RejectionNotices {
           })
           .then((outcome) => {
             if (outcome === 'action')
-              void this.router.navigateByUrl('/sign-in');
+              void this.router.navigate(['/sign-in'], {
+                queryParams: { returnUrl: this.router.url },
+              });
           });
       },
       { injector: this.injector },

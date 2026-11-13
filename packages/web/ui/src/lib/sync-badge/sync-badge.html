@@ -1,6 +1,13 @@
 @if (description(); as full) {
   @if (signInRequired()) {
-    <a class="badge offline" routerLink="/sign-in" [attr.title]="full">
+    <a
+      class="badge offline"
+      routerLink="/sign-in"
+      [queryParams]="
+        signInReturnUrl() ? { returnUrl: signInReturnUrl() } : null
+      "
+      [attr.title]="full"
+    >
       <mat-icon aria-hidden="true">login</mat-icon>
       <span class="label" aria-hidden="true">{{ label() }}</span>
       <span class="cdk-visually-hidden">{{ full }}</span>

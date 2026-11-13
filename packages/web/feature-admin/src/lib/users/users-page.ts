@@ -68,6 +68,8 @@ export class UsersPage {
       .subscribe((saved) => {
         if (!saved) return;
         this.users.reload();
+        // Editing yourself changes who the app says is signed in.
+        if (saved.id === this.myId()) void this.session.refresh();
         this.say(`Saved ${saved.displayName}`);
       });
   }

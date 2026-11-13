@@ -177,7 +177,7 @@ test.describe('truncated list titles on a phone (375 px)', () => {
 
     await test.step('hover on the long title', async () => {
       await row(page, long).getByRole('link').hover();
-      await expect(page.locator('.mat-mdc-tooltip')).toHaveText(long);
+      await expect(page.locator('.mat-mdc-tooltip-show')).toHaveText(long);
       await expectAccessible();
     });
 

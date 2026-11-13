@@ -23,23 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-026 — Web: sign-in, profile, user administration and spaces
-
-- Milestone: M5 Accounts and spaces
-- Area: web
-- Priority: normal
-- Depends on: T-025
-- Done when:
-  - A `packages/web/feature-auth` library with sign-in, first-run setup, the forced password
-    change, and a profile page (display name, password).
-  - A `packages/web/feature-admin` library, shown to admins only: the user list; creating, editing
-    and deleting users; resetting passwords; granting and revoking admin.
-  - A `packages/web/feature-space` library: a space switcher; creating and renaming spaces; adding
-    and removing members; leaving a space.
-  - If the session expired while offline, the app keeps working, keeps pending changes, and asks
-    for sign-in once online.
-  - Signing out warns about unsynced changes and clears the local data.
-
 ## Backlog
 
 ### T-027 — Passkeys
@@ -196,6 +179,25 @@ nosniff`, `Referrer-Policy`, `frame-ancestors` in the CSP, and `app.disable('x-p
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
 
 ## Done
+
+### T-026 — Web: sign-in, profile, user administration and spaces
+
+- Completed: 2026-11-13 — web sign-in, setup, forced password change and profile (`feature-auth`), user administration (`feature-admin`), space switcher and management (`feature-space`), `AuthSession` and guards (`data-access-auth`); signed-out state in the sync status, sign-out wipes the device; `PATCH /api/auth/me`
+- Review: Changes requested (0 blocker, 2 major, 6 minor, 1 nit); 10 fixed, 0 deferred, 0 declined
+- Milestone: M5 Accounts and spaces
+- Area: web
+- Priority: normal
+- Depends on: T-025
+- Done when:
+  - A `packages/web/feature-auth` library with sign-in, first-run setup, the forced password
+    change, and a profile page (display name, password).
+  - A `packages/web/feature-admin` library, shown to admins only: the user list; creating, editing
+    and deleting users; resetting passwords; granting and revoking admin.
+  - A `packages/web/feature-space` library: a space switcher; creating and renaming spaces; adding
+    and removing members; leaving a space.
+  - If the session expired while offline, the app keeps working, keeps pending changes, and asks
+    for sign-in once online.
+  - Signing out warns about unsynced changes and clears the local data.
 
 ### T-025 — Authenticated and authorized sync
 

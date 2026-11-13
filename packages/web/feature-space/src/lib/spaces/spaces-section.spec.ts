@@ -204,6 +204,9 @@ describe('SpacesSection', () => {
 
     button('Leave space')?.click();
     expect(open.mock.calls[0][1].data.heading).toBe('Leave “Trip”?');
+    expect(open.mock.calls[0][1].data.message).toContain(
+      'Changes to it that have not synced yet are lost.',
+    );
     http
       .expectOne(`/api/spaces/${trip.id}/leave`)
       .flush(null, { status: 204, statusText: '' });
@@ -225,6 +228,9 @@ describe('SpacesSection', () => {
     const { button } = await render([trip]);
 
     button('Delete space')?.click();
+    expect(open.mock.calls[0][1].data.message).toContain(
+      'have not synced yet are lost',
+    );
     http
       .expectOne(`/api/spaces/${trip.id}`)
       .flush(

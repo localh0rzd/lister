@@ -33,10 +33,12 @@ const anna = user('2', 'anna', { mustChangePassword: true });
 let http: HttpTestingController;
 let open: ReturnType<typeof vi.fn>;
 let notify: ReturnType<typeof vi.fn>;
+let refresh: ReturnType<typeof vi.fn>;
 
 async function render(dialogResult: unknown = undefined) {
   open = vi.fn(() => ({ afterClosed: () => of(dialogResult) }));
   notify = vi.fn(async () => 'dismissed');
+  refresh = vi.fn(async () => null);
   TestBed.configureTestingModule({
     providers: [
       provideHttpClient(),
@@ -44,7 +46,7 @@ async function render(dialogResult: unknown = undefined) {
       provideRouter([]),
       { provide: MatDialog, useValue: { open } },
       { provide: Notifier, useValue: { notify } },
-      { provide: AuthSession, useValue: { user: signal(boss) } },
+      { provide: AuthSession, useValue: { user: signal(boss), refresh } },
     ],
   });
   http = TestBed.inject(HttpTestingController);
@@ -78,6 +80,35 @@ describe('UsersPage', () => {
     expect(rows[1]).toContain('Must choose a password');
   });
 
+  /** Clicks Edit in a row's menu. The harness would wait for the reload this triggers. */
+  async function clickEdit(element: HTMLElement, name: string) {
+    (
+      element.querySelector(`[aria-label="More for ${name}"]`) as HTMLElement
+    ).click();
+    await vi.waitFor(() =>
+      expect(document.querySelector('.mat-mdc-menu-item')).not.toBeNull(),
+    );
+    (document.querySelector('.mat-mdc-menu-item') as HTMLElement).click();
+  }
+
+  it('refreshes who is signed in after the admin edits their own row', async () => {
+    const { element } = await render({ ...boss, displayName: 'Boss B' });
+
+    await clickEdit(element, 'BOSS');
+
+    await vi.waitFor(() => http.expectOne('/api/users').flush([boss, anna]));
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not refresh the session after editing someone else', async () => {
+    const { element } = await render({ ...anna, displayName: 'Anna B' });
+
+    await clickEdit(element, 'ANNA');
+
+    await vi.waitFor(() => http.expectOne('/api/users').flush([boss, anna]));
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
   it('adds a user through the dialog and reloads the list', async () => {
     const { fixture, element } = await render(anna);
 
@@ -102,7 +133,7 @@ describe('UsersPage', () => {
     await mine.open();
     expect(
       await Promise.all((await mine.getItems()).map((i) => i.getText())),
-    ).toEqual(['Edit', 'Reset password']);
+    ).toEqual(['Edit']);
     await mine.close();
 
     const theirs = await menu('ANNA');

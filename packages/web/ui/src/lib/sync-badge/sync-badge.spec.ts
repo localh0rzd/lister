@@ -80,6 +80,21 @@ describe('SyncBadge', () => {
       expect(element.textContent).not.toContain('Offline');
     });
 
+    it('leads back to the page the user is on after signing in', () => {
+      const fixture = TestBed.createComponent(SyncBadge);
+      fixture.componentRef.setInput('online', false);
+      fixture.componentRef.setInput('signInRequired', true);
+      fixture.componentRef.setInput('pendingCount', 0);
+      fixture.componentRef.setInput('signInReturnUrl', '/lists/abc');
+      fixture.detectChanges();
+
+      expect(
+        (fixture.nativeElement as HTMLElement)
+          .querySelector('a.badge')
+          ?.getAttribute('href'),
+      ).toBe('/sign-in?returnUrl=%2Flists%2Fabc');
+    });
+
     it('says how many changes wait, and stays short in compact mode', () => {
       expect(signedOut(2).textContent).toContain(
         'Sign in · 2 changes not synced',

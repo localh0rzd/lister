@@ -57,7 +57,8 @@ test.describe('a session that ends', () => {
       await syncStatus(page)
         .getByRole('link', { name: /Sign in/ })
         .click();
-      await expect(page).toHaveURL(/\/sign-in$/);
+      // The user comes back to the page they were on.
+      await expect(page).toHaveURL(/\/sign-in\?returnUrl=%2Fspace%2Fprofile$/);
       await page.getByLabel('Username').fill(account.username);
       await page.getByLabel('Password').fill(account.password);
       // The notice that asked for sign-in is still up beside the form's button.
@@ -65,9 +66,10 @@ test.describe('a session that ends', () => {
         .getByRole('main')
         .getByRole('button', { name: 'Sign in' })
         .click();
-      await expect(page).toHaveURL(/\/lists$/);
-      await expect(page.getByRole('link', { name: title })).toBeVisible();
+      await expect(page).toHaveURL(/\/space\/profile$/);
       await synced(page);
+      await page.getByRole('link', { name: 'Lists' }).click();
+      await expect(page.getByRole('link', { name: title })).toBeVisible();
     });
 
     await test.step('signing out then clears this device', async () => {
@@ -128,6 +130,65 @@ test.describe('a session that ends', () => {
     await page.getByLabel('Password').fill(account.password);
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page.getByRole('link', { name: title })).toBeVisible();
+    await page.context().close();
+  });
+
+  test("signing in as somebody else discards the previous user's unsynced changes, and they never reach the server", async ({
+    browser,
+  }) => {
+    test.setTimeout(120_000);
+    const anna = await createAccount('prev');
+    const ben = await createAccount('next');
+    const page = await signedOutPage(browser);
+    const signIn = async (who: typeof anna) => {
+      await page.getByLabel('Username').fill(who.username);
+      await page.getByLabel('Password').fill(who.password);
+      // The notice that asked for sign-in may still be up beside the form's button.
+      await page
+        .getByRole('main')
+        .getByRole('button', { name: 'Sign in' })
+        .click();
+      await expect(page).toHaveURL(/\/lists$/);
+    };
+    await page.goto('/sign-in');
+    await signIn(anna);
+    await synced(page);
+    await page.evaluate(() => navigator.serviceWorker.ready);
+    await expect
+      .poll(() => shellIsCached(page), { timeout: 60_000 })
+      .toBe(true);
+
+    await page.context().setOffline(true);
+    await page.context().clearCookies();
+    const title = await createList(page, `Annas draft ${Date.now()}`);
+    await page.context().setOffline(false);
+    await expect(syncStatus(page)).toContainText(
+      'Sign in · 1 change not synced',
+    );
+
+    await syncStatus(page)
+      .getByRole('link', { name: /Sign in/ })
+      .click();
+    await signIn(ben);
+
+    await expect(
+      page.getByText(
+        '1 unsynced change of the previous user on this device was discarded.',
+      ),
+    ).toBeVisible();
+    await expect(page.getByRole('link', { name: title })).toHaveCount(0);
+    await synced(page);
+
+    // Nothing of Anna's reached the server under either account.
+    const other = await signedOutPage(browser);
+    await other.goto('/sign-in');
+    await other.getByLabel('Username').fill(anna.username);
+    await other.getByLabel('Password').fill(anna.password);
+    await other.getByRole('button', { name: 'Sign in' }).click();
+    await expect(other).toHaveURL(/\/lists$/);
+    await synced(other);
+    await expect(other.getByRole('link', { name: title })).toHaveCount(0);
+    await other.context().close();
     await page.context().close();
   });
 });

@@ -118,7 +118,7 @@ export class SpacesSection {
       {
         heading: `Leave “${space.name}”?`,
         message:
-          'You lose access to its lists and runs, and they are removed from this device. Someone has to add you again to get back in.',
+          'You lose access to its lists and runs, and they are removed from this device. Changes to it that have not synced yet are lost. Someone has to add you again to get back in.',
         confirm: 'Leave',
       },
       () => this.api.leave(space.id),
@@ -130,7 +130,8 @@ export class SpacesSection {
     this.confirm(
       {
         heading: `Delete “${space.name}”?`,
-        message: 'Its lists and runs are deleted for good, for every member.',
+        message:
+          'Its lists and runs are deleted for good, for every member. Changes to it that have not synced yet are lost.',
         confirm: 'Delete',
       },
       () => this.api.remove(space.id),

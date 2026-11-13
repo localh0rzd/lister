@@ -1,6 +1,7 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { Router } from '@angular/router';
+import { NavigationEnd, Router } from '@angular/router';
+import { Subject } from 'rxjs';
 import { AuthSession } from '@lister/web/data-access-auth';
 import { DISCARDED_CHANGES_KEY } from '@lister/web/data-access-local-db';
 import { Notifier } from '@lister/web/util-notify';
@@ -10,8 +11,13 @@ import { SyncEngine, type SyncError } from './sync-engine';
 function setup() {
   const errors = signal<readonly SyncError[]>([]);
   const signInRequired = signal(false);
-  const navigateByUrl = vi.fn(() => Promise.resolve(true));
-  const router = { navigateByUrl, url: '/lists' };
+  const navigate = vi.fn(() => Promise.resolve(true));
+  const events = new Subject<unknown>();
+  const router = { navigate, events, url: '/lists' };
+  const navigateTo = (url: string) => {
+    router.url = url;
+    events.next(new NavigationEnd(1, url, url));
+  };
   const user = signal<{ id: string } | null>({ id: 'u1' });
   const engine = {
     errors,
@@ -42,7 +48,8 @@ function setup() {
   return {
     errors,
     signInRequired,
-    navigateByUrl,
+    navigate,
+    navigateTo,
     router,
     user,
     engine,
@@ -93,9 +100,10 @@ describe('RejectionNotices', () => {
 
   describe('when the session has ended', () => {
     it('asks once to sign in, and goes to the sign-in page when the action is used', async () => {
-      const { signInRequired, notifier, notices, close, navigateByUrl } =
+      const { signInRequired, notifier, notices, close, navigate, navigateTo } =
         setup();
       notices.start();
+      navigateTo('/lists/abc');
 
       signInRequired.set(true);
       TestBed.tick();
@@ -110,7 +118,9 @@ describe('RejectionNotices', () => {
       );
       close('action');
       await vi.waitFor(() =>
-        expect(navigateByUrl).toHaveBeenCalledWith('/sign-in'),
+        expect(navigate).toHaveBeenCalledWith(['/sign-in'], {
+          queryParams: { returnUrl: '/lists/abc' },
+        }),
       );
     });
 
@@ -126,8 +136,8 @@ describe('RejectionNotices', () => {
     });
 
     it('does not ask on the sign-in page, where the user is being asked anyway', () => {
-      const { signInRequired, notifier, notices, router } = setup();
-      router.url = '/sign-in?returnUrl=%2Flists';
+      const { signInRequired, notifier, notices, navigateTo } = setup();
+      navigateTo('/sign-in?returnUrl=%2Flists');
       notices.start();
 
       signInRequired.set(true);
@@ -136,9 +146,22 @@ describe('RejectionNotices', () => {
       expect(notifier.notify).not.toHaveBeenCalled();
     });
 
+    it('asks once the user leaves the sign-in page for the app', () => {
+      const { signInRequired, notifier, notices, navigateTo } = setup();
+      navigateTo('/sign-in');
+      notices.start();
+      signInRequired.set(true);
+      TestBed.tick();
+      expect(notifier.notify).not.toHaveBeenCalled();
+
+      navigateTo('/lists');
+      TestBed.tick();
+
+      expect(notifier.notify).toHaveBeenCalledTimes(1);
+    });
+
     it('does not navigate when the notice is dismissed, and asks again after the next refusal', () => {
-      const { signInRequired, notifier, notices, close, navigateByUrl } =
-        setup();
+      const { signInRequired, notifier, notices, close, navigate } = setup();
       notices.start();
       signInRequired.set(true);
       TestBed.tick();
@@ -148,7 +171,7 @@ describe('RejectionNotices', () => {
       signInRequired.set(true);
       TestBed.tick();
 
-      expect(navigateByUrl).not.toHaveBeenCalled();
+      expect(navigate).not.toHaveBeenCalled();
       expect(notifier.notify).toHaveBeenCalledTimes(2);
     });
   });

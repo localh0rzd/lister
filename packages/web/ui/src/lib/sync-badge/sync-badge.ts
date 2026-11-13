@@ -22,6 +22,8 @@ export class SyncBadge {
   readonly pendingCount = input.required<number>();
   /** There is no session: shows "Sign in" (a link to the sign-in page) instead of "Offline". */
   readonly signInRequired = input(false);
+  /** Where signing in leads back to (the page the user is on). */
+  readonly signInReturnUrl = input<string>();
   /** Narrow places (the rail) show only the offline state and the count. */
   readonly compact = input(false);
 

@@ -28,6 +28,9 @@ form {
   gap: 8px;
   margin-top: 8px;
 }
+.alt a {
+  color: var(--mat-sys-primary);
+}
 .alt {
   margin-top: 24px;
   font: var(--mat-sys-body-medium);
