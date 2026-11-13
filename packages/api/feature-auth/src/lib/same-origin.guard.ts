@@ -2,6 +2,7 @@ import {
   type CanActivate,
   type ExecutionContext,
   ForbiddenException,
+  Logger,
   UnsupportedMediaTypeException,
 } from '@nestjs/common';
 
@@ -30,9 +31,14 @@ const header = (request: WriteRequest, name: string): string | undefined => {
  * - may only carry a JSON body. A cross-origin page can't send `application/json` without a CORS
  *   preflight, which this server never answers, so no HTML form or simple fetch gets through.
  *
- * Registered app-wide by `configureApp`, before the routes' own guards.
+ * Registered app-wide by `configureApp` with `useGlobalGuards`, which appends to the `APP_GUARD`
+ * list, so it runs after `AuthModule`'s `AuthGuard`. The order is harmless today: the sign-in
+ * routes are public, and `AuthGuard` only reads the session and changes nothing, so a refused
+ * write still gets its 403/415 and no route handler runs either way.
  */
 export class SameOriginGuard implements CanActivate {
+  private readonly logger = new Logger(SameOriginGuard.name);
+
   constructor(private readonly origins: readonly string[]) {}
 
   canActivate(context: ExecutionContext): boolean {
@@ -42,12 +48,18 @@ export class SameOriginGuard implements CanActivate {
 
     const origin = header(request, 'origin');
     if (origin !== undefined && !this.origins.includes(origin)) {
+      this.logger.warn(
+        `Refused a ${request.method} from ${origin}; PUBLIC_URL allows ${this.origins.join(', ')}`,
+      );
       throw new ForbiddenException('Requests from other sites are not allowed');
     }
     const contentType = header(request, 'content-type');
     if (contentType !== undefined) {
       const mediaType = contentType.split(';')[0].trim().toLowerCase();
       if (mediaType !== 'application/json') {
+        this.logger.warn(
+          `Refused a ${request.method} with content type ${mediaType}; only application/json is allowed`,
+        );
         throw new UnsupportedMediaTypeException('Send the body as JSON');
       }
     }

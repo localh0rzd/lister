@@ -1,6 +1,7 @@
 import {
   type ExecutionContext,
   ForbiddenException,
+  Logger,
   UnsupportedMediaTypeException,
 } from '@nestjs/common';
 import { SameOriginGuard } from './same-origin.guard';
@@ -73,6 +74,32 @@ describe('SameOriginGuard', () => {
     expect(() =>
       guard.canActivate(httpContext('POST', { 'content-type': contentType })),
     ).toThrow(UnsupportedMediaTypeException);
+  });
+
+  it('logs a warning for a refused origin, naming it and the allowed origins', () => {
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockReturnValue(undefined);
+
+    expect(() =>
+      guard.canActivate(
+        httpContext('POST', { origin: 'https://evil.example' }),
+      ),
+    ).toThrow(ForbiddenException);
+
+    expect(warn).toHaveBeenCalledWith(
+      `Refused a POST from https://evil.example; PUBLIC_URL allows ${ORIGIN}`,
+    );
+    warn.mockRestore();
+  });
+
+  it('logs a warning for a refused content type', () => {
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockReturnValue(undefined);
+
+    expect(() =>
+      guard.canActivate(httpContext('PUT', { 'content-type': 'text/plain' })),
+    ).toThrow(UnsupportedMediaTypeException);
+
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('text/plain'));
+    warn.mockRestore();
   });
 
   it('leaves sockets alone (they have their own Origin check)', () => {

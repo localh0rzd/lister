@@ -70,6 +70,7 @@ export class LoginDto implements LoginRequest {
   interface they implement lives in the shared contracts library.
 - **Update DTOs:** use `PartialType` from `@nestjs/mapped-types`.
 - **Path params:** `@Param('id', ParseUUIDPipe)`, or the right `Parse*Pipe`.
+- **HTTP writes:** anything but GET, HEAD or OPTIONS must send a JSON body or none, from the app's origin: `SameOriginGuard` answers anything else with 403/415. File uploads would need a design change first.
 
 ## Synced data: mutations
 
