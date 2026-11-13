@@ -32,9 +32,11 @@ const header = (request: WriteRequest, name: string): string | undefined => {
  *   preflight, which this server never answers, so no HTML form or simple fetch gets through.
  *
  * Registered app-wide by `configureApp` with `useGlobalGuards`, which appends to the `APP_GUARD`
- * list, so it runs after `AuthModule`'s `AuthGuard`. The order is harmless today: the sign-in
- * routes are public, and `AuthGuard` only reads the session and changes nothing, so a refused
- * write still gets its 403/415 and no route handler runs either way.
+ * list, so it runs after `AuthModule`'s `AuthGuard`. The order is harmless today: `AuthGuard`
+ * may renew a session that is due (extends `expiresAt` and sets a renewed cookie), even on a write
+ * that is then refused here. But that only extends the visitor's own session, with the same token;
+ * only a same-site page sends the cookie on a POST, and such a page could renew it with a GET
+ * anyway; and no route handler runs for a refused write.
  */
 export class SameOriginGuard implements CanActivate {
   private readonly logger = new Logger(SameOriginGuard.name);
