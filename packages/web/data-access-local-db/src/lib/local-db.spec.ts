@@ -96,3 +96,37 @@ describe('LocalDb upgrade to version 5 (runs)', () => {
     }
   });
 });
+
+describe('LocalDb.clearAll', () => {
+  it('empties every table, pending changes and the remembered user included', async () => {
+    const db = new LocalDb(`clear-${newId()}`);
+    try {
+      const spaceId = newId();
+      await db.spaces.put({
+        id: spaceId,
+        name: 'Home',
+        version: 1,
+        members: [],
+      });
+      await db.meta.put({ key: 'userId', value: newId() });
+      await db.syncState.put({ spaceId, version: 3, lastSyncedAt: 1 });
+      await db.outbox.add({
+        mutationId: newId(),
+        spaceId,
+        mutation: {
+          mutationId: newId(),
+          spaceId,
+          name: 'list.delete',
+          args: { id: newId() },
+        },
+        createdAt: 1,
+      });
+
+      await db.clearAll();
+
+      for (const table of db.tables) expect(await table.count()).toBe(0);
+    } finally {
+      await db.delete();
+    }
+  });
+});

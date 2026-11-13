@@ -45,6 +45,13 @@
       "@lister/api/feature-auth": ["./packages/api/feature-auth/src/index.ts"],
       "@lister/api/feature-spaces": [
         "./packages/api/feature-spaces/src/index.ts"
+      ],
+      "@lister/web/feature-auth": ["./packages/web/feature-auth/src/index.ts"],
+      "@lister/web/feature-admin": [
+        "./packages/web/feature-admin/src/index.ts"
+      ],
+      "@lister/web/data-access-auth": [
+        "./packages/web/data-access-auth/src/index.ts"
       ]
     }
   },

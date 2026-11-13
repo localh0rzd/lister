@@ -1,4 +1,8 @@
 import { EnvironmentInjector, Service, effect, inject } from '@angular/core';
+import { Router } from '@angular/router';
+import { DOCUMENT } from '@angular/common';
+import { AuthSession, isBarePath } from '@lister/web/data-access-auth';
+import { DISCARDED_CHANGES_KEY } from '@lister/web/data-access-local-db';
 import { NOTICE_DURATION_MS, Notifier } from '@lister/web/util-notify';
 import { SyncEngine } from './sync-engine';
 
@@ -11,15 +15,20 @@ import { SyncEngine } from './sync-engine';
 export class RejectionNotices {
   private readonly engine = inject(SyncEngine);
   private readonly notifier = inject(Notifier);
+  private readonly router = inject(Router);
+  private readonly session = inject(AuthSession);
+  private readonly window = inject(DOCUMENT).defaultView;
   private readonly injector = inject(EnvironmentInjector);
   private readonly shown = new Set<string>();
   private started = false;
+  private askedToSignIn = false;
 
   /** Starts the engine too. */
   start(): void {
     if (this.started) return;
     this.started = true;
     this.engine.start();
+    this.tellAboutDiscardedChanges();
     effect(
       () => {
         for (const error of this.engine.errors()) {
@@ -36,5 +45,53 @@ export class RejectionNotices {
       },
       { injector: this.injector },
     );
+    // A session that ended while the app was open (or offline): the app keeps working, so ask
+    // once, and stay out of the way afterwards (the sync badge says "Sign in" until then).
+    effect(
+      () => {
+        if (!this.engine.signInRequired()) {
+          this.askedToSignIn = false;
+          return;
+        }
+        // On the sign-in pages the user is already being asked.
+        // Only somebody who was signed in is asked: a visitor who never signed in is already
+        // being sent to the sign-in page.
+        if (
+          this.askedToSignIn ||
+          !this.session.user() ||
+          isBarePath(this.router.url)
+        )
+          return;
+        this.askedToSignIn = true;
+        void this.notifier
+          .notify({
+            message:
+              'Your session has ended. Sign in to sync your changes; nothing is lost.',
+            action: 'Sign in',
+          })
+          .then((outcome) => {
+            if (outcome === 'action')
+              void this.router.navigateByUrl('/sign-in');
+          });
+      },
+      { injector: this.injector },
+    );
+  }
+
+  /** Signing in as somebody else wiped the previous user's unsynced changes: say so, once. */
+  private tellAboutDiscardedChanges(): void {
+    let count: number;
+    try {
+      count = Number(this.window?.localStorage.getItem(DISCARDED_CHANGES_KEY));
+      this.window?.localStorage.removeItem(DISCARDED_CHANGES_KEY);
+    } catch {
+      return;
+    }
+    if (!(count > 0)) return;
+    void this.notifier.notify({
+      message: `${count === 1 ? '1 unsynced change' : `${count} unsynced changes`} of the previous user on this device ${count === 1 ? 'was' : 'were'} discarded.`,
+      action: 'OK',
+      duration: NOTICE_DURATION_MS,
+    });
   }
 }

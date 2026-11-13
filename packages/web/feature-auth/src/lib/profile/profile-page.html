@@ -1,0 +1,60 @@
+<a class="back" routerLink="..">
+  <mat-icon aria-hidden="true">arrow_back</mat-icon>
+  Space
+</a>
+<h1 tabindex="-1">Profile</h1>
+
+<section aria-labelledby="name-heading">
+  <h2 id="name-heading">Name</h2>
+  <p class="hint">
+    Signed in as <strong>{{ username() }}</strong>.
+  </p>
+  <form novalidate (submit)="save($event)">
+    <mat-form-field>
+      <mat-label>Display name</mat-label>
+      <input
+        matInput
+        [formField]="profileForm.displayName"
+        autocomplete="name"
+      />
+      @if (
+        profileForm.displayName().touched() &&
+          profileForm.displayName().errors()[0];
+        as e
+      ) {
+        <mat-error>{{ e.message }}</mat-error>
+      }
+    </mat-form-field>
+    @if (error()) {
+      <p class="error" role="alert">{{ error() }}</p>
+    }
+    <div class="actions">
+      <button
+        matButton="filled"
+        type="submit"
+        [disabled]="busy() || unchanged()"
+      >
+        Save name
+      </button>
+    </div>
+  </form>
+</section>
+
+<section aria-labelledby="password-heading">
+  <h2 id="password-heading">Password</h2>
+  <lister-password-form (changed)="passwordChanged()" />
+</section>
+
+<section aria-labelledby="signout-heading">
+  <h2 id="signout-heading">Sign out</h2>
+  <p class="hint">
+    Signing out removes your lists and runs from this device. They stay on the
+    server.
+  </p>
+  @if (signOutError()) {
+    <p class="error" role="alert">{{ signOutError() }}</p>
+  }
+  <button matButton="outlined" type="button" (click)="signOut()">
+    Sign out
+  </button>
+</section>

@@ -1,6 +1,10 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { PENDING_GRACE_MS, SyncBadge } from './sync-badge';
 
+beforeEach(() =>
+  TestBed.configureTestingModule({ providers: [provideRouter([])] }),
+);
 afterEach(() => vi.useRealTimers());
 
 /** Renders the badge and lets the grace period pass, like a change that stays pending. */
@@ -55,6 +59,36 @@ describe('SyncBadge', () => {
       }
     },
   );
+
+  describe('when there is no session', () => {
+    function signedOut(pendingCount: number, compact = false) {
+      const fixture = TestBed.createComponent(SyncBadge);
+      fixture.componentRef.setInput('online', false);
+      fixture.componentRef.setInput('signInRequired', true);
+      fixture.componentRef.setInput('pendingCount', pendingCount);
+      fixture.componentRef.setInput('compact', compact);
+      fixture.detectChanges();
+      return fixture.nativeElement as HTMLElement;
+    }
+
+    it('offers "Sign in" instead of "Offline", as a link to the sign-in page', () => {
+      const element = signedOut(0);
+
+      const link = element.querySelector('a.badge');
+      expect(link?.getAttribute('href')).toBe('/sign-in');
+      expect(link?.textContent).toContain('Sign in to sync');
+      expect(element.textContent).not.toContain('Offline');
+    });
+
+    it('says how many changes wait, and stays short in compact mode', () => {
+      expect(signedOut(2).textContent).toContain(
+        'Sign in · 2 changes not synced',
+      );
+      expect(
+        signedOut(2, true).querySelector('.label')?.textContent?.trim(),
+      ).toBe('Sign in');
+    });
+  });
 
   it('is a polite live region, so screen readers hear changes', async () => {
     const { element } = await render(false, 0);

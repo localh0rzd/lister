@@ -187,6 +187,20 @@ isn't in a space gets 404, so ids can't be probed. When a user is deleted, a sha
 owned passes to its longest-standing member (deleted with everything in it if nobody else is in
 it), so shared spaces keep their content.
 
+Web client (T-026): the app asks `GET /api/auth/me` on every guarded navigation and remembers the
+user on the device. A 401 sends people to sign-in; an unreachable server keeps them in the app, so
+it works offline after the session has ended. When the sync socket is refused with "Sign in first",
+the sync status says "Sign in" instead of "Offline", the app keeps working and keeps its pending
+changes, and the user is asked once to sign in; signing in loads the app afresh, so the same user's
+pending changes sync, and another user's data is wiped from the device first. Signing out asks
+first when changes are unsynced, ends the session and wipes the device's database; it needs a
+connection. Sign-out deletes the whole local database (spaces, rows, outbox, sync cursors) and the
+remembered space; device preferences such as the theme stay. If another user signs in on a device
+that still holds someone else's data (known from the user id the welcome stored), the database is
+wiped before the first sync, so the old outbox is never pushed under the new session, and the new
+user is told how many unsynced changes were discarded. The same user keeps everything. Users edit only their own display name (`PATCH /api/auth/me`); usernames and the
+admin flag stay with admins. The chosen space is remembered per device (`localStorage`).
+
 _Rejected alternatives:_ a public service with open sign-up (email verification, password reset
 over SMTP, abuse protection, GDPR); no accounts at all (link-based, no "checked by Anna", no access
 control beyond the URL).
@@ -550,11 +564,12 @@ packages/
   web/
     data-access-local-db   Dexie schema, repositories → signals                         scope:web type:data-access
     data-access-sync       sync engine, outbox, socket, status, SpaceChanges           scope:web type:data-access
+    data-access-auth       who is signed in, sign-in/out calls, route guards           scope:web type:data-access
     feature-lists          list library, list editor, composition                       scope:web type:feature
     feature-runs           runs: start, ad-hoc, check/skip, progress, finishing         scope:web type:feature
     feature-auth           sign-in, first-run setup, profile with passkeys              scope:web type:feature
     feature-admin          user administration (admins only)                            scope:web type:feature
-    feature-space          spaces and members                                           scope:web type:feature
+    feature-space          space switcher, spaces and members                           scope:web type:feature
     ui                     nav bar/rail, item row, section header, sync status, dialogs scope:web type:ui
     util-pwa               SW updates, install hint, storage persistence, online signal scope:web type:util
     util-notify            Notifier: the snackbar queue (Undo, rejections, prompts)     scope:web type:util

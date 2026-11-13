@@ -1,0 +1,241 @@
+import { signal } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import {
+  HttpTestingController,
+  provideHttpClientTesting,
+} from '@angular/common/http/testing';
+import { MatDialog } from '@angular/material/dialog';
+import { of } from 'rxjs';
+import type { SpaceSummary } from '@lister/shared/api-contracts';
+import { newId } from '@lister/shared/domain';
+import { AuthSession } from '@lister/web/data-access-auth';
+import {
+  CURRENT_SPACE_KEY,
+  LOCAL_DB,
+  LocalDb,
+} from '@lister/web/data-access-local-db';
+import { Notifier } from '@lister/web/util-notify';
+import type { FieldDialogData } from '../field-dialog/field-dialog';
+import { SpacesSection } from './spaces-section';
+
+const ME = newId();
+const BEN = newId();
+const summary = (
+  name: string,
+  changes: Partial<SpaceSummary> = {},
+): SpaceSummary => ({
+  id: newId(),
+  name,
+  personal: false,
+  role: 'owner',
+  members: [
+    { userId: ME, displayName: 'Anna', role: 'owner' },
+    { userId: BEN, displayName: 'Ben', role: 'member' },
+  ],
+  ...changes,
+});
+
+let db: LocalDb;
+let http: HttpTestingController;
+let open: ReturnType<typeof vi.fn>;
+let notify: ReturnType<typeof vi.fn>;
+
+async function render(spaces: SpaceSummary[], dialogResult: unknown = true) {
+  localStorage.removeItem(CURRENT_SPACE_KEY);
+  db = new LocalDb(`test-${newId()}`);
+  await db.spaces.bulkPut(
+    spaces.map((s) => ({
+      id: s.id,
+      name: s.name,
+      version: 1,
+      members: s.members.map(({ userId, displayName }) => ({
+        userId,
+        displayName,
+      })),
+    })),
+  );
+  open = vi.fn(() => ({ afterClosed: () => of(dialogResult) }));
+  notify = vi.fn(async () => 'dismissed');
+  TestBed.configureTestingModule({
+    providers: [
+      provideHttpClient(),
+      provideHttpClientTesting(),
+      { provide: LOCAL_DB, useValue: db },
+      { provide: MatDialog, useValue: { open } },
+      { provide: Notifier, useValue: { notify } },
+      { provide: AuthSession, useValue: { user: signal({ id: ME }) } },
+    ],
+  });
+  http = TestBed.inject(HttpTestingController);
+  const fixture = TestBed.createComponent(SpacesSection);
+  fixture.detectChanges();
+  http.expectOne('/api/spaces').flush(spaces);
+  const element = fixture.nativeElement as HTMLElement;
+  await vi.waitFor(async () => {
+    await fixture.whenStable();
+    expect(element.querySelectorAll('.space').length).toBe(spaces.length);
+  });
+  const button = (name: string) =>
+    [...element.querySelectorAll('button')].find((b) =>
+      b.textContent?.includes(name),
+    ) as HTMLButtonElement | undefined;
+  return { fixture, element, button };
+}
+
+afterEach(async () => {
+  http.verify();
+  TestBed.resetTestingModule();
+  await db.delete();
+});
+
+describe('SpacesSection', () => {
+  it('switches the space the app works in, and marks the current one', async () => {
+    const home = summary('Home', { personal: true });
+    const trip = summary('Trip');
+    const { fixture, element } = await render([home, trip]);
+    const spaces = () => [...element.querySelectorAll<HTMLElement>('.space')];
+    await vi.waitFor(async () => {
+      await fixture.whenStable();
+      expect(spaces()[0].getAttribute('aria-current')).toBe('true');
+    });
+
+    spaces()[1].click();
+    await fixture.whenStable();
+
+    expect(spaces()[1].getAttribute('aria-current')).toBe('true');
+    expect(spaces()[0].getAttribute('aria-current')).toBeNull();
+    expect(localStorage.getItem(CURRENT_SPACE_KEY)).toBe(trip.id);
+  });
+
+  it('gives the owner of a shared space every management action', async () => {
+    const { element, button } = await render([summary('Trip')]);
+
+    expect(element.textContent).toContain('Members of Trip');
+    expect(element.textContent).toContain('Ben');
+    expect(button('Rename')).toBeTruthy();
+    expect(button('Add member')).toBeTruthy();
+    expect(button('Delete space')).toBeTruthy();
+    expect(button('Remove')?.textContent).toContain('Ben');
+    expect(button('Leave space')).toBeUndefined();
+  });
+
+  it('lets a member only leave', async () => {
+    const { button } = await render([summary('Trip', { role: 'member' })]);
+
+    expect(button('Leave space')).toBeTruthy();
+    expect(button('Rename')).toBeUndefined();
+    expect(button('Add member')).toBeUndefined();
+    expect(button('Remove')).toBeUndefined();
+  });
+
+  it('only lets people rename their personal space', async () => {
+    const { button } = await render([summary('Home', { personal: true })]);
+
+    expect(button('Rename')).toBeTruthy();
+    expect(button('Add member')).toBeUndefined();
+    expect(button('Delete space')).toBeUndefined();
+    expect(button('Leave space')).toBeUndefined();
+  });
+
+  it('creates a space, switching to it, then reloads', async () => {
+    const trip = summary('Trip');
+    const { button } = await render([summary('Home', { personal: true })]);
+
+    button('New space')?.click();
+    const data = open.mock.calls[0][1].data as FieldDialogData;
+    expect(data.heading).toBe('New space');
+    const done = data.submit('Trip');
+    const call = http.expectOne('/api/spaces');
+    expect(call.request.body).toEqual({ name: 'Trip' });
+    call.flush(trip);
+    await done;
+
+    expect(localStorage.getItem(CURRENT_SPACE_KEY)).toBe(trip.id);
+    await vi.waitFor(() => http.expectOne('/api/spaces').flush([trip]));
+    expect(notify).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'Space created' }),
+    );
+  });
+
+  it('renames a space and adds a member through the field dialog', async () => {
+    const trip = summary('Trip');
+    const { button } = await render([trip]);
+
+    button('Rename')?.click();
+    const rename = open.mock.calls[0][1].data as FieldDialogData;
+    expect(rename.value).toBe('Trip');
+    const renamed = rename.submit('Holiday');
+    const patch = http.expectOne(`/api/spaces/${trip.id}`);
+    expect(patch.request.method).toBe('PATCH');
+    expect(patch.request.body).toEqual({ name: 'Holiday' });
+    patch.flush({ ...trip, name: 'Holiday' });
+    await renamed;
+    await vi.waitFor(() => http.expectOne('/api/spaces').flush([trip]));
+
+    button('Add member')?.click();
+    const add = open.mock.calls[1][1].data as FieldDialogData;
+    const added = add.submit('carl');
+    const post = http.expectOne(`/api/spaces/${trip.id}/members`);
+    expect(post.request.body).toEqual({ username: 'carl' });
+    post.flush(trip);
+    await added;
+    await vi.waitFor(() => http.expectOne('/api/spaces').flush([trip]));
+  });
+
+  it('removes a member after confirming', async () => {
+    const trip = summary('Trip');
+    const { button } = await render([trip]);
+
+    button('Remove')?.click();
+    expect(open.mock.calls[0][1].data.heading).toBe('Remove Ben?');
+    const call = http.expectOne(`/api/spaces/${trip.id}/members/${BEN}`);
+    expect(call.request.method).toBe('DELETE');
+    call.flush(null, { status: 204, statusText: '' });
+    await vi.waitFor(() => http.expectOne('/api/spaces').flush([trip]));
+    expect(notify).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'Ben removed' }),
+    );
+  });
+
+  it('leaves a space after confirming, and deletes one only with a confirmation', async () => {
+    const trip = summary('Trip', { role: 'member' });
+    const { button } = await render([trip]);
+
+    button('Leave space')?.click();
+    expect(open.mock.calls[0][1].data.heading).toBe('Leave “Trip”?');
+    http
+      .expectOne(`/api/spaces/${trip.id}/leave`)
+      .flush(null, { status: 204, statusText: '' });
+    await vi.waitFor(() => http.expectOne('/api/spaces').flush([]));
+  });
+
+  it('does nothing when a confirmation is declined', async () => {
+    const trip = summary('Trip');
+    const { button } = await render([trip], false);
+
+    button('Delete space')?.click();
+
+    expect(open).toHaveBeenCalled();
+    // http.verify() fails on any request
+  });
+
+  it("shows the server's refusal as a notice", async () => {
+    const trip = summary('Trip');
+    const { button } = await render([trip]);
+
+    button('Delete space')?.click();
+    http
+      .expectOne(`/api/spaces/${trip.id}`)
+      .flush(
+        { message: 'Only the owner can do that' },
+        { status: 403, statusText: '' },
+      );
+
+    await vi.waitFor(() =>
+      expect(notify).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'Only the owner can do that' }),
+      ),
+    );
+  });
+});

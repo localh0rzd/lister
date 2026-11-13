@@ -19,6 +19,8 @@ function setup(wide: boolean) {
         { path: 'lists', component: Page },
         { path: 'runs', component: Page },
         { path: 'space', component: Page },
+        { path: 'sign-in', component: Page },
+        { path: 'change-password', component: Page },
       ]),
       {
         provide: BreakpointObserver,
@@ -32,8 +34,8 @@ function setup(wide: boolean) {
   });
 }
 
-async function render() {
-  await RouterTestingHarness.create('/lists');
+async function render(url = '/lists') {
+  await RouterTestingHarness.create(url);
   const fixture = TestBed.createComponent(App);
   await fixture.whenStable();
   return fixture.nativeElement as HTMLElement;
@@ -82,4 +84,20 @@ describe('App shell', () => {
     expect(labels).toEqual(['Lists', 'Runs', 'Space']);
     expect(el.querySelector('main')).not.toBeNull();
   });
+
+  it.each(['/sign-in', '/sign-in?returnUrl=%2Flists', '/change-password'])(
+    'shows %s without navigation, on phones and wide screens',
+    async (url) => {
+      for (const wide of [false, true]) {
+        TestBed.resetTestingModule();
+        setup(wide);
+        const el = await render(url);
+
+        expect(el.querySelector('main h1')?.textContent).toBe('Page');
+        expect(el.querySelector('lister-navigation-bar')).toBeNull();
+        expect(el.querySelector('lister-navigation-rail')).toBeNull();
+        expect(el.querySelector('header')).toBeNull();
+      }
+    },
+  );
 });

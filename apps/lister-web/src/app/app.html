@@ -1,5 +1,7 @@
-<div class="shell" [class.wide]="wide()">
-  @if (wide()) {
+<div class="shell" [class.wide]="wide() && !bare()" [class.bare]="bare()">
+  @if (bare()) {
+    <!-- Sign-in and setup: no navigation. -->
+  } @else if (wide()) {
     <lister-navigation-rail class="nav" [destinations]="destinations">
       @defer (on idle) {
         <lister-sync-indicator [compact]="true" />

@@ -7,6 +7,10 @@
     'nav' auto / 1fr;
 }
 
+.shell.bare {
+  grid-template: 'content' 1fr / 1fr;
+}
+
 .shell.wide {
   grid-template: 'nav content' 1fr / auto 1fr;
 }

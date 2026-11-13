@@ -1,0 +1,68 @@
+<a class="back" routerLink="..">
+  <mat-icon aria-hidden="true">arrow_back</mat-icon>
+  Space
+</a>
+<div class="heading">
+  <h1 tabindex="-1">Users</h1>
+  <button matButton="filled" type="button" (click)="add()">
+    <mat-icon aria-hidden="true">person_add</mat-icon>
+    Add user
+  </button>
+</div>
+
+@if (users.isLoading() && !users.hasValue()) {
+  <lister-loading-hint />
+} @else if (users.error()) {
+  <p class="hint" role="alert">
+    The users could not be loaded. Check your connection.
+    <button matButton type="button" (click)="users.reload()">Try again</button>
+  </p>
+} @else {
+  <ul class="users" aria-label="Users">
+    @for (user of users.value(); track user.id) {
+      <li class="user">
+        <mat-icon aria-hidden="true">{{
+          user.isAdmin ? 'admin_panel_settings' : 'person'
+        }}</mat-icon>
+        <div class="text">
+          <span class="name">{{ user.displayName }}</span>
+          <span class="meta">
+            {{ user.username }}
+            @if (user.isAdmin) {
+              · Admin
+            }
+            @if (user.mustChangePassword) {
+              · Must choose a password
+            }
+          </span>
+        </div>
+        <button
+          matIconButton
+          type="button"
+          [matMenuTriggerFor]="menu"
+          [attr.aria-label]="'More for ' + user.displayName"
+        >
+          <mat-icon aria-hidden="true">more_vert</mat-icon>
+        </button>
+        <mat-menu #menu="matMenu">
+          <button mat-menu-item type="button" (click)="edit(user)">Edit</button>
+          <button mat-menu-item type="button" (click)="resetPassword(user)">
+            Reset password
+          </button>
+          @if (user.id !== myId()) {
+            <button
+              mat-menu-item
+              type="button"
+              (click)="setAdmin(user, !user.isAdmin)"
+            >
+              {{ user.isAdmin ? 'Remove admin' : 'Make admin' }}
+            </button>
+            <button mat-menu-item type="button" (click)="remove(user)">
+              Delete
+            </button>
+          }
+        </mat-menu>
+      </li>
+    }
+  </ul>
+}

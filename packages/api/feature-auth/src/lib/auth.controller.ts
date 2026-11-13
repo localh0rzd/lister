@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   NotFoundException,
+  Patch,
   Post,
   Req,
   Res,
@@ -23,7 +24,12 @@ import {
   SessionId,
   SignedInUser,
 } from './decorators';
-import { ChangePasswordDto, LoginDto, SetupDto } from './dto/auth.dto';
+import {
+  ChangePasswordDto,
+  LoginDto,
+  SetupDto,
+  UpdateProfileDto,
+} from './dto/auth.dto';
 import {
   type AuthRequest,
   type AuthResponse,
@@ -32,6 +38,7 @@ import {
   sessionCookieOptions,
 } from './http';
 import { SetupTokenService } from './setup-token.service';
+import { UsersService } from './users.service';
 
 @Controller('auth')
 export class AuthController {
@@ -39,6 +46,7 @@ export class AuthController {
     private readonly auth: AuthService,
     private readonly setupToken: SetupTokenService,
     private readonly limits: AttemptLimits,
+    private readonly users: UsersService,
   ) {}
 
   @Public()
@@ -77,6 +85,15 @@ export class AuthController {
   @Get('me')
   me(@SignedInUser() user: CurrentUser): CurrentUser {
     return user;
+  }
+
+  /** Users edit their own display name; the username and admin flag stay with the admins. */
+  @Patch('me')
+  updateProfile(
+    @Body() body: UpdateProfileDto,
+    @SignedInUser() user: CurrentUser,
+  ): CurrentUser {
+    return this.users.update(user.id, { displayName: body.displayName });
   }
 
   @AllowMustChangePassword()

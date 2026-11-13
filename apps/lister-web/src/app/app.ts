@@ -9,6 +9,7 @@ import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { MatToolbar } from '@angular/material/toolbar';
+import { isBarePath } from '@lister/web/data-access-auth';
 import { NavigationBar, NavigationRail } from '@lister/web/ui';
 import { filter, map } from 'rxjs';
 import { DESTINATIONS } from './destinations';
@@ -46,6 +47,8 @@ export class App {
     ),
     { initialValue: this.router.url },
   );
+  /** Sign-in, setup and the forced password change come without the app's navigation. */
+  protected readonly bare = computed(() => isBarePath(this.url()));
   /** The top app bar's title on phones: the current destination. */
   protected readonly title = computed(
     () =>

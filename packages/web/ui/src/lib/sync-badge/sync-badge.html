@@ -1,10 +1,18 @@
 @if (description(); as full) {
-  <span class="badge" [class.offline]="!online()" [attr.title]="full">
-    <mat-icon aria-hidden="true">{{
-      online() ? 'sync' : 'cloud_off'
-    }}</mat-icon>
-    <!-- The short label is for the eye; screen readers get the whole sentence. -->
-    <span class="label" aria-hidden="true">{{ label() }}</span>
-    <span class="cdk-visually-hidden">{{ full }}</span>
-  </span>
+  @if (signInRequired()) {
+    <a class="badge offline" routerLink="/sign-in" [attr.title]="full">
+      <mat-icon aria-hidden="true">login</mat-icon>
+      <span class="label" aria-hidden="true">{{ label() }}</span>
+      <span class="cdk-visually-hidden">{{ full }}</span>
+    </a>
+  } @else {
+    <span class="badge" [class.offline]="!online()" [attr.title]="full">
+      <mat-icon aria-hidden="true">{{
+        online() ? 'sync' : 'cloud_off'
+      }}</mat-icon>
+      <!-- The short label is for the eye; screen readers get the whole sentence. -->
+      <span class="label" aria-hidden="true">{{ label() }}</span>
+      <span class="cdk-visually-hidden">{{ full }}</span>
+    </span>
+  }
 }

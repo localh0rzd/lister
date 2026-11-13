@@ -953,6 +953,84 @@ describe('SyncEngine', () => {
       await eventually(() => expect(engine.online()).toBe(true));
     });
 
+    describe('a refused sign-in', () => {
+      const refuse = () => {
+        server.connected = false;
+        server.fire('connect_error', new Error('Sign in first'));
+      };
+
+      it('asks for sign-in, keeps the pending changes and keeps working offline', async () => {
+        setup();
+        engine.start();
+        await settle();
+        refuse();
+        await settle();
+        await eventually(() => {
+          expect(engine.signInRequired()).toBe(true);
+          expect(engine.online()).toBe(false);
+        });
+
+        const id = await createList('Written while signed out');
+        await eventually(() => expect(engine.pendingCount()).toBe(1));
+
+        expect((await visibleList(id))?.title).toBe('Written while signed out');
+      });
+
+      it('does not mistake another connection error for a missing session', async () => {
+        setup();
+        engine.start();
+        await settle();
+        server.connected = false;
+        server.fire('connect_error', new Error('websocket error'));
+        await settle();
+
+        await eventually(() => expect(engine.signInRequired()).toBe(false));
+      });
+
+      it('tries again when the browser comes online, and sends what it kept once signed in', async () => {
+        setup();
+        engine.start();
+        await settle();
+        refuse();
+        await createList('Kept');
+        await settle();
+
+        window.dispatchEvent(new Event('online'));
+        await settle();
+
+        await eventually(() => {
+          expect(engine.signInRequired()).toBe(false);
+          expect(engine.online()).toBe(true);
+          expect(engine.pendingCount()).toBe(0);
+        });
+        expect(server.version).toBe(1);
+      });
+
+      it('tries again when the tab is focused, e.g. after signing in in another tab', async () => {
+        setup();
+        engine.start();
+        await settle();
+        refuse();
+        await settle();
+
+        window.dispatchEvent(new Event('focus'));
+        await settle();
+
+        await eventually(() => expect(engine.online()).toBe(true));
+      });
+
+      it('does not reconnect on focus while nothing was refused', async () => {
+        setup();
+        engine.start();
+        await settle();
+
+        window.dispatchEvent(new Event('focus'));
+        await settle();
+
+        expect(server.connectCalls).toBe(1);
+      });
+    });
+
     it('does not reconnect on "online" after the server asked for an update', async () => {
       setup();
       engine.start();

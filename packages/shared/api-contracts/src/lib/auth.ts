@@ -23,6 +23,11 @@ export interface SetupRequest {
   password: string;
 }
 
+/** Body of `PATCH /api/auth/me`: the signed-in user edits their own display name. */
+export interface UpdateProfileRequest {
+  displayName: string;
+}
+
 /** Body of `POST /api/auth/password`. */
 export interface ChangePasswordRequest {
   currentPassword: string;

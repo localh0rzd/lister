@@ -1,5 +1,6 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { SyncEngine } from '@lister/web/data-access-sync';
 import { PENDING_GRACE_MS } from '@lister/web/ui';
 import { SyncIndicator } from './sync-indicator';
@@ -8,8 +9,15 @@ describe('SyncIndicator', () => {
   it("shows the sync engine's state in the badge", async () => {
     const online = signal(true);
     const pendingCount = signal(0);
+    const signInRequired = signal(false);
     TestBed.configureTestingModule({
-      providers: [{ provide: SyncEngine, useValue: { online, pendingCount } }],
+      providers: [
+        provideRouter([]),
+        {
+          provide: SyncEngine,
+          useValue: { online, pendingCount, signInRequired },
+        },
+      ],
     });
     const fixture = TestBed.createComponent(SyncIndicator);
     const text = () =>
@@ -37,5 +45,9 @@ describe('SyncIndicator', () => {
     fixture.componentRef.setInput('compact', true);
     await fixture.whenStable();
     expect(text()).toBe('2');
+
+    signInRequired.set(true);
+    await fixture.whenStable();
+    expect(text()).toBe('Sign in');
   });
 });

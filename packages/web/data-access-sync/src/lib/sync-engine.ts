@@ -172,6 +172,8 @@ function touchedBy(
 /** A mutation as the UI asks for it: the engine adds the mutation id. */
 export type MutationRequest = DistributiveOmit<MutationInput, 'mutationId'>;
 
+/** The message the server's handshake check refuses with when there is no usable session. */
+const SIGN_IN_REFUSAL = 'Sign in first';
 const LOCK_NAME = 'lister-sync';
 const STATUS_KEY = 'status';
 const FIRST_RECONNECT_DELAY_MS = 1000;
@@ -248,6 +250,14 @@ export class SyncEngine {
   /** Changes the server refused, oldest first, until dismissed. */
   readonly errors: Signal<readonly SyncError[]> = computed(
     () => valueOf(this.rejections()) ?? [],
+  );
+  /**
+   * The server refused the connection because there is no session (it expired, or the password
+   * must be changed). The app keeps working and keeps its pending changes; signing in again
+   * resumes syncing.
+   */
+  readonly signInRequired: Signal<boolean> = computed(
+    () => this.currentStatus().signInRequired === true,
   );
   /** The server speaks a newer protocol: the app must reload to update. */
   readonly updateRequired: Signal<boolean> = computed(
@@ -347,6 +357,18 @@ export class SyncEngine {
       void this.enqueue(() => this.hello());
     });
     socket.on('disconnect', (reason) => this.onDisconnect(reason));
+    // A refused handshake is not retried by Socket.IO. Going online again, or coming back to the
+    // tab (after signing in in another one), tries again.
+    socket.on('connect_error', (error) => {
+      if (error.message === SIGN_IN_REFUSAL) {
+        this.setStatus({
+          ...this.connection,
+          online: false,
+          syncing: false,
+          signInRequired: true,
+        });
+      }
+    });
     this.listen('welcome', welcomeSchema, (m) => this.onWelcome(m));
     this.listen('rows', rowsSchema, (m) => this.onRows(m));
     this.listen('poke', pokeSchema, (m) => this.onPoke(m));
@@ -367,8 +389,12 @@ export class SyncEngine {
       socket.disconnect();
       socket.connect();
     };
+    const retrySignIn = () => {
+      if (this.connection.signInRequired) goOnline();
+    };
     this.window?.addEventListener('offline', goOffline);
     this.window?.addEventListener('online', goOnline);
+    this.window?.addEventListener('focus', retrySignIn);
 
     // Push whatever any tab adds to the outbox.
     const outbox = liveQuery(() => this.db.outbox.count()).subscribe(
@@ -377,6 +403,7 @@ export class SyncEngine {
     this.destroyRef.onDestroy(() => {
       this.window?.removeEventListener('offline', goOffline);
       this.window?.removeEventListener('online', goOnline);
+      this.window?.removeEventListener('focus', retrySignIn);
       outbox.unsubscribe();
       clearTimeout(this.reconnectTimer);
       socket.disconnect();
@@ -475,7 +502,7 @@ export class SyncEngine {
     for (const space of welcome.spaces) {
       await this.pull(space.id);
     }
-    this.setStatus({ ...this.connection, online: true });
+    this.setStatus({ ...this.connection, online: true, signInRequired: false });
   }
 
   /**

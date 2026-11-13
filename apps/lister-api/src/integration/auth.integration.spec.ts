@@ -225,6 +225,64 @@ describe('auth', () => {
     });
   });
 
+  describe('PATCH /api/auth/me', () => {
+    it('changes the display name of the signed-in user, trimmed', async () => {
+      await createAccount(api, 'anna');
+      const cookie = await signIn(api, 'anna');
+
+      const response = await send(api, 'PATCH', '/auth/me', {
+        cookie,
+        body: { displayName: '  Anna B  ' },
+      });
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({
+        username: 'anna',
+        displayName: 'Anna B',
+      });
+      const me = await send(api, 'GET', '/auth/me', { cookie });
+      expect(await me.json()).toMatchObject({ displayName: 'Anna B' });
+    });
+
+    it('ignores the username and admin flag: only the display name can change', async () => {
+      await createAccount(api, 'anna');
+      const cookie = await signIn(api, 'anna');
+
+      const response = await send(api, 'PATCH', '/auth/me', {
+        cookie,
+        body: { displayName: 'Anna', isAdmin: true, username: 'root' },
+      });
+
+      expect(response.status).toBe(200);
+      const me = (await (
+        await send(api, 'GET', '/auth/me', { cookie })
+      ).json()) as CurrentUser;
+      expect(me).toMatchObject({ username: 'anna', isAdmin: false });
+    });
+
+    it.each([[''], ['   '], ['x'.repeat(101)]])(
+      'rejects the display name %j with 400',
+      async (displayName) => {
+        await createAccount(api, 'anna');
+        const cookie = await signIn(api, 'anna');
+
+        const response = await send(api, 'PATCH', '/auth/me', {
+          cookie,
+          body: { displayName },
+        });
+
+        expect(response.status).toBe(400);
+      },
+    );
+
+    it('is 401 without a session', async () => {
+      const response = await send(api, 'PATCH', '/auth/me', {
+        body: { displayName: 'Anna' },
+      });
+      expect(response.status).toBe(401);
+    });
+  });
+
   describe('POST /api/auth/logout', () => {
     it('ends the session and clears the cookie', async () => {
       await createAccount(api, 'anna');

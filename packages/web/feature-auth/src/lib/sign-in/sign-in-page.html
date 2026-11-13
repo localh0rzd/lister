@@ -1,0 +1,46 @@
+<h1>Sign in to Lister</h1>
+<p class="lead">Your lists and runs, on every device.</p>
+<form novalidate (submit)="signIn($event)">
+  <mat-form-field>
+    <mat-label>Username</mat-label>
+    <input
+      matInput
+      [formField]="signInForm.username"
+      autocomplete="username"
+      autocapitalize="none"
+      spellcheck="false"
+    />
+    @if (
+      signInForm.username().touched() && signInForm.username().errors()[0];
+      as e
+    ) {
+      <mat-error>{{ e.message }}</mat-error>
+    }
+  </mat-form-field>
+  <mat-form-field>
+    <mat-label>Password</mat-label>
+    <input
+      matInput
+      type="password"
+      [formField]="signInForm.password"
+      autocomplete="current-password"
+    />
+    @if (
+      signInForm.password().touched() && signInForm.password().errors()[0];
+      as e
+    ) {
+      <mat-error>{{ e.message }}</mat-error>
+    }
+  </mat-form-field>
+  @if (error()) {
+    <p class="error" role="alert">{{ error() }}</p>
+  }
+  <div class="actions">
+    <button matButton="filled" type="submit" [disabled]="busy()">
+      Sign in
+    </button>
+  </div>
+</form>
+<p class="alt">
+  Setting up a new server? <a routerLink="/setup">First-run setup</a>
+</p>

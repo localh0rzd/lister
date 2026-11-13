@@ -8,6 +8,9 @@
   color: var(--mat-sys-on-secondary-container);
   font: var(--mat-sys-label-medium);
 }
+.badge {
+  text-decoration: none;
+}
 .badge.offline {
   background: var(--mat-sys-surface-container-highest);
   color: var(--mat-sys-on-surface);

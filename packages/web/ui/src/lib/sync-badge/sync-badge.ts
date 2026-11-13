@@ -1,5 +1,6 @@
 import { Component, computed, effect, input, signal } from '@angular/core';
 import { MatIcon } from '@angular/material/icon';
+import { RouterLink } from '@angular/router';
 
 /** Online, changes usually sync within milliseconds: only changes waiting longer are shown. */
 export const PENDING_GRACE_MS = 1000;
@@ -11,7 +12,7 @@ export const PENDING_GRACE_MS = 1000;
  */
 @Component({
   selector: 'lister-sync-badge',
-  imports: [MatIcon],
+  imports: [MatIcon, RouterLink],
   host: { role: 'status', 'aria-live': 'polite' },
   templateUrl: './sync-badge.html',
   styleUrl: './sync-badge.scss',
@@ -19,6 +20,8 @@ export const PENDING_GRACE_MS = 1000;
 export class SyncBadge {
   readonly online = input.required<boolean>();
   readonly pendingCount = input.required<number>();
+  /** There is no session: shows "Sign in" (a link to the sign-in page) instead of "Offline". */
+  readonly signInRequired = input(false);
   /** Narrow places (the rail) show only the offline state and the count. */
   readonly compact = input(false);
 
@@ -49,6 +52,10 @@ export class SyncBadge {
   protected readonly description = computed(() => {
     const pending = this.online() ? this.shownPending() : this.pendingCount();
     const changes = pending === 1 ? '1 change' : `${pending} changes`;
+    if (this.signInRequired())
+      return pending > 0
+        ? `Sign in · ${changes} not synced`
+        : 'Sign in to sync';
     if (!this.online())
       return pending > 0 ? `Offline · ${changes} not synced` : 'Offline';
     return pending > 0 ? `${changes} not synced` : '';
@@ -57,6 +64,7 @@ export class SyncBadge {
   /** What fits: the whole sentence, or in compact mode just "Offline" or the count. */
   protected readonly label = computed(() => {
     if (!this.compact()) return this.description();
+    if (this.signInRequired()) return 'Sign in';
     const pending = this.online() ? this.shownPending() : this.pendingCount();
     return pending > 0 ? String(pending) : 'Offline';
   });

@@ -6,6 +6,7 @@ import {
   type ChangePasswordRequest,
   type LoginRequest,
   type SetupRequest,
+  type UpdateProfileRequest,
 } from '@lister/shared/api-contracts';
 
 const trim = ({ value }: { value: unknown }) =>
@@ -53,4 +54,11 @@ export class ChangePasswordDto implements ChangePasswordRequest {
   @IsString()
   @Length(AUTH_LIMITS.passwordMin, AUTH_LIMITS.passwordMax)
   newPassword!: string;
+}
+
+export class UpdateProfileDto implements UpdateProfileRequest {
+  @Transform(trim)
+  @IsString()
+  @Length(1, AUTH_LIMITS.displayNameMax)
+  displayName!: string;
 }

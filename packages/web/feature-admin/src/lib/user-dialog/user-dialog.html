@@ -1,0 +1,60 @@
+<h2 mat-dialog-title>{{ heading() }}</h2>
+<form novalidate (submit)="save($event)">
+  <mat-dialog-content>
+    <mat-form-field class="field">
+      <mat-label>Username</mat-label>
+      <input
+        matInput
+        [formField]="userForm.username"
+        autocomplete="off"
+        autocapitalize="none"
+        spellcheck="false"
+        cdkFocusInitial
+      />
+      @if (
+        userForm.username().touched() && userForm.username().errors()[0];
+        as e
+      ) {
+        <mat-error>{{ e.message }}</mat-error>
+      }
+    </mat-form-field>
+    <mat-form-field class="field">
+      <mat-label>Display name</mat-label>
+      <input matInput [formField]="userForm.displayName" autocomplete="off" />
+      @if (
+        userForm.displayName().touched() && userForm.displayName().errors()[0];
+        as e
+      ) {
+        <mat-error>{{ e.message }}</mat-error>
+      }
+    </mat-form-field>
+    @if (!editing) {
+      <mat-form-field class="field">
+        <mat-label>Temporary password</mat-label>
+        <input
+          matInput
+          type="password"
+          [formField]="userForm.temporaryPassword"
+          autocomplete="new-password"
+        />
+        <mat-hint>They must change it when they first sign in</mat-hint>
+        @if (
+          userForm.temporaryPassword().touched() &&
+            userForm.temporaryPassword().errors()[0];
+          as e
+        ) {
+          <mat-error>{{ e.message }}</mat-error>
+        }
+      </mat-form-field>
+    }
+    @if (error()) {
+      <p class="error" role="alert">{{ error() }}</p>
+    }
+  </mat-dialog-content>
+  <mat-dialog-actions align="end">
+    <button matButton type="button" mat-dialog-close>Cancel</button>
+    <button matButton="filled" type="submit" [disabled]="busy()">
+      {{ editing ? 'Save' : 'Add' }}
+    </button>
+  </mat-dialog-actions>
+</form>

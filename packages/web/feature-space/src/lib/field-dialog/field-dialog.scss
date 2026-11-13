@@ -1,0 +1,9 @@
+.field {
+  width: 100%;
+  min-width: min(320px, 70vw);
+}
+.error {
+  margin: 0;
+  color: var(--mat-sys-error);
+  font: var(--mat-sys-body-medium);
+}

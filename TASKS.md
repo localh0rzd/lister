@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-026 — Web: sign-in, profile, user administration and spaces
 
 - Milestone: M5 Accounts and spaces
@@ -41,6 +39,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   - If the session expired while offline, the app keeps working, keeps pending changes, and asks
     for sign-in once online.
   - Signing out warns about unsynced changes and clears the local data.
+
+## Backlog
 
 ### T-027 — Passkeys
 

@@ -57,6 +57,8 @@ export interface SyncStatus {
   online: boolean;
   syncing: boolean;
   updateRequired: boolean;
+  /** The server refused the connection: the session is gone (older rows don't have this). */
+  signInRequired?: boolean;
 }
 
 /** Small per-device values, e.g. the client id. */
@@ -135,6 +137,13 @@ export class LocalDb extends Dexie {
     this.version(6)
       .stores({})
       .upgrade((tx) => tx.table('syncState').clear());
+  }
+
+  /** Empties every table: everything this device holds of the signed-in user, pending changes included. */
+  async clearAll(): Promise<void> {
+    await this.transaction('rw', this.tables, () =>
+      Promise.all(this.tables.map((table) => table.clear())),
+    );
   }
 }
 
