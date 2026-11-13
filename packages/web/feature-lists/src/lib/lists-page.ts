@@ -11,7 +11,12 @@ import {
   newId,
 } from '@lister/shared/domain';
 import { CurrentSpace, Repositories } from '@lister/web/data-access-local-db';
-import { TitleDialog, type TitleDialogData, LoadingHint } from '@lister/web/ui';
+import {
+  TitleDialog,
+  type TitleDialogData,
+  LoadingHint,
+  TruncatedTooltip,
+} from '@lister/web/ui';
 import { SpaceChanges } from '@lister/web/data-access-sync';
 import { RunStarter } from '@lister/web/feature-runs';
 import { NOTICE_DURATION_MS, Notifier } from '@lister/web/util-notify';
@@ -39,6 +44,7 @@ export interface ListCounts {
     MatMenuItem,
     MatMenuTrigger,
     RouterLink,
+    TruncatedTooltip,
   ],
   templateUrl: './lists-page.html',
   styleUrl: './lists-page.scss',

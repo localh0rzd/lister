@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-039 — Tooltip for truncated list titles
 
 - Milestone: — (UI polish before M5 continues)
@@ -47,6 +45,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   - Tests: a unit test of the directive (truncated → tooltip, fits → none, update when the text
     changes), and a Playwright check at 375 px that hovering or focusing a long title shows the
     full text, with the axe check still clean.
+
+## Backlog
 
 ### T-023 — User administration
 

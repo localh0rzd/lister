@@ -26,9 +26,12 @@
           initial(entry.list.title)
         }}</span>
         <div class="text">
-          <a class="title" [routerLink]="entry.list.id">{{
-            entry.list.title
-          }}</a>
+          <a
+            class="title"
+            listerTruncatedTooltip
+            [routerLink]="entry.list.id"
+            >{{ entry.list.title }}</a
+          >
           <span class="count">{{ itemCount(entry.count) }}</span>
         </div>
         <button

@@ -158,3 +158,42 @@ test.describe('lists on a desktop (1280 px)', () => {
     await other.context().close();
   });
 });
+
+test.describe('truncated list titles on a phone (375 px)', () => {
+  test.use({ viewport: { width: 375, height: 812 } });
+
+  test('a cut-off title shows its full text in a tooltip, a short one does not', async ({
+    page,
+    expectAccessible,
+  }) => {
+    const long = unique(
+      'A very long list title that cannot possibly fit on a phone screen in one line',
+    );
+    const short = unique('Short');
+    await openLists(page);
+    await createList(page, long);
+    await createList(page, short);
+
+    await test.step('hover on the long title', async () => {
+      await row(page, long).getByRole('link').hover();
+      await expect(page.locator('.mat-mdc-tooltip')).toHaveText(long);
+      await expectAccessible();
+    });
+
+    await test.step('keyboard focus on the long title', async () => {
+      await page.mouse.move(0, 0);
+      await expect(page.locator('.mat-mdc-tooltip')).toHaveCount(0);
+      // Tab from the row's menu button back to the title: a keyboard focus, which shows tooltips.
+      await row(page, long).getByRole('button').focus();
+      await page.keyboard.press('Shift+Tab');
+      await expect(row(page, long).getByRole('link')).toBeFocused();
+      await expect(page.locator('.mat-mdc-tooltip')).toHaveText(long);
+    });
+
+    await test.step('no tooltip for a title that fits', async () => {
+      await page.keyboard.press('Escape');
+      await row(page, short).getByRole('link').hover();
+      await expect(page.locator('.mat-mdc-tooltip')).toHaveCount(0);
+    });
+  });
+});
