@@ -42,7 +42,7 @@ function setup(pending = 0, dialogResult: boolean | undefined = true) {
       provideHttpClientTesting(),
       {
         provide: WebAuthnClient,
-        useValue: { supported: async () => true },
+        useValue: { supported: () => true },
       },
       { provide: AuthSession, useValue: session },
       { provide: SyncEngine, useValue: { pendingCount: signal(pending) } },

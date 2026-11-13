@@ -51,13 +51,7 @@ export class SignInPage {
   });
   protected readonly busy = signal(false);
   protected readonly error = signal('');
-  protected readonly passkeysSupported = signal(false);
-
-  constructor() {
-    void this.passkeys
-      .supported()
-      .then((supported) => this.passkeysSupported.set(supported));
-  }
+  protected readonly passkeysSupported = this.passkeys.supported();
 
   protected signIn(event: Event): void {
     event.preventDefault();

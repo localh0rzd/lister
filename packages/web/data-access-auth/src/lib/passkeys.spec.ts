@@ -10,7 +10,7 @@ import { WebAuthnClient } from './webauthn-client';
 let http: HttpTestingController;
 let passkeys: Passkeys;
 const client = {
-  supported: vi.fn(async () => true),
+  supported: vi.fn(() => true),
   register: vi.fn(),
   authenticate: vi.fn(),
 };
@@ -33,8 +33,8 @@ afterEach(() => {
 });
 
 describe('Passkeys', () => {
-  it('reports whether the browser supports passkeys', async () => {
-    expect(await passkeys.supported()).toBe(true);
+  it('reports whether the browser supports passkeys', () => {
+    expect(passkeys.supported()).toBe(true);
   });
 
   it('adds a passkey: server options, the authenticator, then the name and its answer', async () => {

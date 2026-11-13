@@ -25,7 +25,7 @@ const laptop: PasskeyInfo = {
 };
 
 const webAuthn = {
-  supported: vi.fn(async () => true),
+  supported: vi.fn(() => true),
   register: vi.fn(),
   authenticate: vi.fn(),
 };
@@ -33,7 +33,7 @@ const webAuthn = {
 function setup(dialogResult: boolean | undefined = true) {
   const open = vi.fn(() => ({ afterClosed: () => of(dialogResult) }));
   const notify = vi.fn(async () => 'dismissed');
-  webAuthn.supported.mockResolvedValue(true);
+  webAuthn.supported.mockReturnValue(true);
   webAuthn.register.mockReset();
   TestBed.configureTestingModule({
     providers: [
@@ -208,7 +208,7 @@ describe('PasskeysSection', () => {
 
   it('hides the form when the browser cannot create passkeys', async () => {
     const { http } = setup();
-    webAuthn.supported.mockResolvedValue(false);
+    webAuthn.supported.mockReturnValue(false);
     const { element, fixture } = await render(http, []);
     await fixture.whenStable();
 

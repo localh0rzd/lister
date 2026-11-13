@@ -52,7 +52,7 @@ export class PasskeysSection {
   protected readonly list = httpResource<PasskeyInfo[]>(
     () => this.passkeys.listUrl,
   );
-  protected readonly supported = signal(true);
+  protected readonly supported = this.passkeys.supported();
   protected readonly busy = signal(false);
   protected readonly error = signal('');
 
@@ -64,10 +64,6 @@ export class PasskeysSection {
       message: 'That name is too long',
     });
   });
-
-  constructor() {
-    void this.passkeys.supported().then((ok) => this.supported.set(ok));
-  }
 
   protected add(event: Event): void {
     event.preventDefault();

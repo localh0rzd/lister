@@ -22,14 +22,14 @@ const anna: CurrentUser = {
 let db: LocalDb;
 const load = vi.fn();
 const webAuthn = {
-  supported: vi.fn(async () => true),
+  supported: vi.fn(() => true),
   authenticate: vi.fn(),
   register: vi.fn(),
 };
 
 beforeEach(() => {
   load.mockClear();
-  webAuthn.supported.mockResolvedValue(true);
+  webAuthn.supported.mockReturnValue(true);
   webAuthn.authenticate.mockReset();
   db = new LocalDb(`test-${newId()}`);
   TestBed.configureTestingModule({
@@ -177,8 +177,15 @@ describe('SignInPage', () => {
       expect(passkeyButton(page.element)).toBeTruthy();
     });
 
+    it('shows the offer in the first render, so nothing below it moves', () => {
+      const fixture = TestBed.createComponent(SignInPage);
+      fixture.detectChanges();
+
+      expect(passkeyButton(fixture.nativeElement as HTMLElement)).toBeTruthy();
+    });
+
     it('hides the offer when the browser has no passkeys', async () => {
-      webAuthn.supported.mockResolvedValue(false);
+      webAuthn.supported.mockReturnValue(false);
       const page = await render();
 
       expect(passkeyButton(page.element)).toBeUndefined();

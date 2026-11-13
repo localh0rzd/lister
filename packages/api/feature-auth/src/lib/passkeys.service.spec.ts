@@ -11,7 +11,10 @@ import {
 } from '@lister/api/data-access-db';
 import type { CurrentUser } from '@lister/shared/api-contracts';
 import { AuthService } from './auth.service';
-import { CHALLENGE_LIFETIME_MS } from './challenge-store';
+import {
+  CHALLENGE_LIFETIME_MS,
+  MAX_PENDING_CHALLENGES,
+} from './challenge-store';
 import { PasskeysService } from './passkeys.service';
 import { VirtualAuthenticator } from './virtual-authenticator';
 
@@ -185,7 +188,7 @@ describe('PasskeysService', () => {
       user: CurrentUser,
       overrides: Parameters<VirtualAuthenticator['authenticate']>[2] = {},
     ) {
-      const options = await passkeys.authenticationOptions();
+      const options = await passkeys.authenticationOptions('203.0.113.7');
       return authenticator.authenticate(
         challengeOf(options),
         user.id,
@@ -222,6 +225,30 @@ describe('PasskeysService', () => {
       await expect(
         passkeys.signIn(await answer(device(), anna)),
       ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it("can't be crowded out by another client asking for sign-in options over and over", async () => {
+      const { authenticator } = await addPasskey(anna);
+      const signInOptions =
+        await passkeys.authenticationOptions('198.51.100.1');
+      const authenticator2 = device();
+      const registration = await passkeys.registrationOptions(ben);
+      for (let i = 0; i < MAX_PENDING_CHALLENGES; i++) {
+        await passkeys.authenticationOptions('203.0.113.7');
+      }
+
+      await expect(
+        passkeys.signIn(
+          authenticator.authenticate(challengeOf(signInOptions), anna.id),
+        ),
+      ).resolves.toMatchObject({ user: { id: anna.id } });
+      await expect(
+        passkeys.add(
+          ben.id,
+          'Laptop',
+          authenticator2.register(challengeOf(registration)),
+        ),
+      ).resolves.toMatchObject({ name: 'Laptop' });
     });
 
     it('refuses a replayed answer (the challenge is single use)', async () => {

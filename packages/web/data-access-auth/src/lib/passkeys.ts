@@ -35,7 +35,7 @@ export class Passkeys {
   /** The URL of the list of the user's own passkeys, for `httpResource()`. */
   readonly listUrl = apiPath('passkeys');
 
-  supported(): Promise<boolean> {
+  supported(): boolean {
     return this.client.supported();
   }
 

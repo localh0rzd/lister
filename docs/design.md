@@ -173,7 +173,9 @@ Self-hosted for a small circle (R10, R11):
   `PUBLIC_URL`: `localhost` and the dev server's origin). Passkeys are discoverable credentials
   with required user verification, so sign-in needs no username and is as strong as a password;
   it makes the same session as the password, forced password change included. The server keeps the
-  WebAuthn challenges in memory: single use, valid for 5 minutes, at most 1000 pending. Failed
+  WebAuthn challenges in memory: single use, valid for 5 minutes, at most 10 pending per client
+  address (sign-in) or per user (adding a passkey), so nobody can crowd out anyone else's, and
+  at most 1000 in all. Failed
   passkey sign-ins count against the same per-client limit as password sign-ins. A passkey that is
   removed, or whose user is deleted, stops working at once.
 - **Forgotten passwords (D9):** an admin sets a temporary password that must be changed at the next

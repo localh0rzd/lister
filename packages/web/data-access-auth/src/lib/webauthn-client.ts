@@ -1,4 +1,4 @@
-import { Service } from '@angular/core';
+import { DOCUMENT, Service, inject } from '@angular/core';
 import type {
   PublicKeyCredentialCreationOptionsJSON,
   PublicKeyCredentialRequestOptionsJSON,
@@ -11,10 +11,16 @@ import type { WebAuthnJson } from '@lister/shared/api-contracts';
  */
 @Service()
 export class WebAuthnClient {
-  /** Whether this browser can do WebAuthn at all. */
-  async supported(): Promise<boolean> {
-    const { browserSupportsWebAuthn } = await import('@simplewebauthn/browser');
-    return browserSupportsWebAuthn();
+  private readonly window = inject(DOCUMENT).defaultView as
+    (Window & { PublicKeyCredential?: unknown }) | null;
+
+  /**
+   * Whether this browser can do WebAuthn at all: the same test as `browserSupportsWebAuthn()`,
+   * but known at once, without loading the library, so pages render their final layout the
+   * first time.
+   */
+  supported(): boolean {
+    return typeof this.window?.PublicKeyCredential === 'function';
   }
 
   /** Asks the authenticator to create a passkey; resolves with the JSON the server verifies. */

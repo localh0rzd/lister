@@ -39,6 +39,7 @@ import {
   sessionCookieOptions,
 } from './http';
 import { PasskeysService } from './passkeys.service';
+import { clientKey } from './rate-limiter';
 import { SetupTokenService } from './setup-token.service';
 import { UsersService } from './users.service';
 
@@ -72,8 +73,8 @@ export class AuthController {
   @Public()
   @Post('passkey/options')
   @HttpCode(200)
-  passkeyOptions() {
-    return this.passkeys.authenticationOptions();
+  passkeyOptions(@Req() request: AuthRequest) {
+    return this.passkeys.authenticationOptions(clientKey(request.ip));
   }
 
   /** Signs in with a passkey: the same session and cookie as `login`. */

@@ -68,7 +68,9 @@ function challengeOf(response: WebAuthnJson): string | undefined {
 /** Passkeys: adding, listing, removing, and signing in with one (WebAuthn, design §2.3). */
 @Injectable()
 export class PasskeysService {
-  private readonly challenges = new ChallengeStore();
+  /** Separate stores, so the anonymous sign-in requests can never push out a user's registration. */
+  private readonly registrations = new ChallengeStore();
+  private readonly signIns = new ChallengeStore();
 
   constructor(
     private readonly database: DatabaseConnection,
@@ -114,7 +116,7 @@ export class PasskeysService {
         userVerification: 'required',
       },
     });
-    this.challenges.issue(options.challenge, user.id, this.clock());
+    this.registrations.issue(options.challenge, user.id, user.id, this.clock());
     return options as unknown as WebAuthnJson;
   }
 
@@ -128,7 +130,7 @@ export class PasskeysService {
     const challenge = challengeOf(response);
     if (
       challenge === undefined ||
-      !this.challenges.consume(challenge, userId, this.clock())
+      !this.registrations.consume(challenge, userId, this.clock())
     ) {
       throw new BadRequestException(
         'The passkey request expired. Start again.',
@@ -187,14 +189,17 @@ export class PasskeysService {
       throw new NotFoundException('That passkey does not exist');
   }
 
-  /** Options for `startAuthentication()` without naming a user (discoverable credentials). */
-  async authenticationOptions(): Promise<WebAuthnJson> {
+  /**
+   * Options for `startAuthentication()` without naming a user (discoverable credentials).
+   * `client` (see `clientKey()`) caps how many sign-in challenges one client keeps waiting.
+   */
+  async authenticationOptions(client: string): Promise<WebAuthnJson> {
     const { rpID } = webAuthnConfig(process.env);
     const options = await generateAuthenticationOptions({
       rpID,
       userVerification: 'required',
     });
-    this.challenges.issue(options.challenge, undefined, this.clock());
+    this.signIns.issue(options.challenge, undefined, client, this.clock());
     return options as unknown as WebAuthnJson;
   }
 
@@ -208,7 +213,7 @@ export class PasskeysService {
     const challenge = challengeOf(response);
     if (
       challenge === undefined ||
-      !this.challenges.consume(challenge, undefined, this.clock())
+      !this.signIns.consume(challenge, undefined, this.clock())
     ) {
       throw refused();
     }

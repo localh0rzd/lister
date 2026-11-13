@@ -2,12 +2,13 @@ import {
   CHALLENGE_LIFETIME_MS,
   ChallengeStore,
   MAX_PENDING_CHALLENGES,
+  MAX_PENDING_PER_REQUESTER,
 } from './challenge-store';
 
 describe('ChallengeStore', () => {
   it('accepts an issued challenge once', () => {
     const store = new ChallengeStore();
-    store.issue('c1', 'u1', 0);
+    store.issue('c1', 'u1', 'u1', 0);
     expect(store.consume('c1', 'u1', 1)).toBe(true);
     expect(store.consume('c1', 'u1', 2)).toBe(false);
   });
@@ -18,23 +19,23 @@ describe('ChallengeStore', () => {
 
   it('refuses a challenge after it has expired', () => {
     const store = new ChallengeStore();
-    store.issue('c1', 'u1', 0);
+    store.issue('c1', 'u1', 'u1', 0);
     expect(store.consume('c1', 'u1', CHALLENGE_LIFETIME_MS)).toBe(false);
   });
 
   it('refuses another owner, and the wrong answer uses the challenge up', () => {
     const store = new ChallengeStore();
-    store.issue('c1', 'u1', 0);
+    store.issue('c1', 'u1', 'u1', 0);
     expect(store.consume('c1', 'u2', 1)).toBe(false);
     expect(store.consume('c1', 'u1', 2)).toBe(false);
-    store.issue('c2', undefined, 0);
+    store.issue('c2', undefined, '203.0.113.7', 0);
     expect(store.consume('c2', 'u1', 1)).toBe(false);
   });
 
   it('keeps no more than the cap, dropping the oldest', () => {
     const store = new ChallengeStore();
     for (let i = 0; i < MAX_PENDING_CHALLENGES + 1; i++) {
-      store.issue(`c${i}`, undefined, 0);
+      store.issue(`c${i}`, undefined, `client ${i}`, 0);
     }
     expect(store.consume('c0', undefined, 1)).toBe(false);
     expect(store.consume(`c${MAX_PENDING_CHALLENGES}`, undefined, 1)).toBe(
@@ -42,10 +43,31 @@ describe('ChallengeStore', () => {
     );
   });
 
+  it("drops a requester's own oldest past its cap, never anyone else's", () => {
+    const store = new ChallengeStore();
+    store.issue('victim', undefined, '198.51.100.1', 0);
+    for (let i = 0; i < MAX_PENDING_CHALLENGES * 2; i++) {
+      store.issue(`flood${i}`, undefined, '203.0.113.7', 0);
+    }
+    expect(store.consume('victim', undefined, 1)).toBe(true);
+    const last = MAX_PENDING_CHALLENGES * 2 - 1;
+    expect(store.consume(`flood${last}`, undefined, 1)).toBe(true);
+    expect(
+      store.consume(`flood${last - MAX_PENDING_PER_REQUESTER}`, undefined, 1),
+    ).toBe(false);
+    expect(
+      store.consume(
+        `flood${last - MAX_PENDING_PER_REQUESTER + 1}`,
+        undefined,
+        1,
+      ),
+    ).toBe(true);
+  });
+
   it('forgets expired challenges as new ones come in', () => {
     const store = new ChallengeStore(10);
-    store.issue('old', undefined, 0);
-    store.issue('new', undefined, 100);
+    store.issue('old', undefined, 'a', 0);
+    store.issue('new', undefined, 'b', 100);
     expect(store.consume('old', undefined, 5)).toBe(false);
     expect(store.consume('new', undefined, 101)).toBe(true);
   });

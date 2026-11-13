@@ -350,6 +350,35 @@ describe('passkeys', () => {
       expect(forged.status).toBe(401);
     });
 
+    it("can't be crowded out by another address asking for options over and over", async () => {
+      const anna = await createAccount(api, 'anna');
+      const { authenticator } = await addPasskey(await signIn(api, 'anna'));
+      const options = await (
+        await send(api, 'POST', '/auth/passkey/options', {
+          headers: { 'X-Forwarded-For': '198.51.100.1' },
+        })
+      ).json();
+      // As many as the server keeps waiting in all (1000), from one other address.
+      for (let batch = 0; batch < 1000 / 50; batch++) {
+        await Promise.all(
+          Array.from({ length: 50 }, () =>
+            send(api, 'POST', '/auth/passkey/options', {
+              headers: { 'X-Forwarded-For': '203.0.113.7' },
+            }),
+          ),
+        );
+      }
+
+      const response = await send(api, 'POST', '/auth/passkey/login', {
+        body: {
+          response: authenticator.authenticate(options.challenge, anna.id),
+        },
+        headers: { 'X-Forwarded-For': '198.51.100.1' },
+      });
+
+      expect(response.status).toBe(200);
+    });
+
     it('rejects a body without a response with 400', async () => {
       const response = await send(api, 'POST', '/auth/passkey/login', {
         body: {},
