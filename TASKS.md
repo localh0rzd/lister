@@ -23,20 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-023 — User administration
-
-- Milestone: M5 Accounts and spaces
-- Area: api
-- Priority: normal
-- Depends on: T-022
-- Done when:
-  - Admin-only endpoints to list, create (username, display name, temporary password), edit and
-    delete users, reset a password (to a temporary one), and grant or revoke admin.
-  - The last admin can't be deleted or demoted.
-  - Non-admins get 403 from all of them.
-  - Deleting a user or resetting their password ends their sessions.
-  - Tests for each endpoint and for the last-admin rule.
-
 ## Backlog
 
 ### T-024 — Spaces and memberships
@@ -229,6 +215,22 @@ nosniff`, `Referrer-Policy`, `frame-ancestors` in the CSP, and `app.disable('x-p
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
 
 ## Done
+
+### T-023 — User administration
+
+- Completed: 2026-11-13 — admin-only `/api/users` endpoints (list, create, edit, delete, reset password, grant/revoke admin) in `packages/api/feature-auth`; last-admin check and write share one synchronous SQLite transaction; sessions end on delete and reset
+- Review: Changes requested; 3 fixed (1 substantive, 2 trivial), 0 skipped, 0 disagreed; re-review rounds: 1
+- Milestone: M5 Accounts and spaces
+- Area: api
+- Priority: normal
+- Depends on: T-022
+- Done when:
+  - Admin-only endpoints to list, create (username, display name, temporary password), edit and
+    delete users, reset a password (to a temporary one), and grant or revoke admin.
+  - The last admin can't be deleted or demoted.
+  - Non-admins get 403 from all of them.
+  - Deleting a user or resetting their password ends their sessions.
+  - Tests for each endpoint and for the last-admin rule.
 
 ### T-039 — Tooltip for truncated list titles
 

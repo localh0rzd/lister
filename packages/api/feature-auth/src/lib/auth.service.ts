@@ -222,7 +222,7 @@ export class AuthService {
 
   /**
    * Sets a new password that must be changed at the next sign-in, and ends the user's sessions.
-   * Returns the stored username, or null when the username is unknown. Used by the reset command (and T-023's admin reset).
+   * Returns the stored username, or null when the username is unknown. Used by the reset command.
    */
   async setTemporaryPassword(
     username: string,

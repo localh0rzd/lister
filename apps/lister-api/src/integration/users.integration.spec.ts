@@ -273,7 +273,7 @@ describe('user administration', () => {
       expect(allowed.status).toBe(204);
     });
 
-    it('keeps one admin when two admins delete each other at once', async () => {
+    it('keeps one admin when two admins delete each other', async () => {
       const second = await createAccount(api, 'second', { isAdmin: true });
       const secondCookie = await signIn(api, 'second');
 
