@@ -1,10 +1,15 @@
 import { signal } from '@angular/core';
+import { provideHttpClient } from '@angular/common/http';
+import {
+  HttpTestingController,
+  provideHttpClientTesting,
+} from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { MatDialog } from '@angular/material/dialog';
 import { provideRouter } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { of } from 'rxjs';
-import { AuthSession } from '@lister/web/data-access-auth';
+import { AuthSession, WebAuthnClient } from '@lister/web/data-access-auth';
 import { SyncEngine } from '@lister/web/data-access-sync';
 import { Notifier } from '@lister/web/util-notify';
 import { ProfilePage } from './profile-page';
@@ -33,6 +38,12 @@ function setup(pending = 0, dialogResult: boolean | undefined = true) {
   TestBed.configureTestingModule({
     providers: [
       provideRouter([]),
+      provideHttpClient(),
+      provideHttpClientTesting(),
+      {
+        provide: WebAuthnClient,
+        useValue: { supported: async () => true },
+      },
       { provide: AuthSession, useValue: session },
       { provide: SyncEngine, useValue: { pendingCount: signal(pending) } },
       { provide: MatDialog, useValue: { open } },
@@ -44,6 +55,12 @@ function setup(pending = 0, dialogResult: boolean | undefined = true) {
 
 async function render() {
   const fixture = TestBed.createComponent(ProfilePage);
+  fixture.detectChanges();
+  // The passkeys section loads its list.
+  const list = await vi.waitFor(() =>
+    TestBed.inject(HttpTestingController).expectOne('/api/passkeys'),
+  );
+  list.flush([]);
   await fixture.whenStable();
   const element = fixture.nativeElement as HTMLElement;
   const button = (name: string) =>

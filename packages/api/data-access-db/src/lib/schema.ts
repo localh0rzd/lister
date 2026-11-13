@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  blob,
   index,
   integer,
   primaryKey,
@@ -49,6 +50,27 @@ export const sessions = sqliteTable(
     createdAt: integer('created_at').notNull(),
   },
   (table) => [index('sessions_user').on(table.userId)],
+);
+
+/**
+ * A passkey (WebAuthn credential) of a user. `id` is the credential id (base64url), which is
+ * unique across users. `transports` is a JSON array of strings. Times are epoch milliseconds.
+ */
+export const passkeys = sqliteTable(
+  'passkeys',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    publicKey: blob('public_key', { mode: 'buffer' }).notNull(),
+    counter: integer('counter').notNull(),
+    transports: text('transports').notNull().default('[]'),
+    name: text('name').notNull(),
+    createdAt: integer('created_at').notNull(),
+    lastUsedAt: integer('last_used_at'),
+  },
+  (table) => [index('passkeys_user').on(table.userId)],
 );
 
 /** A space owns lists and runs. `version` is its change counter (design §4.2). */

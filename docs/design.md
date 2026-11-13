@@ -169,6 +169,13 @@ Self-hosted for a small circle (R10, R11):
 - **Passkeys** (WebAuthn, via SimpleWebAuthn 14): users add, name and remove their own passkeys in
   their profile, and the sign-in page offers "Sign in with a passkey". Passkeys are bound to the
   domain, so the app must know its public URL (D4); `localhost` works in development.
+  The relying-party id is the host of `PUBLIC_URL` and the expected origin is its origin (without
+  `PUBLIC_URL`: `localhost` and the dev server's origin). Passkeys are discoverable credentials
+  with required user verification, so sign-in needs no username and is as strong as a password;
+  it makes the same session as the password, forced password change included. The server keeps the
+  WebAuthn challenges in memory: single use, valid for 5 minutes, at most 1000 pending. Failed
+  passkey sign-ins count against the same per-client limit as password sign-ins. A passkey that is
+  removed, or whose user is deleted, stops working at once.
 - **Forgotten passwords (D9):** an admin sets a temporary password that must be changed at the next
   sign-in; a server command covers the case where no admin can sign in.
 - **Sessions:** httpOnly cookie, valid for 90 days and renewed on use (D15).

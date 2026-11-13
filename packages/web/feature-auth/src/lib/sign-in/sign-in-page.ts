@@ -1,13 +1,17 @@
 import { Component, inject, input, signal } from '@angular/core';
 import { FormField, form, required, submit } from '@angular/forms/signals';
 import { MatButton } from '@angular/material/button';
+import { MatIcon } from '@angular/material/icon';
 import { MatError, MatFormField, MatLabel } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { Router, RouterLink } from '@angular/router';
+import type { CurrentUser } from '@lister/shared/api-contracts';
 import {
   AuthSession,
   PageNavigator,
+  Passkeys,
   describeAuthError,
+  describePasskeyError,
 } from '@lister/web/data-access-auth';
 import { safeReturnUrl } from '../safe-url';
 
@@ -23,6 +27,7 @@ import { safeReturnUrl } from '../safe-url';
     MatButton,
     MatError,
     MatFormField,
+    MatIcon,
     MatInput,
     MatLabel,
     RouterLink,
@@ -34,6 +39,7 @@ export class SignInPage {
   private readonly session = inject(AuthSession);
   private readonly navigator = inject(PageNavigator);
   private readonly router = inject(Router);
+  private readonly passkeys = inject(Passkeys);
 
   /** From the query string: the page the user wanted before they were sent here. */
   readonly returnUrl = input<string>();
@@ -45,6 +51,13 @@ export class SignInPage {
   });
   protected readonly busy = signal(false);
   protected readonly error = signal('');
+  protected readonly passkeysSupported = signal(false);
+
+  constructor() {
+    void this.passkeys
+      .supported()
+      .then((supported) => this.passkeysSupported.set(supported));
+  }
 
   protected signIn(event: Event): void {
     event.preventDefault();
@@ -57,16 +70,36 @@ export class SignInPage {
           username: username.trim(),
           password,
         });
-        if (user.mustChangePassword) {
-          await this.router.navigateByUrl('/change-password');
-        } else {
-          this.navigator.load(safeReturnUrl(this.returnUrl()));
-        }
+        await this.finish(user);
       } catch (error) {
         this.error.set(describeAuthError(error, 'Sign-in failed. Try again.'));
       } finally {
         this.busy.set(false);
       }
     });
+  }
+
+  /** No username needed: the authenticator offers the passkeys it has for this site. */
+  protected async signInWithPasskey(): Promise<void> {
+    this.error.set('');
+    this.busy.set(true);
+    try {
+      await this.finish(await this.session.signInWithPasskey());
+    } catch (error) {
+      this.error.set(
+        describePasskeyError(error, 'Passkey sign-in failed. Try again.'),
+      );
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  /** After either way of signing in: change a temporary password first, else go where asked. */
+  private async finish(user: CurrentUser): Promise<void> {
+    if (user.mustChangePassword) {
+      await this.router.navigateByUrl('/change-password');
+    } else {
+      this.navigator.load(safeReturnUrl(this.returnUrl()));
+    }
   }
 }

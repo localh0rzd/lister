@@ -8,3 +8,4 @@ export * from './lib/http';
 export * from './lib/reset-password.command';
 export * from './lib/same-origin.guard';
 export * from './lib/setup-token.service';
+export * from './lib/virtual-authenticator';

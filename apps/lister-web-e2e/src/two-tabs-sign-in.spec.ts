@@ -12,7 +12,7 @@ test('signing in again in one tab resumes syncing, even when another tab does th
   await first.goto('/sign-in');
   await first.getByLabel('Username').fill(account.username);
   await first.getByLabel('Password').fill(account.password);
-  await first.getByRole('button', { name: 'Sign in' }).click();
+  await first.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(first).toHaveURL(/\/lists$/);
   await synced(first);
   // The second tab opens later, so the first one holds the sync lock.
@@ -58,7 +58,7 @@ test('signing in again in one tab resumes syncing, even when another tab does th
     await second.getByLabel('Password').fill(account.password);
     await second
       .getByRole('main')
-      .getByRole('button', { name: 'Sign in' })
+      .getByRole('button', { name: 'Sign in', exact: true })
       .click();
     await expect(second).toHaveURL(/\/lists$/);
     await synced(second);

@@ -60,7 +60,9 @@ for (const [name, viewport] of layouts) {
         await other.goto('/sign-in');
         await other.getByLabel('Username').fill(username);
         await other.getByLabel('Password').fill('temporary-test-password');
-        await other.getByRole('button', { name: 'Sign in' }).click();
+        await other
+          .getByRole('button', { name: 'Sign in', exact: true })
+          .click();
         await expect(other).toHaveURL(/\/change-password$/);
         await expect(
           other.getByRole('navigation', { name: 'Main' }),

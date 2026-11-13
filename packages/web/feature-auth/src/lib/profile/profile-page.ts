@@ -19,6 +19,7 @@ import { SyncEngine } from '@lister/web/data-access-sync';
 import { NOTICE_DURATION_MS, Notifier } from '@lister/web/util-notify';
 import { ConfirmDialog, type ConfirmDialogData } from '@lister/web/ui';
 import { PasswordForm } from '../password/password-form';
+import { PasskeysSection } from '../passkeys/passkeys-section';
 
 /** The signed-in user's profile: display name, password, and signing out. */
 @Component({
@@ -31,6 +32,7 @@ import { PasswordForm } from '../password/password-form';
     MatIcon,
     MatInput,
     MatLabel,
+    PasskeysSection,
     PasswordForm,
     RouterLink,
   ],

@@ -7,7 +7,7 @@ import {
 import { Router, provideRouter } from '@angular/router';
 import type { CurrentUser } from '@lister/shared/api-contracts';
 import { newId } from '@lister/shared/domain';
-import { PageNavigator } from '@lister/web/data-access-auth';
+import { PageNavigator, WebAuthnClient } from '@lister/web/data-access-auth';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { SignInPage } from './sign-in-page';
 
@@ -21,9 +21,16 @@ const anna: CurrentUser = {
 
 let db: LocalDb;
 const load = vi.fn();
+const webAuthn = {
+  supported: vi.fn(async () => true),
+  authenticate: vi.fn(),
+  register: vi.fn(),
+};
 
 beforeEach(() => {
   load.mockClear();
+  webAuthn.supported.mockResolvedValue(true);
+  webAuthn.authenticate.mockReset();
   db = new LocalDb(`test-${newId()}`);
   TestBed.configureTestingModule({
     providers: [
@@ -32,6 +39,7 @@ beforeEach(() => {
       provideRouter([]),
       { provide: LOCAL_DB, useValue: db },
       { provide: PageNavigator, useValue: { load } },
+      { provide: WebAuthnClient, useValue: webAuthn },
     ],
   });
 });
@@ -148,5 +156,103 @@ describe('SignInPage', () => {
     expect(
       page.element.querySelector('a[href="/setup"]')?.textContent,
     ).toContain('First-run setup');
+  });
+  describe('with a passkey', () => {
+    const passkeyButton = (element: HTMLElement) =>
+      [...element.querySelectorAll('button')].find((b) =>
+        b.textContent?.includes('Sign in with a passkey'),
+      );
+
+    async function signInWithPasskey(page: Awaited<ReturnType<typeof render>>) {
+      const http = TestBed.inject(HttpTestingController);
+      passkeyButton(page.element)?.click();
+      http.expectOne('/api/auth/passkey/options').flush({ challenge: 'c1' });
+      await vi.waitFor(() => expect(webAuthn.authenticate).toHaveBeenCalled());
+      return http;
+    }
+
+    it('offers it without asking for a username', async () => {
+      const page = await render();
+
+      expect(passkeyButton(page.element)).toBeTruthy();
+    });
+
+    it('hides the offer when the browser has no passkeys', async () => {
+      webAuthn.supported.mockResolvedValue(false);
+      const page = await render();
+
+      expect(passkeyButton(page.element)).toBeUndefined();
+    });
+
+    it('signs in with the authenticator’s answer and loads the page the user wanted', async () => {
+      webAuthn.authenticate.mockResolvedValue({ id: 'cred' });
+      const page = await render('/lists/abc');
+
+      const http = await signInWithPasskey(page);
+      const call = http.expectOne('/api/auth/passkey/login');
+      expect(call.request.body).toEqual({ response: { id: 'cred' } });
+      call.flush(anna);
+
+      await vi.waitFor(() => expect(load).toHaveBeenCalledWith('/lists/abc'));
+    });
+
+    it('goes to the forced password change when the password must change', async () => {
+      const navigate = vi
+        .spyOn(TestBed.inject(Router), 'navigateByUrl')
+        .mockResolvedValue(true);
+      webAuthn.authenticate.mockResolvedValue({ id: 'cred' });
+      const page = await render();
+
+      const http = await signInWithPasskey(page);
+      http
+        .expectOne('/api/auth/passkey/login')
+        .flush({ ...anna, mustChangePassword: true });
+
+      await vi.waitFor(() =>
+        expect(navigate).toHaveBeenCalledWith('/change-password'),
+      );
+      expect(load).not.toHaveBeenCalled();
+    });
+
+    it('says so when the request is cancelled, and stays put', async () => {
+      webAuthn.authenticate.mockRejectedValue(
+        new DOMException('cancelled', 'NotAllowedError'),
+      );
+      const page = await render();
+
+      passkeyButton(page.element)?.click();
+      TestBed.inject(HttpTestingController)
+        .expectOne('/api/auth/passkey/options')
+        .flush({ challenge: 'c1' });
+
+      await vi.waitFor(async () => {
+        await page.fixture.whenStable();
+        expect(
+          page.element.querySelector('[role="alert"]')?.textContent,
+        ).toContain('cancelled');
+      });
+      expect(load).not.toHaveBeenCalled();
+    });
+
+    it('shows the server answer when the passkey is refused', async () => {
+      webAuthn.authenticate.mockResolvedValue({ id: 'cred' });
+      const page = await render();
+
+      const http = await signInWithPasskey(page);
+      http
+        .expectOne('/api/auth/passkey/login')
+        .flush(
+          { message: 'Passkey sign-in failed' },
+          { status: 401, statusText: 'Unauthorized' },
+        );
+
+      await vi.waitFor(async () => {
+        await page.fixture.whenStable();
+        expect(
+          page.element.querySelector('[role="alert"]')?.textContent,
+        ).toContain('Passkey sign-in failed');
+      });
+      expect(load).not.toHaveBeenCalled();
+    });
   });
 });

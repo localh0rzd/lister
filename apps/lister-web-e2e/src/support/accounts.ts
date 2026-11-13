@@ -99,6 +99,6 @@ export async function signInThroughTheUi(
   await page.goto('/sign-in');
   await page.getByLabel('Username').fill(account.username);
   await page.getByLabel('Password').fill(account.password);
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page).toHaveURL(/\/lists$/);
 }

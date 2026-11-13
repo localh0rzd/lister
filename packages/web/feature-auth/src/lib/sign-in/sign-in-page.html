@@ -41,6 +41,19 @@
     </button>
   </div>
 </form>
+@if (passkeysSupported()) {
+  <div class="actions passkey">
+    <button
+      matButton="outlined"
+      type="button"
+      [disabled]="busy()"
+      (click)="signInWithPasskey()"
+    >
+      <mat-icon aria-hidden="true">passkey</mat-icon>
+      Sign in with a passkey
+    </button>
+  </div>
+}
 <p class="alt">
   Setting up a new server? <a routerLink="/setup">First-run setup</a>
 </p>

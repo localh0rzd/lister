@@ -6,18 +6,14 @@ import {
 } from '@angular/common/http/testing';
 import type { CurrentUser } from '@lister/shared/api-contracts';
 import { newId } from '@lister/shared/domain';
-import {
-  CURRENT_SPACE_KEY,
-  DISCARDED_CHANGES_KEY,
-  LOCAL_DB,
-  LocalDb,
-} from '@lister/web/data-access-local-db';
+import type { LocalDb as LocalDbType } from '@lister/web/data-access-local-db';
 import {
   AuthSession,
   USER_STORAGE_KEY,
   describeAuthError,
 } from './auth-session';
 import { PageNavigator } from './page-navigator';
+import { WebAuthnClient } from './webauthn-client';
 
 const anna: CurrentUser = {
   id: newId(),
@@ -27,7 +23,11 @@ const anna: CurrentUser = {
   mustChangePassword: false,
 };
 
-let db: LocalDb;
+// The library is lazy-loaded by `AuthSession`, so the lint rules forbid importing it statically.
+const { CURRENT_SPACE_KEY, DISCARDED_CHANGES_KEY, LOCAL_DB, LocalDb } =
+  await import('@lister/web/data-access-local-db');
+
+let db: LocalDbType;
 let http: HttpTestingController;
 let session: AuthSession;
 const load = vi.fn();
@@ -225,6 +225,96 @@ describe('AuthSession', () => {
         .flush({ message: 'Wrong' }, { status: 401, statusText: '' });
 
       await expect(result).rejects.toMatchObject({ status: 401 });
+      expect(session.user()).toBeNull();
+    });
+  });
+
+  describe('signInWithPasskey', () => {
+    const assertion = { id: 'cred', response: { signature: 's' } };
+
+    function start(user: CurrentUser) {
+      const authenticate = vi
+        .spyOn(TestBed.inject(WebAuthnClient), 'authenticate')
+        .mockResolvedValue(assertion);
+      const result = session.signInWithPasskey();
+      return {
+        authenticate,
+        result,
+        async answer() {
+          const options = http.expectOne('/api/auth/passkey/options');
+          expect(options.request.method).toBe('POST');
+          options.flush({ challenge: 'c1' });
+          await vi.waitFor(() => expect(authenticate).toHaveBeenCalled());
+          const login = http.expectOne('/api/auth/passkey/login');
+          expect(login.request.body).toEqual({ response: assertion });
+          login.flush(user);
+        },
+      };
+    }
+
+    it('asks the authenticator for the server challenge and signs in with its answer', async () => {
+      const { authenticate, result, answer } = start(anna);
+      await answer();
+
+      expect(await result).toEqual(anna);
+      expect(authenticate).toHaveBeenCalledWith({ challenge: 'c1' });
+      expect(session.user()).toEqual(anna);
+      expect(JSON.parse(localStorage.getItem(USER_STORAGE_KEY) ?? '')).toEqual(
+        anna,
+      );
+    });
+
+    it("wipes another user's data from the device like a password sign-in does", async () => {
+      await db.meta.put({ key: 'userId', value: newId() });
+      await db.spaces.put({
+        id: newId(),
+        name: 'Theirs',
+        version: 1,
+        members: [],
+      });
+      const { result, answer } = start(anna);
+      await answer();
+      await result;
+
+      expect(await db.spaces.count()).toBe(0);
+    });
+
+    it('keeps the forced password change flag, for the page to act on', async () => {
+      const forced = { ...anna, mustChangePassword: true };
+      const { result, answer } = start(forced);
+      await answer();
+
+      expect((await result).mustChangePassword).toBe(true);
+      expect(session.user()?.mustChangePassword).toBe(true);
+    });
+
+    it('stays signed out when the authenticator is dismissed', async () => {
+      vi.spyOn(
+        TestBed.inject(WebAuthnClient),
+        'authenticate',
+      ).mockRejectedValue(new DOMException('cancelled', 'NotAllowedError'));
+      const result = session.signInWithPasskey();
+      http.expectOne('/api/auth/passkey/options').flush({ challenge: 'c1' });
+
+      await expect(result).rejects.toMatchObject({ name: 'NotAllowedError' });
+      expect(session.user()).toBeNull();
+    });
+
+    it('fails with the server error when it refuses the passkey', async () => {
+      const authenticate = vi
+        .spyOn(TestBed.inject(WebAuthnClient), 'authenticate')
+        .mockResolvedValue(assertion);
+      const result = session.signInWithPasskey();
+      http.expectOne('/api/auth/passkey/options').flush({ challenge: 'c1' });
+      await vi.waitFor(() => expect(authenticate).toHaveBeenCalled());
+      http
+        .expectOne('/api/auth/passkey/login')
+        .flush(
+          { message: 'Passkey sign-in failed' },
+          { status: 401, statusText: '' },
+        );
+
+      await expect(result).rejects.toBeInstanceOf(HttpErrorResponse);
       expect(session.user()).toBeNull();
     });
   });

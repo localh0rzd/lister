@@ -30,6 +30,7 @@ import {
   SetupDto,
   UpdateProfileDto,
 } from './dto/auth.dto';
+import { PasskeyLoginDto } from './dto/passkeys.dto';
 import {
   type AuthRequest,
   type AuthResponse,
@@ -37,6 +38,7 @@ import {
   readSessionToken,
   sessionCookieOptions,
 } from './http';
+import { PasskeysService } from './passkeys.service';
 import { SetupTokenService } from './setup-token.service';
 import { UsersService } from './users.service';
 
@@ -47,6 +49,7 @@ export class AuthController {
     private readonly setupToken: SetupTokenService,
     private readonly limits: AttemptLimits,
     private readonly users: UsersService,
+    private readonly passkeys: PasskeysService,
   ) {}
 
   @Public()
@@ -60,6 +63,30 @@ export class AuthController {
     // Counted as a failure until it succeeds, so parallel guesses can't outrun the limit.
     const attempt = this.limits.begin(request.ip, response);
     const signedIn = await this.auth.login(body.username, body.password);
+    attempt.release();
+    this.setCookie(response, signedIn);
+    return signedIn.user;
+  }
+
+  /** Options for signing in with a passkey; no username, the authenticator offers its passkeys. */
+  @Public()
+  @Post('passkey/options')
+  @HttpCode(200)
+  passkeyOptions() {
+    return this.passkeys.authenticationOptions();
+  }
+
+  /** Signs in with a passkey: the same session and cookie as `login`. */
+  @Public()
+  @Post('passkey/login')
+  @HttpCode(200)
+  async passkeyLogin(
+    @Body() body: PasskeyLoginDto,
+    @Req() request: AuthRequest,
+    @Res({ passthrough: true }) response: AuthResponse,
+  ): Promise<CurrentUser> {
+    const attempt = this.limits.begin(request.ip, response);
+    const signedIn = await this.passkeys.signIn(body.response);
     attempt.release();
     this.setCookie(response, signedIn);
     return signedIn.user;

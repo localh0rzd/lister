@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-027 — Passkeys
 
 - Milestone: M5 Accounts and spaces
@@ -41,6 +39,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   - The relying-party id and origin come from `PUBLIC_URL`; `localhost` works in development.
   - E2E with a virtual authenticator (Chromium): add a passkey, sign out, sign in with it, remove
     it.
+
+## Backlog
 
 ### T-028 — "Checked by" attribution
 

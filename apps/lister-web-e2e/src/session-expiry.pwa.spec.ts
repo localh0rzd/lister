@@ -13,7 +13,7 @@ test.describe('a session that ends', () => {
     await page.goto('/sign-in');
     await page.getByLabel('Username').fill(account.username);
     await page.getByLabel('Password').fill(account.password);
-    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
     await expect(page).toHaveURL(/\/lists$/);
     await synced(page);
     await page.evaluate(() => navigator.serviceWorker.ready);
@@ -64,7 +64,7 @@ test.describe('a session that ends', () => {
       // The notice that asked for sign-in is still up beside the form's button.
       await page
         .getByRole('main')
-        .getByRole('button', { name: 'Sign in' })
+        .getByRole('button', { name: 'Sign in', exact: true })
         .click();
       await expect(page).toHaveURL(/\/space\/profile$/);
       await synced(page);
@@ -128,7 +128,7 @@ test.describe('a session that ends', () => {
     // The change reached the server: it is there after signing in again, from a clean device.
     await page.getByLabel('Username').fill(account.username);
     await page.getByLabel('Password').fill(account.password);
-    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
     await expect(page.getByRole('link', { name: title })).toBeVisible();
     await page.context().close();
   });
@@ -146,7 +146,7 @@ test.describe('a session that ends', () => {
       // The notice that asked for sign-in may still be up beside the form's button.
       await page
         .getByRole('main')
-        .getByRole('button', { name: 'Sign in' })
+        .getByRole('button', { name: 'Sign in', exact: true })
         .click();
       await expect(page).toHaveURL(/\/lists$/);
     };
@@ -184,7 +184,7 @@ test.describe('a session that ends', () => {
     await other.goto('/sign-in');
     await other.getByLabel('Username').fill(anna.username);
     await other.getByLabel('Password').fill(anna.password);
-    await other.getByRole('button', { name: 'Sign in' }).click();
+    await other.getByRole('button', { name: 'Sign in', exact: true }).click();
     await expect(other).toHaveURL(/\/lists$/);
     await synced(other);
     await expect(other.getByRole('link', { name: title })).toHaveCount(0);

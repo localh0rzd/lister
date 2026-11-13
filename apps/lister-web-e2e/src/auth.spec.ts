@@ -40,14 +40,18 @@ for (const [name, viewport] of layouts) {
       await test.step('a wrong password is explained', async () => {
         await page.getByLabel('Username').fill(account.username);
         await page.getByLabel('Password').fill('not the password');
-        await page.getByRole('button', { name: 'Sign in' }).click();
+        await page
+          .getByRole('button', { name: 'Sign in', exact: true })
+          .click();
         await expect(page.getByRole('alert')).toBeVisible();
         await expect(page).toHaveURL(/\/sign-in/);
       });
 
       await test.step('the right one returns to the page that was asked for', async () => {
         await page.getByLabel('Password').fill(account.password);
-        await page.getByRole('button', { name: 'Sign in' }).click();
+        await page
+          .getByRole('button', { name: 'Sign in', exact: true })
+          .click();
         await expect(page).toHaveURL(/\/lists$/);
         await expect(
           page.getByRole('navigation', { name: 'Main' }),

@@ -1,0 +1,60 @@
+<p class="hint">
+  Sign in with your fingerprint, face or device PIN instead of a password. A
+  passkey works only on this site.
+</p>
+@if (list.error()) {
+  <p class="error" role="alert">Your passkeys could not be loaded.</p>
+} @else if (list.hasValue()) {
+  @if (list.value().length === 0) {
+    <p class="hint">You have no passkeys yet.</p>
+  } @else {
+    <ul class="passkeys" aria-label="Your passkeys">
+      @for (passkey of list.value(); track passkey.id) {
+        <li>
+          <mat-icon aria-hidden="true">passkey</mat-icon>
+          <div class="text">
+            <strong>{{ passkey.name }}</strong>
+            <span class="meta">
+              Added {{ passkey.createdAt | date: 'mediumDate' }} ·
+              @if (passkey.lastUsedAt) {
+                Last used {{ passkey.lastUsedAt | date: 'mediumDate' }}
+              } @else {
+                Never used
+              }
+            </span>
+          </div>
+          <button
+            matButton
+            type="button"
+            [attr.aria-label]="'Remove passkey ' + passkey.name"
+            (click)="remove(passkey)"
+          >
+            Remove
+          </button>
+        </li>
+      }
+    </ul>
+  }
+}
+@if (supported()) {
+  <form novalidate (submit)="add($event)">
+    <mat-form-field>
+      <mat-label>Passkey name</mat-label>
+      <input matInput [formField]="addForm.name" autocomplete="off" />
+      <mat-hint>For example “My phone” or “Work laptop”</mat-hint>
+      @if (addForm.name().touched() && addForm.name().errors()[0]; as e) {
+        <mat-error>{{ e.message }}</mat-error>
+      }
+    </mat-form-field>
+    @if (error()) {
+      <p class="error" role="alert">{{ error() }}</p>
+    }
+    <div class="actions">
+      <button matButton="outlined" type="submit" [disabled]="busy()">
+        Add a passkey
+      </button>
+    </div>
+  </form>
+} @else {
+  <p class="hint">This browser can't create passkeys.</p>
+}

@@ -13,11 +13,14 @@ import {
   type ChangePasswordRequest,
   type CurrentUser,
   type LoginRequest,
+  type PasskeyLoginRequest,
+  type WebAuthnJson,
   type SetupRequest,
   type UpdateProfileRequest,
   apiPath,
 } from '@lister/shared/api-contracts';
 import { PageNavigator } from './page-navigator';
+import { WebAuthnClient } from './webauthn-client';
 
 /** Where the last known user is kept, so the app opens signed in while the server is out of reach. */
 export const USER_STORAGE_KEY = 'lister.user';
@@ -54,6 +57,7 @@ export class AuthSession {
   private readonly http = inject(HttpClient);
   private readonly injector = inject(Injector);
   private readonly navigator = inject(PageNavigator);
+  private readonly webAuthn = inject(WebAuthnClient);
   private readonly window = inject(DOCUMENT).defaultView;
   private readonly current = signal<CurrentUser | null>(null);
   private pending?: Promise<CurrentUser | null>;
@@ -113,6 +117,22 @@ export class AuthSession {
   async signIn(request: LoginRequest): Promise<CurrentUser> {
     const user = await firstValueFrom(
       this.http.post<CurrentUser>(apiPath('auth', 'login'), request),
+    );
+    return this.startSession(user);
+  }
+
+  /**
+   * Signs in with a passkey, the same as `signIn()` afterwards. The authenticator offers the
+   * passkeys it has for this site, so no username is asked.
+   */
+  async signInWithPasskey(): Promise<CurrentUser> {
+    const options = await firstValueFrom(
+      this.http.post<WebAuthnJson>(apiPath('auth', 'passkey', 'options'), {}),
+    );
+    const response = await this.webAuthn.authenticate(options);
+    const body: PasskeyLoginRequest = { response };
+    const user = await firstValueFrom(
+      this.http.post<CurrentUser>(apiPath('auth', 'passkey', 'login'), body),
     );
     return this.startSession(user);
   }

@@ -87,6 +87,8 @@
     "@nestjs/platform-express": "^11.0.0",
     "@nestjs/platform-socket.io": "^11.2.9",
     "@nestjs/websockets": "^11.2.9",
+    "@simplewebauthn/browser": "^14.0.0",
+    "@simplewebauthn/server": "^14.1.0",
     "axios": "^1.6.0",
     "better-sqlite3": "13.1.1",
     "class-transformer": "^0.5.1",
