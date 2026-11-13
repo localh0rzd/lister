@@ -36,9 +36,11 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
     space and add existing users; the creator owns it and manages its members.
   - Endpoints to create, rename and delete spaces, add and remove members, and leave a space.
   - Deleting a user also deletes their personal space; shared spaces keep their content.
-  - The dev user and space from T-006 are removed.
   - Tests for the membership and ownership rules.
-- Notes: Remove `DevSeed`, `DEV_USER_ID` and `DEV_SPACE_ID` (packages/api/feature-sync).
+- Notes: Keep `DevSeed` and the dev space: until T-025 the sync socket has no session check and
+  only ever reaches the dev space (`SyncReader.devSpaces()`, commit 30cc0d5), never the spaces
+  this task creates. Removing it here would leave the web app with nothing to sync (decided
+  2026-11-13: removal moves to T-025).
 
 ### T-025 — Authenticated and authorized sync
 
@@ -55,6 +57,10 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
     space at once.
   - The web sync engine syncs all of the user's spaces.
   - Integration tests: a non-member can neither read nor change a space, over HTTP or the socket.
+  - The dev user and space from T-006 are removed (moved here from T-024); the web e2e suite signs
+    in through the API until T-026 adds the sign-in screen.
+- Notes: Remove `DevSeed`, `DEV_USER_ID`, `DEV_SPACE_ID` and `SyncReader.devSpaces()`
+  (packages/api/feature-sync).
 
 ### T-026 — Web: sign-in, profile, user administration and spaces
 
