@@ -1,10 +1,10 @@
 import { Transform } from 'class-transformer';
 import {
   IsBoolean,
-  IsOptional,
   IsString,
   Length,
   Matches,
+  ValidateIf,
 } from 'class-validator';
 import {
   AUTH_LIMITS,
@@ -37,21 +37,28 @@ export class CreateUserDto implements CreateUserRequest {
   temporaryPassword!: string;
 }
 
+/**
+ * Like `@IsOptional()`, but only for a missing field: `null` still fails validation (400) instead
+ * of reaching the service, which only knows "given" or "left out".
+ */
+const IfPresent = () =>
+  ValidateIf((_object: object, value: unknown) => value !== undefined);
+
 export class UpdateUserDto implements UpdateUserRequest {
-  @IsOptional()
+  @IfPresent()
   @Transform(trim)
   @IsString()
   @Length(1, AUTH_LIMITS.usernameMax)
   @Matches(USERNAME_PATTERN, { message: USERNAME_MESSAGE })
   username?: string;
 
-  @IsOptional()
+  @IfPresent()
   @Transform(trim)
   @IsString()
   @Length(1, AUTH_LIMITS.displayNameMax)
   displayName?: string;
 
-  @IsOptional()
+  @IfPresent()
   @IsBoolean()
   isAdmin?: boolean;
 }

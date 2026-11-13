@@ -215,6 +215,9 @@ describe('user administration', () => {
 
       expect((await patch(anna.id, { username: 'bad name' })).status).toBe(400);
       expect((await patch(anna.id, { isAdmin: 'yes' })).status).toBe(400);
+      expect((await patch(anna.id, { username: null })).status).toBe(400);
+      expect((await patch(anna.id, { displayName: null })).status).toBe(400);
+      expect((await patch(admin.id, { isAdmin: null })).status).toBe(400);
       expect((await patch('not-a-uuid', {})).status).toBe(400);
       expect((await patch(UNKNOWN, { displayName: 'X' })).status).toBe(404);
     });
