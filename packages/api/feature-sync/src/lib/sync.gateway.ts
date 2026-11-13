@@ -72,9 +72,9 @@ export class SyncGateway {
       return;
     }
 
-    // Until sessions exist (T-025), every socket is the dev user.
+    // Until sessions exist (T-025), every socket is the dev user and sees only the dev space.
     const userId = DEV_USER_ID;
-    const spaces = this.reader.allSpaces();
+    const spaces = this.reader.devSpaces();
     socket.data = {
       userId,
       clientId: hello.data.clientId,

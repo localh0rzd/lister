@@ -364,6 +364,74 @@ describe('auth', () => {
     });
   });
 
+  describe('cross-site requests', () => {
+    it('refuses a sign-in posted by an HTML form (login CSRF) with 415 and sets no cookie', async () => {
+      await createAccount(api, 'mallory');
+
+      const response = await fetch(`${api.url}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ username: 'mallory', password: PASSWORD }),
+      });
+
+      expect(response.status).toBe(415);
+      expect(sessionCookieOf(response)).toBeNull();
+    });
+
+    it('refuses a sign-in from another origin with 403 and sets no cookie', async () => {
+      await createAccount(api, 'mallory');
+
+      const response = await send(api, 'POST', '/auth/login', {
+        body: { username: 'mallory', password: PASSWORD },
+        headers: { Origin: 'https://evil.example' },
+      });
+
+      expect(response.status).toBe(403);
+      expect(sessionCookieOf(response)).toBeNull();
+    });
+
+    it("refuses an admin's write sent from another origin with their cookie", async () => {
+      await createAccount(api, 'root', { isAdmin: true });
+      const root = await signIn(api, 'root');
+
+      const response = await send(api, 'POST', '/users', {
+        cookie: root,
+        body: {
+          username: 'planted',
+          displayName: 'Planted',
+          temporaryPassword: 'a temporary password',
+        },
+        headers: { Origin: 'https://other.lister.example.org' },
+      });
+
+      expect(response.status).toBe(403);
+      const users = await send(api, 'GET', '/users', { cookie: root });
+      expect(
+        ((await users.json()) as CurrentUser[]).map((user) => user.username),
+      ).toEqual(['root']);
+    });
+
+    it("accepts a sign-in from the app's own origin", async () => {
+      await createAccount(api, 'anna');
+
+      const response = await send(api, 'POST', '/auth/login', {
+        body: { username: 'anna', password: PASSWORD },
+        headers: { Origin: 'http://localhost:4200' },
+      });
+
+      expect(response.status).toBe(200);
+      expect(sessionCookieOf(response)).not.toBeNull();
+    });
+
+    it('still answers reads from other origins (the guard only covers writes)', async () => {
+      const response = await fetch(`${api.url}/api/health`, {
+        headers: { Origin: 'https://evil.example' },
+      });
+
+      expect(response.status).toBe(200);
+    });
+  });
+
   describe('a user who must change their password', () => {
     it('is refused everywhere else until the password is changed', async () => {
       await createAccount(api, 'anna', { mustChangePassword: true });

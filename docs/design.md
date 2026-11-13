@@ -311,8 +311,11 @@ None of these change the architecture; the table says what goes into v1.
 - **Backups** with SQLite's online backup (nightly `VACUUM INTO`); the last 14 are kept (D15).
 - **Security:** authorize every mutation (space membership) and every admin endpoint; check the
   `Origin` header on the WebSocket handshake (cookie-authenticated sockets can otherwise be
-  hijacked cross-site); rate-limit sign-in and mutations; cap message sizes; Content Security
-  Policy.
+  hijacked cross-site); refuse HTTP writes (anything but GET, HEAD, OPTIONS) whose `Origin` isn't
+  `PUBLIC_URL`'s or whose body isn't JSON (`SameOriginGuard`: `SameSite=Lax` alone allows login
+  CSRF with a plain form, and CSRF from sibling subdomains); rate-limit sign-in and mutations;
+  cap message sizes; Content Security Policy. Until the socket checks the session (T-025), it
+  only ever exposes the dev space, never a real user's space.
 
 ## 3. Domain model
 

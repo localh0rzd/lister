@@ -3,6 +3,7 @@ import { and, eq, gt } from 'drizzle-orm';
 import { DatabaseConnection, schema } from '@lister/api/data-access-db';
 import type { Space } from '@lister/shared/domain';
 import type { Rows } from '@lister/shared/sync-protocol';
+import { DEV_SPACE_ID } from './dev-seed';
 
 const { includes, items, lists, runItems, runs, spaces } = schema;
 
@@ -11,11 +12,17 @@ const { includes, items, lists, runItems, runs, spaces } = schema;
 export class SyncReader {
   constructor(private readonly database: DatabaseConnection) {}
 
-  /** Every space, i.e. the one dev space. T-024/T-025 replace this with the user's memberships. */
-  allSpaces(): Space[] {
+  /**
+   * The spaces an unauthenticated socket may use: only the dev space, and only where `DevSeed`
+   * created it. The socket has no session check until T-025, so any other space (the personal
+   * and shared spaces of T-024) must never be reachable through it. T-025 replaces this with the
+   * signed-in user's memberships.
+   */
+  devSpaces(): Space[] {
     return this.database.db
       .select({ id: spaces.id, name: spaces.name, version: spaces.version })
       .from(spaces)
+      .where(eq(spaces.id, DEV_SPACE_ID))
       .all();
   }
 

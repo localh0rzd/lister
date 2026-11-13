@@ -235,6 +235,51 @@ describe('sync gateway', () => {
       ).toBe(1);
     });
 
+    it('never exposes a space other than the dev space to the unauthenticated socket', async () => {
+      const otherSpaceId = newId();
+      api.database.db
+        .insert(schema.spaces)
+        .values({ id: otherSpaceId, name: 'Personal', createdAt: 1 })
+        .run();
+      const { client, welcome } = await helloed();
+      const reject = next(client, 'reject');
+      const foreign = {
+        ...mutation('list.create', { id: newId(), title: 'Marker' }),
+        spaceId: otherSpaceId,
+      };
+
+      client.emit('push', { mutations: [foreign] });
+
+      expect(welcome.spaces.map((space) => space.id)).toEqual([DEV_SPACE_ID]);
+      expect(await reject).toEqual({
+        mutationId: foreign.mutationId,
+        reason: "You can't change this space",
+      });
+      expect(
+        api.database.db
+          .select()
+          .from(schema.lists)
+          .where(eq(schema.lists.spaceId, otherSpaceId))
+          .all(),
+      ).toEqual([]);
+    });
+
+    it('disconnects on a pull for a space other than the dev space', async () => {
+      const otherSpaceId = newId();
+      api.database.db
+        .insert(schema.spaces)
+        .values({ id: otherSpaceId, name: 'Personal', createdAt: 1 })
+        .run();
+      const { client } = await helloed();
+      const reason = new Promise<string>((resolve) =>
+        client.once('disconnect', resolve),
+      );
+
+      client.emit('pull', { spaceId: otherSpaceId, since: 0 });
+
+      expect(await reason).toBe('io server disconnect');
+    });
+
     it('rejects mutations for a space the client is not in', async () => {
       const { client } = await helloed();
       const reject = next(client, 'reject');

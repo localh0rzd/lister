@@ -1,5 +1,6 @@
 import { ValidationPipe } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import { SameOriginGuard } from '@lister/api/feature-auth';
 import { SyncIoAdapter, allowedOrigins } from '@lister/api/feature-sync';
 import { API_PREFIX } from '@lister/shared/api-contracts';
 import { serveWebApp } from './web-hosting';
@@ -14,11 +15,13 @@ export function configureApp(
   app: NestExpressApplication,
   options: AppOptions = {},
 ): void {
+  const origins = allowedOrigins(process.env);
   app.set('trust proxy', trustProxySetting(process.env['TRUST_PROXY']));
   app.setGlobalPrefix(API_PREFIX);
+  app.useGlobalGuards(new SameOriginGuard(origins));
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.enableShutdownHooks();
-  app.useWebSocketAdapter(new SyncIoAdapter(app, allowedOrigins(process.env)));
+  app.useWebSocketAdapter(new SyncIoAdapter(app, origins));
   if (options.webRoot) serveWebApp(app, options.webRoot);
 }
 
