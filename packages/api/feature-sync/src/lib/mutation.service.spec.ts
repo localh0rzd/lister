@@ -6,12 +6,12 @@ import {
 } from '@lister/api/data-access-db';
 import { newId } from '@lister/shared/domain';
 import type { MutationInput } from '@lister/shared/sync-protocol';
-import { DEV_SPACE_ID, DEV_USER_ID, DevSeed } from './dev-seed';
 import { MutationService } from './mutation.service';
 
 const SPACE = newId();
 const OTHER_SPACE = newId();
 const ALICE = newId();
+const BEN = newId();
 
 let database: DatabaseConnection;
 let service: MutationService;
@@ -19,10 +19,30 @@ let now: number;
 
 beforeEach(() => {
   database = createTestDatabase();
+  for (const [id, username] of [
+    [ALICE, 'alice'],
+    [BEN, 'ben'],
+  ]) {
+    database.db
+      .insert(schema.users)
+      .values({
+        id,
+        username,
+        displayName: username,
+        passwordHash: 'x',
+        createdAt: 0,
+      })
+      .run();
+  }
   for (const id of [SPACE, OTHER_SPACE]) {
     database.db
       .insert(schema.spaces)
       .values({ id, name: 'Space', version: 0, createdAt: 0 })
+      .run();
+    // Alice owns both; Ben belongs to neither.
+    database.db
+      .insert(schema.memberships)
+      .values({ spaceId: id, userId: ALICE, role: 'owner', createdAt: 0 })
       .run();
   }
   now = 1_700_000_000_000;
@@ -485,16 +505,43 @@ describe('MutationService', () => {
       ).toMatchObject({ status: 'reject', reason: "This list doesn't exist" });
     });
 
-    it('rejects a mutation for an unknown space', () => {
-      const applied = push(
-        'list.create',
-        { id: newId(), title: 'x' },
-        { spaceId: newId() },
-      );
+    it("rejects a mutation for a space the user isn't in, and one that doesn't exist, alike", () => {
+      const id = newId();
+      const asBen = (spaceId: string) =>
+        service.apply(
+          {
+            mutationId: newId(),
+            spaceId,
+            name: 'list.create',
+            args: { id, title: 'x' },
+          } as { mutationId: string },
+          { userId: BEN },
+        );
 
-      expect(applied.result).toMatchObject({
+      for (const spaceId of [SPACE, newId()]) {
+        expect(asBen(spaceId)).toMatchObject({
+          result: { status: 'reject', reason: "You can't change this space" },
+          spaceId: null,
+        });
+      }
+
+      expect(listRow(id)).toBeUndefined();
+      expect(spaceVersion()).toBe(0);
+      expect(
+        database.db.select().from(schema.processedMutations).all(),
+      ).toEqual([]);
+    });
+
+    it('gives a removed member no stored answer for an old mutation id', () => {
+      const mutationId = newId();
+      push('list.create', { id: newId(), title: 'x' }, { mutationId });
+      database.db.delete(schema.memberships).run();
+
+      expect(
+        push('list.create', { id: newId(), title: 'x' }, { mutationId }).result,
+      ).toMatchObject({
         status: 'reject',
-        reason: "This space doesn't exist",
+        reason: "You can't change this space",
       });
     });
 
@@ -616,48 +663,5 @@ describe('transactions', () => {
     expect(
       database.db.select().from(schema.processedMutations).all(),
     ).toHaveLength(1);
-  });
-});
-
-describe('DevSeed', () => {
-  it('creates the dev space once, outside production', () => {
-    const db = createTestDatabase();
-    onTestFinished(() => db.onApplicationShutdown());
-    const seed = new DevSeed(db);
-
-    seed.onApplicationBootstrap();
-    seed.onApplicationBootstrap();
-
-    expect(db.db.select().from(schema.spaces).all()).toEqual([
-      expect.objectContaining({ id: DEV_SPACE_ID, name: 'Home', version: 0 }),
-    ]);
-    expect(DEV_USER_ID).toMatch(/^[0-9a-f-]{36}$/);
-  });
-
-  it('runs in a local production build when LISTER_DEV_SEED=true', () => {
-    const db = createTestDatabase();
-    onTestFinished(() => db.onApplicationShutdown());
-    vi.stubEnv('NODE_ENV', 'production');
-    vi.stubEnv('LISTER_DEV_SEED', 'true');
-    onTestFinished(() => {
-      vi.unstubAllEnvs();
-    });
-
-    new DevSeed(db).onApplicationBootstrap();
-
-    expect(db.db.select().from(schema.spaces).all()).toHaveLength(1);
-  });
-
-  it('does nothing in production', () => {
-    const db = createTestDatabase();
-    onTestFinished(() => db.onApplicationShutdown());
-    vi.stubEnv('NODE_ENV', 'production');
-    onTestFinished(() => {
-      vi.unstubAllEnvs();
-    });
-
-    new DevSeed(db).onApplicationBootstrap();
-
-    expect(db.db.select().from(schema.spaces).all()).toEqual([]);
   });
 });

@@ -12,7 +12,10 @@ describe('SetupTokenService', () => {
     database = createTestDatabase();
     auth = new AuthService(database, () => 1);
   });
-  afterEach(() => database.onApplicationShutdown());
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    database.onApplicationShutdown();
+  });
 
   it('logs a token while no account exists, and accepts only that token', () => {
     const service = new SetupTokenService(auth);
@@ -60,5 +63,41 @@ describe('SetupTokenService', () => {
 
     expect(service.isOpen()).toBe(false);
     expect(service.matches('anything')).toBe(false);
+  });
+
+  describe('LISTER_SETUP_TOKEN', () => {
+    const open = () => {
+      const service = new SetupTokenService(auth);
+      const warn = vi
+        .spyOn(
+          (service as unknown as { logger: { warn(m: string): void } }).logger,
+          'warn',
+        )
+        .mockImplementation(() => undefined);
+      service.onApplicationBootstrap();
+      return { service, warn };
+    };
+
+    it('fixes the token, and never logs it', () => {
+      vi.stubEnv('LISTER_SETUP_TOKEN', 'a-fixed-token-for-tests');
+
+      const { service, warn } = open();
+
+      expect(service.isOpen()).toBe(true);
+      expect(service.matches('a-fixed-token-for-tests')).toBe(true);
+      expect(JSON.stringify(warn.mock.calls)).not.toContain(
+        'a-fixed-token-for-tests',
+      );
+    });
+
+    it('is ignored when it is too short', () => {
+      vi.stubEnv('LISTER_SETUP_TOKEN', 'short');
+
+      const { service, warn } = open();
+
+      expect(service.matches('short')).toBe(false);
+      expect(service.isOpen()).toBe(true);
+      expect(warn.mock.calls[0][0]).toContain('Ignoring LISTER_SETUP_TOKEN');
+    });
   });
 });

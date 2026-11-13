@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import { AuthService } from '@lister/api/feature-auth';
 import {
   ConnectedSocket,
   MessageBody,
@@ -15,15 +16,14 @@ import {
   pushSchema,
 } from '@lister/shared/sync-protocol';
 import type { Server, Socket } from 'socket.io';
-import { DEV_USER_ID } from './dev-seed';
 import { MutationService } from './mutation.service';
 import { SyncReader } from './sync-reader';
 
+/** `userId` and `sessionId` are set by the handshake; `clientId` by `hello`. */
 interface SocketData {
   userId?: string;
+  sessionId?: string;
   clientId?: string;
-  /** Spaces this socket's user belongs to; set by `hello`. */
-  spaceIds?: string[];
 }
 
 type SyncServer = Server<
@@ -44,8 +44,12 @@ export const spaceRoom = (spaceId: string) => `space:${spaceId}`;
 
 /**
  * The sync protocol over Socket.IO: hello → welcome, pull → rows, push → ack/reject per mutation
- * plus a poke of the changed rows to the space's room. Origin checks and the WebSocket-only
- * transport live in `SyncIoAdapter`.
+ * plus a poke of the changed rows to the space's room. The Origin check, the session check of the
+ * handshake and the WebSocket-only transport live in `SyncIoAdapter`.
+ *
+ * Authorization never trusts what the socket remembers: every pull and push asks the database
+ * whether the user is still a member (and the session still alive). The rooms are kept in step
+ * by `membershipsChanged()`, which the spaces feature calls after every membership change.
  */
 @WebSocketGateway()
 export class SyncGateway {
@@ -57,7 +61,46 @@ export class SyncGateway {
   constructor(
     private readonly mutations: MutationService,
     private readonly reader: SyncReader,
+    private readonly auth: AuthService,
   ) {}
+
+  /**
+   * Call after the memberships (or the name) of these users' spaces changed: each of their
+   * connected clients leaves the rooms of spaces it no longer belongs to, which stops its pokes
+   * at once, and gets a new welcome with its current spaces (the web app then drops the others).
+   * Synchronous, so it runs before any further message is handled.
+   */
+  membershipsChanged(userIds: Iterable<string>): void {
+    const users = new Set(userIds);
+    for (const socket of this.server.sockets.sockets.values()) {
+      if (socket.data.clientId && socket.data.userId) {
+        if (users.has(socket.data.userId)) this.welcome(socket);
+      }
+    }
+  }
+
+  /** Puts the socket into the rooms of its user's spaces (and out of any other), then welcomes it. */
+  private welcome(socket: SyncSocket): void {
+    const userId = socket.data.userId as string;
+    const spaces = this.reader.spacesOf(userId);
+    const rooms = new Set(spaces.map((space) => spaceRoom(space.id)));
+    for (const room of [...socket.rooms]) {
+      if (room.startsWith('space:') && !rooms.has(room))
+        void socket.leave(room);
+    }
+    for (const room of rooms) void socket.join(room);
+    socket.emit('welcome', { userId, spaces });
+  }
+
+  /** The user's id while their session is alive; otherwise ends the connection. */
+  private signedIn(socket: SyncSocket): string | undefined {
+    const { userId, sessionId } = socket.data;
+    if (userId && sessionId && this.auth.isSessionActive(sessionId)) {
+      return userId;
+    }
+    this.drop(socket, 'the session ended');
+    return undefined;
+  }
 
   @SubscribeMessage('hello')
   hello(
@@ -72,22 +115,9 @@ export class SyncGateway {
       return;
     }
 
-    // Until sessions exist (T-025), every socket is the dev user and sees only the dev space.
-    const userId = DEV_USER_ID;
-    const spaces = this.reader.devSpaces();
-    socket.data = {
-      userId,
-      clientId: hello.data.clientId,
-      spaceIds: spaces.map((s) => s.id),
-    };
-    for (const space of spaces) void socket.join(spaceRoom(space.id));
-    socket.emit('welcome', {
-      userId,
-      spaces: spaces.map((space) => ({
-        ...space,
-        members: [{ userId, displayName: 'Dev user' }],
-      })),
-    });
+    if (!this.signedIn(socket)) return;
+    socket.data.clientId = hello.data.clientId;
+    this.welcome(socket);
   }
 
   @SubscribeMessage('pull')
@@ -95,10 +125,12 @@ export class SyncGateway {
     @ConnectedSocket() socket: SyncSocket,
     @MessageBody() body: unknown,
   ): void {
-    if (!socket.data.userId) return this.drop(socket, 'pull before hello');
+    if (!socket.data.clientId) return this.drop(socket, 'pull before hello');
+    const userId = this.signedIn(socket);
+    if (!userId) return;
     const pull = pullSchema.safeParse(body);
     if (!pull.success) return this.drop(socket, 'invalid pull');
-    if (!socket.data.spaceIds?.includes(pull.data.spaceId)) {
+    if (!this.reader.isMember(userId, pull.data.spaceId)) {
       return this.drop(socket, 'pull for a space the user is not in');
     }
     let rows;
@@ -118,19 +150,14 @@ export class SyncGateway {
     @ConnectedSocket() socket: SyncSocket,
     @MessageBody() body: unknown,
   ): void {
-    const { userId, clientId, spaceIds = [] } = socket.data;
-    if (!userId) return this.drop(socket, 'push before hello');
+    const { clientId } = socket.data;
+    if (!clientId) return this.drop(socket, 'push before hello');
+    const userId = this.signedIn(socket);
+    if (!userId) return;
     const push = pushSchema.safeParse(body);
     if (!push.success) return this.drop(socket, 'invalid push');
 
     for (const entry of push.data.mutations) {
-      if (!spaceIds.includes(String(entry['spaceId']))) {
-        socket.emit('reject', {
-          mutationId: entry.mutationId,
-          reason: "You can't change this space",
-        });
-        continue;
-      }
       let applied;
       try {
         applied = this.mutations.apply(entry, { userId, clientId });

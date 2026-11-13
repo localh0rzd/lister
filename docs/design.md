@@ -323,8 +323,8 @@ None of these change the architecture; the table says what goes into v1.
   hijacked cross-site); refuse HTTP writes (anything but GET, HEAD, OPTIONS) whose `Origin` isn't
   `PUBLIC_URL`'s or whose body isn't JSON (`SameOriginGuard`: `SameSite=Lax` alone allows login
   CSRF with a plain form, and CSRF from sibling subdomains); rate-limit sign-in and mutations;
-  cap message sizes; Content Security Policy. Until the socket checks the session (T-025), it
-  only ever exposes the dev space, never a real user's space.
+  cap message sizes; Content Security Policy. The socket handshake needs a live session cookie
+  (§4.2), and every pull and push checks the user's membership of the space in the database.
 
 ## 3. Domain model
 
@@ -434,8 +434,9 @@ No operation log is needed. Each row stores the version of its last change, so c
 
 ```
 client                                     server
-  │ hello {protocolVersion, clientId} ───────►│ session cookie → user; check Origin
-  │◄─────────── welcome {spaces}              │
+  │ connect (cookie, Origin) ────────────────►│ session cookie → user, check Origin; else refused
+  │ hello {protocolVersion, clientId} ───────►│ join the rooms of the user's spaces
+  │◄─────────── welcome {spaces + members}    │ (again whenever memberships change)
   │ pull {spaceId, since: v} ────────────────►│ rows with version > v, or a full snapshot
   │◄─────────── rows…, version: v2            │   if v predates purged tombstones
   │ push [{mutationId, spaceId, name, args}] ►│ each mutation in one SQLite transaction:
@@ -469,6 +470,18 @@ client                                     server
   server disconnect Socket.IO doesn't reconnect by itself: the client reconnects with backoff and
   starts again with hello and a pull. A pull whose `since` is ahead of the server (restored or
   reset database) gets a full snapshot, which replaces the client's copy.
+- **Authentication and authorization:** the handshake needs the session cookie of a live session
+  (and a user who isn't forced to change their password), or the connection is refused; the
+  `Origin` check stays. The welcome lists the spaces of the user's memberships with the members'
+  display names. Authorization never relies on what the socket remembers: every pull and push
+  asks the database whether the user is a member (a non-member's pull is a protocol violation;
+  their push is rejected with "You can't change this space", without revealing whether the space
+  exists), and every message re-checks that the session is still alive. Rows are stamped with the
+  signed-in user. When memberships change over REST (add, remove, leave, delete, rename),
+  the server moves the affected users' connected sockets in or out of the space's room at once
+  and sends each a fresh welcome; the client drops every space missing from it, with its rows,
+  sync position and pending changes. A session that ends (sign-out, password change, deleted
+  account) ends the connection at its next message.
 - **Rooms:** one Socket.IO room per space. A space's data is small, and offline use needs all of it
   anyway. Per-list rooms only for presence, later.
 
@@ -601,7 +614,7 @@ Tracked in [TASKS.md](../TASKS.md); every task names its milestone.
    migrations; the shared `domain` and `sync-protocol` libraries.
 2. **M2 Sync walking skeleton (T-006 – T-014):** lists and items stored locally first; push / pull
    / poke; offline outbox; the API serves the web build from one origin; two-browser and offline
-   e2e tests. Uses a single dev user and space.
+   e2e tests. Used a single dev user and space until T-025 (real accounts and memberships).
 3. **M3 Composition (T-015 – T-018):** live includes, cycle rejection, sections, trash and
    restore, duplicating lists.
 4. **M4 Runs (T-019 – T-021):** start from a list or ad-hoc, merging identical items, check and

@@ -1,11 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { and, eq, gt } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, sql } from 'drizzle-orm';
 import { DatabaseConnection, schema } from '@lister/api/data-access-db';
-import type { Space } from '@lister/shared/domain';
-import type { Rows } from '@lister/shared/sync-protocol';
-import { DEV_SPACE_ID } from './dev-seed';
+import type { Rows, Welcome } from '@lister/shared/sync-protocol';
 
-const { includes, items, lists, runItems, runs, spaces } = schema;
+const { includes, items, lists, memberships, runItems, runs, spaces, users } =
+  schema;
+
+/** One space of the welcome: the space with its members' display names. */
+export type WelcomeSpace = Welcome['spaces'][number];
 
 /** Reads for the sync protocol: the user's spaces, and the rows a client needs to catch up. */
 @Injectable()
@@ -13,17 +15,64 @@ export class SyncReader {
   constructor(private readonly database: DatabaseConnection) {}
 
   /**
-   * The spaces an unauthenticated socket may use: only the dev space, and only where `DevSeed`
-   * created it. The socket has no session check until T-025, so any other space (the personal
-   * and shared spaces of T-024) must never be reachable through it. T-025 replaces this with the
-   * signed-in user's memberships.
+   * The spaces the user belongs to (their personal space first, then by name), each with its
+   * members' display names, for the welcome.
    */
-  devSpaces(): Space[] {
-    return this.database.db
-      .select({ id: spaces.id, name: spaces.name, version: spaces.version })
-      .from(spaces)
-      .where(eq(spaces.id, DEV_SPACE_ID))
-      .all();
+  spacesOf(userId: string): WelcomeSpace[] {
+    return this.database.db.transaction((tx) => {
+      const mine = tx
+        .select({ id: spaces.id, name: spaces.name, version: spaces.version })
+        .from(memberships)
+        .innerJoin(spaces, eq(spaces.id, memberships.spaceId))
+        .where(eq(memberships.userId, userId))
+        .orderBy(
+          desc(spaces.personal),
+          asc(sql`lower(${spaces.name})`),
+          asc(spaces.id),
+        )
+        .all();
+      if (mine.length === 0) return [];
+      const members = tx
+        .select({
+          spaceId: memberships.spaceId,
+          userId: users.id,
+          displayName: users.displayName,
+        })
+        .from(memberships)
+        .innerJoin(users, eq(users.id, memberships.userId))
+        .where(
+          inArray(
+            memberships.spaceId,
+            mine.map((space) => space.id),
+          ),
+        )
+        .orderBy(
+          // The owner first, then the others by name.
+          asc(sql`${memberships.role} = 'member'`),
+          asc(sql`lower(${users.displayName})`),
+          asc(users.id),
+        )
+        .all();
+      return mine.map((space) => ({
+        ...space,
+        members: members
+          .filter((member) => member.spaceId === space.id)
+          .map(({ userId: id, displayName }) => ({ userId: id, displayName })),
+      }));
+    });
+  }
+
+  /** Whether the user belongs to the space. */
+  isMember(userId: string, spaceId: string): boolean {
+    return (
+      this.database.db
+        .select({ userId: memberships.userId })
+        .from(memberships)
+        .where(
+          and(eq(memberships.spaceId, spaceId), eq(memberships.userId, userId)),
+        )
+        .get() !== undefined
+    );
   }
 
   /**

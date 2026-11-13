@@ -82,8 +82,7 @@
           "NODE_ENV": "production",
           "PORT": "3100",
           "PUBLIC_URL": "http://localhost:3100",
-          "DATABASE_PATH": "data/lister-prod.db",
-          "LISTER_DEV_SEED": "true"
+          "DATABASE_PATH": "data/lister-prod.db"
         }
       }
     },

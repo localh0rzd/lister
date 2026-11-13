@@ -3,8 +3,8 @@ import { LOCAL_DB, type LocalSpace } from './local-db';
 import { type QueryState, liveQuerySignal, valueOf } from './live-query-signal';
 
 /**
- * The space the UI works in. Until spaces can be picked (T-026) that's the first space by name,
- * which is the one dev space. Spaces arrive with the server's welcome, so on a first, offline
+ * The space the UI works in. Until spaces can be picked (T-026) that is the first space by name.
+ * Spaces arrive with the server's welcome, so on a first, offline
  * start there is none yet.
  */
 @Service()

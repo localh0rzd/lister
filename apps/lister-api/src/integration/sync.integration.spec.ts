@@ -1,7 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { schema } from '@lister/api/data-access-db';
 import {
-  DEV_SPACE_ID,
   DEV_WEB_ORIGIN,
   MutationService,
   SyncReader,
@@ -14,31 +13,68 @@ import {
   type MutationInput,
 } from '@lister/shared/sync-protocol';
 import { type Socket, io } from 'socket.io-client';
-import { createAccount, send, signIn } from '../testing/auth-client';
+import {
+  createAccount,
+  send,
+  sessionCookieOf,
+  signIn,
+} from '../testing/auth-client';
 import { type TestApp, createTestApp } from '../testing/create-test-app';
 
 type Client = Socket<ServerToClientEvents, ClientToServerEvents>;
 type Event = keyof ServerToClientEvents;
 type Payload<E extends Event> = Parameters<ServerToClientEvents[E]>[0];
 
+type Who = 'anna' | 'ben' | 'carl';
+
 let api: TestApp;
 const clients: Client[] = [];
+/** Anna's and Ben's shared space "Home"; Carl belongs to neither it nor their personal spaces. */
+let spaceId: string;
+let cookies: Record<Who, string>;
+let ids: Record<Who, string>;
 
 beforeEach(async () => {
   api = await createTestApp();
+  const anna = await createAccount(api, 'anna');
+  const ben = await createAccount(api, 'ben');
+  const carl = await createAccount(api, 'carl');
+  ids = { anna: anna.id, ben: ben.id, carl: carl.id };
+  cookies = {
+    anna: await signIn(api, 'anna'),
+    ben: await signIn(api, 'ben'),
+    carl: await signIn(api, 'carl'),
+  };
+  const home = (await (
+    await send(api, 'POST', '/spaces', {
+      cookie: cookies.anna,
+      body: { name: 'Home' },
+    })
+  ).json()) as { id: string };
+  spaceId = home.id;
+  await send(api, 'POST', `/spaces/${spaceId}/members`, {
+    cookie: cookies.anna,
+    body: { username: 'ben' },
+  });
 });
 afterEach(async () => {
   for (const client of clients.splice(0)) client.disconnect();
   await api.close();
 });
 
-/** A socket like the browser's: WebSocket only, with an Origin header. */
-function connect(origin: string | null = DEV_WEB_ORIGIN): Client {
+/** A socket like the browser's: WebSocket only, with an Origin header and the session cookie. */
+function connect(
+  options: { origin?: string | null; cookie?: string | null } = {},
+): Client {
+  const { origin = DEV_WEB_ORIGIN, cookie = cookies.anna } = options;
+  const headers: Record<string, string> = {};
+  if (origin) headers['origin'] = origin;
+  if (cookie) headers['cookie'] = cookie;
   const client: Client = io(api.url, {
     transports: ['websocket'],
     forceNew: true,
     reconnection: false,
-    ...(origin ? { extraHeaders: { origin } } : {}),
+    extraHeaders: headers,
   });
   clients.push(client);
   return client;
@@ -63,8 +99,8 @@ function collect<E extends Event>(client: Client, event: E): Payload<E>[] {
   return seen;
 }
 
-async function helloed(origin?: string) {
-  const client = connect(origin);
+async function helloed(who: Who = 'anna') {
+  const client = connect({ cookie: cookies[who] });
   const welcome = next(client, 'welcome');
   client.emit('hello', {
     protocolVersion: PROTOCOL_VERSION,
@@ -78,18 +114,31 @@ const mutation = <N extends MutationInput['name']>(
   name: N,
   args: Extract<MutationInput, { name: N }>['args'],
 ) =>
-  ({ mutationId: newId(), spaceId: DEV_SPACE_ID, name, args }) as Extract<
+  ({ mutationId: newId(), spaceId: spaceId, name, args }) as Extract<
     MutationInput,
     { name: N }
   >;
 
 describe('sync gateway', () => {
   describe('handshake', () => {
-    it('welcomes a client with its spaces', async () => {
-      const { welcome } = await helloed();
+    it("welcomes a client with the user's spaces and their members", async () => {
+      const { welcome } = await helloed('ben');
 
+      expect(welcome.userId).toBe(ids.ben);
       expect(welcome.spaces).toEqual([
-        expect.objectContaining({ id: DEV_SPACE_ID, name: 'Home', version: 0 }),
+        expect.objectContaining({ name: 'ben display', version: 0 }),
+        {
+          id: spaceId,
+          name: 'Home',
+          version: 0,
+          members: [
+            { userId: ids.anna, displayName: 'anna display' },
+            { userId: ids.ben, displayName: 'ben display' },
+          ],
+        },
+      ]);
+      expect(welcome.spaces[0].members).toEqual([
+        { userId: ids.ben, displayName: 'ben display' },
       ]);
     });
 
@@ -111,7 +160,7 @@ describe('sync gateway', () => {
       ['a foreign origin', 'https://evil.example'],
       ['no origin', null],
     ])('refuses %s', async (_, origin) => {
-      const client = connect(origin);
+      const client = connect({ origin });
 
       const error = await new Promise<Error>((resolve) =>
         client.once('connect_error', resolve),
@@ -122,7 +171,40 @@ describe('sync gateway', () => {
     });
 
     it.each([
-      ['pulls before hello', 'pull', { spaceId: DEV_SPACE_ID, since: 0 }],
+      ['no session cookie', null],
+      ['an unknown session', 'lister_session=not-a-session'],
+      ['someone else’s cookie name', 'session=abc'],
+    ])('refuses a connection with %s', async (_, cookie) => {
+      const client = connect({ cookie });
+
+      const error = await new Promise<Error>((resolve) =>
+        client.once('connect_error', resolve),
+      );
+
+      expect(error.message).toBe('Sign in first');
+      expect(client.connected).toBe(false);
+    });
+
+    it('refuses a session that has ended, and a user who must change their password first', async () => {
+      await send(api, 'POST', '/auth/logout', { cookie: cookies.carl });
+      await createAccount(api, 'dora', { mustChangePassword: true });
+      const dora = sessionCookieOf(
+        await send(api, 'POST', '/auth/login', {
+          body: { username: 'dora', password: 'correct horse battery' },
+        }),
+      );
+
+      for (const cookie of [cookies.carl, dora]) {
+        const client = connect({ cookie });
+        const error = await new Promise<Error>((resolve) =>
+          client.once('connect_error', resolve),
+        );
+        expect(error.message).toBe('Sign in first');
+      }
+    });
+
+    it.each([
+      ['pulls before hello', 'pull', { spaceId: spaceId, since: 0 }],
       ['pushes before hello', 'push', { mutations: [] }],
       ['sends an invalid hello', 'hello', { protocolVersion: 'one' }],
     ] as const)('disconnects a client that %s', async (_, event, body) => {
@@ -149,7 +231,7 @@ describe('sync gateway', () => {
   describe('push and poke', () => {
     it('acks a mutation and pokes the changed rows to everyone in the space', async () => {
       const a = await helloed();
-      const b = await helloed();
+      const b = await helloed('ben');
       const pokeToA = next(a.client, 'poke');
       const pokeToB = next(b.client, 'poke');
       const ack = next(a.client, 'ack');
@@ -159,7 +241,7 @@ describe('sync gateway', () => {
 
       expect(await ack).toEqual({ mutationId: create.mutationId, version: 1 });
       const poke = await pokeToB;
-      expect(poke).toMatchObject({ spaceId: DEV_SPACE_ID, version: 1 });
+      expect(poke).toMatchObject({ spaceId: spaceId, version: 1 });
       expect(poke.rows.lists).toEqual([
         expect.objectContaining({
           id: create.args.id,
@@ -231,74 +313,9 @@ describe('sync gateway', () => {
         api.database.db
           .select()
           .from(schema.spaces)
-          .where(eq(schema.spaces.id, DEV_SPACE_ID))
+          .where(eq(schema.spaces.id, spaceId))
           .get()?.version,
       ).toBe(1);
-    });
-
-    it('never exposes a space other than the dev space to the unauthenticated socket', async () => {
-      const otherSpaceId = newId();
-      api.database.db
-        .insert(schema.spaces)
-        .values({ id: otherSpaceId, name: 'Personal', createdAt: 1 })
-        .run();
-      const { client, welcome } = await helloed();
-      const reject = next(client, 'reject');
-      const foreign = {
-        ...mutation('list.create', { id: newId(), title: 'Marker' }),
-        spaceId: otherSpaceId,
-      };
-
-      client.emit('push', { mutations: [foreign] });
-
-      expect(welcome.spaces.map((space) => space.id)).toEqual([DEV_SPACE_ID]);
-      expect(await reject).toEqual({
-        mutationId: foreign.mutationId,
-        reason: "You can't change this space",
-      });
-      expect(
-        api.database.db
-          .select()
-          .from(schema.lists)
-          .where(eq(schema.lists.spaceId, otherSpaceId))
-          .all(),
-      ).toEqual([]);
-    });
-
-    it('does not reach the personal and shared spaces that accounts create', async () => {
-      const anna = await createAccount(api, 'anna');
-      const cookie = await signIn(api, 'anna');
-      const shared = (await (
-        await send(api, 'POST', '/spaces', { cookie, body: { name: 'Family' } })
-      ).json()) as { id: string };
-      const { client, welcome } = await helloed();
-      const reject = next(client, 'reject');
-      const foreign = {
-        ...mutation('list.create', { id: newId(), title: 'Marker' }),
-        spaceId: shared.id,
-      };
-
-      client.emit('push', { mutations: [foreign] });
-
-      expect(anna.id).toBeDefined();
-      expect(welcome.spaces.map((space) => space.id)).toEqual([DEV_SPACE_ID]);
-      expect((await reject).reason).toBe("You can't change this space");
-    });
-
-    it('disconnects on a pull for a space other than the dev space', async () => {
-      const otherSpaceId = newId();
-      api.database.db
-        .insert(schema.spaces)
-        .values({ id: otherSpaceId, name: 'Personal', createdAt: 1 })
-        .run();
-      const { client } = await helloed();
-      const reason = new Promise<string>((resolve) =>
-        client.once('disconnect', resolve),
-      );
-
-      client.emit('pull', { spaceId: otherSpaceId, since: 0 });
-
-      expect(await reason).toBe('io server disconnect');
     });
 
     it('rejects mutations for a space the client is not in', async () => {
@@ -315,6 +332,181 @@ describe('sync gateway', () => {
         mutationId: foreign.mutationId,
         reason: "You can't change this space",
       });
+    });
+  });
+
+  describe('authorization', () => {
+    const disconnected = (client: Client) =>
+      new Promise<string>((resolve) => client.once('disconnect', resolve));
+
+    /** Carl's own space, which neither Anna nor Ben belongs to. */
+    const carlsSpace = () =>
+      api.database.db
+        .select()
+        .from(schema.memberships)
+        .where(eq(schema.memberships.userId, ids.carl))
+        .get()?.spaceId as string;
+
+    it('stamps rows with the signed-in user', async () => {
+      const { client } = await helloed('ben');
+      const acked = next(client, 'ack');
+      const create = mutation('list.create', { id: newId(), title: 'Camping' });
+
+      client.emit('push', { mutations: [create] });
+      await acked;
+
+      expect(api.database.db.select().from(schema.lists).get()).toMatchObject({
+        createdBy: ids.ben,
+        updatedBy: ids.ben,
+      });
+    });
+
+    it('does not let a non-member change a space, and changes nothing', async () => {
+      const { client, welcome } = await helloed('carl');
+      const reject = next(client, 'reject');
+      const foreign = mutation('list.create', { id: newId(), title: 'Marker' });
+
+      client.emit('push', { mutations: [foreign] });
+
+      expect(welcome.spaces.map((space) => space.id)).not.toContain(spaceId);
+      expect(await reject).toEqual({
+        mutationId: foreign.mutationId,
+        reason: "You can't change this space",
+      });
+      expect(api.database.db.select().from(schema.lists).all()).toEqual([]);
+      expect(
+        api.database.db
+          .select()
+          .from(schema.spaces)
+          .where(eq(schema.spaces.id, spaceId))
+          .get()?.version,
+      ).toBe(0);
+    });
+
+    it('does not let a non-member pull a space', async () => {
+      const member = await helloed('anna');
+      const acked = next(member.client, 'ack');
+      member.client.emit('push', {
+        mutations: [mutation('list.create', { id: newId(), title: 'Secret' })],
+      });
+      await acked;
+      const { client } = await helloed('carl');
+      const rows = collect(client, 'rows');
+      const gone = disconnected(client);
+
+      client.emit('pull', { spaceId, since: 0 });
+
+      expect(await gone).toBe('io server disconnect');
+      expect(rows).toEqual([]);
+    });
+
+    it('does not poke a non-member', async () => {
+      const anna = await helloed('anna');
+      const carl = await helloed('carl');
+      const ben = await helloed('ben');
+      const carlPokes = collect(carl.client, 'poke');
+      const poked = next(ben.client, 'poke');
+
+      anna.client.emit('push', {
+        mutations: [mutation('list.create', { id: newId(), title: 'Camping' })],
+      });
+      await poked;
+      // Pokes are emitted together: had Carl been in the room he would have it by now.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(carlPokes).toEqual([]);
+    });
+
+    it("keeps one user's space out of another's pull, push and poke alike (a space they own, not Anna's)", async () => {
+      const mine = carlsSpace();
+      const anna = await helloed('anna');
+      const rejected = next(anna.client, 'reject');
+      const foreign = {
+        ...mutation('list.create', { id: newId(), title: 'Marker' }),
+        spaceId: mine,
+      };
+
+      anna.client.emit('push', { mutations: [foreign] });
+
+      expect((await rejected).reason).toBe("You can't change this space");
+      expect(anna.welcome.spaces.map((space) => space.id)).not.toContain(mine);
+    });
+
+    it('disconnects a client at once when it is removed from a space, and stops its pokes', async () => {
+      const anna = await helloed('anna');
+      const ben = await helloed('ben');
+      const benPokes = collect(ben.client, 'poke');
+      const newWelcome = next(ben.client, 'welcome');
+
+      const removed = await send(
+        api,
+        'DELETE',
+        `/spaces/${spaceId}/members/${ids.ben}`,
+        { cookie: cookies.anna },
+      );
+      expect(removed.status).toBe(204);
+
+      // Ben's client hears which spaces it still has, and the others see the new member list.
+      expect((await newWelcome).spaces.map((s) => s.id)).not.toContain(spaceId);
+      const poked = next(anna.client, 'poke');
+      anna.client.emit('push', {
+        mutations: [mutation('list.create', { id: newId(), title: 'After' })],
+      });
+      await poked;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(benPokes).toEqual([]);
+
+      // And nothing else works for the space: pull is refused, push is rejected.
+      const rejected = next(ben.client, 'reject');
+      const stale = mutation('list.create', { id: newId(), title: 'Stale' });
+      ben.client.emit('push', { mutations: [stale] });
+      expect((await rejected).reason).toBe("You can't change this space");
+      const gone = disconnected(ben.client);
+      ben.client.emit('pull', { spaceId, since: 0 });
+      expect(await gone).toBe('io server disconnect');
+    });
+
+    it('gives a client the new space at once when it is added, and when someone leaves it', async () => {
+      const anna = await helloed('anna');
+      const carl = await helloed('carl');
+      const welcomed = next(carl.client, 'welcome');
+
+      await send(api, 'POST', `/spaces/${spaceId}/members`, {
+        cookie: cookies.anna,
+        body: { username: 'carl' },
+      });
+
+      const welcome = await welcomed;
+      expect(welcome.spaces.find((s) => s.id === spaceId)?.members).toEqual([
+        { userId: ids.anna, displayName: 'anna display' },
+        { userId: ids.ben, displayName: 'ben display' },
+        { userId: ids.carl, displayName: 'carl display' },
+      ]);
+      const poke = next(carl.client, 'poke');
+      anna.client.emit('push', {
+        mutations: [mutation('list.create', { id: newId(), title: 'Hi' })],
+      });
+      expect(await poke).toMatchObject({ spaceId, version: 1 });
+
+      const left = next(anna.client, 'welcome');
+      await send(api, 'POST', `/spaces/${spaceId}/leave`, {
+        cookie: cookies.carl,
+      });
+      expect(
+        (await left).spaces
+          .find((s) => s.id === spaceId)
+          ?.members.map((m) => m.userId),
+      ).toEqual([ids.anna, ids.ben]);
+    });
+
+    it('ends a connection whose session has ended, on its next message', async () => {
+      const { client } = await helloed('ben');
+      const gone = disconnected(client);
+
+      await send(api, 'POST', '/auth/logout', { cookie: cookies.ben });
+      client.emit('pull', { spaceId, since: 0 });
+
+      expect(await gone).toBe('io server disconnect');
     });
   });
 
@@ -389,7 +581,7 @@ describe('sync gateway', () => {
       });
       const reason = disconnected(client);
 
-      client.emit('pull', { spaceId: DEV_SPACE_ID, since: 0 });
+      client.emit('pull', { spaceId: spaceId, since: 0 });
 
       expect(await reason).toBe('io server disconnect');
     });
@@ -405,7 +597,7 @@ describe('sync gateway', () => {
       await acked;
 
       const rows = next(client, 'rows');
-      client.emit('pull', { spaceId: DEV_SPACE_ID, since: 57 });
+      client.emit('pull', { spaceId: spaceId, since: 57 });
 
       expect(await rows).toMatchObject({ version: 1, snapshot: true });
       expect((await rows).rows.lists).toHaveLength(1);
@@ -434,10 +626,10 @@ describe('sync gateway', () => {
       await done;
 
       const rows = next(client, 'rows');
-      client.emit('pull', { spaceId: DEV_SPACE_ID, since: 0 });
+      client.emit('pull', { spaceId: spaceId, since: 0 });
 
       expect(await rows).toMatchObject({
-        spaceId: DEV_SPACE_ID,
+        spaceId: spaceId,
         version: 3,
         snapshot: true,
       });
@@ -452,7 +644,7 @@ describe('sync gateway', () => {
 
     it('lets a client that missed changes catch up by pulling', async () => {
       const a = await helloed();
-      const b = await helloed();
+      const b = await helloed('ben');
       const first = mutation('list.create', { id: newId(), title: 'Camping' });
       const seen = next(b.client, 'poke');
       a.client.emit('push', { mutations: [first] });
@@ -475,7 +667,7 @@ describe('sync gateway', () => {
 
       const back = await helloed();
       const rows = next(back.client, 'rows');
-      back.client.emit('pull', { spaceId: DEV_SPACE_ID, since: lastSeenByB });
+      back.client.emit('pull', { spaceId: spaceId, since: lastSeenByB });
 
       const caughtUp = await rows;
       expect(caughtUp).toMatchObject({ version: 3, snapshot: false });
@@ -505,7 +697,7 @@ describe('sync gateway', () => {
 
     it('starts a run with merged items and pokes it to the other member', async () => {
       const anna = await helloed();
-      const ben = await helloed();
+      const ben = await helloed('ben');
       const pokes = collect(ben.client, 'poke');
       const runId = newId();
       const [basic, camping] = [newId(), newId()];
@@ -599,7 +791,7 @@ describe('sync gateway', () => {
 
     it('two people finishing and reopening at the same time end in one consistent state', async () => {
       const anna = await helloed();
-      const ben = await helloed();
+      const ben = await helloed('ben');
       const runId = newId();
       const [a, b] = [newId(), newId()];
       await push(
@@ -635,7 +827,7 @@ describe('sync gateway', () => {
 
       // Whatever the order, the stored run agrees with its items.
       const rows = next(ben.client, 'rows');
-      ben.client.emit('pull', { spaceId: DEV_SPACE_ID, since: 0 });
+      ben.client.emit('pull', { spaceId: spaceId, since: 0 });
       const snapshot = await rows;
       const items = snapshot.rows.runItems.filter((i) => i.runId === runId);
       const run = snapshot.rows.runs.find((r) => r.id === runId);
@@ -647,7 +839,7 @@ describe('sync gateway', () => {
 
     it("applies an offline check to the item another member's identical item became", async () => {
       const anna = await helloed();
-      const ben = await helloed();
+      const ben = await helloed('ben');
       const runId = newId();
       await push(
         anna.client,
@@ -674,7 +866,7 @@ describe('sync gateway', () => {
 
       expect(answers.every((a) => 'version' in a)).toBe(true);
       const rows = next(ben.client, 'rows');
-      ben.client.emit('pull', { spaceId: DEV_SPACE_ID, since: 0 });
+      ben.client.emit('pull', { spaceId: spaceId, since: 0 });
       const items = (await rows).rows.runItems.filter((i) => i.runId === runId);
       expect(items.find((i) => i.id === bens)).toMatchObject({
         state: 'checked',
@@ -688,7 +880,7 @@ describe('sync gateway', () => {
 
     it('saves a run as a list in one change, poked to the other member, leaving the run unchanged', async () => {
       const anna = await helloed();
-      const ben = await helloed();
+      const ben = await helloed('ben');
       const pokes = collect(ben.client, 'poke');
       const runId = newId();
       const [tent, milk] = [newId(), newId()];
@@ -788,7 +980,7 @@ describe('sync gateway', () => {
 
     it('restores a list with its items and an item, poking the other member', async () => {
       const anna = await helloed();
-      const ben = await helloed();
+      const ben = await helloed('ben');
       const pokes = collect(ben.client, 'poke');
       const listId = newId();
       const tentId = newId();
@@ -831,7 +1023,7 @@ describe('sync gateway', () => {
 
       // The list's own items were never touched: Tent is still live, as before.
       const rows = next(ben.client, 'rows');
-      ben.client.emit('pull', { spaceId: DEV_SPACE_ID, since: 0 });
+      ben.client.emit('pull', { spaceId: spaceId, since: 0 });
       const snapshot = await rows;
       expect(
         snapshot.rows.items
@@ -847,7 +1039,7 @@ describe('sync gateway', () => {
 
     it('duplicates a list in one change, poked to the other member at once', async () => {
       const anna = await helloed();
-      const ben = await helloed();
+      const ben = await helloed('ben');
       const pokes = collect(ben.client, 'poke');
       const source = newId();
       const tent = newId();
@@ -945,7 +1137,7 @@ describe('sync gateway', () => {
 
     it('moves, removes and restores an include, poking the other member each time', async () => {
       const anna = await helloed();
-      const ben = await helloed();
+      const ben = await helloed('ben');
       const pokes = collect(ben.client, 'poke');
       const trip = mutation('list.create', { id: newId(), title: 'Trip' });
       const camping = mutation('list.create', {
@@ -997,7 +1189,7 @@ describe('sync gateway', () => {
 
     it('rejects the second half of a loop two offline clients each made', async () => {
       const anna = await helloed();
-      const ben = await helloed();
+      const ben = await helloed('ben');
       const camping = mutation('list.create', {
         id: newId(),
         title: 'Camping',
@@ -1040,7 +1232,7 @@ describe('sync gateway', () => {
 
       // Only Anna's half exists.
       const rows = next(ben.client, 'rows');
-      ben.client.emit('pull', { spaceId: DEV_SPACE_ID, since: 0 });
+      ben.client.emit('pull', { spaceId: spaceId, since: 0 });
       const snapshot = await rows;
       expect(snapshot.version).toBe(3);
       expect(snapshot.rows.includes.map((row) => row.id)).toEqual([

@@ -9,15 +9,23 @@ import {
   insertSpace,
   schema,
 } from '@lister/api/data-access-db';
+import type { SyncGateway } from '@lister/api/feature-sync';
 import { SpacesService } from './spaces.service';
 
 describe('SpacesService', () => {
   let database: DatabaseConnection;
   let service: SpacesService;
+  let membershipsChanged: ReturnType<typeof vi.fn>;
+  /** The users told about the latest membership change. */
+  const notified = () =>
+    new Set(membershipsChanged.mock.lastCall?.[0] as Iterable<string>);
 
   beforeEach(() => {
     database = createTestDatabase();
-    service = new SpacesService(database);
+    membershipsChanged = vi.fn();
+    service = new SpacesService(database, {
+      membershipsChanged,
+    } as unknown as SyncGateway);
   });
   afterEach(() => database.onApplicationShutdown());
 
@@ -114,5 +122,37 @@ describe('SpacesService', () => {
     expect(service.list(ANNA)[0].members.map((m) => m.userId)).toEqual([ANNA]);
     expect(service.list(BEN)).toEqual([]);
     expect(service.list(CARL)).toEqual([]);
+  });
+
+  it('tells the sync gateway about every user a membership change concerns', () => {
+    const space = service.create(ANNA, 'Family');
+    expect(notified()).toEqual(new Set([ANNA]));
+
+    service.addMember(ANNA, space.id, 'ben');
+    expect(notified()).toEqual(new Set([ANNA, BEN]));
+
+    service.rename(ANNA, space.id, 'Crew');
+    expect(notified()).toEqual(new Set([ANNA, BEN]));
+
+    service.addMember(ANNA, space.id, 'carl');
+    service.removeMember(ANNA, space.id, BEN); // the removed member too
+    expect(notified()).toEqual(new Set([ANNA, BEN, CARL]));
+
+    service.leave(CARL, space.id);
+    expect(notified()).toEqual(new Set([ANNA, CARL]));
+
+    service.remove(ANNA, space.id);
+    expect(notified()).toEqual(new Set([ANNA]));
+  });
+
+  it('tells nobody when a change is refused', () => {
+    const space = service.create(ANNA, 'Family');
+    membershipsChanged.mockClear();
+
+    expect(() => service.addMember(BEN, space.id, 'carl')).toThrow();
+    expect(() => service.removeMember(ANNA, space.id, BEN)).toThrow();
+    expect(() => service.remove(BEN, space.id)).toThrow();
+
+    expect(membershipsChanged).not.toHaveBeenCalled();
   });
 });

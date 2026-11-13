@@ -337,7 +337,7 @@ describe('user administration', () => {
           .from(schema.spaces)
           .all()
           .map((s) => s.name),
-      ).toEqual(['Home', admin.displayName]); // the dev space, and the admin's own
+      ).toEqual([admin.displayName]); // only the admin's own is left
       expect(
         api.database.db.select().from(schema.memberships).all(),
       ).toHaveLength(1);

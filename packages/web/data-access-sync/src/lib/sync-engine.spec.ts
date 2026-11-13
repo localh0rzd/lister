@@ -110,7 +110,17 @@ class FakeServer {
         ],
       });
     } else if (event === 'pull') {
-      const { since } = payload as { since: number };
+      const { since, spaceId } = payload as { since: number; spaceId: string };
+      if (spaceId !== SPACE) {
+        // Any other space is at version 3 with nothing new.
+        this.fire('rows', {
+          spaceId,
+          version: 3,
+          snapshot: false,
+          rows: { lists: [], items: [], includes: [], runs: [], runItems: [] },
+        });
+        return;
+      }
       const snapshot = since === 0 || since > this.version;
       const from = snapshot ? 0 : since;
       this.fire('rows', {
@@ -1008,6 +1018,73 @@ describe('SyncEngine', () => {
         vi.advanceTimersByTime(1);
         expect(server.connectCalls).toBe(before + 1);
       }
+    });
+  });
+
+  describe('spaces', () => {
+    it('drops a space the server no longer welcomes, with its rows, sync position and pending changes', async () => {
+      setup();
+      engine.start();
+      await settle();
+      const synced = await createList('Synced');
+      await settle();
+      const other = newId();
+      await db.spaces.put({
+        id: other,
+        name: 'Other',
+        version: 0,
+        members: [],
+      });
+      await db.lists.put({
+        id: newId(),
+        spaceId: other,
+        title: 'Elsewhere',
+      } as never);
+      await db.syncState.put({ spaceId: other, version: 3, lastSyncedAt: 1 });
+      server.autoAnswer = false;
+      const pending = await createList('Pending');
+
+      // The user was removed from SPACE: the next welcome lists only the other space.
+      server.fire('welcome', {
+        userId: USER,
+        spaces: [{ id: other, name: 'Other', version: 3, members: [] }],
+      });
+      await settle();
+
+      expect(await db.spaces.toArray()).toEqual([
+        expect.objectContaining({ id: other }),
+      ]);
+      expect(await visibleList(synced)).toBeUndefined();
+      expect(await serverList(synced)).toBeUndefined();
+      expect(await visibleList(pending)).toBeUndefined();
+      expect(await db.syncState.get(SPACE)).toBeUndefined();
+      expect(await outbox()).toEqual([]);
+      expect(await db.lists.where('spaceId').equals(other).count()).toBe(1);
+    });
+
+    it('syncs every space the server welcomes', async () => {
+      setup();
+      engine.start();
+      await settle();
+      const second = newId();
+
+      server.fire('welcome', {
+        userId: USER,
+        spaces: [
+          { id: SPACE, name: 'Home', version: 0, members: [] },
+          { id: second, name: 'Trips', version: 0, members: [] },
+        ],
+      });
+      await settle();
+
+      expect(
+        (await db.spaces.toArray()).map((space) => space.id).sort(),
+      ).toEqual([SPACE, second].sort());
+      expect(
+        server
+          .sent('pull')
+          .map((pull) => (pull as { spaceId: string }).spaceId),
+      ).toContain(second);
     });
   });
 

@@ -12,6 +12,7 @@ import {
   insertSpace,
   schema,
 } from '@lister/api/data-access-db';
+import { SyncGateway } from '@lister/api/feature-sync';
 import type { SpaceMember, SpaceSummary } from '@lister/shared/api-contracts';
 
 const { memberships, spaces, users } = schema;
@@ -24,7 +25,10 @@ const { memberships, spaces, users } = schema;
  */
 @Injectable()
 export class SpacesService {
-  constructor(private readonly database: DatabaseConnection) {}
+  constructor(
+    private readonly database: DatabaseConnection,
+    private readonly sync: SyncGateway,
+  ) {}
 
   /** The spaces the user belongs to: their personal space first, then the others by name. */
   list(userId: string): SpaceSummary[] {
@@ -49,7 +53,7 @@ export class SpacesService {
   }
 
   create(userId: string, name: string): SpaceSummary {
-    return this.database.sqlite.transaction(() => {
+    const created = this.database.sqlite.transaction(() => {
       const space = insertSpace(this.database.db, {
         name,
         ownerId: userId,
@@ -58,10 +62,12 @@ export class SpacesService {
       });
       return this.summary(space.id, userId);
     })();
+    this.sync.membershipsChanged([userId]);
+    return created;
   }
 
   rename(userId: string, spaceId: string, name: string): SpaceSummary {
-    return this.database.sqlite.transaction(() => {
+    const renamed = this.database.sqlite.transaction(() => {
       this.requireOwner(userId, spaceId);
       this.database.db
         .update(spaces)
@@ -70,21 +76,26 @@ export class SpacesService {
         .run();
       return this.summary(spaceId, userId);
     })();
+    this.sync.membershipsChanged(renamed.members.map((m) => m.userId));
+    return renamed;
   }
 
   /** Deletes a shared space with everything in it. Personal spaces go with their user. */
   remove(userId: string, spaceId: string): void {
-    this.database.sqlite.transaction(() => {
+    const members = this.database.sqlite.transaction(() => {
       const space = this.requireOwner(userId, spaceId);
       if (space.personal) {
         throw new ConflictException("A personal space can't be deleted");
       }
+      const members = this.memberIds(spaceId);
       deleteSpace(this.database.db, spaceId);
+      return members;
     })();
+    this.sync.membershipsChanged(members);
   }
 
   addMember(userId: string, spaceId: string, username: string): SpaceSummary {
-    return this.database.sqlite.transaction(() => {
+    const added = this.database.sqlite.transaction(() => {
       const space = this.requireOwner(userId, spaceId);
       if (space.personal) {
         throw new ConflictException("A personal space can't be shared");
@@ -113,11 +124,13 @@ export class SpacesService {
         .run();
       return this.summary(spaceId, userId);
     })();
+    this.sync.membershipsChanged(added.members.map((m) => m.userId));
+    return added;
   }
 
   /** The owner removes another member. The owner can't be removed: delete the space instead. */
   removeMember(userId: string, spaceId: string, memberId: string): void {
-    this.database.sqlite.transaction(() => {
+    const members = this.database.sqlite.transaction(() => {
       this.requireOwner(userId, spaceId);
       const target = this.database.db
         .select()
@@ -133,13 +146,18 @@ export class SpacesService {
       if (target.role === 'owner') {
         throw new ConflictException("The owner can't be removed");
       }
+      const members = this.memberIds(spaceId);
       this.deleteMembership(spaceId, memberId);
+      return members;
     })();
+    // The removed member's connected clients leave the space's room now and drop the space;
+    // the others see the new member list (design §4.2).
+    this.sync.membershipsChanged(members);
   }
 
   /** A member leaves. The owner can't: they delete the space (there's no hand-over yet). */
   leave(userId: string, spaceId: string): void {
-    this.database.sqlite.transaction(() => {
+    const members = this.database.sqlite.transaction(() => {
       const membership = this.requireMember(userId, spaceId);
       if (membership.personal) {
         throw new ConflictException("You can't leave your personal space");
@@ -149,8 +167,20 @@ export class SpacesService {
           "The owner can't leave: delete the space instead",
         );
       }
+      const members = this.memberIds(spaceId);
       this.deleteMembership(spaceId, userId);
+      return members;
     })();
+    this.sync.membershipsChanged(members);
+  }
+
+  private memberIds(spaceId: string): string[] {
+    return this.database.db
+      .select({ userId: memberships.userId })
+      .from(memberships)
+      .where(eq(memberships.spaceId, spaceId))
+      .all()
+      .map((row) => row.userId);
   }
 
   private deleteMembership(spaceId: string, userId: string): void {

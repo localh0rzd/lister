@@ -86,15 +86,17 @@ satisfies z.ZodType<Entity>`, tolerant (`z.object`, not `strictObject`): it's wh
 - **Rows out:** new table → read the changed ids in `MutationService.apply()`
   (`mutation.service.ts`, the `rows: RowSet` block) and the space's rows in
   `SyncReader.rowsSince()` (`sync-reader.ts`).
-- There is **no per-mutation handler** to register: `MutationService.apply()` runs replay →
-  parse (`parseMutation`) → authorize (space; membership from T-025) → `applyMutation()` →
+- There is **no per-mutation handler** to register: `MutationService.apply()` runs authorize
+  (membership) → replay → parse (`parseMutation`) → `applyMutation()` →
   version + 1 → record, in one synchronous transaction (never `await` inside), and
   `SyncGateway` acks the sender and pokes the space's room.
 - **Tests:** `mutation.service.spec.ts` (through the real service on `createTestDatabase()`), and
   `apps/lister-api/src/integration/sync.integration.spec.ts` for the socket: ack, poke to the
   others with the row, reject with the reason, pull returns the row (its `connect`/`next`/
   `collect` helpers).
-- Dev data: `DevSeed` (`dev-seed.ts`, `LISTER_DEV_SEED=true`) creates the shared dev space.
+- Test data: real accounts, as `sync.integration.spec.ts` arranges them (`createAccount`,
+  `signIn`, a shared space through `POST /api/spaces`); sockets connect with the session cookie.
+  The web e2e suite is signed in by `src/support/global-setup.ts`.
 
 ### 4. Client data — `packages/web/data-access-local-db`, `packages/web/data-access-sync`
 

@@ -458,11 +458,17 @@ export class SyncEngine {
   }
 
   private async onWelcome(welcome: Welcome): Promise<void> {
+    const current = new Set(welcome.spaces.map((space) => space.id));
     await this.db.transaction(
       'rw',
-      [this.db.meta, this.db.spaces],
+      [...this.syncTables(), this.db.spaces],
       async () => {
         await this.db.meta.put({ key: 'userId', value: welcome.userId });
+        // A space missing from the welcome is one the user left, was removed from, or that was
+        // deleted: stop syncing it and drop what this device holds of it.
+        for (const known of await this.db.spaces.toCollection().primaryKeys()) {
+          if (!current.has(known)) await this.dropSpace(known);
+        }
         await this.db.spaces.bulkPut(welcome.spaces);
       },
     );
@@ -470,6 +476,32 @@ export class SyncEngine {
       await this.pull(space.id);
     }
     this.setStatus({ ...this.connection, online: true });
+  }
+
+  /**
+   * Forgets a space completely: its rows (server copy and visible), sync position and pending
+   * changes (the server would refuse them now). Runs inside a transaction over `syncTables()`
+   * and `spaces`.
+   */
+  private async dropSpace(spaceId: string): Promise<void> {
+    this.pulling.delete(spaceId);
+    for (const table of [
+      this.db.serverLists,
+      this.db.serverItems,
+      this.db.serverIncludes,
+      this.db.serverRuns,
+      this.db.serverRunItems,
+      this.db.lists,
+      this.db.items,
+      this.db.includes,
+      this.db.runs,
+      this.db.runItems,
+      this.db.outbox,
+    ]) {
+      await table.where('spaceId').equals(spaceId).delete();
+    }
+    await this.db.syncState.delete(spaceId);
+    await this.db.spaces.delete(spaceId);
   }
 
   private async pull(spaceId: string): Promise<void> {

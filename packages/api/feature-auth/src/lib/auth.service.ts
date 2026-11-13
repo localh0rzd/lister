@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import {
   BadRequestException,
   ConflictException,
@@ -14,6 +14,7 @@ import {
   schema,
 } from '@lister/api/data-access-db';
 import type { CurrentUser } from '@lister/shared/api-contracts';
+import { newId } from '@lister/shared/domain';
 import { AUTH_CLOCK, type Clock } from './clock';
 import { hashPassword, verifyPassword } from './password';
 
@@ -163,6 +164,20 @@ export class AuthService {
     return { user, sessionId, renewedUntil };
   }
 
+  /**
+   * Whether the session (by id, as in `authenticate()`) still exists and hasn't expired. Long-lived
+   * connections (the sync socket) check it on every message, so signing out, a password change
+   * or a deleted account ends them. Read-only: it doesn't renew the session.
+   */
+  isSessionActive(sessionId: string): boolean {
+    const session = this.database.db
+      .select({ expiresAt: schema.sessions.expiresAt })
+      .from(schema.sessions)
+      .where(eq(schema.sessions.id, sessionId))
+      .get();
+    return session !== undefined && session.expiresAt > this.clock();
+  }
+
   /** Ends one session; unknown ids are fine. */
   endSession(sessionId: string): void {
     this.database.db
@@ -267,7 +282,7 @@ export class AuthService {
       const row = this.database.db
         .insert(schema.users)
         .values({
-          id: randomUUID(),
+          id: newId(),
           username: input.username.trim(),
           displayName: input.displayName.trim(),
           passwordHash,

@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 import { nxE2EPreset } from '@nx/playwright/preset';
 import { getReadyUrl, workspaceRoot } from '@nx/devkit';
+import { storageStatePath } from './src/support/global-setup';
 
 // For CI, you may want to set BASE_URL to the deployed application.
 // getReadyUrl moves the address to the port the dev server task reported.
@@ -37,6 +38,8 @@ export default defineConfig({
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
   },
+  // Signs the e2e user in through the API and stores the session cookie per project.
+  globalSetup: './src/support/global-setup.ts',
   webServer: [
     {
       command: 'npx nx run lister-web:serve',
@@ -48,13 +51,20 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: storageStatePath('chromium'),
+      },
       testIgnore: /\.pwa\.spec\.ts$/,
     },
     {
       // *.pwa.spec.ts run against the production build (service worker active).
       name: 'pwa',
-      use: { ...devices['Desktop Chrome'], baseURL: PWA_URL },
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL: PWA_URL,
+        storageState: storageStatePath('pwa'),
+      },
       testMatch: /\.pwa\.spec\.ts$/,
     },
 

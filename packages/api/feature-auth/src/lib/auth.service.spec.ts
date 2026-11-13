@@ -169,6 +169,29 @@ describe('AuthService', () => {
       expect(auth.authenticate(second.token)).toBeNull();
     });
 
+    it('reports whether a session is active, without renewing it', () => {
+      const sessionId = auth.authenticate(token)?.sessionId as string;
+      expect(auth.isSessionActive(sessionId)).toBe(true);
+      expect(auth.isSessionActive('unknown')).toBe(false);
+
+      database.db.update(schema.sessions).set({ expiresAt: now }).run();
+      expect(auth.isSessionActive(sessionId)).toBe(false);
+
+      database.db
+        .update(schema.sessions)
+        .set({ expiresAt: now + 1 })
+        .run();
+      expect(auth.isSessionActive(sessionId)).toBe(true);
+      now += SESSION_RENEW_AFTER_MS;
+      auth.isSessionActive(sessionId);
+      expect(database.db.select().from(schema.sessions).get()?.expiresAt).toBe(
+        1_000_001,
+      );
+
+      auth.endSession(sessionId);
+      expect(auth.isSessionActive(sessionId)).toBe(false);
+    });
+
     it('purges expired sessions', () => {
       database.db
         .update(schema.sessions)

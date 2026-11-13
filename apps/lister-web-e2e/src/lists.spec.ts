@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from './support/fixtures';
+import { otherDevice } from './support/app';
 
 /** Unique titles: every test in a run shares the e2e database. */
 const unique = (title: string) =>
@@ -107,7 +108,7 @@ test.describe('offline on a phone (375 px)', () => {
     await expect(status).not.toContainText('Offline');
     await expect(status).not.toContainText('not synced');
 
-    const other = await (await browser.newContext()).newPage();
+    const other = await otherDevice(browser);
     await openLists(other);
     await expect(row(other, title)).toBeVisible();
     await other.context().close();
@@ -138,7 +139,7 @@ test.describe('lists on a desktop (1280 px)', () => {
     browser,
     expectAccessible,
   }) => {
-    const other = await (await browser.newContext()).newPage();
+    const other = await otherDevice(browser);
     const title = unique('Hiking');
     await openLists(page);
     await openLists(other);

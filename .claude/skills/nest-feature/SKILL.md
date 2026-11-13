@@ -78,9 +78,10 @@ Lists, items, includes and runs change only through the Socket.IO sync gateway
 (`docs/design.md` §4.2), in `packages/api/feature-sync`. There's no handler per mutation:
 `MutationService.apply()` (`mutation.service.ts`) does, for every pushed entry:
 
-1. **Replays:** a known `mutationId` gets its stored answer (`processed_mutations`).
-2. **Validates:** `parseMutation()` (the Zod schemas from `@lister/shared/sync-protocol`).
-3. **Authorizes:** the space exists; membership from T-025.
+1. **Authorizes:** the sender is a member of the mutation's space (otherwise "You can't change
+   this space", also for a space that doesn't exist, and nothing is recorded).
+2. **Replays:** a known `mutationId` gets its stored answer (`processed_mutations`).
+3. **Validates:** `parseMutation()` (the Zod schemas from `@lister/shared/sync-protocol`).
 4. **Applies** the shared rules, `applyMutation()` from `sync-protocol`, over `SqlRowStore`
    (the transaction). The rules are also the client's prediction, so a new mutation is a
    `case` there, not server code.

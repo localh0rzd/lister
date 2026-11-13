@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-025 — Authenticated and authorized sync
 
 - Milestone: M5 Accounts and spaces
@@ -44,6 +42,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
     in through the API until T-026 adds the sign-in screen.
 - Notes: Remove `DevSeed`, `DEV_USER_ID`, `DEV_SPACE_ID` and `SyncReader.devSpaces()`
   (packages/api/feature-sync).
+
+## Backlog
 
 ### T-026 — Web: sign-in, profile, user administration and spaces
 

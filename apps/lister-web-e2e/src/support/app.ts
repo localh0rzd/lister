@@ -1,12 +1,16 @@
-import { type Browser, type Page, expect } from '@playwright/test';
+import { type Browser, type Page, expect, test } from '@playwright/test';
 
 /** Unique titles: every test in a run shares the e2e database. */
 export const unique = (title: string) =>
   `${title} ${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
-/** A second device: a fresh browser context (own IndexedDB, own socket). */
+/**
+ * A second device of the same signed-in user: a fresh browser context (own IndexedDB, own socket)
+ * with the project's session cookie.
+ */
 export async function otherDevice(browser: Browser) {
-  return (await browser.newContext()).newPage();
+  const { storageState, baseURL } = test.info().project.use;
+  return (await browser.newContext({ storageState, baseURL })).newPage();
 }
 
 /** Creates a list on the Lists page and returns its title. */

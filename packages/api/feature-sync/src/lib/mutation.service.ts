@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { DatabaseConnection, schema } from '@lister/api/data-access-db';
 import {
   type Mutation,
@@ -10,8 +10,16 @@ import {
 import { CLOCK, type Clock } from './clock';
 import { SqlRowStore } from './sql-row-store';
 
-const { includes, items, lists, processedMutations, runItems, runs, spaces } =
-  schema;
+const {
+  includes,
+  items,
+  lists,
+  memberships,
+  processedMutations,
+  runItems,
+  runs,
+  spaces,
+} = schema;
 
 /** The answer to one pushed mutation. */
 export type MutationResult =
@@ -27,7 +35,7 @@ export interface AppliedMutation {
 }
 
 export interface MutationContext {
-  /** Who sent it (the dev user until T-025). */
+  /** Who sent it: the signed-in user of the socket. Must belong to the mutation's space. */
   userId: string;
   clientId?: string;
 }
@@ -79,10 +87,28 @@ export class MutationService {
         rows: noRows(),
       });
 
-      // A retry gets the stored answer, but only for the same space: an id reused elsewhere
-      // must not borrow another space's answer. (From T-025 this runs after the membership
-      // check, so non-members learn nothing.)
+      // Authorization first, so a non-member learns nothing (not even whether the space exists
+      // or whether an id was used): only members may change a space. A `spaceId` that isn't a
+      // string is refused by the schema below.
       const rawSpaceId = (entry as { spaceId?: unknown }).spaceId;
+      if (
+        typeof rawSpaceId === 'string' &&
+        !tx
+          .select()
+          .from(memberships)
+          .where(
+            and(
+              eq(memberships.spaceId, rawSpaceId),
+              eq(memberships.userId, context.userId),
+            ),
+          )
+          .get()
+      ) {
+        return rejectWith("You can't change this space");
+      }
+
+      // A retry gets the stored answer, but only for the same space: an id reused elsewhere
+      // must not borrow another space's answer.
       const previous = tx
         .select()
         .from(processedMutations)
@@ -108,7 +134,6 @@ export class MutationService {
       if (!parsed.ok) return rejectWith(parsed.reason);
       const mutation: Mutation = parsed.mutation;
 
-      // Authorization: T-025 checks space membership here.
       const space = tx
         .select()
         .from(spaces)

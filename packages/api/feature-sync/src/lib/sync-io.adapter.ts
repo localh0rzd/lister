@@ -1,11 +1,14 @@
 import type { IncomingMessage } from 'node:http';
 import type { INestApplicationContext } from '@nestjs/common';
 import { IoAdapter } from '@nestjs/platform-socket.io';
+import { AuthService, readSessionToken } from '@lister/api/feature-auth';
 import type { Server, ServerOptions } from 'socket.io';
 
 /**
- * Socket.IO with WebSocket transport only, and the handshake refused unless its `Origin` header
- * is one of `origins` (see `allowedOrigins`).
+ * Socket.IO with WebSocket transport only. The handshake is refused unless its `Origin` header
+ * is one of `origins` (see `allowedOrigins`) and its session cookie belongs to a live session of a
+ * user who isn't forced to change their password (the same rules as the HTTP `AuthGuard`). The
+ * user is left in `socket.data` for the gateway.
  */
 export class SyncIoAdapter extends IoAdapter {
   constructor(
@@ -13,10 +16,13 @@ export class SyncIoAdapter extends IoAdapter {
     private readonly origins: readonly string[],
   ) {
     super(app);
+    this.context = app;
   }
 
+  private readonly context: INestApplicationContext;
+
   override createIOServer(port: number, options?: ServerOptions): Server {
-    return super.createIOServer(port, {
+    const server: Server = super.createIOServer(port, {
       ...options,
       transports: ['websocket'],
       // The web app bundles socket.io-client; don't serve /socket.io/socket.io.js.
@@ -29,5 +35,18 @@ export class SyncIoAdapter extends IoAdapter {
         callback(null, origin !== undefined && this.origins.includes(origin));
       },
     });
+    server.use((socket, next) => {
+      const token = readSessionToken(socket.request.headers.cookie);
+      const found = token
+        ? this.context.get(AuthService, { strict: false }).authenticate(token)
+        : null;
+      if (!found || found.user.mustChangePassword) {
+        next(new Error('Sign in first'));
+        return;
+      }
+      socket.data = { userId: found.user.id, sessionId: found.sessionId };
+      next();
+    });
+    return server;
   }
 }

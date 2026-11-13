@@ -1,5 +1,5 @@
-import { randomUUID } from 'node:crypto';
 import { eq, sql } from 'drizzle-orm';
+import { newId } from '@lister/shared/domain';
 import type { Database } from './database';
 import * as schema from './schema';
 
@@ -16,7 +16,7 @@ export function insertSpace(
   const space = db
     .insert(schema.spaces)
     .values({
-      id: randomUUID(),
+      id: newId(),
       name: input.name,
       personal: input.personal,
       version: 0,
