@@ -18,8 +18,16 @@
   } @else {
     <mat-action-list aria-label="Lists">
       @for (list of matches(); track list.id) {
-        <button mat-list-item type="button" (click)="pick(list)">
-          {{ list.title }}
+        <!-- Long titles are cut off: the tooltip shows the whole one. -->
+        <button
+          mat-list-item
+          type="button"
+          [listerTruncatedTooltip]="titleText"
+          (click)="pick(list)"
+        >
+          <span class="title" matListItemTitle #titleText>{{
+            list.title
+          }}</span>
         </button>
       }
     </mat-action-list>

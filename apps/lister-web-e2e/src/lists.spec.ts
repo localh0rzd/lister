@@ -197,3 +197,70 @@ test.describe('truncated list titles on a phone (375 px)', () => {
     });
   });
 });
+
+test.describe('truncated titles in the list picker (375 px)', () => {
+  test.use({ viewport: { width: 375, height: 812 } });
+
+  test('a cut-off list title in "Add list" shows its full text in a tooltip', async ({
+    page,
+    expectAccessible,
+  }) => {
+    const shared = 'Motorcycle vacation in the Alps with a long title';
+    const long = unique(`${shared} that ends differently`);
+    const host = unique('Trip');
+    await openLists(page);
+    await createList(page, long);
+    await createList(page, host);
+    await row(page, host).getByRole('link').click();
+    await page.getByRole('button', { name: 'Add list' }).click();
+    const picker = page.getByRole('dialog', { name: 'Add list' });
+    await picker.getByLabel('Search lists').fill(long);
+
+    await picker.getByRole('button', { name: long }).hover();
+    await expect(page.locator('.mat-mdc-tooltip')).toHaveText(long);
+    await expectAccessible();
+  });
+});
+
+test.describe('truncated list titles on a touch phone', () => {
+  test.use({
+    viewport: { width: 375, height: 812 },
+    hasTouch: true,
+    isMobile: true,
+    userAgent:
+      'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36',
+  });
+
+  test('a long-press shows the full title, and swiping on it still scrolls', async ({
+    page,
+  }) => {
+    const long = unique(
+      'A very long list title that cannot possibly fit on a phone screen in one line',
+    );
+    await openLists(page);
+    await createList(page, long);
+    const link = row(page, long).getByRole('link');
+    await link.scrollIntoViewIfNeeded();
+
+    // A touch that starts on the title may scroll the page (no touch-action: none).
+    await expect(link).not.toHaveCSS('touch-action', 'none');
+
+    const point = await link.evaluate((el) => {
+      const box = el.getBoundingClientRect();
+      return { x: box.x + 20, y: box.y + box.height / 2 };
+    });
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [point],
+    });
+    await expect(page.locator('.mat-mdc-tooltip')).toHaveText(long);
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchEnd',
+      touchPoints: [],
+    });
+    // The press was for reading the title, not for opening the list.
+    await expect(page).toHaveURL(/\/lists$/);
+    await expect(page.locator('.mat-mdc-tooltip')).toHaveCount(0);
+  });
+});

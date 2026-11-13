@@ -10,3 +10,7 @@
 .hint {
   color: var(--mat-sys-on-surface-variant);
 }
+// The title span itself is what gets cut off (not Material's wrapper), so the tooltip can measure it.
+.title {
+  display: block;
+}

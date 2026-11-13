@@ -15,7 +15,12 @@ import {
 } from '@angular/material/form-field';
 import { MatIcon } from '@angular/material/icon';
 import { MatInput } from '@angular/material/input';
-import { MatActionList, MatListItem } from '@angular/material/list';
+import {
+  MatActionList,
+  MatListItem,
+  MatListItemTitle,
+} from '@angular/material/list';
+import { TruncatedTooltip } from '../truncated-tooltip/truncated-tooltip';
 
 export interface ListChoice {
   id: string;
@@ -46,7 +51,9 @@ const fold = (text: string) =>
     MatInput,
     MatLabel,
     MatListItem,
+    MatListItemTitle,
     MatPrefix,
+    TruncatedTooltip,
   ],
   templateUrl: './list-picker-dialog.html',
   styleUrl: './list-picker-dialog.scss',
