@@ -40,19 +40,27 @@ export class App {
   private readonly content =
     viewChild.required<ElementRef<HTMLElement>>('content');
   private readonly router = inject(Router);
-  private readonly url = toSignal(
+  /** The current page, or `null` while the first one is still being decided. */
+  private readonly url = toSignal<string | null, string | null>(
     this.router.events.pipe(
       filter((event) => event instanceof NavigationEnd),
-      map(() => this.router.url),
+      map((): string | null => this.router.url),
     ),
-    { initialValue: this.router.url },
+    { initialValue: this.router.navigated ? this.router.url : null },
   );
-  /** Sign-in, setup and the forced password change come without the app's navigation. */
-  protected readonly bare = computed(() => isBarePath(this.url()));
+  /**
+   * Sign-in, setup and the forced password change come without the app's navigation. So does
+   * the moment before the first page is known: the sign-in check may still send the visitor to
+   * sign-in, and they must not see the app's navigation flash up first.
+   */
+  protected readonly bare = computed(() => {
+    const url = this.url();
+    return url === null || isBarePath(url);
+  });
   /** The top app bar's title on phones: the current destination. */
   protected readonly title = computed(
     () =>
-      DESTINATIONS.find((d) => this.url().startsWith(d.path))?.label ??
+      DESTINATIONS.find((d) => this.url()?.startsWith(d.path))?.label ??
       'Lister',
   );
 

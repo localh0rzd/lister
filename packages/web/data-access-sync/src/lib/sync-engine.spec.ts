@@ -13,6 +13,7 @@ import {
   applyMutation,
   parseMutation,
 } from '@lister/shared/sync-protocol';
+import { USER_STORAGE_KEY } from '@lister/web/data-access-auth';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { SyncEngine } from './sync-engine';
 import {
@@ -40,6 +41,8 @@ class FakeServer {
   autoAnswer = true;
   /** Like Socket.IO between reconnect attempts: connect() does nothing until disconnect(). */
   backingOff = false;
+  /** Whom the session cookie belongs to: the user the welcome names. */
+  userId = USER;
   private readonly handlers = new Map<
     string,
     ((payload?: unknown) => void)[]
@@ -104,7 +107,7 @@ class FakeServer {
   private handle(event: string, payload: unknown) {
     if (event === 'hello') {
       this.fire('welcome', {
-        userId: USER,
+        userId: this.userId,
         spaces: [
           { id: SPACE, name: 'Home', version: this.version, members: [] },
         ],
@@ -1019,6 +1022,46 @@ describe('SyncEngine', () => {
         await eventually(() => expect(engine.online()).toBe(true));
       });
 
+      it('tries again when another tab signs in, without waiting for this tab to be focused', async () => {
+        setup();
+        engine.start();
+        await settle();
+        refuse();
+        await createList('Kept');
+        await settle();
+
+        window.dispatchEvent(
+          new StorageEvent('storage', {
+            key: USER_STORAGE_KEY,
+            newValue: '{"id":"someone"}',
+          }),
+        );
+        await settle();
+
+        await eventually(() => {
+          expect(engine.online()).toBe(true);
+          expect(engine.pendingCount()).toBe(0);
+        });
+      });
+
+      it('ignores storage changes that are not a sign-in', async () => {
+        setup();
+        engine.start();
+        await settle();
+        refuse();
+        await settle();
+
+        window.dispatchEvent(
+          new StorageEvent('storage', {
+            key: 'lister.theme',
+            newValue: 'dark',
+          }),
+        );
+        await settle();
+
+        expect(server.connectCalls).toBe(1);
+      });
+
       it('does not reconnect on focus while nothing was refused', async () => {
         setup();
         engine.start();
@@ -1138,6 +1181,39 @@ describe('SyncEngine', () => {
       expect(await db.syncState.get(SPACE)).toBeUndefined();
       expect(await outbox()).toEqual([]);
       expect(await db.lists.where('spaceId').equals(other).count()).toBe(1);
+    });
+
+    it("wipes the previous user's data, pending changes included, when somebody else is welcomed", async () => {
+      setup();
+      engine.start();
+      await settle();
+      const synced = await createList('Anna’s');
+      await settle();
+      server.autoAnswer = false;
+      await createList('Anna’s, not synced');
+      await settle();
+      server.drop();
+      await settle();
+      const pushesBefore = server.sent('push').length;
+
+      // Somebody else signed in on this device, and the connection came back with their session
+      // before the sign-in page wiped the device. Both are members of SPACE.
+      server.userId = newId();
+      server.autoAnswer = true;
+      server.socket.connect();
+      await settle();
+
+      await eventually(() => expect(engine.online()).toBe(true));
+      expect(await outbox()).toEqual([]);
+      expect(server.sent('push')).toHaveLength(pushesBefore);
+      expect(await db.meta.get('userId')).toEqual({
+        key: 'userId',
+        value: server.userId,
+      });
+      // The space is synced afresh for the new user.
+      expect(await visibleList(synced)).toEqual(
+        expect.objectContaining({ title: 'Anna’s' }),
+      );
     });
 
     it('syncs every space the server welcomes', async () => {

@@ -20,6 +20,8 @@ for (const [name, viewport] of layouts) {
       browser,
       expectAccessible,
     }) => {
+      // Many steps, several password hashes and notices that must fade: about 25 s on its own.
+      test.setTimeout(60_000);
       const username = uniqueUsername('admin-ui');
       const row = page.getByRole('listitem').filter({ hasText: username });
       const added = `Added ${username}`;

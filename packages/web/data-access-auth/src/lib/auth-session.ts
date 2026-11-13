@@ -1,6 +1,13 @@
 import { DOCUMENT } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Injector, Service, computed, inject, signal } from '@angular/core';
+import {
+  DestroyRef,
+  Injector,
+  Service,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import {
   type ChangePasswordRequest,
@@ -54,6 +61,27 @@ export class AuthSession {
   /** The signed-in user, or `null` before the first check or when signed out. */
   readonly user = this.current.asReadonly();
   readonly isAdmin = computed(() => this.current()?.isAdmin === true);
+
+  constructor() {
+    // Signing in or out in another tab stores the user there (`remember`). This tab must not
+    // carry on as the previous user, so it starts afresh; the same user is simply kept up to date.
+    const followOtherTabs = (event: StorageEvent) => {
+      if (event.key !== USER_STORAGE_KEY) return;
+      const stored = parseUser(event.newValue);
+      if (!stored) {
+        if (this.current()) this.navigator.load('/sign-in');
+      } else if (stored.id === this.current()?.id) {
+        this.current.set(stored);
+        this.pending = Promise.resolve(stored);
+      } else {
+        this.navigator.load('/');
+      }
+    };
+    this.window?.addEventListener('storage', followOtherTabs);
+    inject(DestroyRef).onDestroy(() =>
+      this.window?.removeEventListener('storage', followOtherTabs),
+    );
+  }
 
   /** The user, asked of the server once and remembered afterwards (route guards use this). */
   ensure(): Promise<CurrentUser | null> {
@@ -188,10 +216,17 @@ export class AuthSession {
 
   private readStored(): CurrentUser | null {
     try {
-      const stored = this.window?.localStorage.getItem(USER_STORAGE_KEY);
-      return stored ? (JSON.parse(stored) as CurrentUser) : null;
+      return parseUser(this.window?.localStorage.getItem(USER_STORAGE_KEY));
     } catch {
       return null;
     }
+  }
+}
+
+function parseUser(stored: string | null | undefined): CurrentUser | null {
+  try {
+    return stored ? (JSON.parse(stored) as CurrentUser) : null;
+  } catch {
+    return null;
   }
 }

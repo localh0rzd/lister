@@ -1,6 +1,6 @@
 import { DeferBlockBehavior, TestBed } from '@angular/core/testing';
 import { BreakpointObserver, type BreakpointState } from '@angular/cdk/layout';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { Component } from '@angular/core';
 import { of } from 'rxjs';
@@ -9,14 +9,14 @@ import { App } from './app';
 @Component({ template: '<h1>Page</h1>' })
 class Page {}
 
-function setup(wide: boolean) {
+function setup(wide: boolean, canActivate: (() => Promise<boolean>)[] = []) {
   TestBed.configureTestingModule({
     // The deferred sync indicator needs the sync engine; it has its own tests.
     deferBlockBehavior: DeferBlockBehavior.Manual,
     imports: [App],
     providers: [
       provideRouter([
-        { path: 'lists', component: Page },
+        { path: 'lists', component: Page, canActivate },
         { path: 'runs', component: Page },
         { path: 'space', component: Page },
         { path: 'sign-in', component: Page },
@@ -100,4 +100,23 @@ describe('App shell', () => {
       }
     },
   );
+
+  it('shows no navigation while the first page is still being decided (e.g. the sign-in check)', async () => {
+    let allow!: (ok: boolean) => void;
+    setup(true, [() => new Promise<boolean>((resolve) => (allow = resolve))]);
+    const fixture = TestBed.createComponent(App);
+    const el = fixture.nativeElement as HTMLElement;
+    const router = TestBed.inject(Router);
+    const navigation = router.navigateByUrl('/lists');
+    await vi.waitFor(() => expect(allow).toBeTypeOf('function'));
+    // The guard is still waiting: the router counts as busy, so there is no whenStable() yet.
+    fixture.detectChanges();
+
+    expect(el.querySelector('lister-navigation-rail')).toBeNull();
+
+    allow(true);
+    await navigation;
+    await fixture.whenStable();
+    expect(el.querySelector('lister-navigation-rail')).not.toBeNull();
+  });
 });

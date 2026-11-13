@@ -8,6 +8,7 @@ import {
   inject,
 } from '@angular/core';
 import { liveQuery } from 'dexie';
+import { USER_STORAGE_KEY } from '@lister/web/data-access-auth';
 import { newId } from '@lister/shared/domain';
 import {
   type Ack,
@@ -392,9 +393,14 @@ export class SyncEngine {
     const retrySignIn = () => {
       if (this.connection.signInRequired) goOnline();
     };
+    // Signing in in another tab stores the user there; this tab may hold the sync lock.
+    const retryAfterSignIn = (event: StorageEvent) => {
+      if (event.key === USER_STORAGE_KEY) retrySignIn();
+    };
     this.window?.addEventListener('offline', goOffline);
     this.window?.addEventListener('online', goOnline);
     this.window?.addEventListener('focus', retrySignIn);
+    this.window?.addEventListener('storage', retryAfterSignIn);
 
     // Push whatever any tab adds to the outbox.
     const outbox = liveQuery(() => this.db.outbox.count()).subscribe(
@@ -404,6 +410,7 @@ export class SyncEngine {
       this.window?.removeEventListener('offline', goOffline);
       this.window?.removeEventListener('online', goOnline);
       this.window?.removeEventListener('focus', retrySignIn);
+      this.window?.removeEventListener('storage', retryAfterSignIn);
       outbox.unsubscribe();
       clearTimeout(this.reconnectTimer);
       socket.disconnect();
@@ -488,13 +495,20 @@ export class SyncEngine {
     const current = new Set(welcome.spaces.map((space) => space.id));
     await this.db.transaction(
       'rw',
-      [...this.syncTables(), this.db.spaces],
+      [...this.syncTables(), this.db.spaces, this.db.rejections],
       async () => {
+        // Whoever signs in on this device normally finds it wiped already (`AuthSession`). If
+        // the connection came back with somebody else's session first, nothing of the previous
+        // user may stay or be sent under the new one: not even pending changes to a space both
+        // share.
+        const holder = (await this.db.meta.get('userId'))?.value;
+        const otherUser = holder !== undefined && holder !== welcome.userId;
         await this.db.meta.put({ key: 'userId', value: welcome.userId });
+        if (otherUser) await this.db.rejections.clear();
         // A space missing from the welcome is one the user left, was removed from, or that was
         // deleted: stop syncing it and drop what this device holds of it.
         for (const known of await this.db.spaces.toCollection().primaryKeys()) {
-          if (!current.has(known)) await this.dropSpace(known);
+          if (otherUser || !current.has(known)) await this.dropSpace(known);
         }
         await this.db.spaces.bulkPut(welcome.spaces);
       },

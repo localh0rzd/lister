@@ -304,6 +304,49 @@ describe('AuthSession', () => {
       expect(load).not.toHaveBeenCalled();
     });
   });
+
+  describe('another tab', () => {
+    const otherTabStores = (value: CurrentUser | null) =>
+      window.dispatchEvent(
+        new StorageEvent('storage', {
+          key: USER_STORAGE_KEY,
+          newValue: value ? JSON.stringify(value) : null,
+        }),
+      );
+
+    beforeEach(async () => {
+      const first = session.ensure();
+      flushMe(anna);
+      await first;
+    });
+
+    it('loads the sign-in page when the user signed out there', () => {
+      otherTabStores(null);
+
+      expect(load).toHaveBeenCalledWith('/sign-in');
+    });
+
+    it('loads the app afresh when somebody else signed in there', () => {
+      otherTabStores({ ...anna, id: newId(), username: 'ben' });
+
+      expect(load).toHaveBeenCalledWith('/');
+    });
+
+    it('keeps going, with the new details, when the same user signed in or edited the profile there', () => {
+      otherTabStores({ ...anna, displayName: 'Anna B' });
+
+      expect(load).not.toHaveBeenCalled();
+      expect(session.user()?.displayName).toBe('Anna B');
+    });
+
+    it('ignores other keys', () => {
+      window.dispatchEvent(
+        new StorageEvent('storage', { key: 'lister.theme', newValue: 'dark' }),
+      );
+
+      expect(load).not.toHaveBeenCalled();
+    });
+  });
 });
 
 describe('describeAuthError', () => {
