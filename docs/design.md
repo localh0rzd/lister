@@ -480,8 +480,11 @@ client                                     server
   signed-in user. When memberships change over REST (add, remove, leave, delete, rename),
   the server moves the affected users' connected sockets in or out of the space's room at once
   and sends each a fresh welcome; the client drops every space missing from it, with its rows,
-  sync position and pending changes. A session that ends (sign-out, password change, deleted
-  account) ends the connection at its next message.
+  sync position and pending changes. A session that ends (sign-out, password change or reset,
+  deleted account) ends its connections at once (`AccountEvents` from `feature-auth`), and the
+  members of a deleted or renamed user's spaces get a fresh welcome. Every poke also checks the
+  sessions of the sockets it reaches and disconnects those that ended or expired, so no change
+  ever reaches a signed-out device.
 - **Rooms:** one Socket.IO room per space. A space's data is small, and offline use needs all of it
   anyway. Per-list rooms only for presence, later.
 

@@ -18,5 +18,8 @@ Synced data on the server (design §4.2).
   only connections with a live session cookie (`AuthService.authenticate`); the user lands in
   `socket.data`.
 - Authorization is re-checked in the database on every pull and push (`SyncReader.isMember`,
-  `AuthService.isSessionActive`); rooms are kept in step by `SyncGateway.membershipsChanged()`,
-  which `feature-spaces` calls after every membership change.
+  `AuthService.isSessionActive`), and every poke checks the sessions of the sockets in the room
+  (`AuthService.activeSessions`); rooms are kept in step by `SyncGateway.membershipsChanged()`,
+  which `feature-spaces` calls after every membership change. The gateway also listens to
+  `AccountEvents` (`feature-auth`): ended sessions disconnect at once, and a deleted or renamed
+  user's co-members get a fresh welcome.

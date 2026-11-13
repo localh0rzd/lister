@@ -6,7 +6,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { and, eq, lt, ne, sql } from 'drizzle-orm';
+import { and, eq, gt, inArray, lt, ne, sql } from 'drizzle-orm';
 import {
   DatabaseConnection,
   findUserByUsername,
@@ -15,6 +15,7 @@ import {
 } from '@lister/api/data-access-db';
 import type { CurrentUser } from '@lister/shared/api-contracts';
 import { newId } from '@lister/shared/domain';
+import { AccountEvents } from './account-events';
 import { AUTH_CLOCK, type Clock } from './clock';
 import { hashPassword, verifyPassword } from './password';
 
@@ -63,6 +64,7 @@ export class AuthService {
   constructor(
     private readonly database: DatabaseConnection,
     @Inject(AUTH_CLOCK) private readonly clock: Clock,
+    private readonly events: AccountEvents = new AccountEvents(),
   ) {
     // Built up front, so the first unknown-user sign-in isn't slower than the rest.
     void this.getDummyHash();
@@ -166,27 +168,46 @@ export class AuthService {
 
   /**
    * Whether the session (by id, as in `authenticate()`) still exists and hasn't expired. Long-lived
-   * connections (the sync socket) check it on every message, so signing out, a password change
-   * or a deleted account ends them. Read-only: it doesn't renew the session.
+   * connections (the sync socket) check it on every message. Read-only: it doesn't renew the
+   * session.
    */
   isSessionActive(sessionId: string): boolean {
-    const session = this.database.db
-      .select({ expiresAt: schema.sessions.expiresAt })
-      .from(schema.sessions)
-      .where(eq(schema.sessions.id, sessionId))
-      .get();
-    return session !== undefined && session.expiresAt > this.clock();
+    return this.activeSessions([sessionId]).has(sessionId);
   }
 
-  /** Ends one session; unknown ids are fine. */
+  /** Which of these sessions still exist and haven't expired (one query; read-only). */
+  activeSessions(sessionIds: readonly string[]): Set<string> {
+    if (sessionIds.length === 0) return new Set();
+    return new Set(
+      this.database.db
+        .select({ id: schema.sessions.id })
+        .from(schema.sessions)
+        .where(
+          and(
+            inArray(schema.sessions.id, [...sessionIds]),
+            gt(schema.sessions.expiresAt, this.clock()),
+          ),
+        )
+        .all()
+        .map((row) => row.id),
+    );
+  }
+
+  /**
+   * Ends one session; unknown ids are fine. Announces it (`AccountEvents`), so a sync socket on
+   * that session ends at once.
+   */
   endSession(sessionId: string): void {
-    this.database.db
+    const ended = this.database.db
       .delete(schema.sessions)
       .where(eq(schema.sessions.id, sessionId))
-      .run();
+      .returning({ userId: schema.sessions.userId })
+      .get();
+    if (ended)
+      this.events.emit({ kind: 'sessionsEnded', userId: ended.userId });
   }
 
-  /** Ends all of a user's sessions, except `keepSessionId`. */
+  /** Ends all of a user's sessions, except `keepSessionId`, and announces it like `endSession`. */
   endSessionsOf(userId: string, keepSessionId?: string): void {
     this.database.db
       .delete(schema.sessions)
@@ -199,6 +220,7 @@ export class AuthService {
           : eq(schema.sessions.userId, userId),
       )
       .run();
+    this.events.emit({ kind: 'sessionsEnded', userId });
   }
 
   /** Deletes expired sessions. */

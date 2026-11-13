@@ -508,6 +508,129 @@ describe('sync gateway', () => {
 
       expect(await gone).toBe('io server disconnect');
     });
+
+    describe('when a connected client’s session ends', () => {
+      /** An admin, for the user administration routes. */
+      const admin = async () => {
+        await createAccount(api, 'root', { isAdmin: true });
+        return signIn(api, 'root');
+      };
+
+      it.each([
+        [
+          'it signs out',
+          () => send(api, 'POST', '/auth/logout', { cookie: cookies.ben }),
+        ],
+        [
+          'it changes its password on another device',
+          async () => {
+            const other = await signIn(api, 'ben');
+            return send(api, 'POST', '/auth/password', {
+              cookie: other,
+              body: {
+                currentPassword: 'correct horse battery',
+                newPassword: 'a new long password',
+              },
+            });
+          },
+        ],
+        [
+          'an admin resets its password',
+          async () =>
+            send(api, 'POST', `/users/${ids.ben}/password`, {
+              cookie: await admin(),
+              body: { temporaryPassword: 'a temporary password' },
+            }),
+        ],
+        [
+          'an admin deletes the account',
+          async () =>
+            send(api, 'DELETE', `/users/${ids.ben}`, {
+              cookie: await admin(),
+            }),
+        ],
+      ])('disconnects it at once when %s', async (_, end) => {
+        const ben = await helloed('ben');
+        const gone = disconnected(ben.client);
+
+        const response = await end();
+
+        expect(response.ok).toBe(true);
+        expect(await gone).toBe('io server disconnect');
+      });
+
+      it('keeps the other connections of the user, and pokes nobody signed out', async () => {
+        const anna = await helloed('anna');
+        const ben = await helloed('ben');
+        const benPokes = collect(ben.client, 'poke');
+        const gone = disconnected(ben.client);
+        const otherCookie = await signIn(api, 'anna');
+        const annaOther = connect({ cookie: otherCookie });
+        const otherWelcome = next(annaOther, 'welcome');
+        annaOther.emit('hello', {
+          protocolVersion: PROTOCOL_VERSION,
+          clientId: newId(),
+        });
+        await otherWelcome;
+
+        await send(api, 'POST', '/auth/logout', { cookie: otherCookie });
+        await send(api, 'POST', '/auth/logout', { cookie: cookies.ben });
+        await gone;
+
+        const poked = next(anna.client, 'poke');
+        anna.client.emit('push', {
+          mutations: [mutation('list.create', { id: newId(), title: 'Hi' })],
+        });
+        await poked;
+        expect(anna.client.connected).toBe(true);
+        expect(annaOther.connected).toBe(false);
+        expect(benPokes).toEqual([]);
+      });
+
+      it('disconnects a client whose session expired instead of poking it', async () => {
+        const anna = await helloed('anna');
+        const ben = await helloed('ben');
+        const benPokes = collect(ben.client, 'poke');
+        const gone = disconnected(ben.client);
+        // Expiry announces nothing: the poke finds out.
+        api.database.db
+          .update(schema.sessions)
+          .set({ expiresAt: 1 })
+          .where(eq(schema.sessions.userId, ids.ben))
+          .run();
+
+        const poked = next(anna.client, 'poke');
+        anna.client.emit('push', {
+          mutations: [mutation('list.create', { id: newId(), title: 'Hi' })],
+        });
+
+        expect(await poked).toMatchObject({ spaceId, version: 1 });
+        expect(await gone).toBe('io server disconnect');
+        expect(benPokes).toEqual([]);
+      });
+    });
+
+    it('gives the other members a fresh welcome when an account is deleted or renamed', async () => {
+      await createAccount(api, 'root', { isAdmin: true });
+      const root = await signIn(api, 'root');
+      const ben = await helloed('ben');
+      const members = async () =>
+        (await next(ben.client, 'welcome')).spaces
+          .find((s) => s.id === spaceId)
+          ?.members.map((m) => m.displayName);
+
+      const renamed = members();
+      await send(api, 'PATCH', `/users/${ids.anna}`, {
+        cookie: root,
+        body: { displayName: 'Anna B.' },
+      });
+      expect(await renamed).toEqual(['Anna B.', 'ben display']);
+
+      // Anna owned "Home": Ben takes it over, as its only member.
+      const deleted = members();
+      await send(api, 'DELETE', `/users/${ids.anna}`, { cookie: root });
+      expect(await deleted).toEqual(['ben display']);
+    });
   });
 
   describe('failures', () => {

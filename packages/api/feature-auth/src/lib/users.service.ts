@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, asc, eq, ne, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, ne, sql } from 'drizzle-orm';
 import {
   DatabaseConnection,
   deleteSpace,
@@ -13,6 +13,7 @@ import type {
   CurrentUser,
   UpdateUserRequest,
 } from '@lister/shared/api-contracts';
+import { AccountEvents } from './account-events';
 import { AuthService, toCurrentUser } from './auth.service';
 import { hashPassword } from './password';
 
@@ -22,6 +23,7 @@ export class UsersService {
   constructor(
     private readonly database: DatabaseConnection,
     private readonly auth: AuthService,
+    private readonly events: AccountEvents = new AccountEvents(),
   ) {}
 
   list(): CurrentUser[] {
@@ -53,7 +55,7 @@ export class UsersService {
    * as the write, so two concurrent requests can't both demote the last two admins.
    */
   update(id: string, changes: UpdateUserRequest): CurrentUser {
-    return this.database.sqlite.transaction(() => {
+    const updated = this.database.sqlite.transaction(() => {
       const row = this.find(id);
       if (changes.isAdmin === false && row.isAdmin) this.assertOtherAdmin(id);
       if (changes.username !== undefined) {
@@ -78,6 +80,14 @@ export class UsersService {
           .get(),
       );
     })();
+    // The welcome shows members' display names: the user's spaces get a fresh one.
+    if (changes.displayName !== undefined) {
+      this.events.emit({
+        kind: 'membersChanged',
+        userIds: [id, ...this.coMembersOf(id)],
+      });
+    }
+    return updated;
   }
 
   /**
@@ -86,16 +96,43 @@ export class UsersService {
    * deleted when nobody else is in it. The last admin can't be deleted (409).
    */
   remove(id: string): void {
-    this.database.sqlite.transaction(() => {
+    const coMembers = this.database.sqlite.transaction(() => {
       const row = this.find(id);
       if (row.isAdmin) this.assertOtherAdmin(id);
+      const coMembers = this.coMembersOf(id);
       this.releaseSpaces(id);
-      // Sessions and memberships go with the user (`on delete cascade`).
+      // Ended explicitly (not only by `on delete cascade`), so their sync sockets end at once.
+      this.auth.endSessionsOf(id);
+      // Memberships go with the user (`on delete cascade`).
       this.database.db
         .delete(schema.users)
         .where(eq(schema.users.id, id))
         .run();
+      return coMembers;
     })();
+    // The others' spaces lost a member (and maybe changed owner): they get a fresh welcome.
+    if (coMembers.length > 0) {
+      this.events.emit({ kind: 'membersChanged', userIds: coMembers });
+    }
+  }
+
+  /** The other members of the user's spaces. */
+  private coMembersOf(userId: string): string[] {
+    const theirs = this.database.db
+      .select({ spaceId: schema.memberships.spaceId })
+      .from(schema.memberships)
+      .where(eq(schema.memberships.userId, userId));
+    return this.database.db
+      .selectDistinct({ userId: schema.memberships.userId })
+      .from(schema.memberships)
+      .where(
+        and(
+          inArray(schema.memberships.spaceId, theirs),
+          ne(schema.memberships.userId, userId),
+        ),
+      )
+      .all()
+      .map((row) => row.userId);
   }
 
   /** Sets a temporary password, which must be changed at the next sign-in, and ends the sessions. */

@@ -1,5 +1,13 @@
-import { Logger } from '@nestjs/common';
-import { AuthService } from '@lister/api/feature-auth';
+import {
+  Logger,
+  type OnModuleDestroy,
+  type OnModuleInit,
+} from '@nestjs/common';
+import {
+  type AccountEvent,
+  AccountEvents,
+  AuthService,
+} from '@lister/api/feature-auth';
 import {
   ConnectedSocket,
   MessageBody,
@@ -48,21 +56,52 @@ export const spaceRoom = (spaceId: string) => `space:${spaceId}`;
  * handshake and the WebSocket-only transport live in `SyncIoAdapter`.
  *
  * Authorization never trusts what the socket remembers: every pull and push asks the database
- * whether the user is still a member (and the session still alive). The rooms are kept in step
- * by `membershipsChanged()`, which the spaces feature calls after every membership change.
+ * whether the user is still a member (and the session still alive), and so does every poke for
+ * the sockets it reaches. The rooms are kept in step by `membershipsChanged()`, which the spaces
+ * feature calls after every membership change; `AccountEvents` ends the connections of ended
+ * sessions at once and re-welcomes the members of a deleted or renamed user's spaces.
  */
 @WebSocketGateway()
-export class SyncGateway {
+export class SyncGateway implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(SyncGateway.name);
 
+  /** Unset in an application context without an HTTP server (the reset command). */
   @WebSocketServer()
-  private readonly server!: SyncServer;
+  private readonly server?: SyncServer;
+
+  private unsubscribe?: () => void;
 
   constructor(
     private readonly mutations: MutationService,
     private readonly reader: SyncReader,
     private readonly auth: AuthService,
+    private readonly accounts: AccountEvents,
   ) {}
+
+  onModuleInit(): void {
+    this.unsubscribe = this.accounts.subscribe((event) =>
+      this.onAccountEvent(event),
+    );
+  }
+
+  onModuleDestroy(): void {
+    this.unsubscribe?.();
+  }
+
+  private onAccountEvent(event: AccountEvent): void {
+    if (event.kind === 'membersChanged') {
+      this.membershipsChanged(event.userIds);
+      return;
+    }
+    // Sessions of this user ended: their connections end now, not at their next message.
+    for (const socket of this.sockets()) {
+      if (socket.data.userId === event.userId) this.signedIn(socket);
+    }
+  }
+
+  private sockets(): Iterable<SyncSocket> {
+    return this.server?.sockets.sockets.values() ?? [];
+  }
 
   /**
    * Call after the memberships (or the name) of these users' spaces changed: each of their
@@ -72,9 +111,10 @@ export class SyncGateway {
    */
   membershipsChanged(userIds: Iterable<string>): void {
     const users = new Set(userIds);
-    for (const socket of this.server.sockets.sockets.values()) {
-      if (socket.data.clientId && socket.data.userId) {
-        if (users.has(socket.data.userId)) this.welcome(socket);
+    for (const socket of this.sockets()) {
+      const { clientId, userId } = socket.data;
+      if (clientId && userId && users.has(userId) && this.signedIn(socket)) {
+        this.welcome(socket);
       }
     }
   }
@@ -172,9 +212,7 @@ export class SyncGateway {
       }
       const { result, spaceId, rows } = applied;
       if (spaceId && result.status === 'ack') {
-        this.server
-          .to(spaceRoom(spaceId))
-          .emit('poke', { spaceId, version: result.version, rows });
+        this.poke({ spaceId, version: result.version, rows });
       }
       if (result.status === 'ack') {
         socket.emit('ack', {
@@ -187,6 +225,27 @@ export class SyncGateway {
           reason: result.reason,
         });
       }
+    }
+  }
+
+  /**
+   * Sends the changed rows to everyone in the space's room whose session is still alive (one
+   * query for all of them); a socket whose session ended or expired is disconnected instead.
+   */
+  private poke(poke: Parameters<ServerToClientEvents['poke']>[0]): void {
+    const ids = this.server?.sockets.adapter.rooms.get(spaceRoom(poke.spaceId));
+    if (!ids) return;
+    const sockets = [...ids].flatMap((id) => {
+      const socket = this.server?.sockets.sockets.get(id);
+      return socket ? [socket] : [];
+    });
+    const live = this.auth.activeSessions(
+      sockets.flatMap((socket) => socket.data.sessionId ?? []),
+    );
+    for (const socket of sockets) {
+      const { sessionId } = socket.data;
+      if (sessionId && live.has(sessionId)) socket.emit('poke', poke);
+      else this.drop(socket, 'the session ended');
     }
   }
 

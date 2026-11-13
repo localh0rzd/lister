@@ -1,3 +1,4 @@
+export * from './lib/account-events';
 export * from './lib/auth.guard';
 export * from './lib/auth.module';
 export * from './lib/auth.service';

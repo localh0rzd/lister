@@ -13,7 +13,12 @@ Accounts, sessions and sign-in (design §2.3, D9, D15). The `users` and `session
 - Sessions: a random token in an httpOnly, SameSite=Lax cookie (`Secure` when `PUBLIC_URL` is
   https). Only the token's SHA-256 is stored. 90 days, renewed on use (at most once an hour).
   `AuthService.authenticate(token)` is what the socket handshake uses (`SyncIoAdapter`), and
-  `isSessionActive()` is what the gateway re-checks on every message.
+  `isSessionActive()` is what the gateway re-checks on every message (`activeSessions()` for
+  every poke).
+- `AccountEvents` announces changes that open connections must act on at once, without this
+  library depending on `feature-sync`: `sessionsEnded` (from `endSession`/`endSessionsOf`, so
+  sign-out, password change and reset, and account deletion) and `membersChanged` (the co-members
+  of a deleted user, or of one whose display name changed). `SyncGateway` subscribes.
 - Setup: while no account exists, the server logs a one-time token at startup; `POST /auth/setup`
   with it creates the first admin. It lives in memory, so a restart logs a new one.
   `LISTER_SETUP_TOKEN` (16+ characters) fixes it instead, for the e2e suites; it is never logged.

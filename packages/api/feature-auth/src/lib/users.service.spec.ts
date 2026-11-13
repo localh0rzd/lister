@@ -6,6 +6,7 @@ import {
   insertSpace,
   schema,
 } from '@lister/api/data-access-db';
+import { type AccountEvent, AccountEvents } from './account-events';
 import { AuthService } from './auth.service';
 import { verifyPassword } from './password';
 import { UsersService } from './users.service';
@@ -14,11 +15,15 @@ describe('UsersService', () => {
   let database: DatabaseConnection;
   let auth: AuthService;
   let users: UsersService;
+  let events: AccountEvent[];
 
   beforeEach(() => {
     database = createTestDatabase();
-    auth = new AuthService(database, () => 1_000_000);
-    users = new UsersService(database, auth);
+    const accountEvents = new AccountEvents();
+    events = [];
+    accountEvents.subscribe((event) => events.push(event));
+    auth = new AuthService(database, () => 1_000_000, accountEvents);
+    users = new UsersService(database, auth, accountEvents);
   });
   afterEach(() => database.onApplicationShutdown());
 
@@ -53,6 +58,33 @@ describe('UsersService', () => {
   });
 
   describe('update', () => {
+    it('tells the members of their spaces when the display name changes, and only then', async () => {
+      const anna = await add('anna');
+      const ben = await add('ben');
+      database.db
+        .insert(schema.memberships)
+        .values({
+          spaceId: insertSpace(database.db, {
+            name: 'Family',
+            ownerId: anna.id,
+            personal: false,
+            now: 1,
+          }).id,
+          userId: ben.id,
+          role: 'member',
+          createdAt: 2,
+        })
+        .run();
+      events.length = 0;
+
+      users.update(anna.id, { username: 'anna2', isAdmin: true });
+      users.update(anna.id, { displayName: 'Anna B' });
+
+      expect(events).toEqual([
+        { kind: 'membersChanged', userIds: [anna.id, ben.id] },
+      ]);
+    });
+
     it('changes the fields that are given and leaves the rest', async () => {
       const anna = await add('anna');
 
@@ -237,6 +269,29 @@ describe('UsersService', () => {
 
       expect(() => users.remove(only.id)).toThrow(ConflictException);
       expect(auth.findByUsername('only')).toBeDefined();
+    });
+
+    it('ends their sessions, then tells the members of their spaces', async () => {
+      await add('admin', true);
+      const anna = await add('anna');
+      const ben = await add('ben');
+      const carl = await add('carl');
+      const shared = insertSpace(database.db, {
+        name: 'Family',
+        ownerId: anna.id,
+        personal: false,
+        now: 1,
+      });
+      join(shared.id, ben.id, 2);
+      join(personalSpaceOf(carl.id) as string, ben.id, 3);
+      events.length = 0;
+
+      users.remove(anna.id);
+
+      expect(events).toEqual([
+        { kind: 'sessionsEnded', userId: anna.id },
+        { kind: 'membersChanged', userIds: [ben.id] },
+      ]);
     });
 
     it('deletes an admin while another remains', async () => {

@@ -8,6 +8,8 @@ import {
   createTestDatabase,
   schema,
 } from '@lister/api/data-access-db';
+import { eq } from 'drizzle-orm';
+import { type AccountEvent, AccountEvents } from './account-events';
 import {
   AuthService,
   SESSION_LIFETIME_MS,
@@ -190,6 +192,42 @@ describe('AuthService', () => {
 
       auth.endSession(sessionId);
       expect(auth.isSessionActive(sessionId)).toBe(false);
+    });
+
+    it('tells which of several sessions are active, in one call', () => {
+      const anna = auth.authenticate(token)?.sessionId as string;
+      const row = auth.findByUsername('anna');
+      if (!row) throw new Error('missing');
+      const other = auth.authenticate(auth.startSession(row).token)
+        ?.sessionId as string;
+      database.db
+        .update(schema.sessions)
+        .set({ expiresAt: now })
+        .where(eq(schema.sessions.id, other))
+        .run();
+
+      expect(auth.activeSessions([anna, other, 'unknown'])).toEqual(
+        new Set([anna]),
+      );
+      expect(auth.activeSessions([])).toEqual(new Set());
+    });
+
+    it('announces ended sessions, so open connections can end', () => {
+      const events = new AccountEvents();
+      const seen: AccountEvent[] = [];
+      events.subscribe((event) => seen.push(event));
+      auth = new AuthService(database, () => now, events);
+      const found = auth.authenticate(token);
+      if (!found) throw new Error('missing');
+
+      auth.endSession('unknown');
+      auth.endSession(found.sessionId);
+      auth.endSessionsOf(found.user.id);
+
+      expect(seen).toEqual([
+        { kind: 'sessionsEnded', userId: found.user.id },
+        { kind: 'sessionsEnded', userId: found.user.id },
+      ]);
     });
 
     it('purges expired sessions', () => {

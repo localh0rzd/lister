@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import { AccountEvents } from './account-events';
 import { AttemptLimits } from './attempt-limits.service';
 import { AuthController } from './auth.controller';
 import { AuthGuard } from './auth.guard';
@@ -16,6 +17,7 @@ import { UsersService } from './users.service';
 @Module({
   controllers: [AuthController, UsersController],
   providers: [
+    AccountEvents,
     AuthService,
     UsersService,
     SetupTokenService,
@@ -24,6 +26,6 @@ import { UsersService } from './users.service';
     { provide: APP_GUARD, useExisting: AuthGuard },
     { provide: AUTH_CLOCK, useValue: (() => Date.now()) satisfies Clock },
   ],
-  exports: [AuthService],
+  exports: [AuthService, AccountEvents],
 })
 export class AuthModule {}
