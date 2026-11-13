@@ -432,7 +432,7 @@ describe('sync gateway', () => {
       expect(anna.welcome.spaces.map((space) => space.id)).not.toContain(mine);
     });
 
-    it('disconnects a client at once when it is removed from a space, and stops its pokes', async () => {
+    it("takes a removed member's client out of the space at once, and stops its pokes", async () => {
       const anna = await helloed('anna');
       const ben = await helloed('ben');
       const benPokes = collect(ben.client, 'poke');
@@ -497,6 +497,49 @@ describe('sync gateway', () => {
           .find((s) => s.id === spaceId)
           ?.members.map((m) => m.userId),
       ).toEqual([ids.anna, ids.ben]);
+    });
+
+    it('gives every member a welcome with the new name when a space is renamed', async () => {
+      const anna = await helloed('anna');
+      const ben = await helloed('ben');
+      const annaWelcome = next(anna.client, 'welcome');
+      const benWelcome = next(ben.client, 'welcome');
+
+      const renamed = await send(api, 'PATCH', `/spaces/${spaceId}`, {
+        cookie: cookies.anna,
+        body: { name: 'Crew' },
+      });
+      expect(renamed.status).toBe(200);
+
+      for (const welcome of [await annaWelcome, await benWelcome]) {
+        expect(welcome.spaces.find((s) => s.id === spaceId)?.name).toBe('Crew');
+      }
+    });
+
+    it('takes every member out of a space that is deleted, and stops its pokes', async () => {
+      const anna = await helloed('anna');
+      const ben = await helloed('ben');
+      const annaPokes = collect(anna.client, 'poke');
+      const benPokes = collect(ben.client, 'poke');
+      const annaWelcome = next(anna.client, 'welcome');
+      const benWelcome = next(ben.client, 'welcome');
+
+      const deleted = await send(api, 'DELETE', `/spaces/${spaceId}`, {
+        cookie: cookies.anna,
+      });
+      expect(deleted.status).toBe(204);
+
+      for (const welcome of [await annaWelcome, await benWelcome]) {
+        expect(welcome.spaces.map((s) => s.id)).not.toContain(spaceId);
+      }
+      expect(annaPokes).toEqual([]);
+      expect(benPokes).toEqual([]);
+      // Their clients are out of the room: a later push is rejected, not poked.
+      const rejected = next(ben.client, 'reject');
+      ben.client.emit('push', {
+        mutations: [mutation('list.create', { id: newId(), title: 'Late' })],
+      });
+      expect((await rejected).reason).toBe("You can't change this space");
     });
 
     it('ends a connection whose session has ended, on its next message', async () => {

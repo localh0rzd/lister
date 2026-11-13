@@ -52,7 +52,7 @@ type StoredResult = { version: number } | { reason: string };
 
 /**
  * Applies pushed mutations, one synchronous SQLite transaction each (design §4.2):
- * replay → validate → authorize → apply → version + 1 → record. Never `await` in here: the
+ * authorize → replay → validate → apply → version + 1 → record. Never `await` in here: the
  * synchronous driver is what keeps mutations strictly ordered.
  */
 @Injectable()

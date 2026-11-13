@@ -23,26 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-025 — Authenticated and authorized sync
-
-- Milestone: M5 Accounts and spaces
-- Area: api, web
-- Priority: normal
-- Depends on: T-024, T-009
-- Done when:
-  - The socket handshake authenticates with the session cookie; connections without a valid
-    session are refused.
-  - Welcome lists the user's spaces with their members' display names; pull, push and poke work
-    only for spaces the user belongs to.
-  - Mutations are stamped with the real user; a member who is removed is disconnected from that
-    space at once.
-  - The web sync engine syncs all of the user's spaces.
-  - Integration tests: a non-member can neither read nor change a space, over HTTP or the socket.
-  - The dev user and space from T-006 are removed (moved here from T-024); the web e2e suite signs
-    in through the API until T-026 adds the sign-in screen.
-- Notes: Remove `DevSeed`, `DEV_USER_ID`, `DEV_SPACE_ID` and `SyncReader.devSpaces()`
-  (packages/api/feature-sync).
-
 ## Backlog
 
 ### T-026 — Web: sign-in, profile, user administration and spaces
@@ -216,6 +196,28 @@ nosniff`, `Referrer-Policy`, `frame-ancestors` in the CSP, and `app.disable('x-p
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
 
 ## Done
+
+### T-025 — Authenticated and authorized sync
+
+- Completed: 2026-11-13 — authenticated, membership-scoped sync: session-cookie socket handshake, welcome with spaces and members, rooms follow membership changes, real user stamping, web drops removed spaces, dev user/space removed, e2e signs in through the API (feature-sync, feature-spaces, feature-auth, data-access-sync, lister-web-e2e)
+- Review: Changes requested (1 blocker, 1 major, 2 minor, 2 nit); 6 fixed, 0 deferred, 0 declined
+- Milestone: M5 Accounts and spaces
+- Area: api, web
+- Priority: normal
+- Depends on: T-024, T-009
+- Done when:
+  - The socket handshake authenticates with the session cookie; connections without a valid
+    session are refused.
+  - Welcome lists the user's spaces with their members' display names; pull, push and poke work
+    only for spaces the user belongs to.
+  - Mutations are stamped with the real user; a member who is removed is disconnected from that
+    space at once.
+  - The web sync engine syncs all of the user's spaces.
+  - Integration tests: a non-member can neither read nor change a space, over HTTP or the socket.
+  - The dev user and space from T-006 are removed (moved here from T-024); the web e2e suite signs
+    in through the API until T-026 adds the sign-in screen.
+- Notes: Remove `DevSeed`, `DEV_USER_ID`, `DEV_SPACE_ID` and `SyncReader.devSpaces()`
+  (packages/api/feature-sync).
 
 ### T-024 — Spaces and memberships
 
