@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { Database } from './database';
 import * as schema from './schema';
 
@@ -51,4 +51,16 @@ export function deleteSpace(db: Tx, spaceId: string): void {
     .run();
   // Memberships go with the space (`on delete cascade`).
   db.delete(schema.spaces).where(eq(schema.spaces.id, spaceId)).run();
+}
+
+/** The user with this username, matched ignoring case and surrounding spaces, or undefined. */
+export function findUserByUsername(
+  db: Tx,
+  username: string,
+): typeof schema.users.$inferSelect | undefined {
+  return db
+    .select()
+    .from(schema.users)
+    .where(sql`lower(${schema.users.username}) = lower(${username.trim()})`)
+    .get();
 }

@@ -23,23 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-024 — Spaces and memberships
-
-- Milestone: M5 Accounts and spaces
-- Area: api
-- Priority: normal
-- Depends on: T-023, T-006
-- Done when:
-  - Spaces and memberships (D14): every user has a personal space; any user can create a shared
-    space and add existing users; the creator owns it and manages its members.
-  - Endpoints to create, rename and delete spaces, add and remove members, and leave a space.
-  - Deleting a user also deletes their personal space; shared spaces keep their content.
-  - Tests for the membership and ownership rules.
-- Notes: Keep `DevSeed` and the dev space: until T-025 the sync socket has no session check and
-  only ever reaches the dev space (`SyncReader.devSpaces()`, commit 30cc0d5), never the spaces
-  this task creates. Removing it here would leave the web app with nothing to sync (decided
-  2026-11-13: removal moves to T-025).
-
 ## Backlog
 
 ### T-025 — Authenticated and authorized sync
@@ -233,6 +216,25 @@ nosniff`, `Referrer-Policy`, `frame-ancestors` in the CSP, and `app.disable('x-p
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
 
 ## Done
+
+### T-024 — Spaces and memberships
+
+- Completed: 2026-11-13 — spaces and memberships over REST (`packages/api/feature-spaces`), personal spaces created and deleted with accounts, migration 0006
+- Review: Changes requested (0 blocker, 1 major, 1 minor, 3 nit); 5 fixed, 0 deferred, 0 declined
+- Milestone: M5 Accounts and spaces
+- Area: api
+- Priority: normal
+- Depends on: T-023, T-006
+- Done when:
+  - Spaces and memberships (D14): every user has a personal space; any user can create a shared
+    space and add existing users; the creator owns it and manages its members.
+  - Endpoints to create, rename and delete spaces, add and remove members, and leave a space.
+  - Deleting a user also deletes their personal space; shared spaces keep their content.
+  - Tests for the membership and ownership rules.
+- Notes: Keep `DevSeed` and the dev space: until T-025 the sync socket has no session check and
+  only ever reaches the dev space (`SyncReader.devSpaces()`, commit 30cc0d5), never the spaces
+  this task creates. Removing it here would leave the web app with nothing to sync (decided
+  2026-11-13: removal moves to T-025).
 
 ### T-023 — User administration
 

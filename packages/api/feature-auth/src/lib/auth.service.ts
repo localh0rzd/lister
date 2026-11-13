@@ -9,6 +9,7 @@ import {
 import { and, eq, lt, ne, sql } from 'drizzle-orm';
 import {
   DatabaseConnection,
+  findUserByUsername,
   insertSpace,
   schema,
 } from '@lister/api/data-access-db';
@@ -247,11 +248,7 @@ export class AuthService {
   }
 
   findByUsername(username: string): UserRow | undefined {
-    return this.database.db
-      .select()
-      .from(schema.users)
-      .where(sql`lower(${schema.users.username}) = lower(${username.trim()})`)
-      .get();
+    return findUserByUsername(this.database.db, username);
   }
 
   private insertUser(

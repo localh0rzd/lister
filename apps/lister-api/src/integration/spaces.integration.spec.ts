@@ -332,7 +332,11 @@ describe('spaces and memberships', () => {
       expect((await leave(UNKNOWN, benCookie)).status).toBe(404);
       // The owner can't leave their shared or their personal space.
       expect((await leave(space.id, annaCookie)).status).toBe(409);
-      expect((await leave(personal.id, annaCookie)).status).toBe(409);
+      const personalLeave = await leave(personal.id, annaCookie);
+      expect(personalLeave.status).toBe(409);
+      expect(await personalLeave.json()).toMatchObject({
+        message: "You can't leave your personal space",
+      });
     });
   });
 

@@ -8,6 +8,7 @@ import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import {
   DatabaseConnection,
   deleteSpace,
+  findUserByUsername,
   insertSpace,
   schema,
 } from '@lister/api/data-access-db';
@@ -88,11 +89,7 @@ export class SpacesService {
       if (space.personal) {
         throw new ConflictException("A personal space can't be shared");
       }
-      const user = this.database.db
-        .select({ id: users.id })
-        .from(users)
-        .where(sql`lower(${users.username}) = lower(${username})`)
-        .get();
+      const user = findUserByUsername(this.database.db, username);
       if (!user) throw new NotFoundException('There is no such user');
       const already = this.database.db
         .select()
@@ -144,6 +141,9 @@ export class SpacesService {
   leave(userId: string, spaceId: string): void {
     this.database.sqlite.transaction(() => {
       const membership = this.requireMember(userId, spaceId);
+      if (membership.personal) {
+        throw new ConflictException("You can't leave your personal space");
+      }
       if (membership.role === 'owner') {
         throw new ConflictException(
           "The owner can't leave: delete the space instead",
