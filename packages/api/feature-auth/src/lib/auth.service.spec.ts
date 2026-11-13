@@ -46,6 +46,16 @@ describe('AuthService', () => {
       expect(row.passwordHash).not.toContain('correct horse');
     });
 
+    it('gives the account its personal space, which it owns', async () => {
+      const anna = await auth.createUser(newUser());
+
+      const [space] = database.db.select().from(schema.spaces).all();
+      expect(space).toMatchObject({ name: 'Anna A', personal: true });
+      expect(database.db.select().from(schema.memberships).all()).toEqual([
+        { spaceId: space.id, userId: anna.id, role: 'owner', createdAt: now },
+      ]);
+    });
+
     it('rejects a username that differs only in case', async () => {
       await auth.createUser(newUser());
 

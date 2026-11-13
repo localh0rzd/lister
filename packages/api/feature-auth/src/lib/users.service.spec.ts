@@ -1,8 +1,9 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import {
   type DatabaseConnection,
   createTestDatabase,
+  insertSpace,
   schema,
 } from '@lister/api/data-access-db';
 import { AuthService } from './auth.service';
@@ -116,6 +117,119 @@ describe('UsersService', () => {
 
       expect(auth.findByUsername('anna')).toBeUndefined();
       expect(database.db.select().from(schema.sessions).all()).toEqual([]);
+    });
+
+    const spaceIds = () =>
+      database.db
+        .select({ id: schema.spaces.id })
+        .from(schema.spaces)
+        .all()
+        .map((space) => space.id);
+    const membersOf = (spaceId: string) =>
+      database.db
+        .select({
+          userId: schema.memberships.userId,
+          role: schema.memberships.role,
+        })
+        .from(schema.memberships)
+        .where(eq(schema.memberships.spaceId, spaceId))
+        .all();
+    const personalSpaceOf = (userId: string) =>
+      database.db
+        .select({ id: schema.memberships.spaceId })
+        .from(schema.memberships)
+        .innerJoin(
+          schema.spaces,
+          eq(schema.spaces.id, schema.memberships.spaceId),
+        )
+        .where(
+          and(
+            eq(schema.memberships.userId, userId),
+            eq(schema.spaces.personal, true),
+          ),
+        )
+        .get()?.id;
+    const join = (spaceId: string, userId: string, createdAt: number) =>
+      database.db
+        .insert(schema.memberships)
+        .values({ spaceId, userId, role: 'member', createdAt })
+        .run();
+
+    it('deletes their personal space with its content', async () => {
+      await add('admin', true);
+      const anna = await add('anna');
+      const personal = personalSpaceOf(anna.id);
+      if (!personal) throw new Error('missing');
+      database.db
+        .insert(schema.lists)
+        .values({
+          id: 'l1',
+          spaceId: personal,
+          version: 1,
+          createdBy: anna.id,
+          updatedBy: anna.id,
+          createdAt: 1,
+          updatedAt: 1,
+          title: 'Tent',
+        })
+        .run();
+
+      users.remove(anna.id);
+
+      expect(spaceIds()).not.toContain(personal);
+      expect(database.db.select().from(schema.lists).all()).toEqual([]);
+    });
+
+    it('hands a shared space they owned to the longest-standing other member', async () => {
+      await add('admin', true);
+      const anna = await add('anna');
+      const ben = await add('ben');
+      const carl = await add('carl');
+      const space = insertSpace(database.db, {
+        name: 'Family',
+        ownerId: anna.id,
+        personal: false,
+        now: 1,
+      });
+      // The earlier member has the greater id, so ordering by id alone would pick the other.
+      const [later, earlier] = [ben.id, carl.id].sort();
+      join(space.id, later, 3);
+      join(space.id, earlier, 2);
+
+      users.remove(anna.id);
+
+      expect(spaceIds()).toContain(space.id);
+      expect(membersOf(space.id)).toEqual(
+        expect.arrayContaining([
+          { userId: earlier, role: 'owner' },
+          { userId: later, role: 'member' },
+        ]),
+      );
+      expect(membersOf(space.id)).toHaveLength(2);
+    });
+
+    it('deletes a shared space they owned alone, and only leaves the ones they were a member of', async () => {
+      await add('admin', true);
+      const anna = await add('anna');
+      const ben = await add('ben');
+      const solo = insertSpace(database.db, {
+        name: 'Solo',
+        ownerId: anna.id,
+        personal: false,
+        now: 1,
+      });
+      const bens = insertSpace(database.db, {
+        name: 'Bens',
+        ownerId: ben.id,
+        personal: false,
+        now: 1,
+      });
+      join(bens.id, anna.id, 2);
+
+      users.remove(anna.id);
+
+      expect(spaceIds()).not.toContain(solo.id);
+      expect(membersOf(bens.id)).toEqual([{ userId: ben.id, role: 'owner' }]);
     });
 
     it('refuses to delete the last admin', async () => {
