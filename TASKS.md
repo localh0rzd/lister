@@ -23,29 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-039 — Tooltip for truncated list titles
-
-- Milestone: — (UI polish before M5 continues)
-- Area: web
-- Priority: high
-- Depends on: —
-- Done when:
-  - A list title that is cut off with an ellipsis shows its full text in a Material tooltip
-    (`MatTooltip`) on hover and keyboard focus, and on long-press on touch. Today that's the
-    title link on the Lists page (`packages/web/feature-lists/src/lib/lists-page.*`). Check the
-    other screens that show a list title (the list editor's top bar, the list picker, run and
-    space pages) for titles that are truncated too, and cover those the same way.
-  - A title that fits shows no tooltip. Whether it's truncated is measured from the rendered
-    element (`scrollWidth > clientWidth`), and the measurement is updated when the width or the
-    title changes (resize, rail ↔ bar layout, edits arriving through sync).
-  - It's one reusable directive (for example `listerTruncatedTooltip`) in `packages/web/ui`,
-    used wherever titles are truncated, not copied per component.
-  - Screen readers still get the full title once, from the text itself: no duplicate
-    `aria-describedby` for a title that's already fully in the DOM.
-  - Tests: a unit test of the directive (truncated → tooltip, fits → none, update when the text
-    changes), and a Playwright check at 375 px that hovering or focusing a long title shows the
-    full text, with the axe check still clean.
-
 ## Backlog
 
 ### T-023 — User administration
@@ -252,6 +229,31 @@ nosniff`, `Referrer-Policy`, `frame-ancestors` in the CSP, and `app.disable('x-p
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
 
 ## Done
+
+### T-039 — Tooltip for truncated list titles
+
+- Completed: 2026-11-13 — `listerTruncatedTooltip` in `packages/web/ui`: a Material tooltip for titles cut off with an ellipsis, on hover, keyboard focus and long-press; used on the Lists page and the other truncated titles
+- Review: Changes requested; 6 fixed (4 substantive, 2 trivial), 0 skipped, 0 disagreed; re-review rounds: 1
+- Milestone: — (UI polish before M5 continues)
+- Area: web
+- Priority: high
+- Depends on: —
+- Done when:
+  - A list title that is cut off with an ellipsis shows its full text in a Material tooltip
+    (`MatTooltip`) on hover and keyboard focus, and on long-press on touch. Today that's the
+    title link on the Lists page (`packages/web/feature-lists/src/lib/lists-page.*`). Check the
+    other screens that show a list title (the list editor's top bar, the list picker, run and
+    space pages) for titles that are truncated too, and cover those the same way.
+  - A title that fits shows no tooltip. Whether it's truncated is measured from the rendered
+    element (`scrollWidth > clientWidth`), and the measurement is updated when the width or the
+    title changes (resize, rail ↔ bar layout, edits arriving through sync).
+  - It's one reusable directive (for example `listerTruncatedTooltip`) in `packages/web/ui`,
+    used wherever titles are truncated, not copied per component.
+  - Screen readers still get the full title once, from the text itself: no duplicate
+    `aria-describedby` for a title that's already fully in the DOM.
+  - Tests: a unit test of the directive (truncated → tooltip, fits → none, update when the text
+    changes), and a Playwright check at 375 px that hovering or focusing a long title shows the
+    full text, with the axe check still clean.
 
 ### T-022 — Accounts, sessions and the admin role
 

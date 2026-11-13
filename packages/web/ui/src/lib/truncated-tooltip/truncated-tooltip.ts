@@ -46,7 +46,10 @@ const MOVE_TOLERANCE_PX = 10;
         describe: () => undefined,
         removeDescription: () => undefined,
         ngOnDestroy: () => undefined,
-      },
+      } satisfies Pick<
+        AriaDescriber,
+        'describe' | 'removeDescription' | 'ngOnDestroy'
+      >,
     },
   ],
   host: {

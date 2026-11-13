@@ -193,6 +193,13 @@ test.describe('truncated list titles on a phone (375 px)', () => {
     await test.step('no tooltip for a title that fits', async () => {
       await page.keyboard.press('Escape');
       await row(page, short).getByRole('link').hover();
+      // Material shows a tooltip from a timer: let it run before asserting there is none.
+      await page.evaluate(
+        () =>
+          new Promise((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(resolve)),
+          ),
+      );
       await expect(page.locator('.mat-mdc-tooltip')).toHaveCount(0);
     });
   });
