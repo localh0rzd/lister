@@ -4,7 +4,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { and, asc, eq, ne, sql } from 'drizzle-orm';
-import { DatabaseConnection, schema } from '@lister/api/data-access-db';
+import {
+  DatabaseConnection,
+  deleteSpace,
+  schema,
+} from '@lister/api/data-access-db';
 import type {
   CurrentUser,
   UpdateUserRequest,
@@ -76,12 +80,17 @@ export class UsersService {
     })();
   }
 
-  /** Deletes a user and their sessions. The last admin can't be deleted (409). */
+  /**
+   * Deletes a user, their sessions and their personal space with its content. Shared spaces keep
+   * their content (D14): one the user owned passes to its longest-standing other member, or is
+   * deleted when nobody else is in it. The last admin can't be deleted (409).
+   */
   remove(id: string): void {
     this.database.sqlite.transaction(() => {
       const row = this.find(id);
       if (row.isAdmin) this.assertOtherAdmin(id);
-      // Sessions go with the user (`on delete cascade`).
+      this.releaseSpaces(id);
+      // Sessions and memberships go with the user (`on delete cascade`).
       this.database.db
         .delete(schema.users)
         .where(eq(schema.users.id, id))
@@ -102,6 +111,55 @@ export class UsersService {
         .run();
       this.auth.endSessionsOf(id);
     })();
+  }
+
+  private releaseSpaces(userId: string): void {
+    const { db } = this.database;
+    const owned = db
+      .select({ id: schema.spaces.id, personal: schema.spaces.personal })
+      .from(schema.memberships)
+      .innerJoin(
+        schema.spaces,
+        eq(schema.spaces.id, schema.memberships.spaceId),
+      )
+      .where(
+        and(
+          eq(schema.memberships.userId, userId),
+          eq(schema.memberships.role, 'owner'),
+        ),
+      )
+      .all();
+    for (const space of owned) {
+      const successor = space.personal
+        ? undefined
+        : db
+            .select({ userId: schema.memberships.userId })
+            .from(schema.memberships)
+            .where(
+              and(
+                eq(schema.memberships.spaceId, space.id),
+                ne(schema.memberships.userId, userId),
+              ),
+            )
+            .orderBy(
+              asc(schema.memberships.createdAt),
+              asc(schema.memberships.userId),
+            )
+            .get();
+      if (!successor) {
+        deleteSpace(db, space.id);
+        continue;
+      }
+      db.update(schema.memberships)
+        .set({ role: 'owner' })
+        .where(
+          and(
+            eq(schema.memberships.spaceId, space.id),
+            eq(schema.memberships.userId, successor.userId),
+          ),
+        )
+        .run();
+    }
   }
 
   private find(id: string) {

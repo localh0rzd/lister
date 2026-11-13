@@ -7,7 +7,11 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { and, eq, lt, ne, sql } from 'drizzle-orm';
-import { DatabaseConnection, schema } from '@lister/api/data-access-db';
+import {
+  DatabaseConnection,
+  insertSpace,
+  schema,
+} from '@lister/api/data-access-db';
 import type { CurrentUser } from '@lister/shared/api-contracts';
 import { AUTH_CLOCK, type Clock } from './clock';
 import { hashPassword, verifyPassword } from './password';
@@ -262,7 +266,8 @@ export class AuthService {
       if (this.findByUsername(input.username)) {
         throw new ConflictException('That username is taken');
       }
-      return this.database.db
+      const now = this.clock();
+      const row = this.database.db
         .insert(schema.users)
         .values({
           id: randomUUID(),
@@ -271,10 +276,18 @@ export class AuthService {
           passwordHash,
           isAdmin: input.isAdmin,
           mustChangePassword: input.mustChangePassword,
-          createdAt: this.clock(),
+          createdAt: now,
         })
         .returning()
         .get();
+      // Every account has its personal space (D14).
+      insertSpace(this.database.db, {
+        name: row.displayName,
+        ownerId: row.id,
+        personal: true,
+        now,
+      });
+      return row;
     });
     return toCurrentUser(insert());
   }

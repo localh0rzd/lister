@@ -260,6 +260,89 @@ describe('user administration', () => {
       ).toBe(200);
     });
 
+    it('deletes their personal space with its content, but shared spaces keep theirs', async () => {
+      const anna = await createAccount(api, 'anna');
+      const ben = await createAccount(api, 'ben');
+      const annaCookie = await signIn(api, 'anna');
+      const benCookie = await signIn(api, 'ben');
+      const space = (await (
+        await send(api, 'POST', '/spaces', {
+          cookie: annaCookie,
+          body: { name: 'Family' },
+        })
+      ).json()) as { id: string };
+      await send(api, 'POST', `/spaces/${space.id}/members`, {
+        cookie: annaCookie,
+        body: { username: 'ben' },
+      });
+      const [annaPersonal] = (await (
+        await send(api, 'GET', '/spaces', { cookie: annaCookie })
+      ).json()) as { id: string }[];
+      const list = (id: string, spaceId: string) => ({
+        id,
+        spaceId,
+        version: 1,
+        createdBy: anna.id,
+        updatedBy: anna.id,
+        createdAt: 1,
+        updatedAt: 1,
+        title: 'Tent',
+      });
+      api.database.db
+        .insert(schema.lists)
+        .values([
+          list('0197f000-0000-7000-8000-000000000001', annaPersonal.id),
+          list('0197f000-0000-7000-8000-000000000002', space.id),
+        ])
+        .run();
+
+      const response = await send(api, 'DELETE', `/users/${anna.id}`, {
+        cookie: adminCookie,
+      });
+
+      expect(response.status).toBe(204);
+      const spaces = api.database.db.select().from(schema.spaces).all();
+      expect(spaces.map((s) => s.id)).not.toContain(annaPersonal.id);
+      expect(spaces.map((s) => s.id)).toContain(space.id);
+      expect(
+        api.database.db
+          .select()
+          .from(schema.lists)
+          .all()
+          .map((l) => l.spaceId),
+      ).toEqual([space.id]);
+      // Ben now owns the shared space.
+      const bens = (await (
+        await send(api, 'GET', '/spaces', { cookie: benCookie })
+      ).json()) as { id: string; role: string; members: unknown[] }[];
+      expect(bens.find((s) => s.id === space.id)).toMatchObject({
+        role: 'owner',
+        members: [{ userId: ben.id, role: 'owner' }],
+      });
+    });
+
+    it('deletes a shared space nobody else is in', async () => {
+      const anna = await createAccount(api, 'anna');
+      const annaCookie = await signIn(api, 'anna');
+      await send(api, 'POST', '/spaces', {
+        cookie: annaCookie,
+        body: { name: 'Solo' },
+      });
+
+      await send(api, 'DELETE', `/users/${anna.id}`, { cookie: adminCookie });
+
+      expect(
+        api.database.db
+          .select()
+          .from(schema.spaces)
+          .all()
+          .map((s) => s.name),
+      ).toEqual(['Home', admin.displayName]); // the dev space, and the admin's own
+      expect(
+        api.database.db.select().from(schema.memberships).all(),
+      ).toHaveLength(1);
+    });
+
     it('is 409 for the last admin, but not once another admin exists', async () => {
       const refused = await send(api, 'DELETE', `/users/${admin.id}`, {
         cookie: adminCookie,

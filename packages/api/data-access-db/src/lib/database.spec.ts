@@ -1,7 +1,9 @@
 import {
+  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -9,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { eq } from 'drizzle-orm';
 import { openDatabase } from './database';
-import { appMeta } from './schema';
+import { appMeta, memberships, spaces } from './schema';
 import { createTestDatabase, testDatabaseOptions } from './test-database';
 
 describe('openDatabase', () => {
@@ -165,5 +167,40 @@ describe('createTestDatabase', () => {
 
     expect(a.db.select().from(appMeta).all()).toHaveLength(1);
     expect(b.db.select().from(appMeta).all()).toEqual([]);
+  });
+});
+
+describe('the spaces migration', () => {
+  it('gives accounts that predate spaces a personal space they own', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'lister-backfill-'));
+    onTestFinished(() => rmSync(dir, { recursive: true, force: true }));
+    const source = testDatabaseOptions(':memory:').migrationsFolder;
+    const before = join(dir, 'before');
+    cpSync(source, before, { recursive: true });
+    // Only the migrations up to the users table (0005).
+    const journalPath = join(before, 'meta', '_journal.json');
+    const journal = JSON.parse(readFileSync(journalPath, 'utf8')) as {
+      entries: { tag: string }[];
+    };
+    journal.entries = journal.entries.filter((e) => e.tag < '0006');
+    writeFileSync(journalPath, JSON.stringify(journal));
+    const path = join(dir, 'lister.db');
+
+    const old = openDatabase({ path, migrationsFolder: before });
+    old.sqlite
+      .prepare(
+        "insert into users (id, username, display_name, password_hash, created_at) values ('u1', 'anna', 'Anna', 'x', 5)",
+      )
+      .run();
+    old.onApplicationShutdown();
+    const current = openDatabase({ path, migrationsFolder: source });
+    onTestFinished(() => current.onApplicationShutdown());
+
+    const space = current.db.select().from(spaces).get();
+    expect(space).toMatchObject({ name: 'Anna', personal: true, createdAt: 5 });
+    expect(space?.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-a/);
+    expect(current.db.select().from(memberships).all()).toEqual([
+      { spaceId: space?.id, userId: 'u1', role: 'owner', createdAt: 5 },
+    ]);
   });
 });

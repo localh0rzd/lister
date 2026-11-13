@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-024 — Spaces and memberships
 
 - Milestone: M5 Accounts and spaces
@@ -41,6 +39,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   only ever reaches the dev space (`SyncReader.devSpaces()`, commit 30cc0d5), never the spaces
   this task creates. Removing it here would leave the web app with nothing to sync (decided
   2026-11-13: removal moves to T-025).
+
+## Backlog
 
 ### T-025 — Authenticated and authorized sync
 

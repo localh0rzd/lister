@@ -35,3 +35,6 @@ dev user with real ones.
 
 Run the tests with `npx nx test api-feature-auth`; the routes are tested through the whole app in
 `apps/lister-api/src/integration/auth.integration.spec.ts`.
+
+Creating an account also creates its personal space; deleting one deletes it (and hands over or
+deletes the shared spaces it owned) — `AuthService.createUser`, `UsersService.remove` (T-024).

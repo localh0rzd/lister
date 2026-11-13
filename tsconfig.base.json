@@ -42,7 +42,10 @@
         "./packages/web/data-access-sync/src/index.ts"
       ],
       "@lister/web/util-notify": ["./packages/web/util-notify/src/index.ts"],
-      "@lister/api/feature-auth": ["./packages/api/feature-auth/src/index.ts"]
+      "@lister/api/feature-auth": ["./packages/api/feature-auth/src/index.ts"],
+      "@lister/api/feature-spaces": [
+        "./packages/api/feature-spaces/src/index.ts"
+      ]
     }
   },
   "exclude": ["node_modules", "tmp"]

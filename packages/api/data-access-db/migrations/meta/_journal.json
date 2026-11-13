@@ -43,6 +43,13 @@
       "when": 1794526152149,
       "tag": "0005_users_and_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1794574862942,
+      "tag": "0006_spaces_and_memberships",
+      "breakpoints": true
     }
   ]
 }

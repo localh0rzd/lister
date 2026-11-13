@@ -178,6 +178,15 @@ Self-hosted for a small circle (R10, R11):
 with composition (can I include a list you shared with me? what happens to my list when you
 unshare it?).
 
+Rules (T-024): a space is managed over REST, not synced. Every account gets a personal space when
+it is created (and one for accounts that predate spaces, by migration); it can be renamed, but
+not shared, left or deleted, and it is deleted with its user. The owner of a shared space renames
+it, adds members by username, removes members and deletes it; a member can leave; the owner can
+neither leave nor be removed (delete the space instead; there's no hand-over yet). A caller who
+isn't in a space gets 404, so ids can't be probed. When a user is deleted, a shared space they
+owned passes to its longest-standing member (deleted with everything in it if nobody else is in
+it), so shared spaces keep their content.
+
 _Rejected alternatives:_ a public service with open sign-up (email verification, password reset
 over SMTP, abuse protection, GDPR); no accounts at all (link-based, no "checked by Anna", no access
 control beyond the URL).

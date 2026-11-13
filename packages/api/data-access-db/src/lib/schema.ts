@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import {
   index,
   integer,
+  primaryKey,
   sqliteTable,
   text,
   uniqueIndex,
@@ -54,9 +55,33 @@ export const sessions = sqliteTable(
 export const spaces = sqliteTable('spaces', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
+  /** A user's own space (D14): created with the account, deleted with it, never shared. */
+  personal: integer('personal', { mode: 'boolean' }).notNull().default(false),
   version: integer('version').notNull().default(0),
   createdAt: integer('created_at').notNull(),
 });
+
+/**
+ * Who belongs to a space (D14). Every space has exactly one `owner`, who manages its members;
+ * all members can edit its content. Deleting the user or the space deletes the membership.
+ */
+export const memberships = sqliteTable(
+  'memberships',
+  {
+    spaceId: text('space_id')
+      .notNull()
+      .references(() => spaces.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    role: text('role', { enum: ['owner', 'member'] }).notNull(),
+    createdAt: integer('created_at').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.spaceId, table.userId] }),
+    index('memberships_user').on(table.userId),
+  ],
+);
 
 /**
  * Columns of every synced row (design §3). Field names match `SyncMetadata` in

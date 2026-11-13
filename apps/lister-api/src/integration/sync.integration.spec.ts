@@ -14,6 +14,7 @@ import {
   type MutationInput,
 } from '@lister/shared/sync-protocol';
 import { type Socket, io } from 'socket.io-client';
+import { createAccount, send, signIn } from '../testing/auth-client';
 import { type TestApp, createTestApp } from '../testing/create-test-app';
 
 type Client = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -262,6 +263,26 @@ describe('sync gateway', () => {
           .where(eq(schema.lists.spaceId, otherSpaceId))
           .all(),
       ).toEqual([]);
+    });
+
+    it('does not reach the personal and shared spaces that accounts create', async () => {
+      const anna = await createAccount(api, 'anna');
+      const cookie = await signIn(api, 'anna');
+      const shared = (await (
+        await send(api, 'POST', '/spaces', { cookie, body: { name: 'Family' } })
+      ).json()) as { id: string };
+      const { client, welcome } = await helloed();
+      const reject = next(client, 'reject');
+      const foreign = {
+        ...mutation('list.create', { id: newId(), title: 'Marker' }),
+        spaceId: shared.id,
+      };
+
+      client.emit('push', { mutations: [foreign] });
+
+      expect(anna.id).toBeDefined();
+      expect(welcome.spaces.map((space) => space.id)).toEqual([DEV_SPACE_ID]);
+      expect((await reject).reason).toBe("You can't change this space");
     });
 
     it('disconnects on a pull for a space other than the dev space', async () => {
