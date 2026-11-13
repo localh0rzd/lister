@@ -43,3 +43,24 @@ export const AUTH_LIMITS = {
   passwordMin: 8,
   passwordMax: 200,
 } as const;
+
+/** Body of `POST /api/users` (admins only): creates an account with a temporary password. */
+export interface CreateUserRequest {
+  username: string;
+  displayName: string;
+  /** The user must change it at their first sign-in (design D9). */
+  temporaryPassword: string;
+}
+
+/** Body of `PATCH /api/users/:id` (admins only). Omitted fields stay as they are. */
+export interface UpdateUserRequest {
+  username?: string;
+  displayName?: string;
+  /** Grants or revokes admin. The last admin can't be demoted. */
+  isAdmin?: boolean;
+}
+
+/** Body of `POST /api/users/:id/password` (admins only): sets a new temporary password. */
+export interface ResetPasswordRequest {
+  temporaryPassword: string;
+}

@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-023 — User administration
 
 - Milestone: M5 Accounts and spaces
@@ -38,6 +36,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   - Non-admins get 403 from all of them.
   - Deleting a user or resetting their password ends their sessions.
   - Tests for each endpoint and for the last-admin rule.
+
+## Backlog
 
 ### T-024 — Spaces and memberships
 
