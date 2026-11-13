@@ -208,6 +208,18 @@ nosniff`, `Referrer-Policy`, `frame-ancestors` in the CSP, and `app.disable('x-p
   - The initial bundle stays within its budget, and a check (budget or test) catches regressions.
 - Notes: Found in T-009. Mobile users download the chunk on the first visit.
 
+### T-040 — Pin CI actions to commit hashes
+
+- Milestone: M7 Deployment
+- Area: infra
+- Priority: low
+- Done when:
+  - Every `uses:` in `.github/workflows/` names a full commit SHA with the version as a comment
+    (`actions/checkout@<sha> # v5`), so a moved or hijacked tag can't change what CI runs.
+  - Dependabot (`.github/dependabot.yml`, `github-actions` ecosystem) proposes updates to the
+    pinned hashes.
+- Notes: Found in the security audit (2026-11-13), rated low: CI has no deploy secrets today.
+
 ### T-037 — Quiet the sync-engine test teardown
 
 - Milestone: M6 Collaboration polish
