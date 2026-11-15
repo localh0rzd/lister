@@ -1,7 +1,7 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { SyncEngine, type SyncError } from '@lister/web/data-access-sync';
-import { SyncSection } from './sync-section';
+import { CONNECTING_HINT_MS, SyncSection } from './sync-section';
 
 function setup() {
   const engine = {
@@ -75,6 +75,28 @@ describe('SyncSection', () => {
     engine.updateRequired.set(true);
     await fixture.whenStable();
     expect(button('Sync now').disabled).toBe(true);
+  });
+
+  it('says "Connecting…" for a while after "Sync now" while offline', async () => {
+    const { engine, fixture, text, button } = setup();
+    engine.online.set(false);
+    await fixture.whenStable();
+    expect(text()).toContain('Offline');
+
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      button('Sync now').click();
+      fixture.detectChanges();
+      expect(engine.syncNow).toHaveBeenCalledTimes(1);
+      expect(text()).toContain('Connecting…');
+
+      vi.advanceTimersByTime(CONNECTING_HINT_MS);
+      fixture.detectChanges();
+      expect(text()).toContain('Offline');
+      expect(text()).not.toContain('Connecting…');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('lists the refused changes, newest first, and can clear them', async () => {

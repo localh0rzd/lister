@@ -20,6 +20,13 @@ for (const [name, viewport] of [
       expectAccessible,
     }) => {
       test.setTimeout(120_000);
+      // What the page sends over its sync socket (Socket.IO frames such as `42["pull",…]`).
+      const sent: string[] = [];
+      page.on('websocket', (socket) =>
+        socket.on('framesent', ({ payload }) => sent.push(String(payload))),
+      );
+      const pulls = () =>
+        sent.filter((frame) => frame.includes('"pull"')).length;
       const title = await createList(page);
       await openList(page, title);
       await addItem(page, 'Tent');
@@ -43,10 +50,15 @@ for (const [name, viewport] of [
       await expect(sync.getByText('No changes were refused.')).toBeVisible();
       await expectAccessible();
 
+      // Back online, the app reconnects and pushes by itself.
       await context.setOffline(false);
-      await sync.getByRole('button', { name: 'Sync now' }).click();
       await expect(sync).toContainText('Online');
       await expect(sync).toContainText('All changes synced');
+
+      // Online, "Sync now" asks the server for news at once.
+      const before = pulls();
+      await sync.getByRole('button', { name: 'Sync now' }).click();
+      await expect.poll(pulls).toBeGreaterThan(before);
     });
   });
 }

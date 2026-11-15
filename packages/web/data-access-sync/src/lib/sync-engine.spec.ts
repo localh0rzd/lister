@@ -43,6 +43,8 @@ class FakeServer {
   backingOff = false;
   /** Whom the session cookie belongs to: the user the welcome names. */
   userId = USER;
+  /** When true, a hello is recorded but not welcomed until `welcome()` (a slow handshake). */
+  holdWelcome = false;
   private readonly handlers = new Map<
     string,
     ((payload?: unknown) => void)[]
@@ -104,8 +106,16 @@ class FakeServer {
     for (const mutation of this.unanswered.splice(0)) this.answer(mutation);
   }
 
+  welcome() {
+    this.fire('welcome', {
+      userId: this.userId,
+      spaces: [{ id: SPACE, name: 'Home', version: this.version, members: [] }],
+    });
+  }
+
   private handle(event: string, payload: unknown) {
     if (event === 'hello') {
+      if (this.holdWelcome) return;
       this.fire('welcome', {
         userId: this.userId,
         spaces: [
@@ -1338,6 +1348,26 @@ describe('SyncEngine', () => {
       );
     });
 
+    it('keeps every dismissed refusal while the log holds fewer than the limit', async () => {
+      setup();
+      engine.start();
+      await settle();
+      const count = ERROR_LOG_SIZE - 5;
+      for (let i = 0; i < count; i++)
+        await db.rejections.put({
+          mutationId: `m${i}`,
+          reason: `R${i}`,
+          at: i,
+          seen: true,
+        });
+      await db.rejections.put({ mutationId: 'new', reason: 'New', at: 100 });
+
+      await engine.dismissError('new');
+
+      await eventually(() => expect(engine.errors()).toEqual([]));
+      expect(engine.errorLog()).toHaveLength(count + 1);
+    });
+
     it('clears the log', async () => {
       setup();
       engine.start();
@@ -1415,6 +1445,29 @@ describe('SyncEngine', () => {
       await otherTab.syncNow();
 
       await eventually(() => expect(pulls()).toBe(before + 1));
+    });
+
+    it('leaves the pulls to the welcome while the handshake runs', async () => {
+      setup();
+      engine.start();
+      await settle();
+      // A space this device knew, which the user has left in the meantime.
+      await db.spaces.put({ id: 'gone', name: 'Old', version: 0, members: [] });
+      server.drop('transport close');
+      server.holdWelcome = true;
+      server.socket.connect();
+      await settle();
+      const pullsBefore = server.sent('pull').length;
+
+      await engine.syncNow();
+      await settle();
+      expect(server.sent('pull')).toHaveLength(pullsBefore);
+
+      server.welcome();
+      await settle();
+      expect(server.sent('pull').slice(pullsBefore)).toEqual([
+        { spaceId: SPACE, since: expect.any(Number) },
+      ]);
     });
 
     it('does nothing once an update is required', async () => {

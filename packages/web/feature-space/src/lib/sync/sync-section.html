@@ -19,7 +19,7 @@
     type="button"
     matButton="outlined"
     [disabled]="sync.syncing() || sync.updateRequired()"
-    (click)="sync.syncNow()"
+    (click)="syncNow()"
   >
     Sync now
   </button>

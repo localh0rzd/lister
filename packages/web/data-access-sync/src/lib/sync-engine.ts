@@ -355,9 +355,10 @@ export class SyncEngine {
   async dismissError(mutationId: string): Promise<void> {
     await this.db.transaction('rw', this.db.rejections, async () => {
       await this.db.rejections.update(mutationId, { seen: true });
-      const seen = await this.db.rejections.orderBy('at').toArray();
-      const surplus = seen.length - ERROR_LOG_SIZE;
-      const old = seen.filter((error) => error.seen).slice(0, surplus);
+      const all = await this.db.rejections.orderBy('at').toArray();
+      const surplus = all.length - ERROR_LOG_SIZE;
+      if (surplus <= 0) return;
+      const old = all.filter((error) => error.seen).slice(0, surplus);
       await this.db.rejections.bulkDelete(old.map((e) => e.mutationId));
     });
   }
@@ -378,7 +379,11 @@ export class SyncEngine {
 
   private syncNowAsLeader(socket: SyncSocket): void {
     if (this.connection.updateRequired) return;
-    if (socket.connected) {
+    // Connected but not welcomed yet: the welcome pulls every space it names. Pulling the spaces
+    // this device knew before could ask for one the user has left, which the server answers by
+    // dropping the connection.
+    if (socket.connected && !this.connection.online) return;
+    if (this.connection.online) {
       void this.enqueue(async () => {
         for (const id of await this.db.spaces.toCollection().primaryKeys())
           await this.pull(id);
