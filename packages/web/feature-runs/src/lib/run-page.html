@@ -105,6 +105,9 @@
           @if (item.state === 'skipped') {
             <span class="note">Skipped</span>
           }
+          @if (checkedBy(item); as by) {
+            <span class="note checked-by">{{ by }}</span>
+          }
           @if (item.note) {
             <span class="note">{{ item.note }}</span>
           }

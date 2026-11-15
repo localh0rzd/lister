@@ -66,9 +66,14 @@ for (const [device, viewport] of [
       await test.step('check, skip, Done section', async () => {
         await checkbox(page, 'Tent').check();
         await expect(page.locator('.checked .title')).toHaveText('Tent');
+        // Who checked it and when ("E2E user · 14:02").
+        await expect(page.locator('.checked-by')).toHaveText([
+          /^E2E user · \d{1,2}[:.]\d{2}/,
+        ]);
         await page.getByRole('button', { name: 'More for Socks' }).click();
         await page.getByRole('menuitem', { name: 'Skip' }).click();
         await expect(page.getByText('2 of 3 done')).toBeVisible();
+        await expect(page.locator('.checked-by')).toHaveCount(2);
         await page
           .getByRole('switch', { name: 'Move checked items to “Done”' })
           .click();
@@ -78,6 +83,14 @@ for (const [device, viewport] of [
         await page
           .getByRole('switch', { name: 'Move checked items to “Done”' })
           .click();
+      });
+
+      await test.step('item details show who edited it last', async () => {
+        await page.getByRole('button', { name: 'More for Tent' }).click();
+        await page.getByRole('menuitem', { name: 'Edit' }).click();
+        const dialog = page.getByRole('dialog', { name: 'Edit item' });
+        await expect(dialog).toContainText(/Last edited by E2E user · /);
+        await dialog.getByRole('button', { name: 'Cancel' }).click();
       });
 
       await test.step('add an item to this run only', async () => {

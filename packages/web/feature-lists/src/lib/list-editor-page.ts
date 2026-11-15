@@ -39,11 +39,13 @@ import {
 } from '@lister/shared/domain';
 import { titleSchema } from '@lister/shared/sync-protocol';
 import {
+  CurrentSpace,
   Repositories,
   type SpaceComposition,
 } from '@lister/web/data-access-local-db';
 import {
   ItemDialog,
+  attribution,
   type ItemDialogData,
   type ItemFields,
   ListPickerDialog,
@@ -129,6 +131,7 @@ export class ListEditorPage {
   private readonly repositories = inject(Repositories);
   private readonly changes = inject(SpaceChanges);
   private readonly dialog = inject(MatDialog);
+  private readonly currentSpace = inject(CurrentSpace);
   private readonly starter = inject(RunStarter);
 
   private readonly list = this.repositories.list(this.listId);
@@ -318,6 +321,10 @@ export class ListEditorPage {
         quantity: item.quantity,
         note: item.note,
         notice: this.sourceNotice(item.listId),
+        editedBy: attribution(
+          this.currentSpace.memberName(item.updatedBy),
+          item.updatedAt,
+        ),
       },
       autoFocus: 'first-tabbable',
     });

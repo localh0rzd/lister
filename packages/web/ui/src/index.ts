@@ -9,3 +9,4 @@ export * from './lib/list-picker-dialog/list-picker-dialog';
 export * from './lib/loading-hint/loading-hint';
 export * from './lib/truncated-tooltip/truncated-tooltip';
 export * from './lib/confirm-dialog/confirm-dialog';
+export * from './lib/attribution/attribution';

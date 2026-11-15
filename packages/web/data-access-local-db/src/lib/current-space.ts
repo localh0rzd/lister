@@ -40,6 +40,17 @@ export class CurrentSpace {
     () => valueOf(this.state())?.id,
   );
 
+  /**
+   * The display name of a member of the current space, or `undefined` for someone who isn't one
+   * (any more). Reads signals, so a template using it updates with the space.
+   */
+  memberName(userId: string): string | undefined {
+    const space = this.state();
+    return space.status === 'ready'
+      ? space.value?.members.find((m) => m.userId === userId)?.displayName
+      : undefined;
+  }
+
   /** Works in `spaceId` from now on, and remembers it. */
   select(spaceId: string): void {
     this.picked.set(spaceId);

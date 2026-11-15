@@ -176,6 +176,33 @@ describe('RunPage', () => {
     );
   });
 
+  it('shows who checked or skipped an item and when', async () => {
+    await db.spaces.put({
+      id: SPACE,
+      name: 'Home',
+      version: 1,
+      members: [{ userId: 'anna', displayName: 'Anna' }],
+    });
+    const at = Date.now();
+    await db.runItems.bulkPut([
+      runItem('Tent', 'a0', { state: 'checked', stateBy: 'anna', stateAt: at }),
+      runItem('Socks', 'a1', {
+        state: 'skipped',
+        stateBy: 'gone',
+        stateAt: at,
+      }),
+      runItem('Milk', 'a2'),
+    ]);
+    const page = await render();
+    await page.settle(() =>
+      expect(
+        [...page.element.querySelectorAll('.checked-by')].map((e) =>
+          e.textContent?.replace(/\d\d?[:.]\d\d.*$/, '').trim(),
+        ),
+      ).toEqual(['Anna ·', 'Someone ·']),
+    );
+  });
+
   it('moves checked and skipped items into "Done" while the toggle is on', async () => {
     await db.runItems.bulkPut([
       runItem('Tent', 'a0', { state: 'checked' }),
@@ -422,7 +449,10 @@ describe('RunPage', () => {
     expect(TestBed.inject(MatDialog).open).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
-        data: expect.objectContaining({ notice: 'Changes this run only' }),
+        data: expect.objectContaining({
+          notice: 'Changes this run only',
+          editedBy: expect.stringMatching(/^Someone · /),
+        }),
       }),
     );
     expect(requests).toEqual([

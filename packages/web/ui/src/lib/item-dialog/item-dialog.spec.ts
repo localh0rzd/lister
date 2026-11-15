@@ -37,6 +37,16 @@ async function render(item: ItemDialogData) {
 const tent: ItemFields = { title: 'Tent', quantity: '', note: '' };
 
 describe('ItemDialog', () => {
+  it('says who edited the item last, when known', async () => {
+    const known = await render({ ...tent, editedBy: 'Anna · 14:02' });
+    expect(known.element.textContent).toContain('Last edited by Anna · 14:02');
+  });
+
+  it('shows no editor line without one', async () => {
+    const unknown = await render(tent);
+    expect(unknown.element.textContent).not.toContain('Last edited');
+  });
+
   it('starts with the item and closes with only the changed fields', async () => {
     const dialog = await render({
       title: 'Socks',

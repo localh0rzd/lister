@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-028 — "Checked by" attribution
 
 - Milestone: M6 Collaboration polish
@@ -34,6 +32,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 - Done when:
   - Run items show who checked or skipped them and when ("Anna · 14:02").
   - Item details show who edited them last.
+
+## Backlog
 
 ### T-029 — Rejection notices, deleted-while-editing, undo
 

@@ -27,10 +27,11 @@ import {
   runItemsFromList,
 } from '@lister/shared/domain';
 import { titleSchema } from '@lister/shared/sync-protocol';
-import { Repositories } from '@lister/web/data-access-local-db';
+import { CurrentSpace, Repositories } from '@lister/web/data-access-local-db';
 import { type SpaceChange, SpaceChanges } from '@lister/web/data-access-sync';
 import {
   ItemDialog,
+  attribution,
   type ItemDialogData,
   type ItemFields,
   ListPickerDialog,
@@ -82,6 +83,7 @@ export class RunPage {
   private readonly dialog = inject(MatDialog);
   private readonly router = inject(Router);
   private readonly notifier = inject(Notifier);
+  private readonly space = inject(CurrentSpace);
   protected readonly doneSection = inject(DoneSectionPreference);
 
   private readonly run = this.repositories.run(this.runId);
@@ -255,6 +257,13 @@ export class RunPage {
   }
 
   /** Edits an item of this run only; the list it came from stays as it is. */
+  /** "Anna · 14:02" for an item that was checked or skipped; `undefined` otherwise. */
+  protected checkedBy(item: RunItem): string | undefined {
+    if (item.state === 'unchecked' || !item.stateBy || item.stateAt === null)
+      return undefined;
+    return attribution(this.space.memberName(item.stateBy), item.stateAt);
+  }
+
   protected async edit(item: RunItem): Promise<void> {
     const ref = this.dialog.open<
       ItemDialog,
@@ -266,6 +275,10 @@ export class RunPage {
         quantity: item.quantity,
         note: item.note,
         notice: item.sources.length > 0 ? 'Changes this run only' : undefined,
+        editedBy: attribution(
+          this.space.memberName(item.updatedBy),
+          item.updatedAt,
+        ),
       },
       autoFocus: 'first-tabbable',
     });

@@ -255,6 +255,14 @@ describe('ListEditorPage', () => {
         }),
       ]),
     );
+    expect(TestBed.inject(MatDialog).open).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        data: expect.objectContaining({
+          editedBy: expect.stringMatching(/^Someone · /),
+        }),
+      }),
+    );
   });
 
   it('deletes an item and restores it with Undo', async () => {

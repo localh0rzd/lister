@@ -36,6 +36,8 @@ export interface ItemFields {
 export interface ItemDialogData extends ItemFields {
   /** Shown above the fields, e.g. "Changes “Camping”, also used in 2 other lists". */
   notice?: string;
+  /** Who changed the item last and when, e.g. "Anna · 14:02" (see `attribution()`). */
+  editedBy?: string;
 }
 
 /**
