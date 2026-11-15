@@ -284,7 +284,7 @@ describe('sync gateway', () => {
       expect(rejects).toEqual([
         {
           mutationId: batch[1].mutationId,
-          reason: 'A title is required (args.patch.title)',
+          reason: 'A title is required',
         },
       ]);
     });

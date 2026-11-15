@@ -307,7 +307,7 @@ describe('SyncEngine', () => {
 
       expect(result).toEqual({
         ok: false,
-        reason: 'A title is required (args.title)',
+        reason: 'A title is required',
       });
     });
   });

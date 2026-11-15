@@ -214,7 +214,7 @@ describe('parseMutation', () => {
     expect(result).toEqual({
       ok: false,
       mutationId,
-      reason: 'A title is required (args.title)',
+      reason: 'A title is required',
     });
   });
 });

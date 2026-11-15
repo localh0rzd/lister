@@ -23,18 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-029 — Rejection notices, deleted-while-editing, undo
-
-- Milestone: M6 Collaboration polish
-- Area: web
-- Priority: normal
-- Depends on: T-026
-- Done when:
-  - Every rejected change shows a snackbar with a readable reason. (Done early in T-016:
-    `RejectionNotices` in `data-access-sync`; check its wording here.)
-  - Editing an item that someone else just deleted shows "Deleted by Ben", with Restore.
-  - Undo is offered after deleting lists and items and after removing includes.
-
 ## Backlog
 
 ### T-030 — Sync status and update handling
@@ -152,6 +140,20 @@ nosniff`, `Referrer-Policy`, `frame-ancestors` in the CSP, and `app.disable('x-p
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
 
 ## Done
+
+### T-029 — Rejection notices, deleted-while-editing, undo
+
+- Completed: 2026-11-15 — the item edit dialog says "Deleted by <name>" / "Removed by …" (or that its list was deleted) with Restore, for list items and run items, keeping what was typed; rejection wording checked, schema path dropped from validation reasons; Undo already covered lists, items and includes (`item-dialog`, `list-editor-page`, `run-page`, `Repositories`).
+- Review: Changes requested; 8 fixed (4 substantive, 4 trivial), 0 skipped, 0 disagreed; re-review rounds: 1
+- Milestone: M6 Collaboration polish
+- Area: web
+- Priority: normal
+- Depends on: T-026
+- Done when:
+  - Every rejected change shows a snackbar with a readable reason. (Done early in T-016:
+    `RejectionNotices` in `data-access-sync`; check its wording here.)
+  - Editing an item that someone else just deleted shows "Deleted by Ben", with Restore.
+  - Undo is offered after deleting lists and items and after removing includes.
 
 ### T-028 — "Checked by" attribution
 

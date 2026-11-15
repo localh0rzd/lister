@@ -43,7 +43,7 @@
         <mat-error>{{ error.message }}</mat-error>
       }
     </mat-form-field>
-    @if (item.editedBy) {
+    @if (item.editedBy && !item.deleted?.()) {
       <p class="edited-by">Last changed by {{ item.editedBy }}</p>
     }
   </mat-dialog-content>

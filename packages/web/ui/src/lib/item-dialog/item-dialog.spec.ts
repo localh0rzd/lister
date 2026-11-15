@@ -129,13 +129,20 @@ describe('ItemDialog when somebody deletes the item', () => {
   it('says what was deleted, offers Restore and does not save', async () => {
     const deleted = signal<string | undefined>(undefined);
     const restore = vi.fn().mockResolvedValue(true);
-    const dialog = await render({ ...tent, deleted, restore });
+    const dialog = await render({
+      ...tent,
+      editedBy: 'Anna · 14:02',
+      deleted,
+      restore,
+    });
     expect(dialog.element.querySelector('[role="alert"]')).toBeNull();
+    expect(dialog.element.querySelector('.edited-by')).not.toBeNull();
 
     deleted.set('Deleted by Ben');
     TestBed.tick();
     await dialog.type(dialog.title, 'Tent XL');
 
+    expect(dialog.element.querySelector('.edited-by')).toBeNull();
     expect(
       dialog.element.querySelector('[role="alert"]')?.textContent,
     ).toContain('Deleted by Ben');
@@ -164,5 +171,23 @@ describe('ItemDialog when somebody deletes the item', () => {
     expect(dialog.element.querySelector('[role="alert"]')).toBeNull();
     expect(button(dialog.element, 'Save')?.disabled).toBe(false);
     expect(dialog.close).toHaveBeenCalledExactlyOnceWith({ title: 'Tent XL' });
+  });
+
+  it('keeps the banner and what was typed when the restore is refused', async () => {
+    const restore = vi.fn(() => Promise.resolve(false));
+    const dialog = await render({
+      ...tent,
+      deleted: signal('Deleted by Ben'),
+      restore,
+    });
+    await dialog.type(dialog.title, 'Tent XL');
+
+    button(dialog.element, 'Restore')?.click();
+    await vi.waitFor(() => expect(restore).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve));
+
+    expect(dialog.close).not.toHaveBeenCalled();
+    expect(dialog.title.value).toBe('Tent XL');
+    expect(dialog.element.querySelector('[role="alert"]')).not.toBeNull();
   });
 });

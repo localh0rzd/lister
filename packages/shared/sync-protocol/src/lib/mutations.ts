@@ -200,10 +200,9 @@ export function parseMutation(entry: { mutationId: string }): ParsedMutation {
   const result = mutationSchema.safeParse(entry);
   if (result.success) return { ok: true, mutation: result.data };
   const issue = result.error.issues[0];
-  const where = issue?.path.length ? ` (${issue.path.join('.')})` : '';
   return {
     ok: false,
     mutationId: entry.mutationId,
-    reason: `${issue?.message ?? 'Invalid change'}${where}`,
+    reason: issue?.message ?? 'Invalid change',
   };
 }

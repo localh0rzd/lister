@@ -426,7 +426,7 @@ describe('MutationService', () => {
         'a blank title',
         'list.create',
         { id: newId(), title: ' ' },
-        'A title is required (args.title)',
+        'A title is required',
       ],
       [
         'an unknown mutation',
@@ -438,7 +438,7 @@ describe('MutationService', () => {
         'an empty patch',
         'item.update',
         { id: newId(), patch: {} },
-        'Nothing to change (args.patch)',
+        'Nothing to change',
       ],
     ] as const)(
       'rejects %s with a reason and changes nothing',
