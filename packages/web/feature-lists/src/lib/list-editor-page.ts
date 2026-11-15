@@ -322,7 +322,7 @@ export class ListEditorPage {
         note: item.note,
         notice: this.sourceNotice(item.listId),
         editedBy: attribution(
-          this.currentSpace.memberName(item.updatedBy),
+          this.currentSpace.memberName(item.spaceId, item.updatedBy),
           item.updatedAt,
         ),
       },

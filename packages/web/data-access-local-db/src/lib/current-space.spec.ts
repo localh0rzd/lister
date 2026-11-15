@@ -77,4 +77,18 @@ describe('CurrentSpace', () => {
 
     await vi.waitFor(() => expect(fresh.id()).toBe(home.id));
   });
+
+  it('names a member of any space on this device, not only the current one', async () => {
+    const home = {
+      ...space('Home'),
+      members: [{ userId: 'anna', displayName: 'Anna' }],
+    };
+    const attic = space('Attic');
+    await db.spaces.bulkPut([home, attic]);
+    await vi.waitFor(() => expect(current.id()).toBe(attic.id));
+
+    expect(current.memberName(home.id, 'anna')).toBe('Anna');
+    expect(current.memberName(attic.id, 'anna')).toBeUndefined();
+    expect(current.memberName(undefined, 'anna')).toBeUndefined();
+  });
 });

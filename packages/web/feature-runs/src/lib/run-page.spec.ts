@@ -203,6 +203,32 @@ describe('RunPage', () => {
     );
   });
 
+  it("names people from the run's own space, also while another space is current", async () => {
+    // "Attic" sorts first, so it is the current space; the run belongs to "Home".
+    await db.spaces.bulkPut([
+      { id: newId(), name: 'Attic', version: 1, members: [] },
+      {
+        id: SPACE,
+        name: 'Home',
+        version: 1,
+        members: [{ userId: 'anna', displayName: 'Anna' }],
+      },
+    ]);
+    await db.runItems.bulkPut([
+      runItem('Tent', 'a0', {
+        state: 'checked',
+        stateBy: 'anna',
+        stateAt: Date.now(),
+      }),
+    ]);
+    const page = await render();
+    await page.settle(() =>
+      expect(page.element.querySelector('.checked-by')?.textContent).toMatch(
+        /^Anna · /,
+      ),
+    );
+  });
+
   it('moves checked and skipped items into "Done" while the toggle is on', async () => {
     await db.runItems.bulkPut([
       runItem('Tent', 'a0', { state: 'checked' }),

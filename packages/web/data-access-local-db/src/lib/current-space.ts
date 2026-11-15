@@ -41,13 +41,16 @@ export class CurrentSpace {
   );
 
   /**
-   * The display name of a member of the current space, or `undefined` for someone who isn't one
-   * (any more). Reads signals, so a template using it updates with the space.
+   * The display name of a member of the space `spaceId` (the space of the row being shown, which
+   * need not be the current one), or `undefined` for someone who isn't one (any more). Reads
+   * signals, so a template using it updates with the spaces.
    */
-  memberName(userId: string): string | undefined {
-    const space = this.state();
-    return space.status === 'ready'
-      ? space.value?.members.find((m) => m.userId === userId)?.displayName
+  memberName(spaceId: string | undefined, userId: string): string | undefined {
+    const spaces = this.all();
+    return spaces.status === 'ready'
+      ? spaces.value
+          .find((s) => s.id === spaceId)
+          ?.members.find((m) => m.userId === userId)?.displayName
       : undefined;
   }
 

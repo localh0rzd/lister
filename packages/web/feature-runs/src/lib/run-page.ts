@@ -261,7 +261,10 @@ export class RunPage {
   protected checkedBy(item: RunItem): string | undefined {
     if (item.state === 'unchecked' || !item.stateBy || item.stateAt === null)
       return undefined;
-    return attribution(this.space.memberName(item.stateBy), item.stateAt);
+    return attribution(
+      this.space.memberName(item.spaceId, item.stateBy),
+      item.stateAt,
+    );
   }
 
   protected async edit(item: RunItem): Promise<void> {
@@ -276,7 +279,7 @@ export class RunPage {
         note: item.note,
         notice: item.sources.length > 0 ? 'Changes this run only' : undefined,
         editedBy: attribution(
-          this.space.memberName(item.updatedBy),
+          this.space.memberName(item.spaceId, item.updatedBy),
           item.updatedAt,
         ),
       },

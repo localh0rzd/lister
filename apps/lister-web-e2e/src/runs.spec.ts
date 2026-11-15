@@ -85,11 +85,11 @@ for (const [device, viewport] of [
           .click();
       });
 
-      await test.step('item details show who edited it last', async () => {
+      await test.step('item details show who changed it last', async () => {
         await page.getByRole('button', { name: 'More for Tent' }).click();
         await page.getByRole('menuitem', { name: 'Edit' }).click();
         const dialog = page.getByRole('dialog', { name: 'Edit item' });
-        await expect(dialog).toContainText(/Last edited by E2E user · /);
+        await expect(dialog).toContainText(/Last changed by E2E user · /);
         await dialog.getByRole('button', { name: 'Cancel' }).click();
       });
 
