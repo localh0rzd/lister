@@ -53,6 +53,33 @@ test.describe('real-time sync between two devices', () => {
   });
 });
 
+test.describe('an item deleted while someone edits it', () => {
+  test('the open edit dialog says it was deleted and can restore it', async ({
+    page: a,
+    browser,
+  }) => {
+    const title = await createList(a);
+    const b = await otherDevice(browser);
+    await openList(a, title);
+    await addItem(a, 'Tent');
+    await openList(b, title);
+    await expect(itemTitles(b)).toHaveText(['Tent']);
+
+    await itemMenu(a, 'Tent', 'Edit');
+    const dialog = a.getByRole('dialog');
+    await itemMenu(b, 'Tent', 'Delete');
+
+    await expect(dialog.getByRole('alert')).toContainText('Deleted by');
+    await expect(dialog.getByRole('button', { name: 'Save' })).toBeDisabled();
+    await dialog.getByRole('button', { name: 'Restore' }).click();
+
+    await expect(dialog).toBeHidden();
+    await expect(itemTitles(a)).toHaveText(['Tent']);
+    await expect(itemTitles(b)).toHaveText(['Tent']);
+    await b.context().close();
+  });
+});
+
 test.describe('offline', () => {
   test('A changes items offline while B changes others; both converge once A is back', async ({
     page: a,

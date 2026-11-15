@@ -1,6 +1,12 @@
 <h2 mat-dialog-title>Edit item</h2>
 <form novalidate (submit)="save($event)">
   <mat-dialog-content class="fields">
+    @if (item.deletedBy?.(); as name) {
+      <div class="deleted" role="alert">
+        <span>Deleted by {{ name }}</span>
+        <button matButton type="button" (click)="restore()">Restore</button>
+      </div>
+    }
     @if (item.notice) {
       <p class="notice">{{ item.notice }}</p>
     }
@@ -38,6 +44,8 @@
   </mat-dialog-content>
   <mat-dialog-actions align="end">
     <button matButton type="button" mat-dialog-close>Cancel</button>
-    <button matButton="filled" type="submit">Save</button>
+    <button matButton="filled" type="submit" [disabled]="!!item.deletedBy?.()">
+      Save
+    </button>
   </mat-dialog-actions>
 </form>

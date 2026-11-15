@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, type Signal, inject, signal } from '@angular/core';
 import {
   FormField,
   form,
@@ -38,6 +38,14 @@ export interface ItemDialogData extends ItemFields {
   notice?: string;
   /** Who changed the item last and when, e.g. "Anna · 14:02" (see `attribution()`). */
   editedBy?: string;
+  /**
+   * Who deleted the item while it's open (live), e.g. "Ben"; `undefined` while it exists. Set
+   * together with `restore`: the dialog then says "Deleted by Ben", offers Restore and doesn't
+   * save (the change would be ignored, design §2.4: delete wins).
+   */
+  deletedBy?: Signal<string | undefined>;
+  /** Brings the item back; `true` when that worked. The dialog closes after it. */
+  restore?: () => Promise<boolean>;
 }
 
 /**
@@ -79,8 +87,13 @@ export class ItemDialog {
     validateStandardSchema(path.note, noteSchema);
   });
 
+  protected async restore(): Promise<void> {
+    if (await this.item.restore?.()) this.dialog.close();
+  }
+
   protected save(event: Event): void {
     event.preventDefault();
+    if (this.item.deletedBy?.()) return;
     void submit(this.itemForm, async () => {
       const value = this.model();
       const patch: Partial<ItemFields> = {};

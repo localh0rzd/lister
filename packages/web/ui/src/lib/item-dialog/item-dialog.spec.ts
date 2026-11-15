@@ -1,3 +1,4 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import {
@@ -116,5 +117,53 @@ describe('ItemDialog', () => {
   it('has no notice unless given one', async () => {
     const dialog = await render(tent);
     expect(dialog.element.querySelector('.notice')).toBeNull();
+  });
+});
+
+describe('ItemDialog when somebody deletes the item', () => {
+  it('says who deleted it, offers Restore and does not save', async () => {
+    const deletedBy = signal<string | undefined>(undefined);
+    const restore = vi.fn().mockResolvedValue(true);
+    const dialog = await render({ ...tent, deletedBy, restore });
+    expect(dialog.element.textContent).not.toContain('Deleted by');
+
+    deletedBy.set('Ben');
+    TestBed.tick();
+    await dialog.type(dialog.title, 'Tent XL');
+
+    expect(dialog.element.textContent).toContain('Deleted by Ben');
+    const save = [...dialog.element.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Save',
+    );
+    expect(save?.disabled).toBe(true);
+    await dialog.submit();
+    expect(dialog.close).not.toHaveBeenCalled();
+  });
+
+  it('restores the item and closes', async () => {
+    const restore = vi.fn().mockResolvedValue(true);
+    const dialog = await render({
+      ...tent,
+      deletedBy: signal('Ben'),
+      restore,
+    });
+    [...dialog.element.querySelectorAll('button')]
+      .find((button) => button.textContent?.trim() === 'Restore')
+      ?.click();
+    await vi.waitFor(() => expect(dialog.close).toHaveBeenCalledWith());
+    expect(restore).toHaveBeenCalledOnce();
+  });
+
+  it('stays open when the restore was refused', async () => {
+    const dialog = await render({
+      ...tent,
+      deletedBy: signal('Ben'),
+      restore: () => Promise.resolve(false),
+    });
+    [...dialog.element.querySelectorAll('button')]
+      .find((button) => button.textContent?.trim() === 'Restore')
+      ?.click();
+    await dialog.element.ownerDocument.defaultView?.Promise.resolve();
+    expect(dialog.close).not.toHaveBeenCalled();
   });
 });

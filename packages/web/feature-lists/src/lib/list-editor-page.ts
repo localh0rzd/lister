@@ -1,6 +1,7 @@
 import {
   Component,
   ElementRef,
+  type Signal,
   afterRenderEffect,
   computed,
   effect,
@@ -325,6 +326,9 @@ export class ListEditorPage {
           this.currentSpace.memberName(item.spaceId, item.updatedBy),
           item.updatedAt,
         ),
+        deletedBy: this.deletedBy(item),
+        restore: () =>
+          this.changes.apply({ name: 'item.restore', args: { id: item.id } }),
       },
       autoFocus: 'first-tabbable',
     });
@@ -334,6 +338,24 @@ export class ListEditorPage {
         name: 'item.update',
         args: { id: item.id, patch },
       });
+  }
+
+  /**
+   * Who deleted `item` (live: someone else may do it while its dialog is open); `undefined`
+   * while it exists. The deleting change is the last one on the row, so `updatedBy` is theirs.
+   */
+  private deletedBy(item: Item): Signal<string | undefined> {
+    return computed(() => {
+      const view = this.view();
+      if (view.kind !== 'ready') return undefined;
+      const now = view.space
+        .itemsOf(item.listId)
+        .find((row) => row.id === item.id);
+      if (!now || now.deletedAt === null) return undefined;
+      return (
+        this.currentSpace.memberName(now.spaceId, now.updatedBy) ?? 'someone'
+      );
+    });
   }
 
   protected remove(item: Item): Promise<boolean> {

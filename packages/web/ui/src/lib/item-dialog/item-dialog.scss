@@ -11,3 +11,14 @@
   width: min(480px, calc(100vw - 96px));
   box-sizing: border-box;
 }
+
+.deleted {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px 4px 16px;
+  border-radius: var(--mat-sys-corner-medium);
+  background: var(--mat-sys-error-container);
+  color: var(--mat-sys-on-error-container);
+}

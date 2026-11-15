@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-029 — Rejection notices, deleted-while-editing, undo
 
 - Milestone: M6 Collaboration polish
@@ -36,6 +34,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
     `RejectionNotices` in `data-access-sync`; check its wording here.)
   - Editing an item that someone else just deleted shows "Deleted by Ben", with Restore.
   - Undo is offered after deleting lists and items and after removing includes.
+
+## Backlog
 
 ### T-030 — Sync status and update handling
 

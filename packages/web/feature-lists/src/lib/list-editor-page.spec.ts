@@ -17,6 +17,7 @@ import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { SyncEngine } from '@lister/web/data-access-sync';
 import { Notifier } from '@lister/web/util-notify';
 import { of } from 'rxjs';
+import type { ItemDialogData } from '@lister/web/ui';
 import { ListEditorPage } from './list-editor-page';
 
 const SPACE = newId();
@@ -263,6 +264,36 @@ describe('ListEditorPage', () => {
         }),
       }),
     );
+  });
+
+  it('tells an open edit dialog who deleted the item, and restores it from there', async () => {
+    const socks = item('Socks', 'a0');
+    await db.items.put(socks);
+    await db.spaces.put({
+      id: SPACE,
+      name: 'Home',
+      version: 1,
+      members: [{ userId: 'ben', displayName: 'Ben' }],
+    });
+    const page = await render();
+    const menu = await page.loader.getHarness(
+      MatMenuHarness.with({ selector: '[aria-label="More for Socks"]' }),
+    );
+    await menu.clickItem({ text: /Edit/ });
+    const data = vi.mocked(TestBed.inject(MatDialog).open).mock.calls[0][1]
+      ?.data as ItemDialogData;
+    expect(data.deletedBy?.()).toBeUndefined();
+
+    await db.items.put({ ...socks, deletedAt: 5, updatedBy: 'ben' });
+
+    await vi.waitFor(() => expect(data.deletedBy?.()).toBe('Ben'));
+    await data.restore?.();
+    expect(requests).toEqual([
+      expect.objectContaining({
+        name: 'item.restore',
+        args: { id: socks.id },
+      }),
+    ]);
   });
 
   it('deletes an item and restores it with Undo', async () => {
