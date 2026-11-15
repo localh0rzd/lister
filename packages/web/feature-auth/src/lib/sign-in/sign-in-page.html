@@ -43,15 +43,21 @@
 </form>
 @if (passkeysSupported) {
   <div class="actions passkey">
-    <button
-      matButton="outlined"
-      type="button"
-      [disabled]="busy()"
-      (click)="signInWithPasskey()"
-    >
-      <mat-icon aria-hidden="true">passkey</mat-icon>
-      Sign in with a passkey
-    </button>
+    @if (passkeyBusy()) {
+      <button matButton="outlined" type="button" (click)="cancelPasskey()">
+        Cancel
+      </button>
+    } @else {
+      <button
+        matButton="outlined"
+        type="button"
+        [disabled]="busy()"
+        (click)="signInWithPasskey()"
+      >
+        <mat-icon aria-hidden="true">passkey</mat-icon>
+        Sign in with a passkey
+      </button>
+    }
   </div>
 }
 <p class="alt">

@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { httpResource } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, viewChild } from '@angular/core';
 import {
   FormField,
   form,
@@ -53,8 +53,11 @@ export class PasskeysSection {
     () => this.passkeys.listUrl,
   );
   protected readonly supported = this.passkeys.supported();
+  /** A passkey is being created: the authenticator has not answered yet (it can take a minute). */
   protected readonly busy = signal(false);
   protected readonly error = signal('');
+  private ceremony?: AbortController;
+  private readonly nameInput = viewChild(MatInput);
 
   private readonly model = signal({ name: '' });
   protected readonly addForm = form(this.model, (path) => {
@@ -69,9 +72,14 @@ export class PasskeysSection {
     event.preventDefault();
     this.error.set('');
     void submit(this.addForm, async () => {
+      const ceremony = new AbortController();
+      this.ceremony = ceremony;
       this.busy.set(true);
       try {
-        const added = await this.passkeys.add(this.model().name.trim());
+        const added = await this.passkeys.add(
+          this.model().name.trim(),
+          ceremony.signal,
+        );
         this.model.set({ name: '' });
         this.addForm().reset();
         this.list.reload();
@@ -79,14 +87,38 @@ export class PasskeysSection {
           message: `Passkey “${added.name}” added`,
           duration: NOTICE_DURATION_MS,
         });
+        this.focusName();
       } catch (error) {
-        this.error.set(
-          describePasskeyError(error, 'The passkey was not added. Try again.'),
-        );
+        // Cancelled by the user: nothing to explain, and the name stays for another try.
+        if (!ceremony.signal.aborted) {
+          this.error.set(
+            describePasskeyError(
+              error,
+              'The passkey was not added. Try again.',
+            ),
+          );
+        }
       } finally {
-        this.busy.set(false);
+        if (this.ceremony === ceremony) {
+          this.ceremony = undefined;
+          this.busy.set(false);
+        }
       }
     });
+  }
+
+  /** Stops a passkey prompt nobody is answering, and gives the form back at once. */
+  protected cancelAdd(): void {
+    if (!this.ceremony) return;
+    this.ceremony.abort();
+    this.ceremony = undefined;
+    this.busy.set(false);
+    void this.passkeys.cancel();
+  }
+
+  /** The button that was used is gone or disabled, so focus goes to where the next action starts. */
+  private focusName(): void {
+    this.nameInput()?.focus();
   }
 
   protected async remove(passkey: PasskeyInfo): Promise<void> {
@@ -111,6 +143,7 @@ export class PasskeysSection {
         message: `Passkey “${passkey.name}” removed`,
         duration: NOTICE_DURATION_MS,
       });
+      this.focusName();
     } catch (error) {
       this.error.set(
         describePasskeyError(error, 'The passkey was not removed. Try again.'),

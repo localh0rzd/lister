@@ -49,12 +49,17 @@ export class SignInPage {
     required(path.username, { message: 'Enter your username' });
     required(path.password, { message: 'Enter your password' });
   });
+  /** A password sign-in is in flight. */
   protected readonly busy = signal(false);
+  /** A passkey ceremony is waiting for the authenticator (it can take a minute to time out). */
+  protected readonly passkeyBusy = signal(false);
   protected readonly error = signal('');
+  private ceremony?: AbortController;
   protected readonly passkeysSupported = this.passkeys.supported();
 
   protected signIn(event: Event): void {
     event.preventDefault();
+    this.cancelPasskey();
     this.error.set('');
     void submit(this.signInForm, async () => {
       this.busy.set(true);
@@ -76,16 +81,33 @@ export class SignInPage {
   /** No username needed: the authenticator offers the passkeys it has for this site. */
   protected async signInWithPasskey(): Promise<void> {
     this.error.set('');
-    this.busy.set(true);
+    const ceremony = new AbortController();
+    this.ceremony = ceremony;
+    this.passkeyBusy.set(true);
     try {
-      await this.finish(await this.session.signInWithPasskey());
+      await this.finish(await this.session.signInWithPasskey(ceremony.signal));
     } catch (error) {
-      this.error.set(
-        describePasskeyError(error, 'Passkey sign-in failed. Try again.'),
-      );
+      // Cancelled by the user (or by starting a password sign-in): nothing to explain.
+      if (!ceremony.signal.aborted) {
+        this.error.set(
+          describePasskeyError(error, 'Passkey sign-in failed. Try again.'),
+        );
+      }
     } finally {
-      this.busy.set(false);
+      if (this.ceremony === ceremony) {
+        this.ceremony = undefined;
+        this.passkeyBusy.set(false);
+      }
     }
+  }
+
+  /** Stops a passkey ceremony nobody is answering, and gives the page back at once. */
+  protected cancelPasskey(): void {
+    if (!this.ceremony) return;
+    this.ceremony.abort();
+    this.ceremony = undefined;
+    this.passkeyBusy.set(false);
+    void this.passkeys.cancel();
   }
 
   /** After either way of signing in: change a temporary password first, else go where asked. */

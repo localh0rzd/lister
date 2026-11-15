@@ -125,11 +125,14 @@ export class AuthSession {
    * Signs in with a passkey, the same as `signIn()` afterwards. The authenticator offers the
    * passkeys it has for this site, so no username is asked.
    */
-  async signInWithPasskey(): Promise<CurrentUser> {
+  async signInWithPasskey(signal?: AbortSignal): Promise<CurrentUser> {
     const options = await firstValueFrom(
       this.http.post<WebAuthnJson>(apiPath('auth', 'passkey', 'options'), {}),
     );
+    // Cancelled while the options were loading: no prompt.
+    signal?.throwIfAborted();
     const response = await this.webAuthn.authenticate(options);
+    signal?.throwIfAborted();
     const body: PasskeyLoginRequest = { response };
     const user = await firstValueFrom(
       this.http.post<CurrentUser>(apiPath('auth', 'passkey', 'login'), body),

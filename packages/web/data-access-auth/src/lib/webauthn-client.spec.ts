@@ -18,4 +18,10 @@ describe('WebAuthnClient', () => {
 
     expect(TestBed.inject(WebAuthnClient).supported()).toBe(false);
   });
+
+  it('cancels without a ceremony running, harmlessly', async () => {
+    await expect(
+      TestBed.inject(WebAuthnClient).cancel(),
+    ).resolves.toBeUndefined();
+  });
 });

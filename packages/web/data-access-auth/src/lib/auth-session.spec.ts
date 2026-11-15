@@ -300,6 +300,23 @@ describe('AuthSession', () => {
       expect(session.user()).toBeNull();
     });
 
+    it('does not start the prompt when cancelled while the options were loading', async () => {
+      const authenticate = vi.spyOn(
+        TestBed.inject(WebAuthnClient),
+        'authenticate',
+      );
+      const cancelled = new AbortController();
+      const result = session.signInWithPasskey(cancelled.signal);
+      const options = http.expectOne('/api/auth/passkey/options');
+
+      cancelled.abort();
+      options.flush({ challenge: 'c1' });
+
+      await expect(result).rejects.toMatchObject({ name: 'AbortError' });
+      expect(authenticate).not.toHaveBeenCalled();
+      expect(session.user()).toBeNull();
+    });
+
     it('fails with the server error when it refuses the passkey', async () => {
       const authenticate = vi
         .spyOn(TestBed.inject(WebAuthnClient), 'authenticate')

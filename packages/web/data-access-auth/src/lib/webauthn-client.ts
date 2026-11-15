@@ -40,4 +40,13 @@ export class WebAuthnClient {
     });
     return response as unknown as WebAuthnJson;
   }
+
+  /**
+   * Stops the ceremony the browser is running, if any: its promise rejects, so the page can drop
+   * the prompt that nobody is answering. Does nothing when no ceremony was started.
+   */
+  async cancel(): Promise<void> {
+    const { WebAuthnAbortService } = await import('@simplewebauthn/browser');
+    WebAuthnAbortService.cancelCeremony();
+  }
 }

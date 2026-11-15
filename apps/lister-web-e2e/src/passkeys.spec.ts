@@ -11,7 +11,10 @@ const layouts = [
  * A virtual authenticator (Chromium's WebAuthn DevTools domain) that keeps discoverable
  * credentials and always passes user verification, so no real device is needed.
  */
-async function addVirtualAuthenticator(page: Page) {
+async function addVirtualAuthenticator(
+  page: Page,
+  { answers = true }: { answers?: boolean } = {},
+) {
   const cdp = await page.context().newCDPSession(page);
   await cdp.send('WebAuthn.enable');
   const { authenticatorId } = await cdp.send(
@@ -23,7 +26,8 @@ async function addVirtualAuthenticator(page: Page) {
         hasResidentKey: true,
         hasUserVerification: true,
         isUserVerified: true,
-        automaticPresenceSimulation: true,
+        // Without presence simulation the ceremony waits for a touch that never comes.
+        automaticPresenceSimulation: answers,
       },
     },
   );
@@ -121,6 +125,56 @@ for (const [name, viewport] of layouts) {
         await expect(page.getByText('You have no passkeys yet')).toBeVisible();
         await expect(
           page.getByText('Passkey “My laptop” removed'),
+        ).toBeVisible();
+      });
+
+      await page.context().close();
+    });
+
+    test('a passkey prompt nobody answers does not lock the sign-in page', async ({
+      browser,
+      expectAccessible,
+    }) => {
+      const account = await createAccount('passkey-hang');
+      const page = await signedOutPage(browser);
+      await addVirtualAuthenticator(page, { answers: false });
+      await page.goto('/sign-in');
+
+      await test.step('while the authenticator waits, the password form still works and Cancel is offered', async () => {
+        await page
+          .getByRole('button', { name: 'Sign in with a passkey' })
+          .click();
+        const cancel = page.getByRole('button', { name: 'Cancel' });
+        await expect(cancel).toBeVisible();
+        await expect(
+          page.getByRole('button', { name: 'Sign in', exact: true }),
+        ).toBeEnabled();
+        await expect(page.getByLabel('Username')).toBeEnabled();
+        await expectAccessible(page);
+      });
+
+      await test.step('cancelling gives the passkey button back, without an error', async () => {
+        await page.getByRole('button', { name: 'Cancel' }).click();
+        await expect(
+          page.getByRole('button', { name: 'Sign in with a passkey' }),
+        ).toBeEnabled();
+        await expect(page.getByRole('alert')).toHaveCount(0);
+      });
+
+      await test.step('starting a password sign-in while a prompt is open cancels the prompt', async () => {
+        await page
+          .getByRole('button', { name: 'Sign in with a passkey' })
+          .click();
+        await expect(
+          page.getByRole('button', { name: 'Cancel' }),
+        ).toBeVisible();
+        await page.getByLabel('Username').fill(account.username);
+        await page.getByLabel('Password').fill(account.password);
+        await page
+          .getByRole('button', { name: 'Sign in', exact: true })
+          .click();
+        await expect(
+          page.getByRole('navigation', { name: 'Main' }),
         ).toBeVisible();
       });
 

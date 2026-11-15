@@ -36,6 +36,9 @@
     </ul>
   }
 }
+@if (error()) {
+  <p class="error" role="alert">{{ error() }}</p>
+}
 @if (supported) {
   <form novalidate (submit)="add($event)">
     <mat-form-field>
@@ -46,13 +49,14 @@
         <mat-error>{{ e.message }}</mat-error>
       }
     </mat-form-field>
-    @if (error()) {
-      <p class="error" role="alert">{{ error() }}</p>
-    }
     <div class="actions">
-      <button matButton="outlined" type="submit" [disabled]="busy()">
-        Add a passkey
-      </button>
+      @if (busy()) {
+        <button matButton="outlined" type="button" (click)="cancelAdd()">
+          Cancel
+        </button>
+      } @else {
+        <button matButton="outlined" type="submit">Add a passkey</button>
+      }
     </div>
   </form>
 } @else {

@@ -23,23 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-027 — Passkeys
-
-- Milestone: M5 Accounts and spaces
-- Area: api, web
-- Priority: normal
-- Depends on: T-026
-- Done when:
-  - Passkeys (WebAuthn) via `@simplewebauthn/server` and `@simplewebauthn/browser` 14, stored in a
-    `passkeys` table (credential id, public key, sign counter, transports, name, created and last
-    used).
-  - On their profile, users add a passkey, name it, and remove it; they only ever see their own.
-  - The sign-in page offers "Sign in with a passkey", using discoverable credentials, so no
-    username is needed.
-  - The relying-party id and origin come from `PUBLIC_URL`; `localhost` works in development.
-  - E2E with a virtual authenticator (Chromium): add a passkey, sign out, sign in with it, remove
-    it.
-
 ## Backlog
 
 ### T-028 — "Checked by" attribution
@@ -179,6 +162,25 @@ nosniff`, `Referrer-Policy`, `frame-ancestors` in the CSP, and `app.disable('x-p
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
 
 ## Done
+
+### T-027 — Passkeys
+
+- Completed: 2026-11-15 — passkeys (WebAuthn, SimpleWebAuthn 14): `passkeys` table, `/api/passkeys` and passkey sign-in in `api-feature-auth`, `Passkeys`/`WebAuthnClient` in `web-data-access-auth`, profile section and "Sign in with a passkey" in `web-feature-auth`; a hung passkey prompt can be cancelled and never locks the sign-in page or the profile form
+- Review: Changes requested (0 blocker, 1 major, 3 minor, 1 nit); 5 fixed, 0 deferred, 0 declined; plus the user-reported "buttons stay disabled after a failed passkey sign-in" fixed
+- Milestone: M5 Accounts and spaces
+- Area: api, web
+- Priority: normal
+- Depends on: T-026
+- Done when:
+  - Passkeys (WebAuthn) via `@simplewebauthn/server` and `@simplewebauthn/browser` 14, stored in a
+    `passkeys` table (credential id, public key, sign counter, transports, name, created and last
+    used).
+  - On their profile, users add a passkey, name it, and remove it; they only ever see their own.
+  - The sign-in page offers "Sign in with a passkey", using discoverable credentials, so no
+    username is needed.
+  - The relying-party id and origin come from `PUBLIC_URL`; `localhost` works in development.
+  - E2E with a virtual authenticator (Chromium): add a passkey, sign out, sign in with it, remove
+    it.
 
 ### T-026 — Web: sign-in, profile, user administration and spaces
 

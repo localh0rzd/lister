@@ -23,6 +23,7 @@ let db: LocalDb;
 const load = vi.fn();
 const webAuthn = {
   supported: vi.fn(() => true),
+  cancel: vi.fn(async () => undefined),
   authenticate: vi.fn(),
   register: vi.fn(),
 };
@@ -31,6 +32,7 @@ beforeEach(() => {
   load.mockClear();
   webAuthn.supported.mockReturnValue(true);
   webAuthn.authenticate.mockReset();
+  webAuthn.cancel.mockClear();
   db = new LocalDb(`test-${newId()}`);
   TestBed.configureTestingModule({
     providers: [
@@ -260,6 +262,120 @@ describe('SignInPage', () => {
         ).toContain('Passkey sign-in failed');
       });
       expect(load).not.toHaveBeenCalled();
+    });
+
+    describe('while the authenticator has not answered', () => {
+      /** A ceremony that never settles, as when the browser shows nothing or the prompt is ignored. */
+      function pending() {
+        let reject: (error: unknown) => void = () => undefined;
+        webAuthn.authenticate.mockReturnValue(
+          new Promise((_, r) => {
+            reject = r;
+          }),
+        );
+        return { reject };
+      }
+
+      async function start() {
+        const page = await render();
+        const http = TestBed.inject(HttpTestingController);
+        passkeyButton(page.element)?.click();
+        http.expectOne('/api/auth/passkey/options').flush({ challenge: 'c1' });
+        await vi.waitFor(() =>
+          expect(webAuthn.authenticate).toHaveBeenCalled(),
+        );
+        await page.fixture.whenStable();
+        return { ...page, http };
+      }
+
+      const button = (element: HTMLElement, name: string) =>
+        [...element.querySelectorAll('button')].find((b) =>
+          b.textContent?.trim().endsWith(name),
+        );
+
+      it('leaves the password form and its Sign in button usable', async () => {
+        pending();
+        const { element } = await start();
+
+        expect(button(element, 'Sign in')?.disabled).toBe(false);
+        expect(
+          element.querySelector<HTMLInputElement>(
+            'input[autocomplete="username"]',
+          )?.disabled,
+        ).toBe(false);
+      });
+
+      it('turns the passkey button into a Cancel that stops the ceremony without an error', async () => {
+        pending();
+        const { element, fixture } = await start();
+        expect(button(element, 'Sign in with a passkey')).toBeUndefined();
+
+        button(element, 'Cancel')?.click();
+        await fixture.whenStable();
+
+        expect(webAuthn.cancel).toHaveBeenCalled();
+        expect(button(element, 'Sign in with a passkey')?.disabled).toBe(false);
+        expect(element.querySelector('[role="alert"]')).toBeNull();
+      });
+
+      it('shows no error when the browser reports the cancelled ceremony', async () => {
+        const { reject } = pending();
+        const { element, fixture } = await start();
+
+        button(element, 'Cancel')?.click();
+        reject(new DOMException('aborted', 'AbortError'));
+        await fixture.whenStable();
+
+        expect(element.querySelector('[role="alert"]')).toBeNull();
+        expect(button(element, 'Sign in with a passkey')).toBeTruthy();
+      });
+
+      it('cancels the ceremony when a password sign-in starts', async () => {
+        pending();
+        const { element, fixture, type, submit, http } = await start();
+        await type('username', 'anna');
+        await type('current-password', 'a password');
+
+        await submit();
+
+        expect(webAuthn.cancel).toHaveBeenCalled();
+        http.expectOne('/api/auth/login').flush(anna);
+        await vi.waitFor(() => expect(load).toHaveBeenCalledWith('/'));
+        expect(element.querySelector('[role="alert"]')).toBeNull();
+        await fixture.whenStable();
+      });
+
+      it('never starts the ceremony when it was cancelled while the options were still loading', async () => {
+        pending();
+        const page = await render();
+        const http = TestBed.inject(HttpTestingController);
+        passkeyButton(page.element)?.click();
+        await page.fixture.whenStable();
+
+        button(page.element, 'Cancel')?.click();
+        http.expectOne('/api/auth/passkey/options').flush({ challenge: 'c1' });
+        await page.fixture.whenStable();
+
+        expect(webAuthn.authenticate).not.toHaveBeenCalled();
+        expect(page.element.querySelector('[role="alert"]')).toBeNull();
+        expect(button(page.element, 'Sign in with a passkey')).toBeTruthy();
+      });
+
+      it('re-enables everything and says why when the ceremony times out', async () => {
+        const { reject } = pending();
+        const { element, fixture } = await start();
+
+        reject(new DOMException('timed out', 'NotAllowedError'));
+        await vi.waitFor(async () => {
+          await fixture.whenStable();
+          expect(
+            element.querySelector('[role="alert"]')?.textContent,
+          ).toContain('cancelled or timed out');
+        });
+
+        expect(button(element, 'Sign in with a passkey')?.disabled).toBe(false);
+        expect(button(element, 'Sign in')?.disabled).toBe(false);
+      });
     });
   });
 });

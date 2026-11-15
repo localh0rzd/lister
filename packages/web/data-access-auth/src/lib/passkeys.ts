@@ -35,16 +35,24 @@ export class Passkeys {
   /** The URL of the list of the user's own passkeys, for `httpResource()`. */
   readonly listUrl = apiPath('passkeys');
 
+  /** Stops the passkey prompt the browser is showing, if any (the page's "Cancel"). */
+  cancel(): Promise<void> {
+    return this.client.cancel();
+  }
+
   supported(): boolean {
     return this.client.supported();
   }
 
   /** Creates a passkey on an authenticator of the user's choice and stores it under `name`. */
-  async add(name: string): Promise<PasskeyInfo> {
+  async add(name: string, signal?: AbortSignal): Promise<PasskeyInfo> {
     const options = await firstValueFrom(
       this.http.post<WebAuthnJson>(apiPath('passkeys', 'options'), {}),
     );
+    // Cancelled while the options were loading: no prompt, nothing stored.
+    signal?.throwIfAborted();
     const response = await this.client.register(options);
+    signal?.throwIfAborted();
     const body: AddPasskeyRequest = { name, response };
     return firstValueFrom(
       this.http.post<PasskeyInfo>(apiPath('passkeys'), body),

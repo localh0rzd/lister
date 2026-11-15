@@ -11,6 +11,7 @@ let http: HttpTestingController;
 let passkeys: Passkeys;
 const client = {
   supported: vi.fn(() => true),
+  cancel: vi.fn(async () => undefined),
   register: vi.fn(),
   authenticate: vi.fn(),
 };
@@ -71,6 +72,37 @@ describe('Passkeys', () => {
     http.expectOne('/api/passkeys/options').flush({ challenge: 'c1' });
 
     await expect(added).rejects.toMatchObject({ name: 'NotAllowedError' });
+  });
+
+  it('does not start the prompt, or store anything, when cancelled while the options load', async () => {
+    const cancelled = new AbortController();
+    const added = passkeys.add('x', cancelled.signal);
+    const options = http.expectOne('/api/passkeys/options');
+
+    cancelled.abort();
+    options.flush({ challenge: 'c1' });
+
+    await expect(added).rejects.toMatchObject({ name: 'AbortError' });
+    expect(client.register).not.toHaveBeenCalled();
+  });
+
+  it('stores nothing when cancelled while the prompt was open', async () => {
+    const cancelled = new AbortController();
+    client.register.mockImplementation(async () => {
+      cancelled.abort();
+      return { id: 'late' };
+    });
+    const added = passkeys.add('x', cancelled.signal);
+    http.expectOne('/api/passkeys/options').flush({ challenge: 'c1' });
+
+    await expect(added).rejects.toMatchObject({ name: 'AbortError' });
+    http.expectNone('/api/passkeys');
+  });
+
+  it('cancels the browser prompt through the client', async () => {
+    await passkeys.cancel();
+
+    expect(client.cancel).toHaveBeenCalled();
   });
 
   it('removes a passkey by its id, escaped', async () => {
