@@ -37,7 +37,7 @@ packages/
   web/feature-runs/      Runs destination, @lister/web/feature-runs (scope:web, type:feature)
   web/feature-auth/      sign-in, first-run setup, forced password change, profile, @lister/web/feature-auth (scope:web, type:feature)
   web/feature-admin/     user administration (admins only), @lister/web/feature-admin (scope:web, type:feature)
-  web/feature-space/     Space destination: space switcher, spaces and members, links to profile and users, @lister/web/feature-space (scope:web, type:feature)
+  web/feature-space/     Space destination: space switcher, spaces and members, links to profile and users, sync status, @lister/web/feature-space (scope:web, type:feature)
   web/data-access-auth/  AuthSession (who is signed in, sign-in/out, remembered offline), route guards, @lister/web/data-access-auth (scope:web, type:data-access)
   web/data-access-sync/  sync engine: mutate(), outbox, socket, status; SpaceChanges (changes to the current space, with refusal notices and Undo), @lister/web/data-access-sync (scope:web, type:data-access)
   web/data-access-local-db/ Dexie database, liveQuery signals, repositories, @lister/web/data-access-local-db (scope:web, type:data-access)

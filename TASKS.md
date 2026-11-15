@@ -23,19 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-030 — Sync status and update handling
-
-- Milestone: M6 Collaboration polish
-- Area: web
-- Priority: normal
-- Depends on: T-009, T-003
-- Done when:
-  - Offline state, the number of unsynced changes, the last sync time and a "Sync now" action are
-    visible.
-  - Sync errors can be inspected.
-  - An "update required" answer from the server starts the service worker update flow instead of
-    failing silently.
-
 ## Backlog
 
 ### T-031 — Install hint and persistent storage
@@ -127,6 +114,21 @@ nosniff`, `Referrer-Policy`, `frame-ancestors` in the CSP, and `app.disable('x-p
     pinned hashes.
 - Notes: Found in the security audit (2026-11-13), rated low: CI has no deploy secrets today.
 
+### T-041 — Say which change a sync error refers to
+
+- Milestone: M6 Collaboration polish
+- Area: web
+- Priority: low
+- Depends on: T-030
+- Done when:
+  - Each entry in the Space page's "Sync errors" list names the refused change, e.g. "Add item
+    “Stove” to Camping — Item not found", not only the reason.
+  - The refusal snackbar uses the same wording.
+  - Entries recorded before the change still show their reason.
+- Notes: Needs a short description stored with each refusal (`Rejection` in `data-access-local-db`,
+  written by `SyncEngine` when it records the reject), probably in `data-access-sync` and
+  `feature-space`. Found in the T-030 review (finding 5).
+
 ### T-037 — Quiet the sync-engine test teardown
 
 - Milestone: M6 Collaboration polish
@@ -140,6 +142,21 @@ nosniff`, `Referrer-Policy`, `frame-ancestors` in the CSP, and `app.disable('x-p
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
 
 ## Done
+
+### T-030 — Sync status and update handling
+
+- Completed: 2026-11-16 — Space page Sync section (state, unsynced count, last sync, "Sync now", error list); `SyncEngine.syncNow()`, `errorLog`; "update required" starts `AppUpdates.updateRequired()` (`data-access-sync`, `feature-space`, `util-pwa`).
+- Review: Changes requested; 9 fixed (4 substantive, 5 trivial), 1 skipped (T-041), 0 disagreed; re-review rounds: 1
+- Milestone: M6 Collaboration polish
+- Area: web
+- Priority: normal
+- Depends on: T-009, T-003
+- Done when:
+  - Offline state, the number of unsynced changes, the last sync time and a "Sync now" action are
+    visible.
+  - Sync errors can be inspected.
+  - An "update required" answer from the server starts the service worker update flow instead of
+    failing silently.
 
 ### T-029 — Rejection notices, deleted-while-editing, undo
 

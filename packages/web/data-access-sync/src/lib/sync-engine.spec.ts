@@ -1338,7 +1338,9 @@ describe('SyncEngine', () => {
           at: i,
         });
 
-      await eventually(() => expect(engine.errors()).toHaveLength(23));
+      await eventually(() =>
+        expect(engine.errors()).toHaveLength(ERROR_LOG_SIZE + 3),
+      );
       for (let i = 0; i < ERROR_LOG_SIZE + 3; i++)
         await engine.dismissError(`m${i}`);
 
@@ -1418,8 +1420,9 @@ describe('SyncEngine', () => {
       server.backingOff = true;
       expect(server.connectCalls).toBe(1);
 
-      server.backingOff = false;
       await engine.syncNow();
+      await settle();
+      expect(server.connectCalls).toBe(2);
 
       await eventually(() => {
         expect(server.connectCalls).toBe(2);

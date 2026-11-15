@@ -580,7 +580,7 @@ packages/
     feature-runs           runs: start, ad-hoc, check/skip, progress, finishing         scope:web type:feature
     feature-auth           sign-in, first-run setup, profile with passkeys              scope:web type:feature
     feature-admin          user administration (admins only)                            scope:web type:feature
-    feature-space          space switcher, spaces and members                           scope:web type:feature
+    feature-space          space switcher, spaces and members, sync status              scope:web type:feature
     ui                     nav bar/rail, item row, section header, sync status, dialogs scope:web type:ui
     util-pwa               SW updates, install hint, storage persistence, online signal scope:web type:util
     util-notify            Notifier: the snackbar queue (Undo, rejections, prompts)     scope:web type:util

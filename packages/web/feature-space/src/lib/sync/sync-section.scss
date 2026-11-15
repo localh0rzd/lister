@@ -16,6 +16,10 @@ h2 {
   flex-direction: column;
   font: var(--mat-sys-body-large);
 }
+.live {
+  display: flex;
+  flex-direction: column;
+}
 .row-hint {
   font: var(--mat-sys-body-medium);
   color: var(--mat-sys-on-surface-variant);
@@ -25,9 +29,8 @@ h2 {
   padding-inline: 4px;
   summary {
     cursor: pointer;
-    min-height: 40px;
-    display: flex;
-    align-items: center;
+    display: list-item;
+    padding-block: 10px;
   }
   ul {
     list-style: none;
