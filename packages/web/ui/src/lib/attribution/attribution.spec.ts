@@ -14,6 +14,13 @@ describe('attribution', () => {
     expect(attribution('Anna', at, now, 'en-GB')).toBe('Anna · 15 Nov, 14:02');
   });
 
+  it('does not zero-pad the hour in 12-hour locales', () => {
+    const morning = new Date(2026, 10, 15, 9, 5).getTime();
+    expect(attribution('Anna', morning, morning, 'en-US')).toBe(
+      'Anna · 9:05 AM',
+    );
+  });
+
   it('says "Someone" for an unknown person', () => {
     const now = at;
     expect(attribution(undefined, at, now, 'en-GB')).toBe('Someone · 14:02');

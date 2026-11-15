@@ -256,7 +256,6 @@ export class RunPage {
     if (outcome === 'action') await this.router.navigate(['/lists', listId]);
   }
 
-  /** Edits an item of this run only; the list it came from stays as it is. */
   /** "Anna · 14:02" for an item that was checked or skipped; `undefined` otherwise. */
   protected checkedBy(item: RunItem): string | undefined {
     if (item.state === 'unchecked' || !item.stateBy || item.stateAt === null)
@@ -267,6 +266,7 @@ export class RunPage {
     );
   }
 
+  /** Edits an item of this run only; the list it came from stays as it is. */
   protected async edit(item: RunItem): Promise<void> {
     const ref = this.dialog.open<
       ItemDialog,

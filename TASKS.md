@@ -23,16 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-028 — "Checked by" attribution
-
-- Milestone: M6 Collaboration polish
-- Area: web, api
-- Priority: normal
-- Depends on: T-026, T-020
-- Done when:
-  - Run items show who checked or skipped them and when ("Anna · 14:02").
-  - Item details show who edited them last.
-
 ## Backlog
 
 ### T-029 — Rejection notices, deleted-while-editing, undo
@@ -162,6 +152,18 @@ nosniff`, `Referrer-Policy`, `frame-ancestors` in the CSP, and `app.disable('x-p
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
 
 ## Done
+
+### T-028 — "Checked by" attribution
+
+- Completed: 2026-11-15 — run items show who checked or skipped them and when; the item dialog shows who changed the item last (`CurrentSpace.memberName`, `attribution()` in web/ui, run page, list editor)
+- Review: Changes requested; 5 fixed (2 substantive, 3 trivial), 0 skipped, 0 disagreed; re-review rounds: 1
+- Milestone: M6 Collaboration polish
+- Area: web, api
+- Priority: normal
+- Depends on: T-026, T-020
+- Done when:
+  - Run items show who checked or skipped them and when ("Anna · 14:02").
+  - Item details show who edited them last.
 
 ### T-027 — Passkeys
 

@@ -199,7 +199,7 @@ describe('RunPage', () => {
         [...page.element.querySelectorAll('.checked-by')].map((e) =>
           e.textContent?.replace(/\d\d?[:.]\d\d.*$/, '').trim(),
         ),
-      ).toEqual(['Anna ·', 'Someone ·']),
+      ).toEqual(['Anna ·', 'Skipped · Someone ·']),
     );
   });
 

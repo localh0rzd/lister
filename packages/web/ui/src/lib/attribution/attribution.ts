@@ -10,10 +10,7 @@ export function attribution(
   locale?: string,
 ): string {
   const when = new Date(at);
-  const time = when.toLocaleTimeString(locale, {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const time = when.toLocaleTimeString(locale, { timeStyle: 'short' });
   const sameDay = when.toDateString() === new Date(now).toDateString();
   const text = sameDay
     ? time
