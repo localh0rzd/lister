@@ -136,6 +136,8 @@ export class ListEditorPage {
   private readonly starter = inject(RunStarter);
 
   private readonly list = this.repositories.list(this.listId);
+  /** The signed-in user, so a delete made on another device of theirs says "you". */
+  private readonly me = this.repositories.currentUserId();
   private readonly spaceId = computed(() => {
     const list = this.list();
     return list.status === 'ready' ? list.value?.spaceId : undefined;
@@ -326,9 +328,8 @@ export class ListEditorPage {
           this.currentSpace.memberName(item.spaceId, item.updatedBy),
           item.updatedAt,
         ),
-        deletedBy: this.deletedBy(item),
-        restore: () =>
-          this.changes.apply({ name: 'item.restore', args: { id: item.id } }),
+        deleted: this.deletedNotice(item),
+        restore: () => this.restoreFor(item),
       },
       autoFocus: 'first-tabbable',
     });
@@ -341,21 +342,60 @@ export class ListEditorPage {
   }
 
   /**
-   * Who deleted `item` (live: someone else may do it while its dialog is open); `undefined`
-   * while it exists. The deleting change is the last one on the row, so `updatedBy` is theirs.
+   * What someone deleted while `item`'s dialog is open (live): the item ("Deleted by Ben") or
+   * the list it belongs to, this one or an included one ("“Camping” was deleted by Ben").
+   * `undefined` while the item can be changed. The deleting change is the last one on the row,
+   * so `updatedBy` is theirs.
    */
-  private deletedBy(item: Item): Signal<string | undefined> {
+  private deletedNotice(item: Item): Signal<string | undefined> {
     return computed(() => {
-      const view = this.view();
-      if (view.kind !== 'ready') return undefined;
-      const now = view.space
-        .itemsOf(item.listId)
-        .find((row) => row.id === item.id);
-      if (!now || now.deletedAt === null) return undefined;
-      return (
-        this.currentSpace.memberName(now.spaceId, now.updatedBy) ?? 'someone'
-      );
+      const deleted = this.deletedFor(item);
+      if (!deleted) return undefined;
+      const by = this.byWhom(deleted.row);
+      return deleted.kind === 'item'
+        ? `Deleted by ${by}`
+        : `“${deleted.row.title}” was deleted by ${by}`;
     });
+  }
+
+  /** The deleted row that keeps `item` from being changed: the item itself, or its list. */
+  private deletedFor(
+    item: Item,
+  ): { kind: 'item'; row: Item } | { kind: 'list'; row: List } | undefined {
+    const view = this.dataView();
+    if (view.kind === 'deleted') {
+      // Items of included lists can still be changed; this list's own can't.
+      return view.list.id === item.listId
+        ? { kind: 'list', row: view.list }
+        : undefined;
+    }
+    if (view.kind !== 'ready') return undefined;
+    const now = view.space
+      .itemsOf(item.listId)
+      .find((row) => row.id === item.id);
+    if (now && now.deletedAt !== null) return { kind: 'item', row: now };
+    const list = view.space.list(item.listId);
+    if (list && list.deletedAt !== null) return { kind: 'list', row: list };
+    return undefined;
+  }
+
+  /** Restores what keeps `item` from being changed (one step at a time). */
+  private restoreFor(item: Item): Promise<boolean> {
+    const deleted = this.deletedFor(item);
+    if (!deleted) return Promise.resolve(true);
+    return this.changes.apply(
+      deleted.kind === 'item'
+        ? { name: 'item.restore', args: { id: deleted.row.id } }
+        : { name: 'list.restore', args: { id: deleted.row.id } },
+    );
+  }
+
+  private byWhom(row: Item | List): string {
+    const me = this.me();
+    if (me.status === 'ready' && me.value === row.updatedBy) return 'you';
+    return (
+      this.currentSpace.memberName(row.spaceId, row.updatedBy) ?? 'someone'
+    );
   }
 
   protected remove(item: Item): Promise<boolean> {

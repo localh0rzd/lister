@@ -1,5 +1,6 @@
 import {
   Component,
+  type Signal,
   computed,
   effect,
   inject,
@@ -88,6 +89,11 @@ export class RunPage {
 
   private readonly run = this.repositories.run(this.runId);
   private readonly items = this.repositories.itemsOfRun(this.runId);
+  /** The item whose edit dialog is open, removed or not: someone may remove it meanwhile. */
+  private readonly editingId = signal<string | undefined>(undefined);
+  private readonly editing = this.repositories.runItem(this.editingId);
+  /** The signed-in user, so a removal made on another device of theirs says "you". */
+  private readonly me = this.repositories.currentUserId();
   private readonly spaceId = computed(() => {
     const run = this.run();
     return run.status === 'ready' ? run.value?.spaceId : undefined;
@@ -282,15 +288,43 @@ export class RunPage {
           this.space.memberName(item.spaceId, item.updatedBy),
           item.updatedAt,
         ),
+        deleted: this.removedNotice(item.id),
+        restore: () =>
+          this.changes.apply({
+            name: 'runItem.restore',
+            args: { id: item.id },
+          }),
       },
       autoFocus: 'first-tabbable',
     });
+    this.editingId.set(item.id);
     const patch = await firstValueFrom(ref.afterClosed());
+    this.editingId.set(undefined);
     if (patch)
       await this.changes.apply({
         name: 'runItem.update',
         args: { id: item.id, patch },
       });
+  }
+
+  /**
+   * "Removed by Ben" once someone removes the item being edited (live), so the dialog doesn't
+   * save a change that would be ignored (design §2.4). A merged-away item isn't removed: its
+   * changes apply to the item it became part of (D16).
+   */
+  private removedNotice(id: string): Signal<string | undefined> {
+    return computed(() => {
+      const row = this.editing();
+      if (row.status !== 'ready' || row.value?.id !== id) return undefined;
+      const { deletedAt, mergedInto, spaceId, updatedBy } = row.value;
+      if (deletedAt === null || mergedInto !== null) return undefined;
+      const me = this.me();
+      const by =
+        me.status === 'ready' && me.value === updatedBy
+          ? 'you'
+          : (this.space.memberName(spaceId, updatedBy) ?? 'someone');
+      return `Removed by ${by}`;
+    });
   }
 
   protected async remove(item: RunItem): Promise<void> {

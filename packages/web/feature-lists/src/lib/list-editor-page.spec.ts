@@ -266,34 +266,67 @@ describe('ListEditorPage', () => {
     );
   });
 
-  it('tells an open edit dialog who deleted the item, and restores it from there', async () => {
-    const socks = item('Socks', 'a0');
-    await db.items.put(socks);
-    await db.spaces.put({
-      id: SPACE,
-      name: 'Home',
-      version: 1,
-      members: [{ userId: 'ben', displayName: 'Ben' }],
+  describe('while an item is being edited', () => {
+    async function editSocks() {
+      const socks = item('Socks', 'a0');
+      await db.items.put(socks);
+      await db.spaces.put({
+        id: SPACE,
+        name: 'Home',
+        version: 1,
+        members: [{ userId: 'ben', displayName: 'Ben' }],
+      });
+      await db.meta.put({ key: 'userId', value: 'me' });
+      const page = await render();
+      const menu = await page.loader.getHarness(
+        MatMenuHarness.with({ selector: '[aria-label="More for Socks"]' }),
+      );
+      await menu.clickItem({ text: /Edit/ });
+      const data = vi.mocked(TestBed.inject(MatDialog).open).mock.calls[0][1]
+        ?.data as ItemDialogData;
+      expect(data.deleted?.()).toBeUndefined();
+      return { socks, data };
+    }
+
+    it('tells the dialog who deleted the item, and restores it from there', async () => {
+      const { socks, data } = await editSocks();
+
+      await db.items.put({ ...socks, deletedAt: 5, updatedBy: 'ben' });
+
+      await vi.waitFor(() => expect(data.deleted?.()).toBe('Deleted by Ben'));
+      await data.restore?.();
+      expect(requests).toEqual([
+        expect.objectContaining({
+          name: 'item.restore',
+          args: { id: socks.id },
+        }),
+      ]);
     });
-    const page = await render();
-    const menu = await page.loader.getHarness(
-      MatMenuHarness.with({ selector: '[aria-label="More for Socks"]' }),
-    );
-    await menu.clickItem({ text: /Edit/ });
-    const data = vi.mocked(TestBed.inject(MatDialog).open).mock.calls[0][1]
-      ?.data as ItemDialogData;
-    expect(data.deletedBy?.()).toBeUndefined();
 
-    await db.items.put({ ...socks, deletedAt: 5, updatedBy: 'ben' });
+    it('says "you" when the user deleted it on another device', async () => {
+      const { socks, data } = await editSocks();
 
-    await vi.waitFor(() => expect(data.deletedBy?.()).toBe('Ben'));
-    await data.restore?.();
-    expect(requests).toEqual([
-      expect.objectContaining({
-        name: 'item.restore',
-        args: { id: socks.id },
-      }),
-    ]);
+      await db.items.put({ ...socks, deletedAt: 5, updatedBy: 'me' });
+
+      await vi.waitFor(() => expect(data.deleted?.()).toBe('Deleted by you'));
+    });
+
+    it('tells the dialog when the list was deleted, and restores the list from there', async () => {
+      const { data } = await editSocks();
+
+      await db.lists.put({ ...camping, deletedAt: 5, updatedBy: 'ben' });
+
+      await vi.waitFor(() =>
+        expect(data.deleted?.()).toBe('“Camping” was deleted by Ben'),
+      );
+      await data.restore?.();
+      expect(requests).toEqual([
+        expect.objectContaining({
+          name: 'list.restore',
+          args: { id: camping.id },
+        }),
+      ]);
+    });
   });
 
   it('deletes an item and restores it with Undo', async () => {
@@ -631,6 +664,36 @@ describe('ListEditorPage — included lists', () => {
       ),
     ].map((el) => el.textContent?.trim());
     expect(nested).toEqual(['Soap', 'Kitchen', 'Stove']);
+  });
+
+  it('tells an open edit dialog when the included list was deleted, but not when this one was', async () => {
+    const toiletries = list('Toiletries');
+    await db.lists.put(toiletries);
+    await db.items.put(itemOf(toiletries.id, 'Soap', 'a0'));
+    await db.includes.put(include(camping.id, toiletries.id, 'a1'));
+    const page = await render();
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(
+        page.element.querySelector('[aria-label="Edit Soap"]'),
+      ).not.toBeNull();
+    });
+    (
+      page.element.querySelector('[aria-label="Edit Soap"]') as HTMLElement
+    ).click();
+    const data = openDialog().mock.calls[0][1]?.data as ItemDialogData;
+
+    await db.lists.put({ ...camping, deletedAt: 5 });
+    await vi.waitFor(() =>
+      expect(page.element.textContent).toContain('This list was deleted'),
+    );
+    expect(data.deleted?.()).toBeUndefined(); // Soap belongs to Toiletries: still editable
+
+    await db.lists.put({ ...camping });
+    await db.lists.put({ ...toiletries, deletedAt: 6 });
+    await vi.waitFor(() =>
+      expect(data.deleted?.()).toBe('“Toiletries” was deleted by someone'),
+    );
   });
 
   it('folds and unfolds a section', async () => {

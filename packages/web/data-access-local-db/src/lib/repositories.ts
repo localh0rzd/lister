@@ -257,6 +257,17 @@ export class Repositories {
     });
   }
 
+  /** One run item by id, removed or not (`undefined` if it doesn't exist here). */
+  runItem(
+    id: () => string | undefined,
+  ): Signal<QueryState<RunItem | undefined>> {
+    return liveQuerySignal(() => {
+      const itemId = id();
+      if (!itemId) return undefined;
+      return () => this.db.runItems.get(itemId);
+    });
+  }
+
   /** The signed-in user's id, as the server's welcome told this device (until then `undefined`). */
   currentUserId(): Signal<QueryState<string | undefined>> {
     return liveQuerySignal(

@@ -12,6 +12,7 @@ import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { type MutationRequest, SyncEngine } from '@lister/web/data-access-sync';
 import { Notifier } from '@lister/web/util-notify';
 import { Observable, Subject, of } from 'rxjs';
+import type { ItemDialogData } from '@lister/web/ui';
 import { DoneSectionPreference } from './done-section-preference';
 import { RunPage } from './run-page';
 
@@ -488,6 +489,51 @@ describe('RunPage', () => {
         args: { id: tent.id, patch: { title: 'Big tent', quantity: '1' } },
       },
     ]);
+  });
+
+  it('tells an open edit dialog who removed the item, restores it, and forgets it once closed', async () => {
+    const tent = runItem('Tent', 'a0');
+    const lamp = runItem('Lamp', 'a1');
+    await db.runItems.bulkPut([tent, lamp]);
+    await db.spaces.put({
+      id: SPACE,
+      name: 'Home',
+      version: 1,
+      members: [{ userId: 'ben', displayName: 'Ben' }],
+    });
+    await db.meta.put({ key: 'userId', value: 'me' });
+    const page = await render();
+    const closed = new Subject<undefined>();
+    dialogAnswer = closed;
+    const editing = (
+      page.fixture.componentInstance as unknown as {
+        edit(item: RunItem): Promise<void>;
+      }
+    ).edit(tent);
+    const data = vi.mocked(TestBed.inject(MatDialog).open).mock.calls[0][1]
+      ?.data as ItemDialogData;
+    await page.settle(() => expect(data.deleted?.()).toBeUndefined());
+
+    await db.runItems.put({ ...lamp, deletedAt: 4, updatedBy: 'ben' }); // another item
+    await db.runItems.put({ ...tent, deletedAt: 5, updatedBy: 'ben' });
+    await page.settle(() => expect(data.deleted?.()).toBe('Removed by Ben'));
+    await db.runItems.put({ ...tent, deletedAt: 5, updatedBy: 'me' });
+    await page.settle(() => expect(data.deleted?.()).toBe('Removed by you'));
+    // Merged into an identical item (D16): its changes still apply there.
+    await db.runItems.put({ ...tent, deletedAt: 5, mergedInto: lamp.id });
+    await page.settle(() => expect(data.deleted?.()).toBeUndefined());
+
+    await data.restore?.();
+    expect(requests).toEqual([
+      expect.objectContaining({
+        name: 'runItem.restore',
+        args: { id: tent.id },
+      }),
+    ]);
+    closed.next(undefined);
+    closed.complete();
+    await editing;
+    expect(data.deleted?.()).toBeUndefined();
   });
 
   it('renames the run', async () => {

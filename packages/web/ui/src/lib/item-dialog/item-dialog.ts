@@ -1,4 +1,11 @@
-import { Component, type Signal, inject, signal } from '@angular/core';
+import {
+  Component,
+  type ElementRef,
+  type Signal,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import {
   FormField,
   form,
@@ -39,12 +46,16 @@ export interface ItemDialogData extends ItemFields {
   /** Who changed the item last and when, e.g. "Anna · 14:02" (see `attribution()`). */
   editedBy?: string;
   /**
-   * Who deleted the item while it's open (live), e.g. "Ben"; `undefined` while it exists. Set
-   * together with `restore`: the dialog then says "Deleted by Ben", offers Restore and doesn't
-   * save (the change would be ignored, design §2.4: delete wins).
+   * Live: what someone deleted while the dialog is open, e.g. "Deleted by Ben" or "“Camping”
+   * was deleted by Ben"; `undefined` while the item can be changed. Set together with
+   * `restore`: the dialog then shows it with Restore and doesn't save (the change would be
+   * ignored, design §2.4: delete wins).
    */
-  deletedBy?: Signal<string | undefined>;
-  /** Brings the item back; `true` when that worked. The dialog closes after it. */
+  deleted?: Signal<string | undefined>;
+  /**
+   * Brings back what was deleted; `true` when that worked. The dialog stays open with what the
+   * user typed, so they can still save it.
+   */
   restore?: () => Promise<boolean>;
 }
 
@@ -87,13 +98,17 @@ export class ItemDialog {
     validateStandardSchema(path.note, noteSchema);
   });
 
+  private readonly titleField =
+    viewChild.required<ElementRef<HTMLInputElement>>('titleField');
+
+  /** Restores and keeps the typed values; focus goes back to Title (Restore is going away). */
   protected async restore(): Promise<void> {
-    if (await this.item.restore?.()) this.dialog.close();
+    if (await this.item.restore?.()) this.titleField().nativeElement.focus();
   }
 
   protected save(event: Event): void {
     event.preventDefault();
-    if (this.item.deletedBy?.()) return;
+    if (this.item.deleted?.()) return;
     void submit(this.itemForm, async () => {
       const value = this.model();
       const patch: Partial<ItemFields> = {};

@@ -524,4 +524,13 @@ describe('Repositories.run and itemsOfRun', () => {
     await expectEventually(found, alps);
     await expectEventually(items, [stove, tent]);
   });
+
+  it('finds one run item, also a removed one', async () => {
+    const gone = runItem(newId(), 'Gone', 'a0', { deletedAt: 1 });
+    await db.runItems.put(gone);
+    const found = TestBed.runInInjectionContext(() =>
+      repositories.runItem(() => gone.id),
+    );
+    await expectEventually(found, gone);
+  });
 });

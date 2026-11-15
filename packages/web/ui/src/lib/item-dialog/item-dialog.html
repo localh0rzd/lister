@@ -1,9 +1,9 @@
 <h2 mat-dialog-title>Edit item</h2>
 <form novalidate (submit)="save($event)">
   <mat-dialog-content class="fields">
-    @if (item.deletedBy?.(); as name) {
+    @if (item.deleted?.(); as deleted) {
       <div class="deleted" role="alert">
-        <span>Deleted by {{ name }}</span>
+        <span>{{ deleted }}</span>
         <button matButton type="button" (click)="restore()">Restore</button>
       </div>
     }
@@ -12,7 +12,12 @@
     }
     <mat-form-field subscriptSizing="dynamic">
       <mat-label>Title</mat-label>
-      <input matInput [formField]="itemForm.title" cdkFocusInitial />
+      <input
+        #titleField
+        matInput
+        [formField]="itemForm.title"
+        cdkFocusInitial
+      />
       @if (
         itemForm.title().touched() && itemForm.title().errors()[0];
         as error
@@ -44,7 +49,7 @@
   </mat-dialog-content>
   <mat-dialog-actions align="end">
     <button matButton type="button" mat-dialog-close>Cancel</button>
-    <button matButton="filled" type="submit" [disabled]="!!item.deletedBy?.()">
+    <button matButton="filled" type="submit" [disabled]="!!item.deleted?.()">
       Save
     </button>
   </mat-dialog-actions>

@@ -54,7 +54,7 @@ test.describe('real-time sync between two devices', () => {
 });
 
 test.describe('an item deleted while someone edits it', () => {
-  test('the open edit dialog says it was deleted and can restore it', async ({
+  test('the open edit dialog says it was deleted, restores it and still saves the edit', async ({
     page: a,
     browser,
   }) => {
@@ -67,15 +67,60 @@ test.describe('an item deleted while someone edits it', () => {
 
     await itemMenu(a, 'Tent', 'Edit');
     const dialog = a.getByRole('dialog');
+    await dialog.getByLabel('Title').fill('Tent XL');
     await itemMenu(b, 'Tent', 'Delete');
 
-    await expect(dialog.getByRole('alert')).toContainText('Deleted by');
+    // Both devices are the e2e user: "you" deleted it on another device.
+    await expect(dialog.getByRole('alert')).toContainText('Deleted by you');
     await expect(dialog.getByRole('button', { name: 'Save' })).toBeDisabled();
     await dialog.getByRole('button', { name: 'Restore' }).click();
 
+    await expect(dialog.getByRole('alert')).toBeHidden();
+    await expect(dialog.getByLabel('Title')).toHaveValue('Tent XL');
+    await expect(dialog.getByLabel('Title')).toBeFocused();
+    await dialog.getByRole('button', { name: 'Save' }).click();
+
     await expect(dialog).toBeHidden();
-    await expect(itemTitles(a)).toHaveText(['Tent']);
-    await expect(itemTitles(b)).toHaveText(['Tent']);
+    await expect(itemTitles(a)).toHaveText(['Tent XL']);
+    await expect(itemTitles(b)).toHaveText(['Tent XL']);
+    await b.context().close();
+  });
+
+  test('a run item removed while edited says so, and is restored from there', async ({
+    page: a,
+    browser,
+  }) => {
+    const title = await createList(a);
+    await openList(a, title);
+    await pasteItems(a, ['Lamp', 'Rope']);
+    await expect(itemTitles(a)).toHaveText(['Lamp', 'Rope']);
+    await a.getByRole('button', { name: 'Start run' }).click();
+    await expect(
+      a.getByRole('heading', { level: 1, name: new RegExp(`^${title} · `) }),
+    ).toBeVisible();
+    await synced(a);
+    const b = await otherDevice(browser);
+    await b.goto(a.url());
+    const lamp = (page: typeof a) =>
+      page.getByRole('button', { name: 'More for Lamp' });
+    await expect(lamp(b)).toBeVisible();
+
+    await lamp(a).click();
+    await a.getByRole('menuitem', { name: 'Edit' }).click();
+    const dialog = a.getByRole('dialog');
+    await dialog.getByLabel('Note').fill('spare batteries');
+    await lamp(b).click();
+    await b.getByRole('menuitem', { name: 'Remove' }).click();
+
+    await expect(dialog.getByRole('alert')).toContainText('Removed by you');
+    await expect(dialog.getByRole('button', { name: 'Save' })).toBeDisabled();
+    await dialog.getByRole('button', { name: 'Restore' }).click();
+    await expect(dialog.getByRole('alert')).toBeHidden();
+    await dialog.getByRole('button', { name: 'Save' }).click();
+
+    await expect(dialog).toBeHidden();
+    await expect(lamp(b)).toBeVisible();
+    await expect(b.getByText('spare batteries')).toBeVisible();
     await b.context().close();
   });
 });
