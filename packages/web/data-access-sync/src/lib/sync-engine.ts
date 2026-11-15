@@ -179,6 +179,9 @@ const LOCK_NAME = 'lister-sync';
 const STATUS_KEY = 'status';
 const FIRST_RECONNECT_DELAY_MS = 1000;
 const MAX_RECONNECT_DELAY_MS = 30_000;
+/** How many shown errors the error log keeps. */
+export const ERROR_LOG_SIZE = 20;
+const SYNC_NOW_KEY = 'syncNowRequest';
 const OFFLINE: SyncStatus = {
   online: false,
   syncing: false,
@@ -249,7 +252,11 @@ export class SyncEngine {
     () => valueOf(this.latestSync()) ?? null,
   );
   /** Changes the server refused, oldest first, until dismissed. */
-  readonly errors: Signal<readonly SyncError[]> = computed(
+  readonly errors: Signal<readonly SyncError[]> = computed(() =>
+    this.errorLog().filter((error) => !error.seen),
+  );
+  /** The recent refused changes, oldest first, also after they were shown and dismissed. */
+  readonly errorLog: Signal<readonly SyncError[]> = computed(
     () => valueOf(this.rejections()) ?? [],
   );
   /**
@@ -341,9 +348,48 @@ export class SyncEngine {
     });
   }
 
-  /** Forgets a reported rejection once the UI has shown it (in every tab). */
+  /**
+   * Marks a reported rejection as shown (in every tab). It stays in `errorLog`, which keeps the
+   * latest `ERROR_LOG_SIZE`.
+   */
   async dismissError(mutationId: string): Promise<void> {
-    await this.db.rejections.delete(mutationId);
+    await this.db.transaction('rw', this.db.rejections, async () => {
+      await this.db.rejections.update(mutationId, { seen: true });
+      const seen = await this.db.rejections.orderBy('at').toArray();
+      const surplus = seen.length - ERROR_LOG_SIZE;
+      const old = seen.filter((error) => error.seen).slice(0, surplus);
+      await this.db.rejections.bulkDelete(old.map((e) => e.mutationId));
+    });
+  }
+
+  /** Empties the error log (every tab). */
+  async clearErrorLog(): Promise<void> {
+    await this.db.rejections.clear();
+  }
+
+  /**
+   * "Sync now": asks the syncing tab (this one, or another) to push the outbox and pull every
+   * space now, or, when offline, to reconnect at once instead of waiting out the backoff.
+   */
+  async syncNow(): Promise<void> {
+    // A fresh value every time, so every request is a change.
+    await this.db.meta.put({ key: SYNC_NOW_KEY, value: newId() });
+  }
+
+  private syncNowAsLeader(socket: SyncSocket): void {
+    if (this.connection.updateRequired) return;
+    if (socket.connected) {
+      void this.enqueue(async () => {
+        for (const id of await this.db.spaces.toCollection().primaryKeys())
+          await this.pull(id);
+        await this.flush();
+      });
+      return;
+    }
+    clearTimeout(this.reconnectTimer);
+    this.reconnectDelay = FIRST_RECONNECT_DELAY_MS;
+    socket.disconnect();
+    socket.connect();
   }
 
   // ── Leader: the connection ─────────────────────────────────────────────────
@@ -406,7 +452,20 @@ export class SyncEngine {
     const outbox = liveQuery(() => this.db.outbox.count()).subscribe(
       () => void this.enqueue(() => this.flush()),
     );
+    // A "Sync now" from any tab. The request that is there when we start is an old one, and
+    // only a new request id counts (the query also re-runs for unrelated writes).
+    let lastRequest: string | undefined | null = null;
+    const syncNow = liveQuery(() => this.db.meta.get(SYNC_NOW_KEY)).subscribe(
+      (row) => {
+        const request = row?.value;
+        const old = lastRequest;
+        lastRequest = request;
+        if (old !== null && request !== undefined && request !== old)
+          this.syncNowAsLeader(socket);
+      },
+    );
     this.destroyRef.onDestroy(() => {
+      syncNow.unsubscribe();
       this.window?.removeEventListener('offline', goOffline);
       this.window?.removeEventListener('online', goOnline);
       this.window?.removeEventListener('focus', retrySignIn);

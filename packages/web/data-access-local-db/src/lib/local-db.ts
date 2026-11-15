@@ -45,11 +45,15 @@ export interface SyncState {
   lastSyncedAt: number | null;
 }
 
-/** A change the server refused, kept until the UI has shown it (every tab reads these). */
+/**
+ * A change the server refused (every tab reads these). Once the UI has shown it, it is marked
+ * `seen` and stays in the error log, so it can be inspected later.
+ */
 export interface Rejection {
   mutationId: string;
   reason: string;
   at: number;
+  seen?: boolean;
 }
 
 /** The leader tab's connection state, shared with the other tabs (`meta` key `status`). */

@@ -13,6 +13,7 @@ import { provideRouter } from '@angular/router';
 import { AuthSession } from '@lister/web/data-access-auth';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { newId } from '@lister/shared/domain';
+import { SyncEngine } from '@lister/web/data-access-sync';
 import { SpacePage } from './space-page';
 
 const user = signal({
@@ -37,6 +38,18 @@ describe('SpacePage', () => {
         provideHttpClientTesting(),
         provideRouter([]),
         { provide: LOCAL_DB, useValue: db },
+        {
+          provide: SyncEngine,
+          useValue: {
+            online: signal(true),
+            syncing: signal(false),
+            pendingCount: signal(0),
+            lastSyncedAt: signal(null),
+            signInRequired: signal(false),
+            updateRequired: signal(false),
+            errorLog: signal([]),
+          },
+        },
         {
           provide: AuthSession,
           useValue: { user, isAdmin: () => user().isAdmin },

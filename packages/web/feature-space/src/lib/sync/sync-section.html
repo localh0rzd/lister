@@ -1,0 +1,45 @@
+<h2 id="sync-heading">Sync</h2>
+<div class="sync-status" role="status">
+  <mat-icon aria-hidden="true">{{
+    sync.online() ? 'cloud_done' : 'cloud_off'
+  }}</mat-icon>
+  <span class="row-text">
+    <span class="state">{{ state() }}</span>
+    <span class="row-hint">{{ pending() }}</span>
+    <span class="row-hint">
+      Last synced:
+      @if (sync.lastSyncedAt(); as at) {
+        {{ at | date: 'medium' }}
+      } @else {
+        never
+      }
+    </span>
+  </span>
+  <button
+    type="button"
+    matButton="outlined"
+    [disabled]="sync.syncing() || sync.updateRequired()"
+    (click)="sync.syncNow()"
+  >
+    Sync now
+  </button>
+</div>
+
+<details class="errors">
+  <summary>Sync errors ({{ errors().length }})</summary>
+  @if (errors().length === 0) {
+    <p class="row-hint">No changes were refused.</p>
+  } @else {
+    <ul>
+      @for (error of errors(); track error.mutationId) {
+        <li>
+          <span>{{ error.reason }}</span>
+          <span class="row-hint">{{ error.at | date: 'medium' }}</span>
+        </li>
+      }
+    </ul>
+    <button type="button" matButton (click)="sync.clearErrorLog()">
+      Clear errors
+    </button>
+  }
+</details>

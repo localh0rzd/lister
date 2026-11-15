@@ -77,6 +77,22 @@ export class AppUpdates {
       });
   }
 
+  /**
+   * The server no longer speaks this app's protocol: look for a new version at once. If the
+   * service worker found one, its "New version available" prompt follows; otherwise (no service
+   * worker, or nothing newer cached) ask for a reload, which fetches the current app.
+   */
+  async updateRequired(): Promise<void> {
+    if (this.updates.isEnabled) {
+      try {
+        if (await this.updates.checkForUpdate()) return;
+      } catch {
+        // Offline or a failed check: the reload prompt below still works.
+      }
+    }
+    this.offerReload('Lister needs an update to keep syncing');
+  }
+
   private offerReload(message: string): void {
     this.pendingReload.set(message);
     this.showing = true;

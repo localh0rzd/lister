@@ -4,6 +4,7 @@ import { NavigationEnd, Router } from '@angular/router';
 import { Subject } from 'rxjs';
 import { AuthSession } from '@lister/web/data-access-auth';
 import { DISCARDED_CHANGES_KEY } from '@lister/web/data-access-local-db';
+import { AppUpdates } from '@lister/web/util-pwa';
 import { Notifier } from '@lister/web/util-notify';
 import { RejectionNotices } from './rejection-notices';
 import { SyncEngine, type SyncError } from './sync-engine';
@@ -11,6 +12,8 @@ import { SyncEngine, type SyncError } from './sync-engine';
 function setup() {
   const errors = signal<readonly SyncError[]>([]);
   const signInRequired = signal(false);
+  const updateRequired = signal(false);
+  const appUpdates = { updateRequired: vi.fn(() => Promise.resolve()) };
   const navigate = vi.fn(() => Promise.resolve(true));
   const events = new Subject<unknown>();
   const router = { navigate, events, url: '/lists' };
@@ -22,6 +25,7 @@ function setup() {
   const engine = {
     errors,
     signInRequired,
+    updateRequired,
     start: vi.fn(),
     dismissError: vi.fn(async (id: string) =>
       errors.update((list) => list.filter((e) => e.mutationId !== id)),
@@ -40,6 +44,7 @@ function setup() {
     providers: [
       { provide: SyncEngine, useValue: engine },
       { provide: Notifier, useValue: notifier },
+      { provide: AppUpdates, useValue: appUpdates },
       { provide: Router, useValue: router },
       { provide: AuthSession, useValue: { user } },
     ],
@@ -48,6 +53,8 @@ function setup() {
   return {
     errors,
     signInRequired,
+    updateRequired,
+    appUpdates,
     navigate,
     navigateTo,
     router,
@@ -199,5 +206,16 @@ describe('RejectionNotices', () => {
     await vi.waitFor(() =>
       expect(engine.dismissError).toHaveBeenCalledWith(loop.mutationId),
     );
+  });
+
+  it('starts the update flow once when the server says an update is required', () => {
+    const { notices, updateRequired, appUpdates } = setup();
+    notices.start();
+    TestBed.tick();
+    expect(appUpdates.updateRequired).not.toHaveBeenCalled();
+
+    updateRequired.set(true);
+    TestBed.tick();
+    expect(appUpdates.updateRequired).toHaveBeenCalledTimes(1);
   });
 });

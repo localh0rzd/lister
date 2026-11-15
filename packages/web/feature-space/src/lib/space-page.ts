@@ -7,12 +7,13 @@ import { TRASH_KEEP_DAYS } from '@lister/shared/domain';
 import { ThemePicker } from '@lister/web/ui';
 import { AuthSession } from '@lister/web/data-access-auth';
 import { Theme } from '@lister/web/util-theme';
+import { SyncSection } from './sync/sync-section';
 import { SpacesSection } from './spaces/spaces-section';
 
 /** The Space destination: spaces and members, the account, appearance, data and the API status. */
 @Component({
   selector: 'lister-space-page',
-  imports: [MatIcon, RouterLink, SpacesSection, ThemePicker],
+  imports: [MatIcon, RouterLink, SpacesSection, SyncSection, ThemePicker],
   templateUrl: './space-page.html',
   styleUrl: './space-page.scss',
 })

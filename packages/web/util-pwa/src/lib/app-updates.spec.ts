@@ -165,4 +165,52 @@ describe('AppUpdates', () => {
     expect(snackBar.open).not.toHaveBeenCalled();
     expect(swUpdate.checkForUpdate).not.toHaveBeenCalled();
   });
+
+  describe('updateRequired (the server needs a newer app)', () => {
+    function appUpdates() {
+      return TestBed.inject(AppUpdates);
+    }
+
+    it('lets the "New version available" prompt come when a new version was found', async () => {
+      const { swUpdate, snackBar } = setup();
+      swUpdate.checkForUpdate.mockResolvedValue(true);
+
+      await appUpdates().updateRequired();
+
+      expect(swUpdate.checkForUpdate).toHaveBeenCalled();
+      expect(snackBar.open).not.toHaveBeenCalled();
+    });
+
+    it('asks for a reload when no newer version is cached', async () => {
+      const { snackBar, action, reload } = setup();
+
+      await appUpdates().updateRequired();
+      expect(snackBar.open).toHaveBeenCalledWith({
+        message: 'Lister needs an update to keep syncing',
+        action: 'Reload',
+      });
+
+      action.next();
+      await Promise.resolve();
+      expect(reload).toHaveBeenCalledTimes(1);
+    });
+
+    it('asks for a reload when the check fails (offline)', async () => {
+      const { swUpdate, snackBar } = setup();
+      swUpdate.checkForUpdate.mockRejectedValue(new Error('offline'));
+
+      await appUpdates().updateRequired();
+
+      expect(snackBar.open).toHaveBeenCalledTimes(1);
+    });
+
+    it('asks for a reload without a service worker', async () => {
+      const { swUpdate, snackBar } = setup({ enabled: false });
+
+      await appUpdates().updateRequired();
+
+      expect(swUpdate.checkForUpdate).not.toHaveBeenCalled();
+      expect(snackBar.open).toHaveBeenCalledTimes(1);
+    });
+  });
 });

@@ -5,6 +5,7 @@ import { filter, map } from 'rxjs';
 import { DOCUMENT } from '@angular/common';
 import { AuthSession, isBarePath } from '@lister/web/data-access-auth';
 import { DISCARDED_CHANGES_KEY } from '@lister/web/data-access-local-db';
+import { AppUpdates } from '@lister/web/util-pwa';
 import { NOTICE_DURATION_MS, Notifier } from '@lister/web/util-notify';
 import { SyncEngine } from './sync-engine';
 
@@ -19,6 +20,7 @@ export class RejectionNotices {
   private readonly notifier = inject(Notifier);
   private readonly router = inject(Router);
   private readonly session = inject(AuthSession);
+  private readonly appUpdates = inject(AppUpdates);
   private readonly window = inject(DOCUMENT).defaultView;
   private readonly injector = inject(EnvironmentInjector);
   /** The current URL as a signal, so the sign-in notice reacts to navigating. */
@@ -52,6 +54,13 @@ export class RejectionNotices {
             })
             .then(() => this.engine.dismissError(error.mutationId));
         }
+      },
+      { injector: this.injector },
+    );
+    // The server needs a newer app: start the service worker's update flow (once).
+    effect(
+      () => {
+        if (this.engine.updateRequired()) void this.appUpdates.updateRequired();
       },
       { injector: this.injector },
     );

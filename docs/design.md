@@ -547,7 +547,7 @@ relational in SQLite, and implements exactly the rules in §2.4.
 - **Local database:** Dexie 4 on IndexedDB. Dexie `liveQuery` results become Angular signals, and
   changes from other tabs arrive automatically.
 - **Sync engine:** a root service using `socket.io-client`. It exposes signals for `online`,
-  `syncing`, `pendingCount`, `lastSyncedAt` and `errors`.
+  `syncing`, `pendingCount`, `lastSyncedAt`, `errors` (refused changes not yet shown) and `errorLog` (the last 20, kept after they were shown), `updateRequired` (starts the service worker update flow via `AppUpdates`) and a `syncNow()` action (any tab can ask; the leader pulls and pushes, or reconnects at once). The Space page shows them.
 - **Ids and order:** UUIDv7 via `uuid`; fractional positions via `fractional-indexing`.
 - **Passkeys:** `@simplewebauthn/browser` 14.
 - **PWA:** `@angular/service-worker` (added with `@angular/pwa`), plus `navigator.storage.persist()`.

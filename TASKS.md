@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-030 — Sync status and update handling
 
 - Milestone: M6 Collaboration polish
@@ -37,6 +35,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   - Sync errors can be inspected.
   - An "update required" answer from the server starts the service worker update flow instead of
     failing silently.
+
+## Backlog
 
 ### T-031 — Install hint and persistent storage
 

@@ -15,7 +15,7 @@ import {
 } from '@lister/shared/sync-protocol';
 import { USER_STORAGE_KEY } from '@lister/web/data-access-auth';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
-import { SyncEngine } from './sync-engine';
+import { ERROR_LOG_SIZE, SyncEngine } from './sync-engine';
 import {
   SYNC_CLOCK,
   SYNC_LOCKS,
@@ -1313,6 +1313,122 @@ describe('SyncEngine', () => {
         expect(engine.errors().map((e) => e.reason)).toEqual(['Refused']),
       );
       expect(await visibleList(id)).toBeDefined();
+    });
+  });
+
+  describe('error log', () => {
+    it('keeps a dismissed refusal in the log, and trims it to the latest ones', async () => {
+      setup();
+      engine.start();
+      await settle();
+      for (let i = 0; i < ERROR_LOG_SIZE + 3; i++)
+        await db.rejections.put({
+          mutationId: `m${i}`,
+          reason: `R${i}`,
+          at: i,
+        });
+
+      await eventually(() => expect(engine.errors()).toHaveLength(23));
+      for (let i = 0; i < ERROR_LOG_SIZE + 3; i++)
+        await engine.dismissError(`m${i}`);
+
+      await eventually(() => expect(engine.errors()).toEqual([]));
+      expect(engine.errorLog().map((e) => e.reason)).toEqual(
+        Array.from({ length: ERROR_LOG_SIZE }, (_, i) => `R${i + 3}`),
+      );
+    });
+
+    it('clears the log', async () => {
+      setup();
+      engine.start();
+      await settle();
+      await db.rejections.put({ mutationId: 'a', reason: 'R', at: 1 });
+      await eventually(() => expect(engine.errorLog()).toHaveLength(1));
+
+      await engine.clearErrorLog();
+
+      await eventually(() => expect(engine.errorLog()).toEqual([]));
+    });
+  });
+
+  describe('sync now', () => {
+    it('pulls the space again and pushes pending changes when online', async () => {
+      setup();
+      engine.start();
+      await settle();
+      const pulls = () =>
+        server.received.filter(([event]) => event === 'pull').length;
+      const before = pulls();
+
+      await engine.syncNow();
+
+      await eventually(() => expect(pulls()).toBe(before + 1));
+    });
+
+    it('does not pull again for unrelated database changes', async () => {
+      setup();
+      engine.start();
+      await settle();
+      const pulls = () =>
+        server.received.filter(([event]) => event === 'pull').length;
+      const before = pulls();
+
+      await db.meta.put({ key: 'other', value: '1' });
+      await createList('Something');
+      await settle();
+
+      expect(pulls()).toBe(before);
+    });
+
+    it('reconnects at once when offline, skipping the backoff', async () => {
+      setup();
+      engine.start();
+      await settle();
+      server.drop('io server disconnect');
+      server.backingOff = true;
+      expect(server.connectCalls).toBe(1);
+
+      server.backingOff = false;
+      await engine.syncNow();
+
+      await eventually(() => {
+        expect(server.connectCalls).toBe(2);
+        expect(engine.online()).toBe(true);
+      });
+    });
+
+    it('works from a tab that does not hold the sync lock', async () => {
+      setup();
+      engine.start();
+      await settle();
+      const otherTab = createEnvironmentInjector(
+        [
+          { provide: SyncEngine, useClass: SyncEngine },
+          { provide: SYNC_LOCKS, useValue: { request: () => undefined } },
+        ],
+        TestBed.inject(EnvironmentInjector),
+      ).get(SyncEngine);
+      const pulls = () =>
+        server.received.filter(([event]) => event === 'pull').length;
+      const before = pulls();
+
+      await otherTab.syncNow();
+
+      await eventually(() => expect(pulls()).toBe(before + 1));
+    });
+
+    it('does nothing once an update is required', async () => {
+      setup();
+      engine.start();
+      await settle();
+      server.fire('updateRequired', { protocolVersion: PROTOCOL_VERSION + 1 });
+      server.drop('io server disconnect');
+      await eventually(() => expect(engine.updateRequired()).toBe(true));
+
+      await engine.syncNow();
+      await settle();
+
+      expect(server.connectCalls).toBe(1);
     });
   });
 
