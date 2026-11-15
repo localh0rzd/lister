@@ -30,6 +30,26 @@ describe('AuthService', () => {
   });
   afterEach(() => database.onApplicationShutdown());
 
+  /** A passkey row for `userId`, as `PasskeysService.add` stores one. */
+  const insertPasskey = (id: string, userId: string) =>
+    database.db
+      .insert(schema.passkeys)
+      .values({
+        id,
+        userId,
+        publicKey: Buffer.from([1, 2, 3]),
+        counter: 0,
+        name: id,
+        createdAt: 0,
+      })
+      .run();
+  const passkeyIds = () =>
+    database.db
+      .select({ id: schema.passkeys.id })
+      .from(schema.passkeys)
+      .all()
+      .map((row) => row.id);
+
   const newUser = (overrides = {}) => ({
     username: 'Anna',
     displayName: 'Anna A',
@@ -292,6 +312,18 @@ describe('AuthService', () => {
       expect(auth.authenticate(token)).toBeNull();
       const again = await auth.login('anna', 'temporary-pass');
       expect(again.user.mustChangePassword).toBe(true);
+    });
+
+    it("removes the user's passkeys and nobody else's", async () => {
+      const anna = await auth.createUser(newUser());
+      const ben = await auth.createUser(newUser({ username: 'Ben' }));
+      insertPasskey('anna-phone', anna.id);
+      insertPasskey('anna-laptop', anna.id);
+      insertPasskey('ben-phone', ben.id);
+
+      await auth.setTemporaryPassword('anna', 'temporary-pass');
+
+      expect(passkeyIds()).toEqual(['ben-phone']);
     });
   });
 });

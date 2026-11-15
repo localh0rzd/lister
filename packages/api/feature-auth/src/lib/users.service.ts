@@ -135,7 +135,10 @@ export class UsersService {
       .map((row) => row.userId);
   }
 
-  /** Sets a temporary password, which must be changed at the next sign-in, and ends the sessions. */
+  /**
+   * Sets a temporary password, which must be changed at the next sign-in, ends the sessions and
+   * removes the passkeys (D9).
+   */
   async resetPassword(id: string, temporaryPassword: string): Promise<void> {
     this.find(id);
     const passwordHash = await hashPassword(temporaryPassword);
@@ -146,7 +149,7 @@ export class UsersService {
         .set({ passwordHash, mustChangePassword: true })
         .where(eq(schema.users.id, id))
         .run();
-      this.auth.endSessionsOf(id);
+      this.auth.revokeSignInsOf(id);
     })();
   }
 

@@ -17,7 +17,7 @@
 | D6  | Item fields (v1)    | Title; quantity, optional free text ("2 pairs", "500 g"), where empty means 1; optional note.                                                                                                                                                                                                                                         |
 | D7  | Language            | English only                                                                                                                                                                                                                                                                                                                          |
 | D8  | Naming              | Code and UI: List, Item, Include, Run, Space; destinations Lists, Runs, Space. "Run" may be renamed in the UI later; that only touches UI text.                                                                                                                                                                                       |
-| D9  | Forgotten passwords | An admin sets a temporary password, which the user must change at the next sign-in. A server command resets a password when no admin can sign in.                                                                                                                                                                                     |
+| D9  | Forgotten passwords | An admin sets a temporary password, which the user must change at the next sign-in. A server command resets a password when no admin can sign in. Either reset also ends the user's sessions and removes all their passkeys, so nothing someone else added survives it; admins never see a user's passkeys.                           |
 | D10 | Run lifecycle       | A run is used once. When every item is checked or skipped, it finishes and disappears, with Undo in the snackbar. Finished runs appear nowhere — not among active runs and not where runs are started — and are purged after 30 days (D15). There is no history.                                                                      |
 | D11 | Look                | Material 3 theme seeded from deep teal `#00796B`, in light and dark. The theme follows the browser's system setting until the user picks Light or Dark in Space › Appearance (remembered on the device). App icon: the Material Symbols "checklist" glyph on that colour. Mock-ups: https://claude.ai/artifact/RWjDQCAXmBw9FAgBTua6rC |
 | D12 | Checked run items   | They stay in place, struck through. A toggle, remembered on the device, moves them into a "Done" section while it's on.                                                                                                                                                                                                               |
@@ -175,11 +175,13 @@ Self-hosted for a small circle (R10, R11):
   it makes the same session as the password, forced password change included. The server keeps the
   WebAuthn challenges in memory: single use, valid for 5 minutes, at most 10 pending per client
   address (sign-in) or per user (adding a passkey), so nobody can crowd out anyone else's, and
-  at most 1000 in all. Failed
-  passkey sign-ins count against the same per-client limit as password sign-ins. A passkey that is
-  removed, or whose user is deleted, stops working at once.
+  at most 1000 in all. Failed passkey sign-ins count against the same per-client limit as
+  password sign-ins. A passkey that is removed, or whose user is deleted, stops working at once.
+  Resetting a user's password to a temporary one (D9) removes all their passkeys, in the same
+  transaction that ends their sessions; the user adds new ones after changing the password.
 - **Forgotten passwords (D9):** an admin sets a temporary password that must be changed at the next
-  sign-in; a server command covers the case where no admin can sign in.
+  sign-in; a server command covers the case where no admin can sign in. Both also end the user's
+  sessions and remove their passkeys.
 - **Sessions:** httpOnly cookie, valid for 90 days and renewed on use (D15).
 
 **Sharing between users (D14):** spaces — a personal space per user, plus shared spaces (e.g.

@@ -379,6 +379,28 @@ describe('passkeys', () => {
       expect(response.status).toBe(200);
     });
 
+    it("an admin's password reset removes that user's passkeys, and only theirs", async () => {
+      const anna = await createAccount(api, 'anna');
+      const ben = await createAccount(api, 'ben');
+      await createAccount(api, 'boss', { isAdmin: true });
+      const annas = await addPasskey(await signIn(api, 'anna'));
+      const bens = await addPasskey(await signIn(api, 'ben'));
+
+      const reset = await send(api, 'POST', `/users/${anna.id}/password`, {
+        cookie: await signIn(api, 'boss'),
+        body: { temporaryPassword: 'temporary two' },
+      });
+
+      expect(reset.status).toBe(204);
+      expect((await signInWith(annas.authenticator, anna)).status).toBe(401);
+      expect((await signInWith(bens.authenticator, ben)).status).toBe(200);
+      const owners = api.database.db
+        .select({ userId: schema.passkeys.userId })
+        .from(schema.passkeys)
+        .all();
+      expect(owners).toEqual([{ userId: ben.id }]);
+    });
+
     it('rejects a body without a response with 400', async () => {
       const response = await send(api, 'POST', '/auth/passkey/login', {
         body: {},

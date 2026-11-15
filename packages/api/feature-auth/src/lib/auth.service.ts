@@ -223,6 +223,20 @@ export class AuthService {
     this.events.emit({ kind: 'sessionsEnded', userId });
   }
 
+  /**
+   * Revokes everything that signs the user in without the password: all their sessions (announced
+   * like `endSessionsOf`) and all their passkeys. Part of every reset to a temporary password
+   * (D9), so a passkey that someone else added can't outlast the reset. Call it inside the
+   * transaction that sets the temporary password.
+   */
+  revokeSignInsOf(userId: string): void {
+    this.database.db
+      .delete(schema.passkeys)
+      .where(eq(schema.passkeys.userId, userId))
+      .run();
+    this.endSessionsOf(userId);
+  }
+
   /** Deletes expired sessions. */
   purgeExpiredSessions(): number {
     return this.database.db
@@ -263,7 +277,8 @@ export class AuthService {
   }
 
   /**
-   * Sets a new password that must be changed at the next sign-in, and ends the user's sessions.
+   * Sets a new password that must be changed at the next sign-in, and ends the user's sessions
+   * and removes their passkeys (`revokeSignInsOf`).
    * Returns the stored username, or null when the username is unknown. Used by the reset command.
    */
   async setTemporaryPassword(
@@ -279,7 +294,7 @@ export class AuthService {
         .set({ passwordHash, mustChangePassword: true })
         .where(eq(schema.users.id, row.id))
         .run();
-      this.endSessionsOf(row.id);
+      this.revokeSignInsOf(row.id);
     })();
     return row.username;
   }

@@ -27,6 +27,26 @@ describe('UsersService', () => {
   });
   afterEach(() => database.onApplicationShutdown());
 
+  /** A passkey row for `userId`, as `PasskeysService.add` stores one. */
+  const insertPasskey = (id: string, userId: string) =>
+    database.db
+      .insert(schema.passkeys)
+      .values({
+        id,
+        userId,
+        publicKey: Buffer.from([1, 2, 3]),
+        counter: 0,
+        name: id,
+        createdAt: 0,
+      })
+      .run();
+  const passkeyIds = () =>
+    database.db
+      .select({ id: schema.passkeys.id })
+      .from(schema.passkeys)
+      .all()
+      .map((row) => row.id);
+
   const add = (username: string, isAdmin = false) =>
     auth.createUser({
       username,
@@ -329,6 +349,17 @@ describe('UsersService', () => {
         await verifyPassword('brand new one', after?.passwordHash ?? ''),
       ).toBe(true);
       expect(database.db.select().from(schema.sessions).all()).toEqual([]);
+    });
+
+    it("removes the user's passkeys and nobody else's", async () => {
+      const anna = await add('anna');
+      const ben = await add('ben');
+      insertPasskey('anna-phone', anna.id);
+      insertPasskey('ben-phone', ben.id);
+
+      await users.resetPassword(anna.id, 'brand new one');
+
+      expect(passkeyIds()).toEqual(['ben-phone']);
     });
 
     it('answers 404 for an unknown user', async () => {
