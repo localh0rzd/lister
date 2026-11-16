@@ -297,6 +297,7 @@ describe('SpacesSection', () => {
       expect(
         element.querySelector('.details lister-loading-spinner'),
       ).toBeNull();
+      expect(element.querySelector('.actions')).toBeNull();
     });
 
     it('asks the server again once when its answer lacks the current space', async () => {

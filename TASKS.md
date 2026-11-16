@@ -23,29 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-051 — Loading spinners instead of jumping Space sections
-
-- Milestone: M8 Editing conveniences
-- Area: web
-- Priority: normal
-- Depends on: T-026
-- Done when:
-  - Opening Space (cold load, and coming back to it) no longer makes the "Spaces" list or the
-    "Members of …" section jump: while their data loads, each shows a Material progress spinner
-    (`mat-progress-spinner`, indeterminate, with an accessible label such as "Loading spaces")
-    in a box that keeps its place, and the content replaces the spinner without moving the
-    sections around it.
-  - Data that is already known (e.g. spaces from the sync welcome, or a refresh of a list that
-    already shows) is shown at once, without a spinner coming back on refresh.
-  - The spinner only appears after a short delay (about 300 ms), so a fast load shows no spinner
-    flash.
-  - A load error still shows the existing error text in place of the spinner.
-  - A Playwright check with the members request slowed down sees the spinner, then the members,
-    and the headings after the section keep their vertical position (layout-shift check).
-- Notes: Find what jumps first with the `ui-review` skill's flicker checks (throttled network,
-  screenshots during load). If T-050 is done first, the same applies to any section it moved;
-  if a spinner pattern is needed elsewhere, put a small shared component in `web/ui`.
-
 ## Backlog
 
 ### T-054 — Finished runs in the trash, with Restore
@@ -126,6 +103,31 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   touches no data itself).
 
 ## Done
+
+### T-051 — Loading spinners instead of jumping Space sections
+
+- Completed: 2026-11-16 — Space sections no longer jump: shared `LoadingSpinner` in web/ui, device-first Members section with a reserved box, Data section waits for the device's spaces (`web/feature-space`, `web/ui`, e2e)
+- Review: Changes requested; 3 fixed (2 substantive, 1 trivial), 0 skipped, 0 disagreed; re-review rounds: 1
+- Milestone: M8 Editing conveniences
+- Area: web
+- Priority: normal
+- Depends on: T-026
+- Done when:
+  - Opening Space (cold load, and coming back to it) no longer makes the "Spaces" list or the
+    "Members of …" section jump: while their data loads, each shows a Material progress spinner
+    (`mat-progress-spinner`, indeterminate, with an accessible label such as "Loading spaces")
+    in a box that keeps its place, and the content replaces the spinner without moving the
+    sections around it.
+  - Data that is already known (e.g. spaces from the sync welcome, or a refresh of a list that
+    already shows) is shown at once, without a spinner coming back on refresh.
+  - The spinner only appears after a short delay (about 300 ms), so a fast load shows no spinner
+    flash.
+  - A load error still shows the existing error text in place of the spinner.
+  - A Playwright check with the members request slowed down sees the spinner, then the members,
+    and the headings after the section keep their vertical position (layout-shift check).
+- Notes: Find what jumps first with the `ui-review` skill's flicker checks (throttled network,
+  screenshots during load). If T-050 is done first, the same applies to any section it moved;
+  if a spinner pattern is needed elsewhere, put a small shared component in `web/ui`.
 
 ### T-057 — An include added during a paste ties with an item, and Sort A–Z then moves it
 

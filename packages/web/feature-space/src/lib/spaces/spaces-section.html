@@ -93,26 +93,28 @@
         </button>
       </p>
     }
-    <div class="actions">
-      @if (space) {
-        @if (isOwner()) {
-          <button matButton type="button" (click)="rename(space)">
-            Rename
-          </button>
-          @if (!space.personal) {
-            <button matButton type="button" (click)="addMember(space)">
-              Add member
+    @if (space || summaries.isLoading()) {
+      <div class="actions">
+        @if (space) {
+          @if (isOwner()) {
+            <button matButton type="button" (click)="rename(space)">
+              Rename
             </button>
-            <button matButton type="button" (click)="remove(space)">
-              Delete space
+            @if (!space.personal) {
+              <button matButton type="button" (click)="addMember(space)">
+                Add member
+              </button>
+              <button matButton type="button" (click)="remove(space)">
+                Delete space
+              </button>
+            }
+          } @else if (!space.personal) {
+            <button matButton type="button" (click)="leave(space)">
+              Leave space
             </button>
           }
-        } @else if (!space.personal) {
-          <button matButton type="button" (click)="leave(space)">
-            Leave space
-          </button>
         }
-      }
-    </div>
+      </div>
+    }
   </section>
 }
