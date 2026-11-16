@@ -43,7 +43,6 @@ export function sortByTitle(
   const sortedRows = [...rows].sort(comparePositions);
   const slots = sortedRows.map((row) => row.position);
   const keys = [...slots];
-  const all = [...slots, ...others.map((row) => row.position)];
   for (let start = 0; start < slots.length;) {
     let end = start;
     while (end + 1 < slots.length && slots[end + 1] === slots[start]) end++;
@@ -53,9 +52,11 @@ export function sortByTitle(
       // A tied slot (rows sharing a key, or a row sharing it with an include): fresh keys
       // between the nearest keys on either side. An include keeps its key, so the rows that
       // sat before it (by id, the tie-break) get keys below it and the rest above it.
-      let lower: string | null = null;
-      let upper: string | null = null;
-      for (const key of all) {
+      // The slot before may already hold a fresh key above its old one (an earlier tie): start
+      // from that key, so this tie's fresh keys never collide with the earlier ones.
+      let lower: string | null = start > 0 ? keys[start - 1] : null;
+      let upper: string | null = end + 1 < slots.length ? slots[end + 1] : null;
+      for (const { position: key } of others) {
         if (key < tie && (lower === null || key > lower)) lower = key;
         if (key > tie && (upper === null || key < upper)) upper = key;
       }

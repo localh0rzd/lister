@@ -121,6 +121,34 @@ describe('sortByTitle', () => {
     },
   );
 
+  it('keeps the fresh keys of two neighbouring ties apart', () => {
+    // Three rows tied on a0, then a row tied with an include on a1: the second tie's fresh key
+    // must not land on one the first tie was given.
+    const list = [
+      { id: 'p', title: 'M', position: 'Zz' },
+      { id: 'r1', title: 'Z', position: 'a0' },
+      { id: 'r2', title: 'Y', position: 'a0' },
+      { id: 'r3', title: 'X', position: 'a0' },
+      { id: 'b0', title: 'A', position: 'a1' },
+    ];
+    const include = { id: 'j9', position: 'a1' };
+    const changes = sortByTitle(list, [include]);
+    expect(apply(list, changes, [include])).toEqual([
+      'A',
+      'M',
+      'X',
+      'Y',
+      'Z',
+      '<j9>',
+    ]);
+    const moved = new Map(changes.map((c) => [c.id, c.position]));
+    const next = list.map((r) => ({
+      ...r,
+      position: moved.get(r.id) ?? r.position,
+    }));
+    expect(sortByTitle(next, [include])).toEqual([]);
+  });
+
   it('gives rows that share a key fresh keys between their neighbours', () => {
     const keys = positionsFromStart(3);
     const list = [
