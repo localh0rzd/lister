@@ -353,6 +353,23 @@ describe('RunPage', () => {
     );
   });
 
+  it('puts the checkbox back to what the data says when the change is refused', async () => {
+    const tent = runItem('Tent', 'a0');
+    const stove = runItem('Stove', 'a1');
+    await db.runItems.bulkPut([tent, stove]);
+    refuse = true;
+    const page = await render();
+    await page.settle(() => expect(page.checkbox('Tent')).toBeTruthy());
+
+    page.checkbox('Tent').click();
+
+    await page.settle(() => {
+      expect(requests).toHaveLength(1);
+      expect(page.checkbox('Tent').checked).toBe(false);
+    });
+    expect(page.element.textContent).toContain('0 of 2 done');
+  });
+
   it('does not count a check made here once someone else has undone it', async () => {
     const tent = runItem('Tent', 'a0');
     const stove = runItem('Stove', 'a1');

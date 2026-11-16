@@ -23,22 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
-### T-047 — Per-space timeline id so a restore always makes every device snapshot
-
-- Milestone: M7 Deployment
-- Area: api
-- Priority: low
-- Depends on: T-046
-- Done when:
-  - A space carries a timeline id that `restore-backup` changes; a device whose pull names another
-    timeline always gets a snapshot, also in the case where a space deleted after the backup had
-    out-versioned every other space and the device was offline across both the deletion and the
-    restore.
-  - Tests cover that case; the README and design §2.9 no longer list it as a limitation.
-- Notes: found in the T-046 review (question for the user, recorded here instead of asked).
-
 ### T-045 — Reset the run-page checkbox when a change doesn't show in the data
 
 - Milestone: M6 Collaboration polish
@@ -55,6 +39,22 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   changes the binding value doesn't change and `MatCheckbox` keeps the state the click gave it.
   Unverified in the app for the refusal path. Idea: reset the checkbox from the data when
   `apply()` resolves without the local row changing.
+
+## Backlog
+
+### T-047 — Per-space timeline id so a restore always makes every device snapshot
+
+- Milestone: M7 Deployment
+- Area: api
+- Priority: low
+- Depends on: T-046
+- Done when:
+  - A space carries a timeline id that `restore-backup` changes; a device whose pull names another
+    timeline always gets a snapshot, also in the case where a space deleted after the backup had
+    out-versioned every other space and the device was offline across both the deletion and the
+    restore.
+  - Tests cover that case; the README and design §2.9 no longer list it as a limitation.
+- Notes: found in the T-046 review (question for the user, recorded here instead of asked).
 
 ### T-031 — Install hint and persistent storage
 

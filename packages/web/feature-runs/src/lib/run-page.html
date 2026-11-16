@@ -98,7 +98,7 @@
       <mat-checkbox
         class="check"
         [checked]="item.state === 'checked'"
-        (change)="check(item, $event.checked)"
+        (change)="check(item, $event.checked, $event.source)"
       >
         <span class="text">
           <span class="title">{{ item.title }}</span>

@@ -175,8 +175,21 @@ export class RunPage {
   }
 
   /** Check or uncheck (the checkbox): always sets the state, never toggles. */
-  protected check(item: RunItem, checked: boolean): Promise<void> {
-    return this.setState(item, checked ? 'checked' : 'unchecked');
+  protected async check(
+    item: RunItem,
+    checked: boolean,
+    box: MatCheckbox,
+  ): Promise<void> {
+    await this.setState(item, checked ? 'checked' : 'unchecked');
+    // `[checked]` is a one-way binding: when the change never shows in the data (refused, or
+    // merged with another one) the binding doesn't change and the box would keep the click's state.
+    await new Promise((resolve) => setTimeout(resolve));
+    const view = this.view();
+    const now =
+      view.kind === 'ready'
+        ? view.items.find((i) => i.id === item.id)
+        : undefined;
+    if (now) box.checked = now.state === 'checked';
   }
 
   protected async setState(item: RunItem, state: RunItemState): Promise<void> {
