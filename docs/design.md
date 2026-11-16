@@ -50,8 +50,13 @@
 
 ## Open decisions
 
-None right now: all open decisions so far (O1–O14) are answered and recorded in the Decisions
-table.
+- **O15 — Scope and place of the "All items" view** (first needed by T-055). Options: (a) the
+  current space only, opened from the Lists page ("All items"); (b) every space the user belongs
+  to, each list shown with its space; (c) a destination of its own. **Default: (a).**
+- **O16 — Which items autocomplete offers, and what a suggestion copies** (first needed by
+  T-056). Reach: (a) every space the user belongs to, since all of it is on the device; (b) the
+  current space only. What is copied: the title only, or also the quantity and note of the item it
+  came from. **Default: (a), title only.**
 
 New ones get the next number. Each names the first task that needs it and has a default; if it's
 still open when that task starts, Claude asks once and proposes the default. Answer in chat or

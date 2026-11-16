@@ -97,6 +97,58 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   unchecks the item checked last. Whoever finished a run is the user whose check finished it (the
   run's last change); a column may be needed (Drizzle migration plus Dexie version bump).
 
+### T-055 — All items, A–Z, with the lists that contain them
+
+- Milestone: M8 Editing conveniences
+- Area: web
+- Priority: normal
+- Depends on: T-016, T-049
+- Decisions: O15
+- Done when:
+  - An "All items" view (where it is reached from and what it covers: O15) lists every item of the
+    lists in its scope, in alphabetical order (the existing list-title collator, `sortByTitle()`
+    in `shared/domain`).
+  - Identical items (D16 rule: titles match ignoring case and surrounding spaces) are one row; next
+    to each row are the lists that contain it, each a link that opens that list.
+  - Items and lists in the trash are left out; an item reached only through an include is listed
+    under the list it belongs to, not under the lists that include it.
+  - The view updates live as lists and items change on any device (local database signals, no
+    REST), and works offline.
+  - It fits a 320 px wide phone (long titles and many lists wrap, nothing is cut off) and has an
+    empty state.
+  - Tests: unit tests for the grouping and sorting (in `shared/domain` or the repository), and a
+    Playwright happy path: two lists sharing an item, the view shows it once with both lists, and
+    a list link opens that list.
+- Notes: A read-only view over existing data: no mutation, no schema change. Add a repository
+  query in `data-access-local-db` rather than reading Dexie from the feature. It probably belongs
+  in `feature-lists` as a route; if it grows beyond one page, give it its own library
+  (`module-boundaries`).
+
+### T-056 — Autocomplete when adding an item
+
+- Milestone: M8 Editing conveniences
+- Area: web
+- Priority: normal
+- Depends on: T-016, T-020
+- Decisions: O16
+- Done when:
+  - Typing in the add-item field of a list (and of a run) offers the titles of existing items
+    within the user's reach (which ones: O16), matching what was typed anywhere in the title,
+    ignoring case; titles that are identical by the D16 rule are offered once.
+  - Items in the trash, and items already in this list (or run), are not offered.
+  - Choosing a suggestion, with the mouse, by touch or with the arrow keys and Enter, adds the item
+    as typing the title and pressing Enter does today; Enter without a chosen suggestion still adds
+    exactly what was typed, and Escape closes the suggestions without adding.
+  - Suggestions come from the local database (signals), so they work offline and stay current.
+  - Angular Material autocomplete (`mat-autocomplete`), accessible (announced options, visible
+    focus), at most a handful of suggestions at a time, and it fits a 320 px wide phone with the
+    on-screen keyboard open.
+  - Tests: unit tests for the matching (dedup, exclusions, ranking: titles that start with the text
+    first), and a Playwright happy path that adds an item to a list by choosing a suggestion.
+- Notes: The suggestion query belongs in `data-access-local-db`; share one suggestion component
+  between `feature-lists` and `feature-runs` (in `web/ui` if it takes the titles as an input and
+  touches no data itself).
+
 ## Done
 
 ### T-052 — Sign-out and sign-in rounds: no redirect, then stuck offline
