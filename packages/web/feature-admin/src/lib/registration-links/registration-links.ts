@@ -1,6 +1,6 @@
 import { DatePipe, DOCUMENT } from '@angular/common';
 import { httpResource } from '@angular/common/http';
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { MatButton, MatIconButton } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
@@ -50,12 +50,19 @@ export class RegistrationLinks {
     }));
   });
 
+  /** True while a link is being created, so a double click makes one link. */
+  protected readonly creating = signal(false);
+
   protected async create(): Promise<void> {
+    if (this.creating()) return;
+    this.creating.set(true);
     try {
       await this.api.create();
       this.list.reload();
     } catch (error) {
       this.say(describeAuthError(error));
+    } finally {
+      this.creating.set(false);
     }
   }
 

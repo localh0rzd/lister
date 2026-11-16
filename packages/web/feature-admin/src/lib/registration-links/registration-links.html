@@ -1,6 +1,6 @@
 <div class="heading">
   <h2>Registration links</h2>
-  <button matButton type="button" (click)="create()">
+  <button matButton type="button" [disabled]="creating()" (click)="create()">
     <mat-icon aria-hidden="true">add_link</mat-icon>
     Create link
   </button>

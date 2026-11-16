@@ -143,6 +143,27 @@ describe('RegistrationLinks', () => {
     );
   });
 
+  it('creates one link when the button is clicked twice', async () => {
+    const { element, fixture } = await render({ publicUrl: null, tokens: [] });
+    const create = element.querySelector<HTMLButtonElement>('.heading button');
+
+    create?.click();
+    await fixture.whenStable();
+    expect(create?.disabled).toBe(true);
+    create?.click();
+
+    http
+      .expectOne({ method: 'POST', url: '/api/registration-tokens' })
+      .flush(token('NEWTOKEN0001'));
+    await vi.waitFor(() =>
+      http
+        .expectOne('/api/registration-tokens')
+        .flush({ publicUrl: null, tokens: [token('NEWTOKEN0001')] }),
+    );
+    await fixture.whenStable();
+    expect(create?.disabled).toBe(false);
+  });
+
   it('removes a link once confirmed and says it no longer works', async () => {
     const { button, fixture, element } = await render({
       publicUrl: null,

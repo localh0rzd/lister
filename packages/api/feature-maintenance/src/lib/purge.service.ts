@@ -25,8 +25,9 @@ const LAST_PURGE_KEY = 'purge.lastDay';
  * (`spaces.purgedVersion`): every client of the space is then behind it and gets a full snapshot
  * on its next pull. Up-to-date clients need one too: they still hold the purged tombstones, and
  * the live rows that went with a purged list or run, which no change ever told them about.
- * Expired registration tokens (D23) go with it. Nothing is poked: an empty poke at the next version would move a client past the purge point
- * without a snapshot. Connected clients see the gap at the space's next change and pull.
+ * Expired registration tokens (D23) go with it. Nothing is poked: an empty poke at the next
+ * version would move a client past the purge point without a snapshot. Connected clients see the
+ * gap at the space's next change and pull.
  */
 @Injectable()
 export class PurgeService {
