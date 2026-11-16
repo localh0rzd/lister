@@ -106,10 +106,11 @@ gets a full copy of the space on its next sync, so nothing is lost. The backups 
 everything, password hashes included: protect them like the database. Copy the folder off the host if you want a
 backup that survives losing the disk.
 
-To restore a backup, stop the server and run the command on a file from `/data/backups`. It copies the backup over the
-database and moves every space's version past both the backup's and the lost timeline's, so every device fetches a full
-copy of its spaces on its next sync, changes still waiting on a device are sent again, and nothing of the lost timeline
-survives on a device. Changes since the backup and spaces created after it are lost.
+To restore a backup, stop the server and run the command on a file from `/data/backups` (it refuses while the server
+still has the database open). It copies the backup over the database and moves every space's version past both the
+backup's and the lost timeline's, so every device fetches a full copy of its spaces on its next sync, changes still
+waiting on a device are sent again, and nothing of the lost timeline survives on a device. Changes since the backup and
+spaces created after it are lost. Every session ends, so everyone signs in again (pending changes on a device are kept).
 
 ```bash
 docker compose stop lister
@@ -118,8 +119,18 @@ docker compose run --rm --no-deps lister node main.js restore-backup /data/backu
 docker compose start lister
 ```
 
-Pick the file name from the `ls` output. Users whose password or passkeys were created after the backup have to be
-created or reset again (`node main.js reset-password <username>` works on the restored data).
+Pick the file name from the `ls` output. Account changes since the backup are undone too: users and passkeys created
+after it have to be created again, and passwords changed, passkeys removed and accounts deleted since then are back as
+they were, so redo those (`node main.js reset-password <username>` works on the restored data).
+
+If the database is too damaged for the command to open it, copy the backup by hand instead, with the server stopped:
+
+```bash
+docker compose run --rm --no-deps lister sh -c 'rm -f /data/lister.db /data/lister.db-wal /data/lister.db-shm && cp /data/backups/lister-2026-11-16T03-00-00Z.db /data/lister.db'
+```
+
+The broken file's versions can't be read then, so on devices that were offline since the backup, sign out and in again
+(or clear the site data) once they are back online.
 
 Every response carries `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin`, a Content Security Policy
 (including `frame-ancestors 'none'`) and, when `PUBLIC_URL` is https, `Strict-Transport-Security`. The web build's

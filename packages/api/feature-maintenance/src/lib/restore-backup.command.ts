@@ -1,6 +1,6 @@
 import { copyFileSync, existsSync, renameSync, rmSync } from 'node:fs';
 import type { INestApplicationContext } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import BetterSqlite3 from 'better-sqlite3';
 import {
   DatabaseConnection,
   openDatabase,
@@ -15,20 +15,44 @@ function removeDatabaseFiles(path: string): void {
     rmSync(path + suffix, { force: true });
 }
 
-function readSpaceVersions(connection: DatabaseConnection) {
-  return connection.db
-    .select({ id: schema.spaces.id, version: schema.spaces.version })
-    .from(schema.spaces)
-    .all();
+/** The highest version any space has in this database (0 without spaces). */
+function highestVersion(connection: DatabaseConnection): number {
+  return connection.sqlite
+    .prepare('select coalesce(max(version), 0) from spaces')
+    .pluck()
+    .get() as number;
 }
 
 /**
- * Replaces the live database with the backup at `file` (the server must be stopped). Every
- * space's `version` and `purged_version` are set one above the highest version the space had in
- * the backup **or** in the live database, so versions are never reused and every device of every
- * space (whatever its last version) gets a full snapshot on its next pull. Spaces created after
- * the backup are gone. The backup is migrated and changed in a copy; the live file is only
- * replaced once that worked. The given connection is closed. Returns the number of spaces.
+ * Fails while another connection (a running server) has the database open: an exclusive lock on
+ * a WAL database is refused while any other connection holds it open, even an idle one.
+ */
+function assertNotInUse(path: string): void {
+  const probe = new BetterSqlite3(path, { fileMustExist: true });
+  try {
+    probe.pragma('busy_timeout = 0');
+    probe.pragma('locking_mode = EXCLUSIVE');
+    probe.exec('BEGIN EXCLUSIVE');
+    probe.exec('COMMIT');
+  } catch (error) {
+    if ((error as { code?: string }).code === 'SQLITE_BUSY') {
+      throw new Error('The database is in use: stop the server first');
+    }
+    throw error;
+  } finally {
+    probe.close();
+  }
+}
+
+/**
+ * Replaces the live database with the backup at `file` (refused while the server runs). Every
+ * space's `version` and `purged_version` are set one above the highest version of any space in
+ * the backup **or** in the live database: versions are never reused and every device of every
+ * space (whatever its last version) gets a full snapshot on its next pull. The bound is global
+ * because a space deleted after the backup is not in the live database any more. Spaces created
+ * after the backup are gone, and so is every session (the backup still holds those ended since).
+ * The backup is migrated and changed in a copy; the live file is only replaced once that worked.
+ * The given connection is closed. Returns the number of spaces.
  */
 export function restoreBackup(live: DatabaseConnection, file: string): number {
   const options = live.options;
@@ -37,25 +61,23 @@ export function restoreBackup(live: DatabaseConnection, file: string): number {
   }
   if (!existsSync(file)) throw new Error(`No such file: ${file}`);
   const path = live.sqlite.name;
-  const issued = new Map(readSpaceVersions(live).map((s) => [s.id, s.version]));
+  const issued = highestVersion(live);
 
   const staged = `${path}.restoring`;
   removeDatabaseFiles(staged);
   copyFileSync(file, staged);
-  let spaces: number;
+  let spaces = 0;
   try {
     const restored = openDatabase({ ...options, path: staged });
     try {
-      const rows = readSpaceVersions(restored);
-      for (const row of rows) {
-        const next = Math.max(row.version, issued.get(row.id) ?? 0) + 1;
-        restored.db
+      const next = Math.max(highestVersion(restored), issued) + 1;
+      restored.sqlite.transaction(() => {
+        spaces = restored.db
           .update(schema.spaces)
           .set({ version: next, purgedVersion: next })
-          .where(eq(schema.spaces.id, row.id))
-          .run();
-      }
-      spaces = rows.length;
+          .run().changes;
+        restored.db.delete(schema.sessions).run();
+      })();
     } finally {
       restored.onApplicationShutdown();
     }
@@ -65,6 +87,12 @@ export function restoreBackup(live: DatabaseConnection, file: string): number {
   }
 
   live.onApplicationShutdown();
+  try {
+    assertNotInUse(path);
+  } catch (error) {
+    removeDatabaseFiles(staged);
+    throw error;
+  }
   // The old journal must not be applied to the restored file.
   rmSync(`${path}-wal`, { force: true });
   rmSync(`${path}-shm`, { force: true });
@@ -90,7 +118,7 @@ export async function runRestoreBackupCommand(
     const spaces = restoreBackup(context.get(DatabaseConnection), file);
     print(`Restored ${file}: ${spaces} space(s). Start the server again.`);
     print(
-      'Every device will fetch a full copy of its spaces on its next sync.',
+      'Everyone signs in again; every device will fetch a full copy of its spaces on its next sync.',
     );
     return 0;
   } catch (error) {
