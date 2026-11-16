@@ -161,7 +161,7 @@ The `testing` skill says which tests every change needs. How to write them:
 
 Check the docs for the installed version when the task adds the library:
 
-- **Zod 4:**
+- **Zod 4 (`zod/mini` in shared schemas, for bundle size):**
   - Top-level formats: `z.uuid()`, `z.email()`, `z.iso.datetime()`.
   - `z.strictObject()` for messages, and the `error` option for error messages.
   - `z.infer` for types, and `safeParse` at every boundary.

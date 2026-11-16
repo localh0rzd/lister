@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import {
   descriptionSchema,
   idSchema,
@@ -9,15 +9,14 @@ import {
 } from './common';
 
 /** A patch must change at least one field. */
-const patch = <T extends z.ZodRawShape>(shape: T) =>
-  z
-    .strictObject(shape)
-    .partial()
-    .refine(
+const patch = <T extends z.core.$ZodLooseShape>(shape: T) =>
+  z.partial(z.strictObject(shape)).check(
+    z.refine(
       // `undefined` values vanish in JSON, so they don't count as a change.
       (value) => Object.values(value).some((v) => v !== undefined),
       'Nothing to change',
-    );
+    ),
+  );
 
 const byId = z.strictObject({ id: idSchema });
 
@@ -31,10 +30,10 @@ export const MAX_DUPLICATE_ROWS = 2000;
 const newRunItem = z.strictObject({
   id: idSchema,
   title: titleSchema,
-  quantity: quantitySchema.default(''),
-  note: noteSchema.default(''),
+  quantity: z._default(quantitySchema, ''),
+  note: z._default(noteSchema, ''),
   /** The list it came from (flattened: the list that owns it); empty when typed in. */
-  sources: z.array(idSchema).max(50).default([]),
+  sources: z._default(z.array(idSchema).check(z.maxLength(50)), []),
 });
 
 /** How many items may enter a run in one change. */
@@ -49,7 +48,7 @@ export const mutationArgs = {
   'list.create': z.strictObject({
     id: idSchema,
     title: titleSchema,
-    description: descriptionSchema.default(''),
+    description: z._default(descriptionSchema, ''),
   }),
   'list.update': z.strictObject({
     id: idSchema,
@@ -66,15 +65,15 @@ export const mutationArgs = {
     id: idSchema,
     sourceListId: idSchema,
     title: titleSchema,
-    items: z.array(copyOf).max(MAX_DUPLICATE_ROWS),
-    includes: z.array(copyOf).max(MAX_DUPLICATE_ROWS),
+    items: z.array(copyOf).check(z.maxLength(MAX_DUPLICATE_ROWS)),
+    includes: z.array(copyOf).check(z.maxLength(MAX_DUPLICATE_ROWS)),
   }),
   'item.create': z.strictObject({
     id: idSchema,
     listId: idSchema,
     title: titleSchema,
-    quantity: quantitySchema.default(''),
-    note: noteSchema.default(''),
+    quantity: z._default(quantitySchema, ''),
+    note: z._default(noteSchema, ''),
     position: positionSchema,
   }),
   'item.update': z.strictObject({
@@ -95,8 +94,11 @@ export const mutationArgs = {
   'run.start': z.strictObject({
     id: idSchema,
     title: titleSchema,
-    sourceListId: idSchema.nullable().default(null),
-    items: z.array(newRunItem).max(MAX_RUN_ITEMS).default([]),
+    sourceListId: z._default(z.nullable(idSchema), null),
+    items: z._default(
+      z.array(newRunItem).check(z.maxLength(MAX_RUN_ITEMS)),
+      [],
+    ),
   }),
   'run.update': z.strictObject({
     id: idSchema,
@@ -105,7 +107,9 @@ export const mutationArgs = {
   /** Items typed in or a whole list (as a new section), merged as they enter (D16). */
   'run.addItems': z.strictObject({
     runId: idSchema,
-    items: z.array(newRunItem).min(1).max(MAX_RUN_ITEMS),
+    items: z
+      .array(newRunItem)
+      .check(z.minLength(1), z.maxLength(MAX_RUN_ITEMS)),
   }),
   /**
    * "Save as list" (D13), in one step like `list.duplicate`: a new list `listId` titled `title`
@@ -117,7 +121,7 @@ export const mutationArgs = {
     runId: idSchema,
     listId: idSchema,
     title: titleSchema,
-    items: z.array(copyOf).max(MAX_DUPLICATE_ROWS),
+    items: z.array(copyOf).check(z.maxLength(MAX_DUPLICATE_ROWS)),
   }),
   'runItem.update': z.strictObject({
     id: idSchema,

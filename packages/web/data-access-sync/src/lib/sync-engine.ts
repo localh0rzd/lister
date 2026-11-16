@@ -40,7 +40,7 @@ import {
   liveQuerySignal,
   valueOf,
 } from '@lister/web/data-access-local-db';
-import type { ZodType } from 'zod';
+import type { ZodMiniType } from 'zod/mini';
 import {
   SYNC_CLOCK,
   SYNC_LOCKS,
@@ -489,7 +489,7 @@ export class SyncEngine {
    */
   private listen<T>(
     event: 'welcome' | 'rows' | 'poke' | 'ack' | 'reject',
-    schema: ZodType<T>,
+    schema: ZodMiniType<T>,
     handle: (message: T) => Promise<void>,
   ): void {
     (

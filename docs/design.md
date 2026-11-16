@@ -641,7 +641,11 @@ Conventions that follow from this (also in `CLAUDE.md`):
   import aliases. A violation is fixed by moving code, never by loosening a rule.
 - **Zod** is allowed in `shared/*` libraries (still no Angular, Nest, Node or browser-only imports),
   so mutation and message schemas are defined once and validated on the server. HTTP request
-  bodies keep using class-validator DTOs.
+  bodies keep using class-validator DTOs. The schemas use `zod/mini` (`import * as z from
+'zod/mini'`), not classic `zod`: the client validates server messages in its lazily loaded
+  sync chunk, and classic Zod alone added ~400 kB to it (T-036). Validation is the same on both
+  sides. An `anyScript` budget in `apps/lister-web/project.json` (error at 250 kB per script)
+  catches the chunk growing back.
 - Synced data (lists, items, includes, runs, run items) is read from the local database and changed
   through mutations — never through REST CRUD or `httpResource()`. HTTP stays for sign-in,
   passkeys, user administration, spaces, bootstrap, export and health.

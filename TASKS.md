@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-036 — Slim the sync engine chunk
 
 - Milestone: M7 Deployment
@@ -37,6 +35,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
     validation.
   - The initial bundle stays within its budget, and a check (budget or test) catches regressions.
 - Notes: Found in T-009. Mobile users download the chunk on the first visit.
+
+## Backlog
 
 ### T-040 — Pin CI actions to commit hashes
 

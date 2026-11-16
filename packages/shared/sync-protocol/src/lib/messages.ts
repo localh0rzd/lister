@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import { LIMITS } from '@lister/shared/domain';
 import { idSchema, versionSchema } from './common';
 import type { MutationInput } from './mutations';
@@ -10,7 +10,7 @@ export const MAX_PUSH_MUTATIONS = 100;
 // Client → server
 
 export const helloSchema = z.strictObject({
-  protocolVersion: z.int().positive(),
+  protocolVersion: z.int().check(z.positive()),
   /** Random per-device id, kept in the local database. */
   clientId: idSchema,
 });
@@ -20,7 +20,7 @@ export const pullSchema = z.strictObject({
   /** The last version the client has; 0 asks for a full snapshot. */
   since: versionSchema,
   /** The timeline of the space's rows the client holds (`''` when it holds none). */
-  timeline: z.string().max(64),
+  timeline: z.string().check(z.maxLength(64)),
 });
 
 /**
@@ -31,8 +31,7 @@ export const pullSchema = z.strictObject({
 export const pushSchema = z.strictObject({
   mutations: z
     .array(z.looseObject({ mutationId: idSchema }))
-    .min(1)
-    .max(MAX_PUSH_MUTATIONS),
+    .check(z.minLength(1), z.maxLength(MAX_PUSH_MUTATIONS)),
 });
 
 // Server → client: tolerant (`z.object` drops unknown fields), so older clients keep working
@@ -43,7 +42,7 @@ export const welcomeSchema = z.object({
   spaces: z.array(
     z.object({
       id: idSchema,
-      name: z.string().max(LIMITS.spaceName),
+      name: z.string().check(z.maxLength(LIMITS.spaceName)),
       version: versionSchema,
       members: z.array(z.object({ userId: idSchema, displayName: z.string() })),
     }),
@@ -52,7 +51,7 @@ export const welcomeSchema = z.object({
 
 /** The client's protocol is too old; it must reload to the new app version. */
 export const updateRequiredSchema = z.object({
-  protocolVersion: z.int().positive(),
+  protocolVersion: z.int().check(z.positive()),
 });
 
 /** Answer to `pull`: everything changed after `since`, up to `version`. */
@@ -75,7 +74,7 @@ export const ackSchema = z.object({
 export const rejectSchema = z.object({
   mutationId: idSchema,
   /** Human-readable; shown to the user. */
-  reason: z.string().min(1),
+  reason: z.string().check(z.minLength(1)),
 });
 
 /** Rows changed by one mutation, broadcast to everyone in the space. */
