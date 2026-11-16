@@ -23,20 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-044 — Stop axe contrast checks failing during animations
-
-- Milestone: M6 Collaboration polish
-- Area: web
-- Priority: normal
-- Done when:
-  - `expectAccessible` in the web e2e fixtures runs only once dialogs and form-field labels have
-    finished animating (wait for animations to end, or disable them in e2e), so the
-    `color-contrast` rule no longer fails at random.
-  - `admin.spec.ts` (add-user dialog) and `passkeys.spec.ts` (passkey hint, remove dialog) pass
-    several runs in a row.
-- Notes: Found in the T-042 review: the failures also happen without T-042's changes and passed on
-  an earlier run.
-
 ## Backlog
 
 ### T-045 — Reset the run-page checkbox when a change doesn't show in the data
@@ -173,6 +159,22 @@ nosniff`, `Referrer-Policy`, `frame-ancestors` in the CSP, and `app.disable('x-p
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
 
 ## Done
+
+### T-044 — Stop axe contrast checks failing during animations
+
+- Completed: 2026-11-16 — `expectAccessible` waits for finite animations/transitions to end before axe (`apps/lister-web-e2e/src/support/fixtures.ts`); admin spec waits for the dialog
+- Review: Approve with minor fixes; 2 fixed (1 substantive, 1 trivial), 0 skipped, 0 disagreed; re-review rounds: 1
+- Milestone: M6 Collaboration polish
+- Area: web
+- Priority: normal
+- Done when:
+  - `expectAccessible` in the web e2e fixtures runs only once dialogs and form-field labels have
+    finished animating (wait for animations to end, or disable them in e2e), so the
+    `color-contrast` rule no longer fails at random.
+  - `admin.spec.ts` (add-user dialog) and `passkeys.spec.ts` (passkey hint, remove dialog) pass
+    several runs in a row.
+- Notes: Found in the T-042 review: the failures also happen without T-042's changes and passed on
+  an earlier run.
 
 ### T-043 — Fix the failing run-page "undone check" test
 

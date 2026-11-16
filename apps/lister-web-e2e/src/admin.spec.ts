@@ -44,6 +44,7 @@ for (const [name, viewport] of layouts) {
       await test.step('adding a user', async () => {
         await page.getByRole('button', { name: 'Add user' }).click();
         const dialog = page.getByRole('dialog', { name: 'Add user' });
+        await expect(dialog.getByLabel('Username')).toBeVisible();
         await expectAccessible();
         await dialog.getByLabel('Username').fill(username);
         await dialog.getByLabel('Display name').fill(added);
