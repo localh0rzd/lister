@@ -46,6 +46,14 @@ export class SyncIoAdapter extends IoAdapter {
         callback(null, allowed);
       },
     });
+    // engine.io's own refusals (unknown transport, bad request, …): only the code and message.
+    server.engine.on(
+      'connection_error',
+      (error: { code: number; message: string }) =>
+        this.debugLog.debug(
+          `Engine refused a connection: ${error.code} ${error.message}`,
+        ),
+    );
     server.use((socket, next) => {
       const token = readSessionToken(socket.request.headers.cookie);
       const found = token

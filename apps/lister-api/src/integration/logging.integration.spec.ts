@@ -155,6 +155,97 @@ describe('debug logging', () => {
     expect(logger.debugText).toContain('Handshake refused: no session cookie');
   });
 
+  it('logs reject reasons without list titles or client-sent text', async () => {
+    await createAccount(api, 'anna');
+    const cookie = await signIn(api, 'anna');
+    const socket = io(api.url, {
+      transports: ['websocket'],
+      forceNew: true,
+      reconnection: false,
+      extraHeaders: { origin: DEV_WEB_ORIGIN, cookie },
+    });
+    client = socket;
+    const welcome = new Promise<{ spaces: { id: string }[] }>((resolve) =>
+      socket.once('welcome', resolve),
+    );
+    socket.emit('hello', {
+      protocolVersion: PROTOCOL_VERSION,
+      clientId: newId(),
+    });
+    const spaceId = (await welcome).spaces[0].id;
+    const [parentId, childId] = [newId(), newId()];
+    const include = () => ({
+      mutationId: newId(),
+      spaceId,
+      name: 'include.create' as const,
+      args: {
+        id: newId(),
+        parentListId: parentId,
+        childListId: childId,
+        position: 'a1',
+      },
+    });
+    const duplicate = include();
+    const injected = newId();
+    const answers: string[] = [];
+    const done = new Promise<void>((resolve) => {
+      const seen = (event: { mutationId: string }) => {
+        answers.push(event.mutationId);
+        if (answers.length === 5) resolve();
+      };
+      socket.on('ack', seen);
+      socket.on('reject', seen);
+    });
+    socket.emit('push', {
+      mutations: [
+        {
+          mutationId: newId(),
+          spaceId,
+          name: 'list.create',
+          args: { id: parentId, title: 'Parent' },
+        },
+        {
+          mutationId: newId(),
+          spaceId,
+          name: 'list.create',
+          args: { id: childId, title: SECRET_TITLE },
+        },
+        include(),
+        duplicate,
+        {
+          mutationId: injected,
+          spaceId,
+          name: 'list.create',
+          // A key the schema doesn't know, which Zod's reason quotes.
+          args: { id: newId(), title: 'x', 'evil\nFORGED LINE': 1 } as {
+            id: string;
+            title: string;
+          },
+        },
+      ],
+    });
+    await done;
+
+    const text = logger.debugText;
+    expect(text).toContain(
+      `Mutation ${duplicate.mutationId} include.create in space ${spaceId} rejected: “…” is already included`,
+    );
+    expect(text).toContain(
+      `Mutation ${injected} list.create in space ${spaceId} rejected: Unrecognized key: "…"`,
+    );
+    expect(text).not.toContain(SECRET_TITLE);
+    expect(text).not.toContain('FORGED LINE');
+  });
+
+  it("logs engine.io's own refusals", async () => {
+    await fetch(`${api.url}/socket.io/?EIO=4&transport=bogus`, {
+      headers: { origin: DEV_WEB_ORIGIN },
+    });
+    expect(logger.debugText).toMatch(
+      /Engine refused a connection: \d+ Transport unknown/,
+    );
+  });
+
   it('logs sign-out and a wrong password', async () => {
     const anna = await createAccount(api, 'anna');
     await send(api, 'POST', '/auth/login', {

@@ -25,6 +25,7 @@ import {
   pushSchema,
 } from '@lister/shared/sync-protocol';
 import type { Server, Socket } from 'socket.io';
+import { logReason } from './log-text';
 import { MutationService } from './mutation.service';
 import { SyncReader } from './sync-reader';
 
@@ -260,7 +261,7 @@ export class SyncGateway
         `Mutation ${entry.mutationId} ${logField(entry, 'name')} in space ${logField(entry, 'spaceId')} ${
           result.status === 'ack'
             ? `acked at version ${result.version}`
-            : `rejected: ${result.reason}`
+            : `rejected: ${logReason(result.reason)}`
         }`,
       );
       if (result.status === 'ack') {
