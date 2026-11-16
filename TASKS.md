@@ -23,19 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-036 — Slim the sync engine chunk
-
-- Milestone: M7 Deployment
-- Area: web
-- Priority: low
-- Done when:
-  - The lazily loaded sync-engine chunk is well under its 589 kB raw / 123 kB transferred size
-    from T-009 (mostly Zod 4 classic), e.g. by validating on the client with `zod/mini` or by
-    sharing only the types and parsing server messages more cheaply. The server keeps full
-    validation.
-  - The initial bundle stays within its budget, and a check (budget or test) catches regressions.
-- Notes: Found in T-009. Mobile users download the chunk on the first visit.
-
 ## Backlog
 
 ### T-040 — Pin CI actions to commit hashes
@@ -78,6 +65,21 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
 
 ## Done
+
+### T-036 — Slim the sync engine chunk
+
+- Milestone: M7 Deployment
+- Area: web
+- Priority: low
+- Done when:
+  - The lazily loaded sync-engine chunk is well under its 589 kB raw / 123 kB transferred size
+    from T-009 (mostly Zod 4 classic), e.g. by validating on the client with `zod/mini` or by
+    sharing only the types and parsing server messages more cheaply. The server keeps full
+    validation.
+  - The initial bundle stays within its budget, and a check (budget or test) catches regressions.
+- Completed: 2026-11-16 — shared sync-protocol schemas moved to `zod/mini` (sync chunk 499 → ~103 kB raw), `anyScript` budget, classic `zod` banned in shared libs
+- Review: Changes requested; 4 fixed (2 substantive, 2 trivial), 0 skipped, 0 disagreed; re-review rounds: 1
+- Notes: Found in T-009. Mobile users download the chunk on the first visit.
 
 ### T-047 — Per-space timeline id so a restore always makes every device snapshot
 

@@ -1,4 +1,4 @@
-import { config as zodConfig } from 'zod';
+import { config as zodConfig } from 'zod/mini';
 import { provideSync } from './provide-sync';
 
 describe('provideSync', () => {

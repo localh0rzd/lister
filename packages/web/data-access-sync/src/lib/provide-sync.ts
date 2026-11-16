@@ -13,8 +13,8 @@ import { isPlatformBrowser } from '@angular/common';
  * object schemas with `new Function` when it creates them, and that probe reports a CSP
  * violation even though Zod catches the error. So `jitless` is set here, in the initial bundle,
  * before any lazy chunk creates a schema. Zod reads its settings from this global
- * (`globalConfig` in `zod/v4/core`); importing Zod's `config()` instead would pull ~400 kB of
- * Zod into the initial bundle. The provide-sync spec checks that Zod sees the setting.
+ * (`globalConfig` in `zod/v4/core`); importing Zod's `config()` instead would pull Zod's
+ * core into the initial bundle. The provide-sync spec checks that Zod sees the setting.
  */
 const zodGlobal = globalThis as {
   __zod_globalConfig?: { jitless?: boolean };
