@@ -93,20 +93,12 @@ export class RegistrationTokensService {
 
   /** Whether the token exists and hasn't expired; the form's token is accepted ignoring case. */
   isValid(input: string): boolean {
-    if (!isRegistrationToken(input)) return false;
     return (
+      isRegistrationToken(input) &&
       this.database.db
         .select({ token: schema.registrationTokens.token })
         .from(schema.registrationTokens)
-        .where(
-          and(
-            eq(
-              schema.registrationTokens.token,
-              normalizeRegistrationToken(input),
-            ),
-            gt(schema.registrationTokens.expiresAt, this.clock()),
-          ),
-        )
+        .where(this.unexpired(input))
         .get() !== undefined
     );
   }
@@ -120,18 +112,18 @@ export class RegistrationTokensService {
     const claimed = isRegistrationToken(input)
       ? this.database.db
           .delete(schema.registrationTokens)
-          .where(
-            and(
-              eq(
-                schema.registrationTokens.token,
-                normalizeRegistrationToken(input),
-              ),
-              gt(schema.registrationTokens.expiresAt, this.clock()),
-            ),
-          )
+          .where(this.unexpired(input))
           .run().changes
       : 0;
     if (claimed === 0) throw new ForbiddenException(INVALID_TOKEN_MESSAGE);
+  }
+
+  /** Matches the token (ignoring case) only while it hasn't expired. */
+  private unexpired(input: string) {
+    return and(
+      eq(schema.registrationTokens.token, normalizeRegistrationToken(input)),
+      gt(schema.registrationTokens.expiresAt, this.clock()),
+    );
   }
 
   private creatorName(userId: string): string {
