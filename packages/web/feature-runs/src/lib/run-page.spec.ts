@@ -364,9 +364,16 @@ describe('RunPage', () => {
     await page.settle(() => expect(requests).toHaveLength(1));
     // The local data shows the check, then someone else unchecks Tent again.
     await db.runItems.put({ ...tent, state: 'checked' });
-    await page.settle(() => expect(page.checkbox('Tent').checked).toBe(true));
+    // Wait for the page to show the local data (the clicked checkbox is checked by itself, so
+    // its own state proves nothing), or the two puts could merge into no change at all.
+    await page.settle(() =>
+      expect(page.element.textContent).toContain('1 of 2 done'),
+    );
     await db.runItems.put({ ...tent, state: 'unchecked' });
-    await page.settle(() => expect(page.checkbox('Tent').checked).toBe(false));
+    await page.settle(() => {
+      expect(page.element.textContent).toContain('0 of 2 done');
+      expect(page.checkbox('Tent').checked).toBe(false);
+    });
     page.checkbox('Stove').click();
 
     await page.settle(() => expect(requests).toHaveLength(2));

@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-043 — Fix the failing run-page "undone check" test
 
 - Milestone: M4 Runs
@@ -37,6 +35,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   - `npx nx test web-feature-runs` is green.
 - Notes: Found in the T-042 review: fails every time (`expected true to be false`), unchanged since
   T-029. It only shows up in `affected` runs against `master`.
+
+## Backlog
 
 ### T-044 — Stop axe contrast checks failing during animations
 
