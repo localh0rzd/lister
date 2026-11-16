@@ -49,8 +49,11 @@
 
 ## Open decisions
 
-None right now: all open decisions so far (O1–O13) are answered and recorded in the Decisions
-table.
+- **O14 — What Restore does to a finished run** (first needed by T-054). A finished run is one
+  whose items are all checked or skipped, so restoring it as it was would finish it again at once.
+  Options: (a) Restore unchecks the item checked last, like Undo, and keeps the other checks;
+  (b) Restore unchecks every item, so the run can be done again; (c) a finished run keeps an
+  explicit "finished" flag that Restore clears, with every check kept. **Default: (a).**
 
 New ones get the next number. Each names the first task that needs it and has a default; if it's
 still open when that task starts, Claude asks once and proposes the default. Answer in chat or
