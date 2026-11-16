@@ -54,6 +54,32 @@ async function stubCredentials(page: Page, mode: 'refuse' | 'hang') {
   }, mode);
 }
 
+/** The sync status the engine keeps in the local database (`meta.status`), or `null`. */
+function storedSyncStatus(page: Page) {
+  return page.evaluate(
+    () =>
+      new Promise<unknown>((resolve) => {
+        const open = indexedDB.open('lister');
+        // Not created by the app yet: don't create it here.
+        open.onupgradeneeded = () => open.transaction?.abort();
+        open.onerror = () => resolve(null);
+        open.onsuccess = () => {
+          const db = open.result;
+          if (!db.objectStoreNames.contains('meta')) {
+            db.close();
+            return resolve(null);
+          }
+          const get = db.transaction('meta').objectStore('meta').get('status');
+          get.onsuccess = () => {
+            db.close();
+            const row = get.result as { value: string } | undefined;
+            resolve(row ? JSON.parse(row.value) : null);
+          };
+        };
+      }),
+  );
+}
+
 async function openProfile(page: Page) {
   await page.goto('/space');
   await page.getByRole('link', { name: /Profile/ }).click();
@@ -290,14 +316,36 @@ for (const [name, viewport] of layouts) {
     }) => {
       const account = await createAccount('no-stale-notice');
       const page = await signedOutPage(browser);
-      // Visiting the sign-in page signed out leaves a refused connection behind.
       await page.goto('/sign-in');
+      // The precondition: the signed-out visit has stored a refused connection.
+      await expect
+        .poll(() => storedSyncStatus(page))
+        .toMatchObject({ signInRequired: true });
+      // A slow device, made deterministic: another tab holds the sync lock, so the page that
+      // loads after signing in reads the stored status before it can write its own.
+      const lockHolder = await page.context().newPage();
+      await lockHolder.goto('/api/health');
+      await lockHolder.evaluate(() => {
+        void navigator.locks.request(
+          'lister-sync',
+          () =>
+            new Promise<void>((release) =>
+              Object.assign(window, { releaseSyncLock: release }),
+            ),
+        );
+      });
       await page.getByLabel('Username').fill(account.username);
       await page.getByLabel('Password').fill(account.password);
       await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-      await expect(
-        page.getByRole('navigation', { name: 'Main' }),
-      ).toBeVisible();
+      await page.getByRole('link', { name: 'Space' }).click();
+      await expect(page.locator('lister-sync-section')).toBeVisible();
+      await lockHolder.evaluate(() =>
+        (
+          window as unknown as { releaseSyncLock: () => void }
+        ).releaseSyncLock(),
+      );
+      // Once the app has connected it is settled: a notice, if raised, stays until dismissed.
+      await expect(page.locator('lister-sync-section')).toContainText('Online');
       await expect(page.getByText('Your session has ended')).toHaveCount(0);
       await page.context().close();
     });

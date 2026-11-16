@@ -156,6 +156,9 @@ export class AuthSession {
     const user = await firstValueFrom(
       this.http.post<CurrentUser>(apiPath('auth', 'password'), request),
     );
+    // Until now the server refused this session's socket (the password had to be changed first),
+    // and the sync engine may have recorded that again since signing in.
+    await this.forgetSyncStatus();
     return this.remember(user);
   }
 
@@ -195,8 +198,7 @@ export class AuthSession {
    * pending changes included, so they sync once the session is back.
    */
   private async startSession(user: CurrentUser): Promise<CurrentUser> {
-    const { db, CURRENT_SPACE_KEY, DISCARDED_CHANGES_KEY, SYNC_STATUS_KEY } =
-      await this.local();
+    const { db, CURRENT_SPACE_KEY, DISCARDED_CHANGES_KEY } = await this.local();
     const holder = (await db.meta.get(LOCAL_USER_KEY))?.value;
     if (holder !== undefined && holder !== user.id) {
       // The previous user's outbox must never be pushed under this session.
@@ -205,10 +207,18 @@ export class AuthSession {
       this.forgetUserState(CURRENT_SPACE_KEY);
       if (discarded > 0) this.store(DISCARDED_CHANGES_KEY, String(discarded));
     }
-    // The sync status saved while signed out says "sign in required". It is the old session's
-    // answer: left in place, the page that loads next would read it as the new session ending.
-    await db.meta.delete(SYNC_STATUS_KEY);
+    await this.forgetSyncStatus();
     return this.remember(user);
+  }
+
+  /**
+   * The sync status saved while signed out (or before the password change) says "sign in
+   * required". It is the refused session's answer: left in place, the page that loads next would
+   * read it as the new session ending.
+   */
+  private async forgetSyncStatus(): Promise<void> {
+    const { db, SYNC_STATUS_KEY } = await this.local();
+    await db.meta.delete(SYNC_STATUS_KEY);
   }
 
   /** Per-user state kept outside the database; device preferences such as the theme stay. */

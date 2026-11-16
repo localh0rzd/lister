@@ -386,6 +386,29 @@ describe('AuthSession', () => {
     expect(session.isAdmin()).toBe(true);
   });
 
+  it('forgets the sign-in-required status once the password is changed', async () => {
+    // Recorded again on the change-password page: the server refuses the socket until then.
+    await db.meta.put({
+      key: SYNC_STATUS_KEY,
+      value: JSON.stringify({
+        online: false,
+        syncing: false,
+        updateRequired: false,
+        signInRequired: true,
+      }),
+    });
+    const changed = session.changePassword({
+      currentPassword: 'temporary password',
+      newPassword: 'new password',
+    });
+    http
+      .expectOne('/api/auth/password')
+      .flush({ ...anna, mustChangePassword: false });
+    await changed;
+
+    expect(await db.meta.get(SYNC_STATUS_KEY)).toBeUndefined();
+  });
+
   it('remembers the user the server returns after a password change or a profile edit', async () => {
     const changed = session.changePassword({
       currentPassword: 'old password',
