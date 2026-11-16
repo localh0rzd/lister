@@ -23,23 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-045 — Reset the run-page checkbox when a change doesn't show in the data
-
-- Milestone: M6 Collaboration polish
-- Area: web
-- Priority: low
-- Done when:
-  - On the run page, a checkbox never stays checked (or unchecked) while the run's data and the
-    progress text say otherwise: e.g. a click whose local change never shows (two quick changes
-    that merge, or a change the prediction refuses before writing anything, such as on a run
-    finished elsewhere) puts the checkbox back to what the data says.
-  - A unit test covers the refused-prediction case; the merged case is already covered by
-    T-043's test.
-- Notes: found in the T-043 review. `[checked]` is a one-way binding, so when the local row never
-  changes the binding value doesn't change and `MatCheckbox` keeps the state the click gave it.
-  Unverified in the app for the refusal path. Idea: reset the checkbox from the data when
-  `apply()` resolves without the local row changing.
-
 ## Backlog
 
 ### T-047 — Per-space timeline id so a restore always makes every device snapshot
@@ -135,6 +118,26 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
 
 ## Done
+
+### T-045 — Reset the run-page checkbox when a change doesn't show in the data
+
+- Completed: 2026-11-16 — run page resets the checkbox from the local data after a change resolves (`packages/web/feature-runs` `run-page.ts`/`.html`); unit test for the refused case.
+- Review: Changes requested; 2 fixed (1 substantive, 1 trivial), 0 skipped, 0 disagreed; re-review rounds: 1. Known limit: a run-finishing check reverted within milliseconds can leave the box as clicked until the next change.
+
+- Milestone: M6 Collaboration polish
+- Area: web
+- Priority: low
+- Done when:
+  - On the run page, a checkbox never stays checked (or unchecked) while the run's data and the
+    progress text say otherwise: e.g. a click whose local change never shows (two quick changes
+    that merge, or a change the prediction refuses before writing anything, such as on a run
+    finished elsewhere) puts the checkbox back to what the data says.
+  - A unit test covers the refused-prediction case; the merged case is already covered by
+    T-043's test.
+- Notes: found in the T-043 review. `[checked]` is a one-way binding, so when the local row never
+  changes the binding value doesn't change and `MatCheckbox` keeps the state the click gave it.
+  Unverified in the app for the refusal path. Idea: reset the checkbox from the data when
+  `apply()` resolves without the local row changing.
 
 ### T-046 — `restore-backup` command
 
