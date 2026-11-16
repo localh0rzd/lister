@@ -758,10 +758,7 @@ export class SyncEngine {
   private setStatus(status: SyncStatus): void {
     this.connection = status;
     const value = JSON.stringify(status);
-    this.background(
-      async () =>
-        void (await this.db.meta.put({ key: SYNC_STATUS_KEY, value })),
-    );
+    this.background(() => this.db.meta.put({ key: SYNC_STATUS_KEY, value }));
   }
 
   // ── Local database ─────────────────────────────────────────────────────────
@@ -1025,7 +1022,7 @@ export class SyncEngine {
   }
 
   /** Queues work nobody waits for; it is skipped once the engine is stopped. */
-  private background(task: () => Promise<void>): void {
+  private background(task: () => Promise<unknown>): void {
     void this.enqueue(async () => {
       if (!this.stopped) await task();
     });
