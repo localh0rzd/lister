@@ -1,0 +1,15 @@
+<h1>Create your account</h1>
+<p class="lead">
+  You were invited to Lister. Choose a username and a password; the registration
+  token comes from the link you were sent.
+</p>
+<lister-account-form
+  tokenLabel="Registration token"
+  tokenMissing="Enter the registration token from your link"
+  submitLabel="Create account"
+  [initialToken]="token()"
+  [busy]="busy()"
+  [error]="error()"
+  (submitted)="register($event)"
+/>
+<p class="alt">Already have an account? <a routerLink="/sign-in">Sign in</a></p>

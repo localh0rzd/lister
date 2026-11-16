@@ -1,0 +1,69 @@
+<form novalidate (submit)="send($event)">
+  <mat-form-field>
+    <mat-label>{{ tokenLabel() }}</mat-label>
+    <input
+      matInput
+      [formField]="accountForm.token"
+      autocomplete="off"
+      autocapitalize="none"
+      spellcheck="false"
+    />
+    @if (
+      accountForm.token().touched() && accountForm.token().errors()[0];
+      as e
+    ) {
+      <mat-error>{{ e.message }}</mat-error>
+    }
+  </mat-form-field>
+  <mat-form-field>
+    <mat-label>Username</mat-label>
+    <input
+      matInput
+      [formField]="accountForm.username"
+      autocomplete="username"
+      autocapitalize="none"
+      spellcheck="false"
+    />
+    @if (
+      accountForm.username().touched() && accountForm.username().errors()[0];
+      as e
+    ) {
+      <mat-error>{{ e.message }}</mat-error>
+    }
+  </mat-form-field>
+  <mat-form-field>
+    <mat-label>Display name</mat-label>
+    <input matInput [formField]="accountForm.displayName" autocomplete="name" />
+    @if (
+      accountForm.displayName().touched() &&
+        accountForm.displayName().errors()[0];
+      as e
+    ) {
+      <mat-error>{{ e.message }}</mat-error>
+    }
+  </mat-form-field>
+  <mat-form-field>
+    <mat-label>Password</mat-label>
+    <input
+      matInput
+      type="password"
+      [formField]="accountForm.password"
+      autocomplete="new-password"
+    />
+    <mat-hint>At least {{ limits.passwordMin }} characters</mat-hint>
+    @if (
+      accountForm.password().touched() && accountForm.password().errors()[0];
+      as e
+    ) {
+      <mat-error>{{ e.message }}</mat-error>
+    }
+  </mat-form-field>
+  @if (error()) {
+    <p class="error" role="alert">{{ error() }}</p>
+  }
+  <div class="actions">
+    <button matButton="filled" type="submit" [disabled]="busy()">
+      {{ submitLabel() }}
+    </button>
+  </div>
+</form>

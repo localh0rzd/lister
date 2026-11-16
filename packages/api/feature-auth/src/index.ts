@@ -9,3 +9,4 @@ export * from './lib/reset-password.command';
 export * from './lib/same-origin.guard';
 export * from './lib/setup-token.service';
 export * from './lib/virtual-authenticator';
+export * from './lib/registration-tokens.service';

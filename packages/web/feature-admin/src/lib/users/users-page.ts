@@ -18,6 +18,7 @@ import {
   ResetPasswordDialog,
   type ResetPasswordDialogData,
 } from '../reset-password-dialog/reset-password-dialog';
+import { RegistrationLinks } from '../registration-links/registration-links';
 import { UserDialog, type UserDialogData } from '../user-dialog/user-dialog';
 import { UsersApi } from '../users-api';
 
@@ -32,6 +33,7 @@ import { UsersApi } from '../users-api';
     MatMenu,
     MatMenuItem,
     MatMenuTrigger,
+    RegistrationLinks,
     RouterLink,
   ],
   templateUrl: './users-page.html',

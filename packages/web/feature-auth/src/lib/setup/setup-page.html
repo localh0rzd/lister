@@ -3,69 +3,12 @@
   Create the first account, an administrator. The setup token is in the server's
   log from when it started.
 </p>
-<form novalidate (submit)="setUp($event)">
-  <mat-form-field>
-    <mat-label>Setup token</mat-label>
-    <input
-      matInput
-      [formField]="setupForm.token"
-      autocomplete="off"
-      autocapitalize="none"
-      spellcheck="false"
-    />
-    @if (setupForm.token().touched() && setupForm.token().errors()[0]; as e) {
-      <mat-error>{{ e.message }}</mat-error>
-    }
-  </mat-form-field>
-  <mat-form-field>
-    <mat-label>Username</mat-label>
-    <input
-      matInput
-      [formField]="setupForm.username"
-      autocomplete="username"
-      autocapitalize="none"
-      spellcheck="false"
-    />
-    @if (
-      setupForm.username().touched() && setupForm.username().errors()[0];
-      as e
-    ) {
-      <mat-error>{{ e.message }}</mat-error>
-    }
-  </mat-form-field>
-  <mat-form-field>
-    <mat-label>Display name</mat-label>
-    <input matInput [formField]="setupForm.displayName" autocomplete="name" />
-    @if (
-      setupForm.displayName().touched() && setupForm.displayName().errors()[0];
-      as e
-    ) {
-      <mat-error>{{ e.message }}</mat-error>
-    }
-  </mat-form-field>
-  <mat-form-field>
-    <mat-label>Password</mat-label>
-    <input
-      matInput
-      type="password"
-      [formField]="setupForm.password"
-      autocomplete="new-password"
-    />
-    <mat-hint>At least {{ limits.passwordMin }} characters</mat-hint>
-    @if (
-      setupForm.password().touched() && setupForm.password().errors()[0];
-      as e
-    ) {
-      <mat-error>{{ e.message }}</mat-error>
-    }
-  </mat-form-field>
-  @if (error()) {
-    <p class="error" role="alert">{{ error() }}</p>
-  }
-  <div class="actions">
-    <button matButton="filled" type="submit" [disabled]="busy()">
-      Create account
-    </button>
-  </div>
-</form>
+<lister-account-form
+  tokenLabel="Setup token"
+  tokenMissing="Enter the setup token from the server log"
+  submitLabel="Create account"
+  [busy]="busy()"
+  [error]="error()"
+  (submitted)="setUp($event)"
+/>
 <p class="alt">Already have an account? <a routerLink="/sign-in">Sign in</a></p>

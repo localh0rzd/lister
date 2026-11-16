@@ -28,6 +28,7 @@ import {
 import {
   ChangePasswordDto,
   LoginDto,
+  RegisterDto,
   SetupDto,
   UpdateProfileDto,
 } from './dto/auth.dto';
@@ -40,6 +41,10 @@ import {
   sessionCookieOptions,
 } from './http';
 import { PasskeysService } from './passkeys.service';
+import {
+  INVALID_TOKEN_MESSAGE,
+  RegistrationTokensService,
+} from './registration-tokens.service';
 import { clientKey } from './rate-limiter';
 import { SetupTokenService } from './setup-token.service';
 import { UsersService } from './users.service';
@@ -54,6 +59,7 @@ export class AuthController {
     private readonly limits: AttemptLimits,
     private readonly users: UsersService,
     private readonly passkeys: PasskeysService,
+    private readonly registrationTokens: RegistrationTokensService,
   ) {}
 
   @Public()
@@ -182,6 +188,32 @@ export class AuthController {
     this.setupToken.consume();
     const row = this.auth.findByUsername(user.username);
     if (!row) throw new Error('The first admin was just created');
+    const signedIn = this.auth.startSession(row);
+    this.setCookie(response, signedIn);
+    return signedIn.user;
+  }
+
+  /**
+   * Registers a regular user with a registration token an admin handed out (D23) and signs them
+   * in. Wrong tokens count against the same limit as sign-in.
+   */
+  @Public()
+  @Post('register')
+  async register(
+    @Body() body: RegisterDto,
+    @Req() request: AuthRequest,
+    @Res({ passthrough: true }) response: AuthResponse,
+  ): Promise<CurrentUser> {
+    const attempt = this.limits.begin(request.ip, response);
+    if (!this.registrationTokens.isValid(body.token)) {
+      throw new ForbiddenException(INVALID_TOKEN_MESSAGE);
+    }
+    attempt.release();
+    const user = await this.auth.registerUser(body, () =>
+      this.registrationTokens.claim(body.token),
+    );
+    const row = this.auth.findByUsername(user.username);
+    if (!row) throw new Error('The account was just created');
     const signedIn = this.auth.startSession(row);
     this.setCookie(response, signedIn);
     return signedIn.user;

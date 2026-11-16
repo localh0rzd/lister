@@ -386,6 +386,20 @@ describe('AuthSession', () => {
     expect(session.isAdmin()).toBe(true);
   });
 
+  it('registers a regular user with a token and signs them in', async () => {
+    const result = session.register({
+      token: 'ABCD1234WXYZ',
+      username: 'anna',
+      displayName: 'Anna',
+      password: 'a password',
+    });
+    http.expectOne('/api/auth/register').flush(anna);
+
+    expect(await result).toEqual(anna);
+    expect(session.user()).toEqual(anna);
+    expect(session.isAdmin()).toBe(false);
+  });
+
   it('forgets the sign-in-required status once the password is changed', async () => {
     // Recorded again on the change-password page: the server refuses the socket until then.
     await db.meta.put({

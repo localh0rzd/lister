@@ -25,6 +25,17 @@ export const setupRoutes: Routes = [
   },
 ];
 
+/** Registration with a token from an admin's link (D23). */
+export const registerRoutes: Routes = [
+  {
+    path: '',
+    title: 'Create account · Lister',
+    canActivate: [guestGuard],
+    loadComponent: () =>
+      import('./register/register-page').then((m) => m.RegisterPage),
+  },
+];
+
 /** The forced password change after an admin set a temporary password (D9). */
 export const changePasswordRoutes: Routes = [
   {

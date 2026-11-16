@@ -1,0 +1,53 @@
+<div class="heading">
+  <h2>Registration links</h2>
+  <button matButton type="button" (click)="create()">
+    <mat-icon aria-hidden="true">add_link</mat-icon>
+    Create link
+  </button>
+</div>
+<p class="hint">
+  A link lets one person create their own account. It works once and expires
+  after 7 days.
+</p>
+
+@if (list.isLoading() && !list.hasValue()) {
+  <lister-loading-hint />
+} @else if (list.error()) {
+  <p class="hint" role="alert">
+    The links could not be loaded. Check your connection.
+    <button matButton type="button" (click)="list.reload()">Try again</button>
+  </p>
+} @else {
+  <ul class="links" aria-label="Registration links">
+    @for (item of links(); track item.token) {
+      <li class="link">
+        <div class="text">
+          <span class="url">{{ item.link }}</span>
+          <span class="meta">
+            Created {{ item.createdAt | date: 'medium' }} by
+            {{ item.createdBy }} · Expires
+            {{ item.expiresAt | date: 'medium' }}
+          </span>
+        </div>
+        <button
+          matIconButton
+          type="button"
+          [attr.aria-label]="'Copy link ' + item.token"
+          (click)="copy(item.link)"
+        >
+          <mat-icon aria-hidden="true">content_copy</mat-icon>
+        </button>
+        <button
+          matIconButton
+          type="button"
+          [attr.aria-label]="'Remove link ' + item.token"
+          (click)="remove(item)"
+        >
+          <mat-icon aria-hidden="true">delete</mat-icon>
+        </button>
+      </li>
+    } @empty {
+      <li class="hint">No unused links.</li>
+    }
+  </ul>
+}

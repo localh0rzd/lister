@@ -69,3 +69,55 @@ export interface UpdateUserRequest {
 export interface ResetPasswordRequest {
   temporaryPassword: string;
 }
+
+/** Registration tokens: 12 characters, A–Z and 0–9 (design D23). */
+export const REGISTRATION_TOKEN_LENGTH = 12;
+
+/** Registration tokens expire this long after they were created (D23). */
+export const REGISTRATION_TOKEN_LIFETIME_DAYS = 7;
+
+/**
+ * The canonical form of a registration token a person typed or pasted: surrounding spaces gone,
+ * upper case. Both the form and the server use it, so the token is accepted ignoring case.
+ */
+export function normalizeRegistrationToken(input: string): string {
+  return input.trim().toUpperCase();
+}
+
+/** Whether `input`, once normalized, looks like a registration token. */
+export function isRegistrationToken(input: string): boolean {
+  return (
+    /^[A-Z0-9]+$/.test(normalizeRegistrationToken(input)) &&
+    normalizeRegistrationToken(input).length === REGISTRATION_TOKEN_LENGTH
+  );
+}
+
+/** The link an admin hands out: `<base>/register?token=<TOKEN>`. `base` is an origin. */
+export function registrationLink(base: string, token: string): string {
+  return `${base.replace(/\/+$/, '')}/register?${new URLSearchParams({ token })}`;
+}
+
+/** Body of `POST /api/auth/register`: like setup, but with a registration token; makes a regular user. */
+export interface RegisterRequest {
+  /** Accepted ignoring case and surrounding spaces. */
+  token: string;
+  username: string;
+  displayName: string;
+  password: string;
+}
+
+/** One unused, unexpired registration token, as admins see it. Dates are ISO strings. */
+export interface RegistrationToken {
+  token: string;
+  createdAt: string;
+  /** Display name of the admin who created it. */
+  createdBy: string;
+  expiresAt: string;
+}
+
+/** Response of `GET /api/registration-tokens` (admins only). */
+export interface RegistrationTokenList {
+  /** `PUBLIC_URL` (an origin); `null` when unset, and links then use the page's own origin. */
+  publicUrl: string | null;
+  tokens: RegistrationToken[];
+}

@@ -2,7 +2,7 @@ import type { Route } from '@angular/router';
 import { adminGuard, signedInGuard } from '@lister/web/data-access-auth';
 
 export const appRoutes: Route[] = [
-  // Sign-in, first-run setup and the forced password change: open to people who aren't signed in.
+  // Sign-in, first-run setup, registration and the forced password change: open to people who aren't signed in.
   {
     path: 'sign-in',
     loadChildren: () =>
@@ -12,6 +12,11 @@ export const appRoutes: Route[] = [
     path: 'setup',
     loadChildren: () =>
       import('@lister/web/feature-auth').then((m) => m.setupRoutes),
+  },
+  {
+    path: 'register',
+    loadChildren: () =>
+      import('@lister/web/feature-auth').then((m) => m.registerRoutes),
   },
   {
     path: 'change-password',

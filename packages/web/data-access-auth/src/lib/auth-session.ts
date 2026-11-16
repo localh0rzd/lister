@@ -15,6 +15,7 @@ import {
   type LoginRequest,
   type PasskeyLoginRequest,
   type WebAuthnJson,
+  type RegisterRequest,
   type SetupRequest,
   type UpdateProfileRequest,
   apiPath,
@@ -148,6 +149,14 @@ export class AuthSession {
   async setUp(request: SetupRequest): Promise<CurrentUser> {
     const user = await firstValueFrom(
       this.http.post<CurrentUser>(apiPath('auth', 'setup'), request),
+    );
+    return this.startSession(user);
+  }
+
+  /** Registers a regular user with a registration token (D23) and signs them in. */
+  async register(request: RegisterRequest): Promise<CurrentUser> {
+    const user = await firstValueFrom(
+      this.http.post<CurrentUser>(apiPath('auth', 'register'), request),
     );
     return this.startSession(user);
   }

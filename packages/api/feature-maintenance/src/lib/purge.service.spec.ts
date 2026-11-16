@@ -191,6 +191,27 @@ describe('PurgeService', () => {
     expect(space(other)).toEqual({ version: 1, purgedVersion: 1 });
   });
 
+  it('removes expired registration tokens and keeps the valid ones', () => {
+    const token = (value: string, expiresAt: number) =>
+      database.db
+        .insert(schema.registrationTokens)
+        .values({ token: value, createdBy: USER, createdAt: 0, expiresAt })
+        .run();
+    token('EXPIRED00001', NOW - 1);
+    token('EXPIRESNOW01', NOW);
+    token('STILLVALID01', NOW + 1);
+
+    expect(service.purge(NOW)).toBe(2);
+
+    expect(
+      database.db
+        .select({ token: schema.registrationTokens.token })
+        .from(schema.registrationTokens)
+        .all(),
+    ).toEqual([{ token: 'STILLVALID01' }]);
+    expect(space()).toEqual({ version: 0, purgedVersion: 0 });
+  });
+
   it('runs once a day', () => {
     expect(service.isDue(NOW)).toBe(true);
     service.markDone(NOW);

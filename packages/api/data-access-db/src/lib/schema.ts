@@ -53,6 +53,24 @@ export const sessions = sqliteTable(
 );
 
 /**
+ * A one-time registration token an admin handed out (D23). `token` is 12 characters A–Z/0–9. The
+ * row is deleted when the token is used, removed or purged after it expired. Times are epoch
+ * milliseconds.
+ */
+export const registrationTokens = sqliteTable(
+  'registration_tokens',
+  {
+    token: text('token').primaryKey(),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: integer('created_at').notNull(),
+    expiresAt: integer('expires_at').notNull(),
+  },
+  (table) => [index('registration_tokens_expires').on(table.expiresAt)],
+);
+
+/**
  * A passkey (WebAuthn credential) of a user. `id` is the credential id (base64url), which is
  * unique across users. `transports` is a JSON array of strings. Times are epoch milliseconds.
  */

@@ -645,7 +645,7 @@ packages/
     api-contracts          REST types (exists)                                          scope:shared type:util
   api/
     data-access-db         Drizzle schema, migrations, DB provider                      scope:api type:data-access
-    feature-auth           sessions, sign-in, passkeys, user administration, guards     scope:api type:feature
+    feature-auth           sessions, sign-in, passkeys, user admin, registration tokens, guards scope:api type:feature
     feature-spaces         spaces, memberships                                          scope:api type:feature
     feature-maintenance    nightly backups, daily purge of tombstones and finished runs scope:api type:feature
     feature-sync           gateway, push/pull/poke, MutationService                     scope:api type:feature
@@ -655,8 +655,8 @@ packages/
     data-access-auth       who is signed in, sign-in/out calls, route guards           scope:web type:data-access
     feature-lists          list library, list editor, composition                       scope:web type:feature
     feature-runs           runs: start, ad-hoc, check/skip, progress, finishing         scope:web type:feature
-    feature-auth           sign-in, first-run setup, profile with passkeys              scope:web type:feature
-    feature-admin          user administration (admins only)                            scope:web type:feature
+    feature-auth           sign-in, first-run setup, registration, profile, passkeys scope:web type:feature
+    feature-admin          user administration, registration links (admins only) scope:web type:feature
     feature-space          space switcher, spaces and members, Trash                    scope:web type:feature
     feature-settings       Settings: account links, appearance, sync status, app, about, sign out  scope:web type:feature
     ui                     nav bar/rail, item row, section header, sync status, dialogs scope:web type:ui

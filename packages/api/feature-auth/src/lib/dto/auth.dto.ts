@@ -5,6 +5,7 @@ import {
   USERNAME_PATTERN,
   type ChangePasswordRequest,
   type LoginRequest,
+  type RegisterRequest,
   type SetupRequest,
   type UpdateProfileRequest,
 } from '@lister/shared/api-contracts';
@@ -45,6 +46,8 @@ export class SetupDto implements SetupRequest {
   @Length(AUTH_LIMITS.passwordMin, AUTH_LIMITS.passwordMax)
   password!: string;
 }
+
+export class RegisterDto extends SetupDto implements RegisterRequest {}
 
 export class ChangePasswordDto implements ChangePasswordRequest {
   @IsString()

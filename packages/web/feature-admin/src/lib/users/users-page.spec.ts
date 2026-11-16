@@ -53,6 +53,9 @@ async function render(dialogResult: unknown = undefined) {
   const fixture = TestBed.createComponent(UsersPage);
   fixture.detectChanges();
   http.expectOne('/api/users').flush([boss, anna]);
+  http
+    .expectOne('/api/registration-tokens')
+    .flush({ publicUrl: null, tokens: [] });
   await fixture.whenStable();
   const loader = TestbedHarnessEnvironment.loader(fixture);
   const menu = async (name: string) =>
@@ -227,6 +230,9 @@ describe('UsersPage', () => {
     const fixture = TestBed.createComponent(UsersPage);
     fixture.detectChanges();
     http.expectOne('/api/users').error(new ProgressEvent('error'));
+    http
+      .expectOne('/api/registration-tokens')
+      .flush({ publicUrl: null, tokens: [] });
     await fixture.whenStable();
     const element = fixture.nativeElement as HTMLElement;
     expect(element.querySelector('[role="alert"]')?.textContent).toContain(

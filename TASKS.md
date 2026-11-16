@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-058 — Registration links handed out by admins
 
 - Milestone: M8 Editing conveniences
@@ -61,6 +59,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   `web/feature-admin`. The register route sits next to `/setup` and `/sign-in` (no auth guard).
   Update the API contracts in `shared/api-contracts` with `apiPath()` routes. docs/design.md §2.3
   and D23 were updated when the task was added.
+
+## Backlog
 
 ### T-054 — Finished runs in the trash, with Restore
 

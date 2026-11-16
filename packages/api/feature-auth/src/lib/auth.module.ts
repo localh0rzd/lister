@@ -8,6 +8,8 @@ import { AuthService } from './auth.service';
 import { AUTH_CLOCK, type Clock } from './clock';
 import { PasskeysController } from './passkeys.controller';
 import { PasskeysService } from './passkeys.service';
+import { RegistrationTokensController } from './registration-tokens.controller';
+import { RegistrationTokensService } from './registration-tokens.service';
 import { SetupTokenService } from './setup-token.service';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
@@ -17,13 +19,19 @@ import { UsersService } from './users.service';
  * routes need a session unless they're `@Public()`.
  */
 @Module({
-  controllers: [AuthController, UsersController, PasskeysController],
+  controllers: [
+    AuthController,
+    UsersController,
+    PasskeysController,
+    RegistrationTokensController,
+  ],
   providers: [
     AccountEvents,
     AuthService,
     UsersService,
     PasskeysService,
     SetupTokenService,
+    RegistrationTokensService,
     AttemptLimits,
     AuthGuard,
     { provide: APP_GUARD, useExisting: AuthGuard },

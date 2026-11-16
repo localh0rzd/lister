@@ -71,6 +71,13 @@
       "when": 1794827565633,
       "tag": "0009_space_timeline",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1794862824239,
+      "tag": "0010_registration_tokens",
+      "breakpoints": true
     }
   ]
 }

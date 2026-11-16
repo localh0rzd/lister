@@ -1,9 +1,18 @@
 import { Injectable } from '@nestjs/common';
-import { eq, inArray, lt, or, sql } from 'drizzle-orm';
+import { eq, inArray, lt, lte, or, sql } from 'drizzle-orm';
 import { DatabaseConnection, schema } from '@lister/api/data-access-db';
 import { TRASH_KEEP_DAYS, TRASH_KEEP_MS } from '@lister/shared/domain';
 
-const { appMeta, includes, items, lists, runItems, runs, spaces } = schema;
+const {
+  appMeta,
+  includes,
+  items,
+  lists,
+  registrationTokens,
+  runItems,
+  runs,
+  spaces,
+} = schema;
 
 /** Tombstones and finished runs are kept this long (D15), as long as the Trash offers them. */
 export const PURGE_AFTER_DAYS = TRASH_KEEP_DAYS;
@@ -16,7 +25,7 @@ const LAST_PURGE_KEY = 'purge.lastDay';
  * (`spaces.purgedVersion`): every client of the space is then behind it and gets a full snapshot
  * on its next pull. Up-to-date clients need one too: they still hold the purged tombstones, and
  * the live rows that went with a purged list or run, which no change ever told them about.
- * Nothing is poked: an empty poke at the next version would move a client past the purge point
+ * Expired registration tokens (D23) go with it. Nothing is poked: an empty poke at the next version would move a client past the purge point
  * without a snapshot. Connected clients see the gap at the space's next change and pull.
  */
 @Injectable()
@@ -107,6 +116,11 @@ export class PurgeService {
           .where(inArray(spaces.id, [...purgedSpaces]))
           .run();
       }
+      // Registration tokens expire after 7 days (D23); they are not synced, so no version moves.
+      removed += tx
+        .delete(registrationTokens)
+        .where(lte(registrationTokens.expiresAt, now))
+        .run().changes;
       return removed;
     });
   }

@@ -89,6 +89,24 @@ export class AuthService {
   }
 
   /**
+   * A regular account for someone with a registration token (D23). `claimToken` runs inside the
+   * insert's transaction, before the username check, and throws when the token is no good; a
+   * taken username then rolls the claim back, so the token survives.
+   */
+  async registerUser(
+    input: Pick<NewUser, 'username' | 'displayName' | 'password'>,
+    claimToken: () => void,
+  ): Promise<CurrentUser> {
+    const passwordHash = await hashPassword(input.password);
+    return this.insertUser(
+      { ...input, isAdmin: false, mustChangePassword: false },
+      passwordHash,
+      false,
+      claimToken,
+    );
+  }
+
+  /**
    * The same as `createUser`, but only while no account exists, checked in the same synchronous
    * step as the insert, so two setups can't both win.
    */
@@ -315,8 +333,10 @@ export class AuthService {
     input: NewUser,
     passwordHash: string,
     onlyIfEmpty = false,
+    beforeInsert?: () => void,
   ): CurrentUser {
     const insert = this.database.sqlite.transaction(() => {
+      beforeInsert?.();
       if (onlyIfEmpty && this.userCount() > 0) {
         throw new ConflictException('Setup has already been done');
       }
