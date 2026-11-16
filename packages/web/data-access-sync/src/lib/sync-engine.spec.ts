@@ -242,6 +242,7 @@ function setup(options: { leader?: boolean; database?: LocalDb } = {}) {
 
 afterEach(async () => {
   vi.useRealTimers();
+  await engine.stop(); // no engine work may touch the database once it is closed
   TestBed.resetTestingModule();
   await db.delete();
 });
@@ -253,6 +254,16 @@ async function settle() {
     await new Promise((resolve) => setTimeout(resolve, 0));
   }
   await engine.whenIdle();
+}
+
+/**
+ * Ends a test that uses fake timers: the engine's queued work has not started (the test never
+ * awaited), and `stop()` skips it, so no database request is left waiting for a faked timer.
+ */
+async function stopUnderFakeTimers() {
+  const stopped = engine.stop();
+  vi.useRealTimers();
+  await stopped;
 }
 
 /** Waits until `check` passes (signals fed by the local database update asynchronously). */
@@ -1203,6 +1214,7 @@ describe('SyncEngine', () => {
       expect(server.connectCalls).toBe(2);
       vi.advanceTimersByTime(1);
       expect(server.connectCalls).toBe(3);
+      await stopUnderFakeTimers();
     });
 
     it('stops after updateRequired and says so', async () => {
@@ -1237,6 +1249,7 @@ describe('SyncEngine', () => {
         vi.advanceTimersByTime(1);
         expect(server.connectCalls).toBe(before + 1);
       }
+      await stopUnderFakeTimers();
     });
   });
 
@@ -1800,6 +1813,59 @@ describe('SyncEngine', () => {
       expect(server.sent('push').at(-1)).toMatchObject({
         mutations: [{ mutationId }],
       });
+    });
+  });
+
+  describe('stop()', () => {
+    it('does nothing after it: no reconnect, no pushes, no database writes', async () => {
+      setup();
+      engine.start();
+      await settle();
+      vi.useFakeTimers();
+      server.drop('io server disconnect'); // schedules a reconnect
+      // Not awaited while Dexie's timers are fake; the cancelling itself is synchronous.
+      const stopped = engine.stop();
+      vi.advanceTimersByTime(60_000);
+      expect(server.connectCalls).toBe(1);
+      vi.useRealTimers();
+      await stopped;
+
+      const received = server.received.length;
+      const statusBefore = await db.meta.get('status');
+      server.welcome();
+      server.otherClient('list.create', { id: newId(), title: 'Late' });
+      await db.outbox.add({
+        mutationId: newId(),
+        spaceId: SPACE,
+        mutation: {} as MutationInput,
+        createdAt: 1,
+      });
+      await settle();
+
+      expect(server.connectCalls).toBe(1);
+      expect(server.received.length).toBe(received);
+      expect(await db.meta.get('status')).toEqual(statusBefore);
+      expect(await db.lists.count()).toBe(0);
+    });
+
+    it('finishes the running task, so the database can be closed at once', async () => {
+      setup();
+      engine.start();
+      await settle();
+      void createList('Camping');
+
+      await engine.stop();
+      await db.close(); // would fail a task that is still running
+
+      expect(db.isOpen()).toBe(false);
+    });
+
+    it('can be called again and before start', async () => {
+      setup({ leader: false });
+      await engine.stop();
+      await engine.stop();
+      engine.start();
+      expect(server.connectCalls).toBe(0);
     });
   });
 });

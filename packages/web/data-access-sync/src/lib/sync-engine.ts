@@ -286,6 +286,10 @@ export class SyncEngine {
   private reconnectDelay = FIRST_RECONNECT_DELAY_MS;
   private reconnectTimer?: ReturnType<typeof setTimeout>;
   private queue: Promise<unknown> = Promise.resolve();
+  /** `stop()` was called: queued background work is skipped. */
+  private stopped = false;
+  /** Cancels the watchers, listeners, timers and the socket of `lead()`. */
+  private teardown?: () => void;
 
   /** Starts syncing in this tab once it holds the sync lock (one tab at a time). */
   start(): void {
@@ -299,6 +303,18 @@ export class SyncEngine {
           this.destroyRef.onDestroy(release);
         }),
     );
+  }
+
+  /**
+   * Stops syncing: cancels the watchers, listeners, timers and the socket, skips queued work and
+   * resolves once the task that is running has finished. Nothing touches the database after
+   * that, so it can be closed. Final: a stopped engine is not started again.
+   */
+  async stop(): Promise<void> {
+    this.stopped = true;
+    this.teardown?.();
+    this.teardown = undefined;
+    await this.whenIdle();
   }
 
   /** Resolves when all queued database work is done (for tests and orderly shutdown). */
@@ -385,7 +401,7 @@ export class SyncEngine {
     // dropping the connection.
     if (socket.connected && !this.connection.online) return;
     if (this.connection.online) {
-      void this.enqueue(async () => {
+      this.background(async () => {
         for (const id of await this.db.spaces.toCollection().primaryKeys())
           await this.pull(id);
         await this.flush();
@@ -407,7 +423,7 @@ export class SyncEngine {
 
     socket.on('connect', () => {
       this.healthy = false;
-      void this.enqueue(() => this.hello());
+      this.background(() => this.hello());
     });
     socket.on('disconnect', (reason) => this.onDisconnect(reason));
     // A refused handshake is not retried by Socket.IO. Going online again, or coming back to the
@@ -455,8 +471,8 @@ export class SyncEngine {
     this.window?.addEventListener('storage', retryAfterSignIn);
 
     // Push whatever any tab adds to the outbox.
-    const outbox = liveQuery(() => this.db.outbox.count()).subscribe(
-      () => void this.enqueue(() => this.flush()),
+    const outbox = liveQuery(() => this.db.outbox.count()).subscribe(() =>
+      this.background(() => this.flush()),
     );
     // A "Sync now" from any tab. The request that is there when we start is an old one, and
     // only a new request id counts (the query also re-runs for unrelated writes).
@@ -470,7 +486,7 @@ export class SyncEngine {
           this.syncNowAsLeader(socket);
       },
     );
-    this.destroyRef.onDestroy(() => {
+    this.teardown = () => {
       syncNow.unsubscribe();
       this.window?.removeEventListener('offline', goOffline);
       this.window?.removeEventListener('online', goOnline);
@@ -479,7 +495,8 @@ export class SyncEngine {
       outbox.unsubscribe();
       clearTimeout(this.reconnectTimer);
       socket.disconnect();
-    });
+    };
+    this.destroyRef.onDestroy(() => void this.stop());
 
     socket.connect();
   }
@@ -508,7 +525,7 @@ export class SyncEngine {
         );
         return;
       }
-      void this.enqueue(() => handle(parsed.data));
+      this.background(() => handle(parsed.data));
     });
   }
 
@@ -741,7 +758,10 @@ export class SyncEngine {
   private setStatus(status: SyncStatus): void {
     this.connection = status;
     const value = JSON.stringify(status);
-    void this.enqueue(() => this.db.meta.put({ key: SYNC_STATUS_KEY, value }));
+    this.background(
+      async () =>
+        void (await this.db.meta.put({ key: SYNC_STATUS_KEY, value })),
+    );
   }
 
   // ── Local database ─────────────────────────────────────────────────────────
@@ -1002,6 +1022,13 @@ export class SyncEngine {
       userId: (await this.db.meta.get('userId'))?.value ?? '',
       version: (await this.db.syncState.get(spaceId))?.version ?? 0,
     };
+  }
+
+  /** Queues work nobody waits for; it is skipped once the engine is stopped. */
+  private background(task: () => Promise<void>): void {
+    void this.enqueue(async () => {
+      if (!this.stopped) await task();
+    });
   }
 
   /** Runs database work one task at a time, in order; failures go to the ErrorHandler. */

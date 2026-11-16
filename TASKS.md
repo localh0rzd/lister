@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-037 — Quiet the sync-engine test teardown
 
 - Milestone: M6 Collaboration polish
@@ -36,6 +34,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
     running when a test closes its Dexie database.
 - Notes: found in the T-013 review. Awaiting `engine.whenIdle()` in `afterEach` made 11 tests
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
+
+## Backlog
 
 ## Done
 
