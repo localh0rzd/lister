@@ -309,9 +309,10 @@ export class SyncEngine {
   }
 
   /**
-   * Stops syncing: cancels the watchers, listeners, timers and the socket, skips queued work and
-   * resolves once the task that is running has finished. Nothing touches the database after
-   * that, so it can be closed. Final: a stopped engine is not started again.
+   * Stops syncing: cancels the watchers, listeners, timers and the socket, skips queued background
+   * work (pokes, pushes, status writes) and resolves once the remaining queued work (mutations) is
+   * done. The engine itself touches the database no more, so it can be closed unless the app
+   * still calls mutate() or the other public methods. Final: a stopped engine does not start again.
    */
   async stop(): Promise<void> {
     this.stopped = true;

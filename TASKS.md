@@ -23,8 +23,14 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
+## Backlog
+
+## Done
+
 ### T-037 — Quiet the sync-engine test teardown
 
+- Completed: 2026-11-16 — `SyncEngine.stop()` cancels watchers, timers and the socket and skips queued background work; tests stop the engine before closing the database, so the suite logs no `DatabaseClosedError` (`web-data-access-sync`).
+- Review: Changes requested; 3 fixed (2 substantive, 1 trivial), 0 skipped, 0 disagreed; re-review rounds: 1
 - Milestone: M6 Collaboration polish
 - Area: web
 - Priority: low
@@ -34,10 +40,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
     running when a test closes its Dexie database.
 - Notes: found in the T-013 review. Awaiting `engine.whenIdle()` in `afterEach` made 11 tests
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
-
-## Backlog
-
-## Done
 
 ### T-041 — Say which change a sync error refers to
 
