@@ -1,5 +1,5 @@
 // Cuts the self-hosted Material Symbols font down to the icons the web code uses.
-// Run: npx nx run lister-web:subset-icons   (after adding or removing an icon)
+// Run: npx nx run lister-web:subset-icons   (after adding or removing an icon, and after upgrading `material-symbols`)
 //
 // Reads the full variable font from node_modules/material-symbols, finds the icons in use
 // (tools/material-symbols/used-icons.mjs) and writes, next to the app's styles,

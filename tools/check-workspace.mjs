@@ -125,6 +125,14 @@ if (missingIcons.length > 0) {
     `icon font: the subset lacks ${missingIcons.join(', ')}; run \`npx nx run lister-web:subset-icons\` and commit the result`,
   );
 }
+const unusedIcons = subsetIcons.filter(
+  (name) => !usedIcons.icons.includes(name),
+);
+if (unusedIcons.length > 0) {
+  problems.push(
+    `icon font: the subset still has ${unusedIcons.join(', ')}, which the code no longer uses; run \`npx nx run lister-web:subset-icons\` and commit the result`,
+  );
+}
 
 if (problems.length > 0) {
   console.error(`Workspace check failed:\n- ${problems.join('\n- ')}`);
