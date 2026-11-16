@@ -23,18 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-040 — Pin CI actions to commit hashes
-
-- Milestone: M7 Deployment
-- Area: infra
-- Priority: low
-- Done when:
-  - Every `uses:` in `.github/workflows/` names a full commit SHA with the version as a comment
-    (`actions/checkout@<sha> # v5`), so a moved or hijacked tag can't change what CI runs.
-  - Dependabot (`.github/dependabot.yml`, `github-actions` ecosystem) proposes updates to the
-    pinned hashes.
-- Notes: Found in the security audit (2026-11-13), rated low: CI has no deploy secrets today.
-
 ## Backlog
 
 ### T-041 — Say which change a sync error refers to
@@ -65,6 +53,20 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
 
 ## Done
+
+### T-040 — Pin CI actions to commit hashes
+
+- Milestone: M7 Deployment
+- Area: infra
+- Priority: low
+- Done when:
+  - Every `uses:` in `.github/workflows/` names a full commit SHA with the version as a comment
+    (`actions/checkout@<sha> # v5`), so a moved or hijacked tag can't change what CI runs.
+  - Dependabot (`.github/dependabot.yml`, `github-actions` ecosystem) proposes updates to the
+    pinned hashes.
+- Notes: Found in the security audit (2026-11-13), rated low: CI has no deploy secrets today.
+- Completed: 2026-11-16 — all `uses:` in `.github/workflows/ci.yml` pinned to commit SHAs with exact release comments; `.github/dependabot.yml` (github-actions, weekly, 7-day cooldown)
+- Review: Approve with minor fixes; 2 fixed (0 substantive, 2 trivial), 0 skipped, 0 disagreed; re-review rounds: 0
 
 ### T-036 — Slim the sync engine chunk
 
