@@ -160,7 +160,7 @@ describe('PasskeysSection', () => {
     expect(webAuthn.register).not.toHaveBeenCalled();
   });
 
-  it('explains a cancelled request and keeps the name', async () => {
+  it('explains a refused request without claiming it was cancelled, and keeps the name', async () => {
     const { http } = setup();
     webAuthn.register.mockRejectedValue(
       new DOMException('x', 'NotAllowedError'),
@@ -176,7 +176,7 @@ describe('PasskeysSection', () => {
     await vi.waitFor(async () => {
       await fixture.whenStable();
       expect(element.querySelector('[role="alert"]')?.textContent).toContain(
-        'cancelled',
+        'declined or timed out',
       );
     });
     expect(element.querySelector('input')?.value).toBe('Tablet');
@@ -267,6 +267,29 @@ describe('PasskeysSection', () => {
       expect(button('Add a passkey').disabled).toBe(false);
       expect(element.querySelector('input')?.value).toBe('Tablet');
       expect(element.querySelector('[role="alert"]')).toBeNull();
+    });
+
+    it('lets the user try again after cancelling a prompt that never answered', async () => {
+      const { http, button, fixture, element } = await start();
+      button('Cancel').click();
+      await fixture.whenStable();
+
+      webAuthn.register.mockRejectedValue(
+        new DOMException('x', 'NotAllowedError'),
+      );
+      button('Add a passkey').click();
+      (await vi.waitFor(() => http.expectOne('/api/passkeys/options'))).flush({
+        challenge: 'c2',
+      });
+
+      await vi.waitFor(async () => {
+        await fixture.whenStable();
+        expect(element.querySelector('[role="alert"]')?.textContent).toContain(
+          'declined or timed out',
+        );
+      });
+      expect(webAuthn.register).toHaveBeenCalledTimes(2);
+      expect(button('Add a passkey').disabled).toBe(false);
     });
 
     it('stores nothing when the ceremony was cancelled', async () => {

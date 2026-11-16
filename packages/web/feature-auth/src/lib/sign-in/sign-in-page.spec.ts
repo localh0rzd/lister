@@ -223,7 +223,7 @@ describe('SignInPage', () => {
       expect(load).not.toHaveBeenCalled();
     });
 
-    it('says so when the request is cancelled, and stays put', async () => {
+    it('says so when the request is refused, and stays put', async () => {
       webAuthn.authenticate.mockRejectedValue(
         new DOMException('cancelled', 'NotAllowedError'),
       );
@@ -238,7 +238,7 @@ describe('SignInPage', () => {
         await page.fixture.whenStable();
         expect(
           page.element.querySelector('[role="alert"]')?.textContent,
-        ).toContain('cancelled');
+        ).toContain('declined or timed out');
       });
       expect(load).not.toHaveBeenCalled();
     });
@@ -370,7 +370,7 @@ describe('SignInPage', () => {
           await fixture.whenStable();
           expect(
             element.querySelector('[role="alert"]')?.textContent,
-          ).toContain('cancelled or timed out');
+          ).toContain('declined or timed out');
         });
 
         expect(button(element, 'Sign in with a passkey')?.disabled).toBe(false);

@@ -99,6 +99,19 @@ describe('Passkeys', () => {
     http.expectNone('/api/passkeys');
   });
 
+  it('stops waiting for a prompt that never answers once cancelled', async () => {
+    const cancelled = new AbortController();
+    client.register.mockReturnValue(new Promise(() => undefined));
+    const added = passkeys.add('x', cancelled.signal);
+    http.expectOne('/api/passkeys/options').flush({ challenge: 'c1' });
+    await vi.waitFor(() => expect(client.register).toHaveBeenCalled());
+
+    cancelled.abort();
+
+    await expect(added).rejects.toMatchObject({ name: 'AbortError' });
+    http.expectNone('/api/passkeys');
+  });
+
   it('cancels the browser prompt through the client', async () => {
     await passkeys.cancel();
 
@@ -117,7 +130,7 @@ describe('Passkeys', () => {
 
 describe('describePasskeyError', () => {
   it.each([
-    [new DOMException('x', 'NotAllowedError'), /cancelled or timed out/],
+    [new DOMException('x', 'NotAllowedError'), /declined or timed out/],
     [new DOMException('x', 'InvalidStateError'), /already has a passkey/],
     [
       new HttpErrorResponse({ status: 400, error: { message: 'Expired' } }),

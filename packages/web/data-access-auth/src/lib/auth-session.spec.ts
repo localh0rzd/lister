@@ -23,9 +23,13 @@ const anna: CurrentUser = {
   mustChangePassword: false,
 };
 
-// The library is lazy-loaded by `AuthSession`, so the lint rules forbid importing it statically.
-const { CURRENT_SPACE_KEY, DISCARDED_CHANGES_KEY, LOCAL_DB, LocalDb } =
-  await import('@lister/web/data-access-local-db');
+const {
+  CURRENT_SPACE_KEY,
+  DISCARDED_CHANGES_KEY,
+  LOCAL_DB,
+  LocalDb,
+  SYNC_STATUS_KEY,
+} = await import('@lister/web/data-access-local-db');
 
 let db: LocalDbType;
 let http: HttpTestingController;
@@ -298,6 +302,38 @@ describe('AuthSession', () => {
 
       await expect(result).rejects.toMatchObject({ name: 'NotAllowedError' });
       expect(session.user()).toBeNull();
+    });
+
+    it('stops waiting for a prompt that never answers once cancelled', async () => {
+      const authenticate = vi
+        .spyOn(TestBed.inject(WebAuthnClient), 'authenticate')
+        .mockReturnValue(new Promise(() => undefined));
+      const cancelled = new AbortController();
+      const result = session.signInWithPasskey(cancelled.signal);
+      http.expectOne('/api/auth/passkey/options').flush({ challenge: 'c1' });
+      await vi.waitFor(() => expect(authenticate).toHaveBeenCalled());
+
+      cancelled.abort();
+
+      await expect(result).rejects.toMatchObject({ name: 'AbortError' });
+      http.expectNone('/api/auth/passkey/login');
+    });
+
+    it('forgets the sign-in-required status that the signed-out visit left behind', async () => {
+      await db.meta.put({
+        key: SYNC_STATUS_KEY,
+        value: JSON.stringify({
+          online: false,
+          syncing: false,
+          updateRequired: false,
+          signInRequired: true,
+        }),
+      });
+      const { result, answer } = start(anna);
+      await answer();
+      await result;
+
+      expect(await db.meta.get(SYNC_STATUS_KEY)).toBeUndefined();
     });
 
     it('does not start the prompt when cancelled while the options were loading', async () => {

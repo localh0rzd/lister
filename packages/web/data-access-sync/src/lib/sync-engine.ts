@@ -36,6 +36,7 @@ import {
   type LocalDb,
   type Rejection,
   type SyncStatus,
+  SYNC_STATUS_KEY,
   liveQuerySignal,
   valueOf,
 } from '@lister/web/data-access-local-db';
@@ -176,7 +177,6 @@ export type MutationRequest = DistributiveOmit<MutationInput, 'mutationId'>;
 /** The message the server's handshake check refuses with when there is no usable session. */
 const SIGN_IN_REFUSAL = 'Sign in first';
 const LOCK_NAME = 'lister-sync';
-const STATUS_KEY = 'status';
 const FIRST_RECONNECT_DELAY_MS = 1000;
 const MAX_RECONNECT_DELAY_MS = 30_000;
 /** How many shown errors the error log keeps. */
@@ -215,7 +215,7 @@ export class SyncEngine {
   private readonly window = inject(DOCUMENT).defaultView;
 
   private readonly status = liveQuerySignal(() => async () => {
-    const row = await this.db.meta.get(STATUS_KEY);
+    const row = await this.db.meta.get(SYNC_STATUS_KEY);
     return row ? (JSON.parse(row.value) as SyncStatus) : OFFLINE;
   });
   private readonly outboxCount = liveQuerySignal(
@@ -718,7 +718,7 @@ export class SyncEngine {
   private setStatus(status: SyncStatus): void {
     this.connection = status;
     const value = JSON.stringify(status);
-    void this.enqueue(() => this.db.meta.put({ key: STATUS_KEY, value }));
+    void this.enqueue(() => this.db.meta.put({ key: SYNC_STATUS_KEY, value }));
   }
 
   // ── Local database ─────────────────────────────────────────────────────────

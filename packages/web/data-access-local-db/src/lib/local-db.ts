@@ -56,6 +56,9 @@ export interface Rejection {
   seen?: boolean;
 }
 
+/** The `meta` key of the leader tab's connection state (`SyncStatus`). */
+export const SYNC_STATUS_KEY = 'status';
+
 /** The leader tab's connection state, shared with the other tabs (`meta` key `status`). */
 export interface SyncStatus {
   online: boolean;

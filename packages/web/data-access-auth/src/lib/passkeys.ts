@@ -8,6 +8,7 @@ import {
   apiPath,
 } from '@lister/shared/api-contracts';
 import { describeAuthError } from './auth-session';
+import { untilAborted } from './until-aborted';
 import { WebAuthnClient } from './webauthn-client';
 
 /** Why a passkey ceremony failed, in words for the user. */
@@ -15,7 +16,7 @@ export function describePasskeyError(error: unknown, fallback: string): string {
   const name = (error as { name?: unknown } | null)?.name;
   const code = (error as { code?: unknown } | null)?.code;
   if (name === 'NotAllowedError') {
-    return 'The passkey request was cancelled or timed out.';
+    return 'The passkey request was declined or timed out. Try again.';
   }
   if (
     name === 'InvalidStateError' ||
@@ -51,7 +52,7 @@ export class Passkeys {
     );
     // Cancelled while the options were loading: no prompt, nothing stored.
     signal?.throwIfAborted();
-    const response = await this.client.register(options);
+    const response = await untilAborted(this.client.register(options), signal);
     signal?.throwIfAborted();
     const body: AddPasskeyRequest = { name, response };
     return firstValueFrom(

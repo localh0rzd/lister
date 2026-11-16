@@ -38,6 +38,28 @@ async function addVirtualAuthenticator(
   };
 }
 
+/**
+ * Replaces `navigator.credentials.create/get`, as a password manager extension does: `refuse`
+ * rejects with `NotAllowedError` at once, `hang` never answers (but honours nothing, not even
+ * the abort signal).
+ */
+async function stubCredentials(page: Page, mode: 'refuse' | 'hang') {
+  await page.addInitScript((m) => {
+    const answer = () =>
+      m === 'refuse'
+        ? Promise.reject(new DOMException('Not allowed', 'NotAllowedError'))
+        : new Promise<never>(() => undefined);
+    navigator.credentials.create = answer;
+    navigator.credentials.get = answer;
+  }, mode);
+}
+
+async function openProfile(page: Page) {
+  await page.goto('/space');
+  await page.getByRole('link', { name: /Profile/ }).click();
+  await expect(page.getByLabel('Passkey name')).toBeVisible();
+}
+
 for (const [name, viewport] of layouts) {
   test.describe(`passkeys on ${name}`, () => {
     test.use({ viewport });
@@ -178,6 +200,105 @@ for (const [name, viewport] of layouts) {
         ).toBeVisible();
       });
 
+      await page.context().close();
+    });
+
+    test('a refused or dismissed passkey request gives the forms back', async ({
+      browser,
+    }) => {
+      const account = await createAccount('passkey-refused');
+      const page = await signedOutPage(browser);
+      await stubCredentials(page, 'refuse');
+      await page.goto('/sign-in');
+
+      await test.step('on the sign-in page the passkey button comes back, with a plain message', async () => {
+        const passkey = page.getByRole('button', {
+          name: 'Sign in with a passkey',
+        });
+        await passkey.click();
+        await expect(page.getByRole('alert')).toContainText(
+          'The passkey request was declined or timed out',
+        );
+        await expect(page.getByRole('alert')).not.toContainText('cancelled');
+        await expect(passkey).toBeEnabled();
+        await expect(page.getByRole('button', { name: 'Cancel' })).toHaveCount(
+          0,
+        );
+        await passkey.click();
+        await expect(page.getByRole('alert')).toBeVisible();
+        await expect(passkey).toBeEnabled();
+      });
+
+      await test.step('on the profile the add button comes back and works again', async () => {
+        await page.getByLabel('Username').fill(account.username);
+        await page.getByLabel('Password').fill(account.password);
+        await page
+          .getByRole('button', { name: 'Sign in', exact: true })
+          .click();
+        await expect(
+          page.getByRole('navigation', { name: 'Main' }),
+        ).toBeVisible();
+        await openProfile(page);
+        await page.getByLabel('Passkey name').fill('My phone');
+        const add = page.getByRole('button', { name: 'Add a passkey' });
+        await add.click();
+        await expect(page.getByRole('alert')).toContainText(
+          'The passkey request was declined or timed out',
+        );
+        await expect(add).toBeEnabled();
+        await expect(page.getByLabel('Passkey name')).toHaveValue('My phone');
+        await add.click();
+        await expect(page.getByRole('alert')).toBeVisible();
+        await expect(add).toBeEnabled();
+      });
+
+      await page.context().close();
+    });
+
+    test('a passkey add that is never answered is stopped by Cancel and can be repeated', async ({
+      browser,
+    }) => {
+      const account = await createAccount('passkey-silent');
+      const page = await signedOutPage(browser);
+      await stubCredentials(page, 'hang');
+      await page.goto('/sign-in');
+      await page.getByLabel('Username').fill(account.username);
+      await page.getByLabel('Password').fill(account.password);
+      await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+      await expect(
+        page.getByRole('navigation', { name: 'Main' }),
+      ).toBeVisible();
+      await openProfile(page);
+
+      for (const attempt of [1, 2]) {
+        await test.step(`attempt ${attempt}: Cancel stops the prompt`, async () => {
+          await page.getByLabel('Passkey name').fill('Silent phone');
+          await page.getByRole('button', { name: 'Add a passkey' }).click();
+          await page.getByRole('button', { name: 'Cancel' }).click();
+          await expect(
+            page.getByRole('button', { name: 'Add a passkey' }),
+          ).toBeEnabled();
+          await expect(page.getByRole('alert')).toHaveCount(0);
+        });
+      }
+
+      await page.context().close();
+    });
+
+    test('no "session ended" notice shows after signing in', async ({
+      browser,
+    }) => {
+      const account = await createAccount('no-stale-notice');
+      const page = await signedOutPage(browser);
+      // Visiting the sign-in page signed out leaves a refused connection behind.
+      await page.goto('/sign-in');
+      await page.getByLabel('Username').fill(account.username);
+      await page.getByLabel('Password').fill(account.password);
+      await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+      await expect(
+        page.getByRole('navigation', { name: 'Main' }),
+      ).toBeVisible();
+      await expect(page.getByText('Your session has ended')).toHaveCount(0);
       await page.context().close();
     });
   });
