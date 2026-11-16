@@ -50,6 +50,29 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## Backlog
 
+### T-052 — Second sign-out doesn't go to the sign-in page
+
+- Milestone: M8 Editing conveniences
+- Area: web
+- Priority: high
+- Depends on: T-026
+- Done when:
+  - Sign out, sign in again (same or another user), then press "Sign out": the session ends and
+    the sign-in page loads, every time, also on a third and fourth round. Reported by the user
+    2026-11-16: on the second sign-out the redirect to sign-in doesn't happen.
+  - The same holds in the production/PWA setup (service worker active), not only in dev.
+  - A Playwright regression test does sign out → sign in → sign out → sign in → sign out and
+    expects the sign-in page and a refused session each time (`*.pwa.spec.ts` too if the cause is
+    service-worker related).
+  - A unit test covers the root cause.
+- Notes: Diagnose first (`mattpocock-skills:diagnosing-bugs`); don't guess. The path is
+  `ProfilePage.signOut()` → `AuthSession.signOut()` (`packages/web/data-access-auth/src/lib/auth-session.ts`:
+  logout POST → `db.clearAll()` → `remember(null)` → `PageNavigator.load('/sign-in')`). Suspects:
+  `clearAll()` blocked or hanging after the sync engine reopened Dexie in the new session; the
+  logout POST failing (stale CSRF/origin state) and only showing `signOutError`; the
+  `storage`-event listener or a guard sending the user back; the service worker answering the
+  `/sign-in` navigation from a stale cache. Record the cause in the commit body.
+
 ### T-050 — Settings destination with sign-out
 
 - Milestone: M8 Editing conveniences
