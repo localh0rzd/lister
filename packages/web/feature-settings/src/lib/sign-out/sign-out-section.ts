@@ -1,6 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { MatButton } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
+import { firstValueFrom } from 'rxjs';
 import { AuthSession, describeAuthError } from '@lister/web/data-access-auth';
 import { SyncEngine } from '@lister/web/data-access-sync';
 import { ConfirmDialog, type ConfirmDialogData } from '@lister/web/ui';
@@ -24,7 +25,7 @@ export class SignOutSection {
     this.error.set('');
     const pending = this.sync.pendingCount();
     if (pending > 0) {
-      const confirmed = await new Promise<boolean>((resolve) => {
+      const result = await firstValueFrom(
         this.dialog
           .open<ConfirmDialog, ConfirmDialogData, true>(ConfirmDialog, {
             data: {
@@ -33,10 +34,9 @@ export class SignOutSection {
               confirm: 'Sign out anyway',
             },
           })
-          .afterClosed()
-          .subscribe((result) => resolve(result === true));
-      });
-      if (!confirmed) return;
+          .afterClosed(),
+      );
+      if (result !== true) return;
     }
     try {
       await this.session.signOut();
