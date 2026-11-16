@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { StoragePersistence } from './storage-persistence';
+import { PERSIST_REFUSED_KEY, StoragePersistence } from './storage-persistence';
 
 function stubStorage(storage: Partial<StorageManager> | undefined) {
   vi.stubGlobal('navigator', { ...navigator, storage });
@@ -10,6 +10,7 @@ async function settle() {
 }
 
 describe('StoragePersistence', () => {
+  beforeEach(() => localStorage.clear());
   afterEach(() => vi.unstubAllGlobals());
 
   it('is unsupported without the Storage API', () => {
@@ -62,5 +63,26 @@ describe('StoragePersistence', () => {
     await persistence.request();
     await persistence.request();
     expect(persist).toHaveBeenCalledTimes(1);
+  });
+
+  it('starts out denied after a refusal on an earlier start, and forgets it once granted', async () => {
+    stubStorage({
+      persist: () => Promise.resolve(false),
+      persisted: () => Promise.resolve(false),
+    });
+    await TestBed.inject(StoragePersistence).request();
+    expect(localStorage.getItem(PERSIST_REFUSED_KEY)).not.toBeNull();
+
+    // The next start: no "not requested yet" before asking again.
+    TestBed.resetTestingModule();
+    const persist = vi.fn(() => Promise.resolve(true));
+    stubStorage({ persist, persisted: () => Promise.resolve(false) });
+    const next = TestBed.inject(StoragePersistence);
+    expect(next.state()).toBe('denied');
+
+    await next.request();
+    expect(persist).toHaveBeenCalledTimes(1);
+    expect(next.state()).toBe('granted');
+    expect(localStorage.getItem(PERSIST_REFUSED_KEY)).toBeNull();
   });
 });

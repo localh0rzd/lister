@@ -29,20 +29,30 @@ export class InstallPrompt {
   /** iOS Safari in a tab: no install API, so the steps are explained. */
   readonly iosSteps = signal(false);
 
+  private readonly standalone: boolean;
+
   constructor() {
     const win = this.document.defaultView;
-    if (!win || this.isStandalone(win)) return;
+    this.standalone = !win || this.isStandalone(win);
+    if (!win || this.standalone) return;
     this.iosSteps.set(this.isIosSafari(win));
-    win.addEventListener('beforeinstallprompt', (event) => {
-      event.preventDefault();
-      this.deferred = event as BeforeInstallPromptEvent;
-      this.canInstall.set(true);
-    });
+    win.addEventListener('beforeinstallprompt', (event) => this.offer(event));
     win.addEventListener('appinstalled', () => {
       this.deferred = undefined;
       this.canInstall.set(false);
       this.iosSteps.set(false);
     });
+  }
+
+  /**
+   * Keeps Chromium's `beforeinstallprompt` event until the user asks for it. `providePwa()`
+   * also hands over an event that fired before this service had loaded.
+   */
+  offer(event: Event): void {
+    if (this.standalone) return;
+    event.preventDefault();
+    this.deferred = event as BeforeInstallPromptEvent;
+    this.canInstall.set(true);
   }
 
   /** Opens the browser's install prompt (Chromium). */
@@ -52,7 +62,11 @@ export class InstallPrompt {
     // A prompt event can be used once.
     this.deferred = undefined;
     this.canInstall.set(false);
-    await event.prompt();
+    try {
+      await event.prompt();
+    } catch {
+      // The browser refused to show it (already used, no user activation): nothing to do.
+    }
   }
 
   /** On iOS Safari, explains how to install, once per device. */

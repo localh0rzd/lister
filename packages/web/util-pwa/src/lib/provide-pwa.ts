@@ -1,4 +1,5 @@
 import {
+  DOCUMENT,
   EnvironmentInjector,
   type EnvironmentProviders,
   inject,
@@ -24,10 +25,20 @@ export function providePwa(): EnvironmentProviders {
       void import('./app-updates').then(({ AppUpdates }) =>
         injector.get(AppUpdates),
       );
-      // The browser's install prompt fires early, so it's caught from the start.
-      void import('./install-prompt').then(({ InstallPrompt }) =>
-        injector.get(InstallPrompt),
-      );
+      // Chromium's install prompt can fire before the InstallPrompt chunk has loaded, and only
+      // once per page load: keep it from the start and hand it over.
+      const win = inject(DOCUMENT).defaultView;
+      let early: Event | undefined;
+      const keep = (event: Event) => {
+        event.preventDefault();
+        early = event;
+      };
+      win?.addEventListener('beforeinstallprompt', keep);
+      void import('./install-prompt').then(({ InstallPrompt }) => {
+        const prompts = injector.get(InstallPrompt);
+        win?.removeEventListener('beforeinstallprompt', keep);
+        if (early) prompts.offer(early);
+      });
     }),
   ]);
 }

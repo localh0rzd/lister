@@ -58,6 +58,23 @@ describe('InstallPrompt', () => {
     expect(prompt).toHaveBeenCalledTimes(1);
   });
 
+  it('settles quietly when the browser refuses to show the prompt', async () => {
+    const { prompts } = setup();
+    const { prompt } = chromiumOffersInstall();
+    prompt.mockRejectedValueOnce(new DOMException('used', 'InvalidStateError'));
+
+    await expect(prompts.install()).resolves.toBeUndefined();
+    expect(prompts.canInstall()).toBe(false);
+  });
+
+  it('ignores a handed-over prompt when it already runs as an installed app', () => {
+    const { prompts } = setup({ standalone: true });
+    const event = new Event('beforeinstallprompt', { cancelable: true });
+    prompts.offer(event);
+    expect(prompts.canInstall()).toBe(false);
+    expect(event.defaultPrevented).toBe(false);
+  });
+
   it('stops offering once the app is installed', () => {
     const { prompts } = setup();
     chromiumOffersInstall();
