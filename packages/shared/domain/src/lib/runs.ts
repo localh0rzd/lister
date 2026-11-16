@@ -107,6 +107,31 @@ export function lastCheckedItem<
   return last;
 }
 
+/**
+ * Who finished a run (D10), as the trash shows it. The change that finished it wrote the run and
+ * a run item with the same timestamp: a check or skip (the item's `stateAt`, by `stateBy`), or
+ * another item change such as removing the last unchecked item (the item's `updatedAt`, by
+ * `updatedBy`). Only when later changes to that item hid it, the run's last change counts. Not
+ * the run's `updatedBy` first: a rename that arrives after the finish would take it over.
+ */
+export function finishedBy(
+  run: { readonly finishedAt: number | null; readonly updatedBy: Id },
+  items: readonly Pick<
+    RunItem,
+    'state' | 'stateAt' | 'stateBy' | 'updatedAt' | 'updatedBy'
+  >[],
+): Id {
+  const at = run.finishedAt;
+  if (at === null) return run.updatedBy;
+  const checked = items.find(
+    (item) => item.state !== 'unchecked' && item.stateAt === at && item.stateBy,
+  );
+  if (checked?.stateBy) return checked.stateBy;
+  return (
+    items.find((item) => item.updatedAt === at)?.updatedBy ?? run.updatedBy
+  );
+}
+
 function isLater(
   a: Pick<RunItem, 'id' | 'stateAt' | 'position'>,
   b: Pick<RunItem, 'id' | 'stateAt' | 'position'>,

@@ -1,4 +1,5 @@
 import {
+  finishedBy,
   isRunFinished,
   lastCheckedItem,
   mergeNote,
@@ -172,5 +173,57 @@ describe('lastCheckedItem (D20)', () => {
   it('is undefined when nothing is checked', () => {
     expect(lastCheckedItem([])).toBeUndefined();
     expect(lastCheckedItem([item('a', 'unchecked', null)])).toBeUndefined();
+  });
+});
+
+describe('finishedBy (D10)', () => {
+  const item = (
+    extra: Partial<{
+      state: 'unchecked' | 'checked' | 'skipped';
+      stateAt: number | null;
+      stateBy: string | null;
+      updatedAt: number;
+      updatedBy: string;
+    }> = {},
+  ) => ({
+    state: 'checked' as const,
+    stateAt: 10,
+    stateBy: 'anna',
+    updatedAt: 10,
+    updatedBy: 'anna',
+    ...extra,
+  });
+
+  it('is who made the check that finished it, even after a later rename', () => {
+    const run = { finishedAt: 20, updatedBy: 'ben' }; // Ben renamed it afterwards
+    expect(
+      finishedBy(run, [
+        item(),
+        item({ stateAt: 20, stateBy: 'cleo', updatedAt: 30, updatedBy: 'dan' }),
+      ]),
+    ).toBe('cleo');
+  });
+
+  it('is who removed the last unchecked item', () => {
+    const run = { finishedAt: 20, updatedBy: 'ben' };
+    expect(
+      finishedBy(run, [
+        item(),
+        item({
+          state: 'unchecked',
+          stateAt: null,
+          stateBy: null,
+          updatedAt: 20,
+          updatedBy: 'cleo',
+        }),
+      ]),
+    ).toBe('cleo');
+  });
+
+  it("falls back to the run's last change when nothing matches", () => {
+    expect(finishedBy({ finishedAt: 20, updatedBy: 'ben' }, [item()])).toBe(
+      'ben',
+    );
+    expect(finishedBy({ finishedAt: null, updatedBy: 'ben' }, [])).toBe('ben');
   });
 });

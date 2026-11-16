@@ -118,7 +118,7 @@ while it's on.
 **Finishing (D10, R14):** when every item is checked or skipped, the run finishes and disappears.
 The snackbar offers Undo, which reverts the last check. A finished run is in the trash (Space ›
 Trash, next to deleted lists and items) for 30 days (D15), with who finished it (the user whose
-check, or removal of the last unchecked item, finished it: the run's last change) and when; it is
+check, or removal of the last unchecked item, finished it) and when; it is
 not among active runs and not where runs are started. **Restore** (`run.restore`, a synced
 mutation, D20) unchecks the item checked last, like Undo, and keeps the other checks, so the run is
 open again on every device. After 30 days the run is purged (D15); offline devices can still sync
@@ -501,8 +501,12 @@ Undo sends the old positions back with the same mutation.
 (`lastCheckedItem()` in `shared/domain`: ties by position, then id) and leaves the run to the same
 finishing rule, which reopens it. It does nothing to a run that isn't finished (a retry is
 harmless) and is rejected for an unknown run. A finished run is in the trash while `finished_at` is
-set and no older than 30 days; there is no `deleted_at` on it and no new column: who finished it
-is the run's `updated_by`.
+set and no older than 30 days; there is no `deleted_at` on it and no new column. Who finished it
+is derived (`finishedBy()` in `shared/domain`): the change that finished it wrote the run and one
+of its items with the same timestamp, so it is the `state_by` of the item whose `state_at` equals
+`finished_at`, else the `updated_by` of the item whose `updated_at` equals it (a removal), and only
+when later changes to that item hid it, the run's `updated_by`. Not that first: a rename arriving
+after the finish would take it over.
 
 **Finishing:** a run counts as finished while every item is checked or skipped and it has at least
 one item. The server recomputes this in the same transaction as every run-item change, and clients

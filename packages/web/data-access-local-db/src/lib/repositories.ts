@@ -7,6 +7,7 @@ import {
   type List,
   type Run,
   type RunItem,
+  finishedBy,
   sortByPosition,
 } from '@lister/shared/domain';
 import { LOCAL_DB } from './local-db';
@@ -29,7 +30,13 @@ export type TrashEntry =
       deletedItemCount: number;
     }
   | { kind: 'item'; row: Item; listTitle: string }
-  | { kind: 'run'; row: Run; items: number };
+  | {
+      kind: 'run';
+      row: Run;
+      items: number;
+      /** Who finished it: the check (or removal) that finished it (`finishedBy()`). */
+      finishedBy: string;
+    };
 
 /** When an entry went to the trash: deleted, or (for a run) finished. */
 export function trashedAt(entry: TrashEntry): number {
@@ -38,12 +45,9 @@ export function trashedAt(entry: TrashEntry): number {
   );
 }
 
-/**
- * Who put an entry there: its last change, which for a finished run is the check (or removal)
- * that finished it.
- */
+/** Who put an entry there: who deleted it (its last change), or who finished the run. */
 export function trashedBy(entry: TrashEntry): string {
-  return entry.row.updatedBy;
+  return entry.kind === 'run' ? entry.finishedBy : entry.row.updatedBy;
 }
 
 /** An active run with its progress, as the Runs page shows it. */
@@ -207,23 +211,25 @@ export class Repositories {
             run.finishedAt !== null &&
             run.finishedAt >= since,
         );
-        const runItemCounts = new Map<string, number>();
+        const runItems = new Map<string, RunItem[]>();
         await this.db.runItems
           .where('runId')
           .anyOf(runs.map((run) => run.id))
           .each((item) => {
-            if (item.deletedAt === null)
-              runItemCounts.set(
-                item.runId,
-                (runItemCounts.get(item.runId) ?? 0) + 1,
-              );
+            const of = runItems.get(item.runId);
+            if (of) of.push(item);
+            else runItems.set(item.runId, [item]);
           });
         const entries: TrashEntry[] = [
-          ...runs.map((row) => ({
-            kind: 'run' as const,
-            row,
-            items: runItemCounts.get(row.id) ?? 0,
-          })),
+          ...runs.map((row) => {
+            const of = runItems.get(row.id) ?? [];
+            return {
+              kind: 'run' as const,
+              row,
+              items: of.filter((item) => item.deletedAt === null).length,
+              finishedBy: finishedBy(row, of),
+            };
+          }),
           ...lists.filter(recent).map((row) => ({
             kind: 'list' as const,
             row,

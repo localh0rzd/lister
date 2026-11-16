@@ -399,6 +399,7 @@ describe('Repositories.trashOfSpace', () => {
   });
 
   it('lists runs finished within 30 days, not active, old or deleted ones', async () => {
+    // u-7's check finished it; u-9 renamed it afterwards, which doesn't make u-9 the finisher.
     const done = run('Alps', { finishedAt: NOW - DAY, updatedBy: 'u-9' });
     await db.runs.bulkPut([
       done,
@@ -408,7 +409,11 @@ describe('Repositories.trashOfSpace', () => {
       { ...run('Elsewhere', { finishedAt: NOW }), spaceId: OTHER_SPACE },
     ]);
     await db.runItems.bulkPut([
-      runItem(done.id, 'Tent', 'a0', { state: 'checked' }),
+      runItem(done.id, 'Tent', 'a0', {
+        state: 'checked',
+        stateBy: 'u-7',
+        stateAt: NOW - DAY,
+      }),
       runItem(done.id, 'Stove', 'a1', { state: 'skipped' }),
       runItem(done.id, 'Gone', 'a2', { deletedAt: 1 }),
     ]);
@@ -430,7 +435,7 @@ describe('Repositories.trashOfSpace', () => {
       ]);
       expect(entries[0]).toMatchObject({ items: 2 });
       expect(trashedAt(entries[0])).toBe(NOW - DAY);
-      expect(trashedBy(entries[0])).toBe('u-9');
+      expect(trashedBy(entries[0])).toBe('u-7');
     });
   });
 
