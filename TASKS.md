@@ -23,18 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-031 — Install hint and persistent storage
-
-- Milestone: M6 Collaboration polish
-- Area: web
-- Priority: low
-- Depends on: T-003
-- Done when:
-  - On Chromium, an "Install app" action opens the browser's install prompt.
-  - On iOS Safari, a one-time hint explains "Share → Add to Home Screen".
-  - After the first real use, the app requests persistent storage (`navigator.storage.persist()`),
-    and the Space page shows whether it was granted.
-
 ## Backlog
 
 ### T-047 — Per-space timeline id so a restore always makes every device snapshot
@@ -118,6 +106,20 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
 
 ## Done
+
+### T-031 — Install hint and persistent storage
+
+- Completed: 2026-11-16 — Space page App section: Install app (Chromium prompt), one-time iOS hint, persistent storage requested after first sync (util-pwa, feature-space, lister-web)
+- Review: Changes requested; 6 fixed (3 substantive, 3 trivial), 0 skipped, 0 disagreed; re-review rounds: 1
+- Milestone: M6 Collaboration polish
+- Area: web
+- Priority: low
+- Depends on: T-003
+- Done when:
+  - On Chromium, an "Install app" action opens the browser's install prompt.
+  - On iOS Safari, a one-time hint explains "Share → Add to Home Screen".
+  - After the first real use, the app requests persistent storage (`navigator.storage.persist()`),
+    and the Space page shows whether it was granted.
 
 ### T-045 — Reset the run-page checkbox when a change doesn't show in the data
 

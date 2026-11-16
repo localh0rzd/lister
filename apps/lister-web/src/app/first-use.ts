@@ -1,4 +1,4 @@
-import { Service, effect, inject } from '@angular/core';
+import { Service, effect, inject, untracked } from '@angular/core';
 import { SyncEngine } from '@lister/web/data-access-sync';
 import { InstallPrompt, StoragePersistence } from '@lister/web/util-pwa';
 
@@ -19,8 +19,10 @@ export class FirstUse {
     effect(() => {
       if (this.done || this.sync.lastSyncedAt() === null) return;
       this.done = true;
-      void this.storage.request();
-      void this.install.hintOnce();
+      untracked(() => {
+        void this.storage.request();
+        void this.install.hintOnce();
+      });
     });
   }
 }

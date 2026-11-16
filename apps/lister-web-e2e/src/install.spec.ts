@@ -61,8 +61,8 @@ test.describe('install and persistent storage', () => {
       await page.getByRole('button', { name: 'OK' }).click();
       await expect(hint).toBeHidden();
 
-      // The hint comes with the persistence request: once that has been answered on the next
-      // start, the hint had its chance to show again.
+      // After the reload the first sync is already stored, so FirstUse runs again at once (the
+      // persistence answer shows it did); the hint stays hidden because it was shown once.
       await page.goto('/space');
       await expect(page.getByText(/^(Granted|Not granted)/)).toBeVisible();
       await expect(hint).toBeHidden();
