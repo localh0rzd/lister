@@ -1,0 +1,32 @@
+<h2 id="app-heading">App</h2>
+@if (installPrompt.canInstall()) {
+  <div class="app-row">
+    <mat-icon aria-hidden="true">install_mobile</mat-icon>
+    <span class="row-text">
+      <span>Install app</span>
+      <span class="row-hint">Open Lister like any other app, even offline</span>
+    </span>
+    <button
+      type="button"
+      matButton="outlined"
+      (click)="installPrompt.install()"
+    >
+      Install
+    </button>
+  </div>
+} @else if (installPrompt.iosSteps()) {
+  <div class="app-row">
+    <mat-icon aria-hidden="true">install_mobile</mat-icon>
+    <span class="row-text">
+      <span>Install app</span>
+      <span class="row-hint">{{ iosSteps }}</span>
+    </span>
+  </div>
+}
+<div class="app-row">
+  <mat-icon aria-hidden="true">storage</mat-icon>
+  <span class="row-text">
+    <span>Persistent storage</span>
+    <span class="row-hint" role="status">{{ storage() }}</span>
+  </span>
+</div>

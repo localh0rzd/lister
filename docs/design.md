@@ -278,7 +278,15 @@ Consequences:
   fallback, so that e.g. export downloads still reach the server.
 - **Updates:** a "New version available — Reload" snackbar (`SwUpdate`).
 - **Install:** install prompt on Chromium; on iOS, a short "Share → Add to Home Screen" hint, since
-  there's no install API there.
+  there's no install API there. `InstallPrompt` (`util-pwa`) keeps Chromium's `beforeinstallprompt`
+  event, and the Space page's **App** section offers "Install app", which opens it. On iOS Safari
+  (not other iOS browsers) a one-time snackbar explains the steps (flag in `localStorage`), and
+  the App section keeps the same text. Nothing is offered when the app already runs standalone.
+- **Persistent storage:** "first real use" means signed in with the first sync finished
+  (`lastSyncedAt` is set). Then `FirstUse` (in `lister-web`, since `util-pwa` can't depend on the
+  sync engine) calls `navigator.storage.persist()` and the iOS hint. The sync position is stored,
+  so a refusal is retried at every start. The App section shows granted / not granted /
+  not supported / not requested yet.
 - The service worker is disabled in dev builds, so offline behaviour is tested against the
   production build.
 

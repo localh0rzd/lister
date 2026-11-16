@@ -23,6 +23,18 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
+### T-031 — Install hint and persistent storage
+
+- Milestone: M6 Collaboration polish
+- Area: web
+- Priority: low
+- Depends on: T-003
+- Done when:
+  - On Chromium, an "Install app" action opens the browser's install prompt.
+  - On iOS Safari, a one-time hint explains "Share → Add to Home Screen".
+  - After the first real use, the app requests persistent storage (`navigator.storage.persist()`),
+    and the Space page shows whether it was granted.
+
 ## Backlog
 
 ### T-047 — Per-space timeline id so a restore always makes every device snapshot
@@ -38,18 +50,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
     restore.
   - Tests cover that case; the README and design §2.9 no longer list it as a limitation.
 - Notes: found in the T-046 review (question for the user, recorded here instead of asked).
-
-### T-031 — Install hint and persistent storage
-
-- Milestone: M6 Collaboration polish
-- Area: web
-- Priority: low
-- Depends on: T-003
-- Done when:
-  - On Chromium, an "Install app" action opens the browser's install prompt.
-  - On iOS Safari, a one-time hint explains "Share → Add to Home Screen".
-  - After the first real use, the app requests persistent storage (`navigator.storage.persist()`),
-    and the Space page shows whether it was granted.
 
 ### T-034 — Subset the Material Symbols font
 
