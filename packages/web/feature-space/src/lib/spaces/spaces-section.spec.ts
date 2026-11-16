@@ -299,6 +299,44 @@ describe('SpacesSection', () => {
       ).toBeNull();
     });
 
+    it('asks the server again once when its answer lacks the current space', async () => {
+      const trip = summary('Trip');
+      const { fixture, element } = await render([trip], true, false);
+
+      // The space reached this device after the server answered.
+      http.expectOne('/api/spaces').flush([]);
+      await vi.waitFor(() => {
+        fixture.detectChanges();
+        http.expectOne('/api/spaces').flush([trip]);
+      });
+
+      await vi.waitFor(async () => {
+        await fixture.whenStable();
+        expect(element.querySelectorAll('.member').length).toBe(2);
+      });
+    });
+
+    it('stops the spinner and offers Try again when the server still lacks the current space', async () => {
+      const { fixture, element } = await render([summary('Trip')], true, false);
+
+      http.expectOne('/api/spaces').flush([]);
+      await vi.waitFor(() => {
+        fixture.detectChanges();
+        http.expectOne('/api/spaces').flush([]);
+      });
+
+      await vi.waitFor(async () => {
+        await fixture.whenStable();
+        expect(element.textContent).toContain(
+          "The server doesn't list this space's members yet.",
+        );
+      });
+      expect(
+        element.querySelector('.details lister-loading-spinner'),
+      ).toBeNull();
+      // Asked once more, not in a loop (afterEach verifies no request is left).
+    });
+
     it('keeps showing the members while they are refreshed', async () => {
       const trip = summary('Trip');
       const { fixture, element } = await render([trip]);

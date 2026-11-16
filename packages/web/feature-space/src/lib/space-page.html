@@ -4,16 +4,18 @@
   <lister-spaces-section />
 </section>
 
-<section aria-labelledby="data-heading">
-  <h2 id="data-heading">Data</h2>
-  <a class="row-link" routerLink="trash">
-    <mat-icon aria-hidden="true">delete</mat-icon>
-    <span class="row-text">
-      <span>Trash</span>
-      <span class="row-hint"
-        >Deleted lists and items, for {{ keepDays }} days</span
-      >
-    </span>
-    <mat-icon aria-hidden="true">chevron_right</mat-icon>
-  </a>
-</section>
+@if (spacesKnown()) {
+  <section aria-labelledby="data-heading">
+    <h2 id="data-heading">Data</h2>
+    <a class="row-link" routerLink="trash">
+      <mat-icon aria-hidden="true">delete</mat-icon>
+      <span class="row-text">
+        <span>Trash</span>
+        <span class="row-hint"
+          >Deleted lists and items, for {{ keepDays }} days</span
+        >
+      </span>
+      <mat-icon aria-hidden="true">chevron_right</mat-icon>
+    </a>
+  </section>
+}

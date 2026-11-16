@@ -1,4 +1,4 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, effect, inject, untracked } from '@angular/core';
 import { httpResource } from '@angular/common/http';
 import { MatButton } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
@@ -58,6 +58,22 @@ export class SpacesSection {
     () => this.selected()?.role === 'owner',
   );
   protected readonly myId = computed(() => this.session.user()?.id);
+  /** Spaces the server was asked about again because its answer didn't list them. */
+  private readonly askedAgain = new Set<string>();
+
+  constructor() {
+    // A space can reach this device by sync after the answer came (created or joined on another
+    // device): ask again once, rather than wait for members that never come.
+    effect(() => {
+      const id = this.local()?.id;
+      if (!id || this.summaries.status() !== 'resolved' || this.selected()) {
+        return;
+      }
+      if (this.askedAgain.has(id)) return;
+      this.askedAgain.add(id);
+      untracked(() => this.summaries.reload());
+    });
+  }
 
   protected select(id: string): void {
     this.current.select(id);

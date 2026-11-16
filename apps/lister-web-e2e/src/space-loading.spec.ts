@@ -38,3 +38,38 @@ test('the Space page shows a spinner while the members load, and nothing moves w
   expect(before).not.toBeNull();
   expect(after?.y).toBe(before?.y);
 });
+
+test('a cold reload of the Space page shows the "Data" heading in one place only', async ({
+  page,
+}) => {
+  await page.goto('/space');
+  await expect(
+    page.getByRole('list', { name: 'Switch space' }).getByRole('button'),
+  ).not.toHaveCount(0);
+
+  // Records the heading's position on every frame from the start of the reload.
+  await page.addInitScript(() => {
+    const record = window as unknown as { dataY: number[] };
+    record.dataY = [];
+    const tick = () => {
+      const heading = document.getElementById('data-heading');
+      if (heading) record.dataY.push(heading.getBoundingClientRect().y);
+      if (record.dataY.length < 30) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+  await page.reload();
+  await expect(page.getByRole('list', { name: 'Members' })).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => (window as unknown as { dataY: number[] }).dataY.length,
+      ),
+    )
+    .toBeGreaterThanOrEqual(30);
+
+  const positions = await page.evaluate(
+    () => (window as unknown as { dataY: number[] }).dataY,
+  );
+  expect(new Set(positions).size).toBe(1);
+});

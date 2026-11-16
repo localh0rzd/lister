@@ -80,11 +80,18 @@
           Try again
         </button>
       </p>
-    } @else {
+    } @else if (summaries.isLoading()) {
       <lister-loading-spinner
         label="Loading members"
         [style.height.px]="device.members.length * 56"
       />
+    } @else {
+      <p class="hint">
+        The server doesn't list this space's members yet.
+        <button matButton type="button" (click)="summaries.reload()">
+          Try again
+        </button>
+      </p>
     }
     <div class="actions">
       @if (space) {

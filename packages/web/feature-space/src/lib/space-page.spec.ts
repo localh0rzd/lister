@@ -35,8 +35,12 @@ describe('SpacePage', () => {
     const fixture = TestBed.createComponent(SpacePage);
     fixture.detectChanges();
     TestBed.inject(HttpTestingController).expectOne('/api/spaces').flush([]);
-    await fixture.whenStable();
-    return fixture.nativeElement as HTMLElement;
+    const element = fixture.nativeElement as HTMLElement;
+    await vi.waitFor(async () => {
+      await fixture.whenStable();
+      expect(element.querySelector('#data-heading')).not.toBeNull();
+    });
+    return element;
   }
 
   it('links to the trash', async () => {
@@ -44,6 +48,20 @@ describe('SpacePage', () => {
       (a) => a.textContent?.includes('Trash'),
     );
     expect(link?.getAttribute('href')).toBe('/trash');
+  });
+
+  it('shows the sections below the spaces only once the device knows its spaces', async () => {
+    const fixture = TestBed.createComponent(SpacePage);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    // The local database hasn't answered yet: nothing below may be pushed down by it later.
+    expect(element.querySelector('#data-heading')).toBeNull();
+
+    TestBed.inject(HttpTestingController).expectOne('/api/spaces').flush([]);
+    await vi.waitFor(async () => {
+      await fixture.whenStable();
+      expect(element.querySelector('#data-heading')).not.toBeNull();
+    });
   });
 
   it('no longer holds the account, appearance, sync, app or about sections', async () => {
