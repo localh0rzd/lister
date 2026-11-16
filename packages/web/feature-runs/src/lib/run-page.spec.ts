@@ -353,6 +353,54 @@ describe('RunPage', () => {
     );
   });
 
+  it('keeps a check made here checked until the data shows it', async () => {
+    const tent = runItem('Tent', 'a0');
+    const stove = runItem('Stove', 'a1');
+    await db.runItems.bulkPut([tent, stove]);
+    const page = await render();
+    await page.settle(() => expect(page.checkbox('Tent')).toBeTruthy());
+
+    // The fake engine never writes to the local database: the data never shows the check.
+    page.checkbox('Tent').click();
+    await page.settle(() => expect(requests).toHaveLength(1));
+    // A later visible change proves the page has re-read the data since the check was sent.
+    await db.runItems.put({ ...stove, note: 'Gas' });
+    await page.settle(() => expect(page.element.textContent).toContain('Gas'));
+
+    expect(page.checkbox('Tent').checked).toBe(true);
+  });
+
+  it('keeps an uncheck made here when the server copy of the earlier check arrives first', async () => {
+    const tent = runItem('Tent', 'a0', { state: 'checked', stateAt: 5 });
+    const stove = runItem('Stove', 'a1');
+    await db.runItems.bulkPut([tent, stove]);
+    const page = await render();
+    await page.settle(() => expect(page.checkbox('Tent').checked).toBe(true));
+    // The uncheck isn't written yet when the server's copy of the check arrives.
+    let write!: () => void;
+    vi.mocked(TestBed.inject(SyncEngine).mutate).mockImplementationOnce(
+      async (request) => {
+        requests.push(request);
+        await new Promise<void>((resolve) => (write = resolve));
+        return { ok: true };
+      },
+    );
+
+    page.checkbox('Tent').click();
+    await page.settle(() => expect(requests).toHaveLength(1));
+    // The server's copy: same state, its own time.
+    await db.runItems.put({ ...tent, stateAt: 6, note: 'Ack' });
+    await page.settle(() => expect(page.element.textContent).toContain('Ack'));
+    expect(page.checkbox('Tent').checked).toBe(false);
+
+    write();
+    await db.runItems.put({ ...tent, state: 'unchecked', stateAt: 7 });
+    await page.settle(() => {
+      expect(page.element.textContent).toContain('0 of 2 done');
+      expect(page.checkbox('Tent').checked).toBe(false);
+    });
+  });
+
   it('puts the checkbox back to what the data says when the change is refused', async () => {
     const tent = runItem('Tent', 'a0');
     const stove = runItem('Stove', 'a1');
@@ -413,7 +461,10 @@ describe('RunPage', () => {
     await db.runItems.put({ ...tent, stateBy: 'ben', stateAt: 9 });
     // A later visible change proves the page has the data with that uncheck.
     await db.runItems.put({ ...stove, note: 'Gas' });
-    await page.settle(() => expect(page.element.textContent).toContain('Gas'));
+    await page.settle(() => {
+      expect(page.element.textContent).toContain('Gas');
+      expect(page.checkbox('Tent').checked).toBe(false);
+    });
     page.checkbox('Stove').click();
 
     await page.settle(() => expect(requests).toHaveLength(2));

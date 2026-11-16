@@ -1,6 +1,8 @@
 import {
   Component,
+  EnvironmentInjector,
   type Signal,
+  afterNextRender,
   computed,
   effect,
   inject,
@@ -46,6 +48,16 @@ import { firstValueFrom } from 'rxjs';
 import { DoneSectionPreference } from './done-section-preference';
 import { layoutRun, progressText } from './run-sections';
 
+/** A state set here: what the item had (`from`, `stateAt`), what was sent, and the box clicked. */
+interface SentState {
+  from: RunItemState;
+  to: RunItemState;
+  stateAt: number | null;
+  box?: MatCheckbox;
+  /** Written locally: from now on the data shows it, or a change made after it. */
+  written?: boolean;
+}
+
 /**
  * One run (design §2.1): its items grouped by the list they came from, with check, uncheck and
  * skip, and a progress bar. Items and whole lists can be added, items edited and removed — all
@@ -85,6 +97,7 @@ export class RunPage {
   private readonly router = inject(Router);
   private readonly notifier = inject(Notifier);
   private readonly space = inject(CurrentSpace);
+  private readonly environment = inject(EnvironmentInjector);
   protected readonly doneSection = inject(DoneSectionPreference);
 
   private readonly run = this.repositories.run(this.runId);
@@ -107,14 +120,11 @@ export class RunPage {
   private finishedHere = false;
 
   /**
-   * States set here that the local data may not show yet (item id → from, to, and the item's
-   * `stateAt` when sent). Two quick checks would otherwise each see the other item unchecked, and
-   * the one that finishes the run would not know it.
+   * States set here that the local data may not show yet (item id → from, to, the item's
+   * `stateAt` when sent, and the checkbox clicked). Two quick checks would otherwise each see the
+   * other item unchecked, and the one that finishes the run would not know it.
    */
-  private readonly sentStates = new Map<
-    string,
-    { from: RunItemState; to: RunItemState; stateAt: number | null }
-  >();
+  private readonly sentStates = new Map<string, SentState>();
 
   protected readonly view = computed(() => {
     const run = this.run();
@@ -159,7 +169,13 @@ export class RunPage {
       if (items.status !== 'ready') return;
       const rows = new Map(items.value.map((item) => [item.id, item]));
       for (const [id, sent] of this.sentStates) {
-        if (!this.stillShows(rows.get(id), sent)) this.sentStates.delete(id);
+        // Before it's written, a change of the row (e.g. the server's copy of an earlier check)
+        // isn't one made after it.
+        if (!sent.written || this.stillShows(rows.get(id), sent)) continue;
+        this.sentStates.delete(id);
+        // The data has caught up: usually it shows the click, but a change merged with someone
+        // else's (so the row's state never changed) must not leave the box as clicked.
+        this.resetBox(id, sent);
       }
     });
     effect(() => {
@@ -175,24 +191,20 @@ export class RunPage {
   }
 
   /** Check or uncheck (the checkbox): always sets the state, never toggles. */
-  protected async check(
+  protected check(
     item: RunItem,
     checked: boolean,
     box: MatCheckbox,
   ): Promise<void> {
-    await this.setState(item, checked ? 'checked' : 'unchecked');
-    // `[checked]` is a one-way binding: when the change never shows in the data (refused, or
-    // merged with another one) the binding doesn't change and the box would keep the click's state.
-    await new Promise((resolve) => setTimeout(resolve));
-    const view = this.view();
-    const now =
-      view.kind === 'ready'
-        ? view.items.find((i) => i.id === item.id)
-        : undefined;
-    if (now) box.checked = now.state === 'checked';
+    return this.setState(item, checked ? 'checked' : 'unchecked', box);
   }
 
-  protected async setState(item: RunItem, state: RunItemState): Promise<void> {
+  /** `box`: the checkbox clicked, if any, to put back to the data when the change doesn't show. */
+  protected async setState(
+    item: RunItem,
+    state: RunItemState,
+    box?: MatCheckbox,
+  ): Promise<void> {
     const change: SpaceChange = {
       name: 'runItem.setState',
       args: { id: item.id, state },
@@ -204,15 +216,46 @@ export class RunPage {
     const finishes = this.finishes((items) =>
       items.map((i) => (i.id === item.id ? { ...i, state } : i)),
     );
-    this.sentStates.set(item.id, {
+    const sent: SentState = {
       from: item.state,
       to: state,
       stateAt: item.stateAt,
-    });
+      box,
+    };
+    this.sentStates.set(item.id, sent);
     const applied = finishes
       ? await this.finish(change, undo)
       : await this.changes.apply(change);
-    if (!applied) this.sentStates.delete(item.id);
+    if (applied) sent.written = true;
+    if (applied || this.sentStates.get(item.id) !== sent) return;
+    // Refused: nothing was written, so the data is what the box should show.
+    this.sentStates.delete(item.id);
+    this.resetBox(item.id, sent);
+  }
+
+  /**
+   * Puts the clicked box back to what the data says. `[checked]` is a one-way binding: when a
+   * click's change never shows in the data (refused, or merged with someone else's) the bound
+   * value never changes, and the box would keep the state the click gave it. After the next
+   * render: until the box has rendered the click, setting it back would render no change either.
+   */
+  private resetBox(id: string, sent: SentState): void {
+    const box = sent.box;
+    if (!box) return;
+    afterNextRender(
+      {
+        write: () => {
+          const view = this.view();
+          const row =
+            view.kind === 'ready'
+              ? view.items.find((i) => i.id === id)
+              : undefined;
+          if (row) box.checked = row.state === 'checked';
+        },
+      },
+      // Not tied to this view, so it schedules a render of its own.
+      { injector: this.environment },
+    );
   }
 
   protected async rename(): Promise<void> {
@@ -452,13 +495,13 @@ export class RunPage {
   private finishes(change: (items: RunItem[]) => RunItem[]): boolean {
     const view = this.view();
     if (view.kind !== 'ready') return false;
+    // Still showing the state from before: count the one sent instead. The effect in the
+    // constructor forgets sent states, since it also puts their boxes back.
     const items = view.items.map((item) => {
       const sent = this.sentStates.get(item.id);
-      // Still showing the state from before: count the one sent instead.
-      if (sent && this.stillShows(item, sent))
-        return { ...item, state: sent.to };
-      this.sentStates.delete(item.id);
-      return item;
+      return sent && this.stillShows(item, sent)
+        ? { ...item, state: sent.to }
+        : item;
     });
     return isRunFinished(change(items));
   }
@@ -467,10 +510,7 @@ export class RunPage {
    * Whether the local row still shows the state from before a sent state. Another `stateAt` means
    * a later change, even one back to the same state (someone undid it before this page saw ours).
    */
-  private stillShows(
-    item: RunItem | undefined,
-    sent: { from: RunItemState; stateAt: number | null },
-  ): boolean {
+  private stillShows(item: RunItem | undefined, sent: SentState): boolean {
     return item?.state === sent.from && item.stateAt === sent.stateAt;
   }
 
