@@ -23,6 +23,20 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
+### T-033 — Backups and purge
+
+- Milestone: M7 Deployment
+- Area: api
+- Priority: normal
+- Depends on: T-017, T-032
+- Done when:
+  - Nightly backups with `VACUUM INTO` go to `/data/backups`; the last 14 are kept (D15).
+  - Tombstones and finished runs older than 30 days (D15) are purged daily, and each space
+    remembers its purge point.
+  - A client whose last version is older than the purge point gets a full snapshot on pull
+    (integration test).
+  - Restoring from a backup is documented.
+
 ## Backlog
 
 ### T-045 — Reset the run-page checkbox when a change doesn't show in the data
@@ -53,20 +67,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   - On iOS Safari, a one-time hint explains "Share → Add to Home Screen".
   - After the first real use, the app requests persistent storage (`navigator.storage.persist()`),
     and the Space page shows whether it was granted.
-
-### T-033 — Backups and purge
-
-- Milestone: M7 Deployment
-- Area: api
-- Priority: normal
-- Depends on: T-017, T-032
-- Done when:
-  - Nightly backups with `VACUUM INTO` go to `/data/backups`; the last 14 are kept (D15).
-  - Tombstones and finished runs older than 30 days (D15) are purged daily, and each space
-    remembers its purge point.
-  - A client whose last version is older than the purge point gets a full snapshot on pull
-    (integration test).
-  - Restoring from a backup is documented.
 
 ### T-034 — Subset the Material Symbols font
 

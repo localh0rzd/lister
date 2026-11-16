@@ -1,0 +1,9 @@
+{
+  "name": "api-feature-maintenance",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/api/feature-maintenance/src",
+  "projectType": "library",
+  "tags": ["scope:api", "type:feature"],
+  "// targets": "to see all targets run: nx show project api-feature-maintenance --web",
+  "targets": {}
+}

@@ -48,6 +48,7 @@ npx nx format:write
 | `PUBLIC_URL`         | lister-api | none (development allows `http://localhost:4200`); required in production (the Docker image does not set it). Its origin is the only one allowed to open the sync socket                                                          |
 | `TRUST_PROXY`        | lister-api | `loopback, linklocal, uniquelocal` (Traefik on a private Docker network); a hop count or addresses/ranges as in Express's "trust proxy". Decides which `X-Forwarded-For` hops are believed for the client IP (sign-in rate limit) |
 | `DATABASE_PATH`      | lister-api | `data/lister.db` (relative to the working directory; the folder is created); `/data/lister.db` in the Docker image                                                                                                                |
+| `BACKUP_DIR`         | lister-api | the `backups` folder next to the database file (`/data/backups` in the Docker image)                                                                                                                                              |
 
 ## Running in Docker behind Traefik
 
@@ -94,6 +95,30 @@ Using a bind mount instead of a volume? Make the folder writable by uid 1000 fir
 Traefik forwards WebSockets (`/socket.io`) without extra configuration. On first start the log prints a one-time
 setup token for creating the first admin account (`docker compose logs lister`). Reset a password with
 `docker compose exec lister node main.js reset-password <username>`.
+
+## Backups, purging and restoring
+
+Every night (after 03:00 UTC, or at the next start if the app was down then) the API writes a consistent copy of the
+database with SQLite's `VACUUM INTO` to `lister-<UTC time>.db` in `BACKUP_DIR` (`/data/backups`, so on the same
+volume), and keeps the newest 14. Right after the backup it purges tombstones (deleted lists, items, runs) and runs
+finished more than 30 days ago for good; each space remembers its purge point, and a device that last synced before it
+gets a full copy of the space on its next sync, so nothing is lost. The backups are plain SQLite files holding
+everything, password hashes included: protect them like the database. Copy the folder off the host if you want a
+backup that survives losing the disk.
+
+To restore a backup (all changes since it are lost; devices catch up by themselves, and changes still waiting on a
+device are sent again):
+
+```bash
+docker compose stop lister
+docker compose run --rm --no-deps -v lister-data:/data --entrypoint sh lister -c \
+  'ls /data/backups && rm -f /data/lister.db-wal /data/lister.db-shm && cp /data/backups/lister-2026-11-16T03-00-00Z.db /data/lister.db'
+docker compose start lister
+```
+
+Pick the file name from the `ls` output (run it once first and adjust). The wal and shm files must go, or SQLite
+would apply the old journal to the restored file. Users whose password or passkeys were created after the backup have to
+be created or reset again (`node main.js reset-password <username>` works on the restored data).
 
 Every response carries `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin`, a Content Security Policy
 (including `frame-ancestors 'none'`) and, when `PUBLIC_URL` is https, `Strict-Transport-Security`. The web build's

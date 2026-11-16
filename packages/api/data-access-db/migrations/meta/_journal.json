@@ -57,6 +57,13 @@
       "when": 1794587364405,
       "tag": "0007_passkeys",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1794819302343,
+      "tag": "0008_purge_point",
+      "breakpoints": true
     }
   ]
 }

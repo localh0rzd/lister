@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { schema } from '@lister/api/data-access-db';
+import { PurgeService } from '@lister/api/feature-maintenance';
 import {
   DEV_WEB_ORIGIN,
   MutationService,
@@ -806,6 +807,43 @@ describe('sync gateway', () => {
           version: 3,
         }),
       ]);
+    });
+
+    it('sends a snapshot to a client that last synced before the purge point', async () => {
+      const { client } = await helloed();
+      const listId = newId();
+      const itemId = newId();
+      const done = new Promise<void>((resolve) => {
+        let n = 0;
+        client.on('ack', () => ++n === 3 && resolve());
+      });
+      client.emit('push', {
+        mutations: [
+          mutation('list.create', { id: listId, title: 'Camping' }),
+          mutation('item.create', {
+            id: itemId,
+            listId,
+            title: 'Tent',
+            position: 'a0',
+          }),
+          mutation('item.delete', { id: itemId }),
+        ],
+      });
+      await done;
+
+      const thirtyOneDays = Date.now() + 31 * 24 * 60 * 60 * 1000;
+      expect(api.app.get(PurgeService).purge(thirtyOneDays)).toBe(1);
+
+      const behind = next(client, 'rows');
+      client.emit('pull', { spaceId, since: 2 });
+      const snapshot = await behind;
+      expect(snapshot).toMatchObject({ version: 3, snapshot: true });
+      expect(snapshot.rows.lists).toHaveLength(1);
+      expect(snapshot.rows.items).toEqual([]);
+
+      const current = next(client, 'rows');
+      client.emit('pull', { spaceId, since: 3 });
+      expect(await current).toMatchObject({ version: 3, snapshot: false });
     });
 
     it('lets a client that missed changes catch up by pulling', async () => {

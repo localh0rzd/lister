@@ -342,7 +342,17 @@ None of these change the architecture; the table says what goes into v1.
   and the passkey relying-party id and origin.
 - **Docker:** a multi-stage Dockerfile in the repo; non-root; the database on a volume; a health
   check. The README shows an example `docker-compose.yml` with Traefik labels.
-- **Backups** with SQLite's online backup (nightly `VACUUM INTO`); the last 14 are kept (D15).
+- **Backups** with SQLite's online backup (nightly `VACUUM INTO`, after 03:00 UTC, into
+  `BACKUP_DIR`, default `backups` beside the database, `/data/backups` in Docker); the last 14 are
+  kept (D15). Restoring is documented in the README.
+- **Purge** (D15, daily, right after the backup, `feature-maintenance`): tombstones and runs
+  finished or deleted more than 30 days ago are deleted for good, with the items and includes of
+  a purged list and the items of a purged run. `spaces.purged_version` is the space's purge
+  point, the highest version among the removed rows; a pull with `since` below it is answered
+  with a full snapshot (§4.2), because the client may have missed a tombstone. The client stores
+  no purge point, so no Dexie change. The jobs run from a timer checked every 15 minutes (no
+  scheduler library) and record the last purge day in `app_meta`; an in-memory database runs
+  none (tests).
 - **Security:** authorize every mutation (space membership) and every admin endpoint; check the
   `Origin` header on the WebSocket handshake (cookie-authenticated sockets can otherwise be
   hijacked cross-site); refuse HTTP writes (anything but GET, HEAD, OPTIONS) whose `Origin` isn't
@@ -463,7 +473,7 @@ client                                     server
   │ hello {protocolVersion, clientId} ───────►│ join the rooms of the user's spaces
   │◄─────────── welcome {spaces + members}    │ (again whenever memberships change)
   │ pull {spaceId, since: v} ────────────────►│ rows with version > v, or a full snapshot
-  │◄─────────── rows…, version: v2            │   if v predates purged tombstones
+  │◄─────────── rows…, version: v2            │   if v predates the purge point
   │ push [{mutationId, spaceId, name, args}] ►│ each mutation in one SQLite transaction:
   │                                           │   authorize → validate → apply → version + 1
   │◄─────────── ack {mutationId, version}     │   or reject {mutationId, reason}
@@ -571,6 +581,7 @@ packages/
     data-access-db         Drizzle schema, migrations, DB provider                      scope:api type:data-access
     feature-auth           sessions, sign-in, passkeys, user administration, guards     scope:api type:feature
     feature-spaces         spaces, memberships                                          scope:api type:feature
+    feature-maintenance    nightly backups, daily purge of tombstones and finished runs scope:api type:feature
     feature-sync           gateway, push/pull/poke, MutationService                     scope:api type:feature
   web/
     data-access-local-db   Dexie schema, repositories → signals                         scope:web type:data-access

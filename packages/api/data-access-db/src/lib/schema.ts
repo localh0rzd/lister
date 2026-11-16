@@ -80,6 +80,12 @@ export const spaces = sqliteTable('spaces', {
   /** A user's own space (D14): created with the account, deleted with it, never shared. */
   personal: integer('personal', { mode: 'boolean' }).notNull().default(false),
   version: integer('version').notNull().default(0),
+  /**
+   * The purge point (D15): the highest version among rows the daily purge has deleted for good.
+   * A client that last synced before it may have missed a tombstone, so its pull is a full
+   * snapshot.
+   */
+  purgedVersion: integer('purged_version').notNull().default(0),
   createdAt: integer('created_at').notNull(),
 });
 

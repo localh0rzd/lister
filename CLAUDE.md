@@ -33,6 +33,7 @@ packages/
   api/feature-auth/      accounts, sessions, sign-in, setup token, reset command, auth guard, @lister/api/feature-auth (scope:api, type:feature)
   api/feature-spaces/    spaces and memberships over REST, @lister/api/feature-spaces (scope:api, type:feature)
   api/data-access-db/    SQLite + Drizzle, migrations, test database, @lister/api/data-access-db (scope:api, type:data-access)
+  api/feature-maintenance/ nightly backups, daily purge, @lister/api/feature-maintenance (scope:api, type:feature)
   web/feature-lists/     Lists destination, @lister/web/feature-lists (scope:web, type:feature)
   web/feature-runs/      Runs destination, @lister/web/feature-runs (scope:web, type:feature)
   web/feature-auth/      sign-in, first-run setup, forced password change, profile, @lister/web/feature-auth (scope:web, type:feature)

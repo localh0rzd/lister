@@ -1,0 +1,1 @@
+ALTER TABLE `spaces` ADD `purged_version` integer DEFAULT 0 NOT NULL;

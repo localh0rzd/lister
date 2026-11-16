@@ -52,6 +52,9 @@
       ],
       "@lister/web/data-access-auth": [
         "./packages/web/data-access-auth/src/index.ts"
+      ],
+      "@lister/api/feature-maintenance": [
+        "./packages/api/feature-maintenance/src/index.ts"
       ]
     }
   },

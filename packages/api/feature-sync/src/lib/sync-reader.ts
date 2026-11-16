@@ -77,7 +77,8 @@ export class SyncReader {
 
   /**
    * Every row of the space changed after `since`, tombstones included, read in one transaction
-   * so `version` matches the rows. `since: 0` is a full snapshot (purge points: T-033). So is a
+   * so `version` matches the rows. `since: 0` is a full snapshot. So is a `since` before the
+   * space's purge point (the purge removed tombstones the client may not have seen, D15), and a
    * `since` ahead of the server (its database was restored or reset): the client must replace
    * its copy, or it would never converge.
    */
@@ -89,7 +90,8 @@ export class SyncReader {
         .where(eq(spaces.id, spaceId))
         .get();
       if (!space) return undefined;
-      const snapshot = since === 0 || since > space.version;
+      const snapshot =
+        since === 0 || since > space.version || since < space.purgedVersion;
       const from = snapshot ? 0 : since;
       const changed = (
         table:

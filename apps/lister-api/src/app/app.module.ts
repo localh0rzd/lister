@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { Module } from '@nestjs/common';
 import { DatabaseModule } from '@lister/api/data-access-db';
 import { AuthModule } from '@lister/api/feature-auth';
+import { MaintenanceModule } from '@lister/api/feature-maintenance';
 import { SpacesModule } from '@lister/api/feature-spaces';
 import { SyncModule } from '@lister/api/feature-sync';
 import { HealthModule } from './health/health.module';
@@ -15,6 +16,7 @@ import { HealthModule } from './health/health.module';
     })),
     AuthModule,
     HealthModule,
+    MaintenanceModule,
     SpacesModule,
     SyncModule,
   ],
