@@ -27,11 +27,14 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ### T-052 — Sign-out and sign-in rounds: no redirect, then stuck offline
 
-- Blocked: not reproducible (2026-11-16: 5–25 rounds in Playwright, dev and PWA, one and two users,
-  two tabs, all fine). Needs the user's steps: URL/port, browser, sign-in method, console and network
-  output from a stuck state. Suspect: e2e and review runs on the same `localhost` ports (3000/4200/3100)
-  replacing the server and its database or the shared `localhost` session cookie while the user was
-  signed in. T-053's debug logging helps confirm it.
+- Blocked: not reproducible locally (2026-11-16: 5–25 rounds in Playwright, dev and the PWA setup
+  over plain HTTP on :3100, one and two users, two tabs, all fine). The user saw it on the **Docker
+  deployment behind Traefik (HTTPS)**, so the local-port explanation is out. Next: with T-053 done,
+  reproduce against the Docker image behind an HTTPS reverse proxy (`Secure` cookies,
+  `PUBLIC_URL` Origin check, WebSockets through the proxy, service worker on a real origin) and
+  collect the user's `LOG_LEVEL=debug` server log plus browser console and network output from a
+  stuck state. Also check the sync engine's Web Lock (`lister-sync`) when an installed PWA window
+  or a bfcached page still holds it.
 - Milestone: M8 Editing conveniences
 - Area: web
 - Priority: high
