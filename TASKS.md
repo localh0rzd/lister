@@ -75,6 +75,29 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   CLAUDE.md layout); move the sync, app and about sections out of `feature-space` rather than
   duplicating them. Run `subset-icons` for the `settings` icon.
 
+### T-051 — Loading spinners instead of jumping Space sections
+
+- Milestone: M8 Editing conveniences
+- Area: web
+- Priority: normal
+- Depends on: T-026
+- Done when:
+  - Opening Space (cold load, and coming back to it) no longer makes the "Spaces" list or the
+    "Members of …" section jump: while their data loads, each shows a Material progress spinner
+    (`mat-progress-spinner`, indeterminate, with an accessible label such as "Loading spaces")
+    in a box that keeps its place, and the content replaces the spinner without moving the
+    sections around it.
+  - Data that is already known (e.g. spaces from the sync welcome, or a refresh of a list that
+    already shows) is shown at once, without a spinner coming back on refresh.
+  - The spinner only appears after a short delay (about 300 ms), so a fast load shows no spinner
+    flash.
+  - A load error still shows the existing error text in place of the spinner.
+  - A Playwright check with the members request slowed down sees the spinner, then the members,
+    and the headings after the section keep their vertical position (layout-shift check).
+- Notes: Find what jumps first with the `ui-review` skill's flicker checks (throttled network,
+  screenshots during load). If T-050 is done first, the same applies to any section it moved;
+  if a spinner pattern is needed elsewhere, put a small shared component in `web/ui`.
+
 ## Done
 
 ### T-048 — Paste items into the new-list dialog
