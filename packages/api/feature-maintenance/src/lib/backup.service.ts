@@ -75,15 +75,14 @@ export class BackupService {
       rmSync(join(directory, name), { force: true });
     }
     // Leftovers of a crashed backup.
+    const stale = Date.now() - 3600_000;
     for (const name of readdirSync(directory)) {
-      if (name.endsWith('.partial')) {
-        try {
-          if (statSync(join(directory, name)).mtimeMs < Date.now() - 3600_000) {
-            rmSync(join(directory, name), { force: true });
-          }
-        } catch {
-          // Gone already.
-        }
+      if (!name.endsWith('.partial')) continue;
+      const path = join(directory, name);
+      try {
+        if (statSync(path).mtimeMs < stale) rmSync(path, { force: true });
+      } catch {
+        // Gone already.
       }
     }
   }

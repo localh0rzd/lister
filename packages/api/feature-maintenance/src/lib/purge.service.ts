@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { and, eq, inArray, isNotNull, lt, or, sql } from 'drizzle-orm';
+import { eq, inArray, lt, or, sql } from 'drizzle-orm';
 import { DatabaseConnection, schema } from '@lister/api/data-access-db';
 
 const { appMeta, includes, items, lists, runItems, runs, spaces } = schema;
@@ -35,14 +35,12 @@ export class PurgeService {
         return rows.length;
       };
 
+      // `lt` on a NULL timestamp is never true, so live rows are untouched.
       const oldRuns = or(
-        and(isNotNull(runs.deletedAt), lt(runs.deletedAt, cutoff)),
-        and(isNotNull(runs.finishedAt), lt(runs.finishedAt, cutoff)),
+        lt(runs.deletedAt, cutoff),
+        lt(runs.finishedAt, cutoff),
       );
-      const oldLists = and(
-        isNotNull(lists.deletedAt),
-        lt(lists.deletedAt, cutoff),
-      );
+      const oldLists = lt(lists.deletedAt, cutoff);
       const oldRunIds = tx.select({ id: runs.id }).from(runs).where(oldRuns);
       const oldListIds = tx
         .select({ id: lists.id })
@@ -57,10 +55,7 @@ export class PurgeService {
           .delete(runItems)
           .where(
             or(
-              and(
-                isNotNull(runItems.deletedAt),
-                lt(runItems.deletedAt, cutoff),
-              ),
+              lt(runItems.deletedAt, cutoff),
               inArray(runItems.runId, oldRunIds),
             ),
           )
@@ -78,10 +73,7 @@ export class PurgeService {
         tx
           .delete(items)
           .where(
-            or(
-              and(isNotNull(items.deletedAt), lt(items.deletedAt, cutoff)),
-              inArray(items.listId, oldListIds),
-            ),
+            or(lt(items.deletedAt, cutoff), inArray(items.listId, oldListIds)),
           )
           .returning({ spaceId: items.spaceId, version: items.version })
           .all(),
@@ -91,10 +83,7 @@ export class PurgeService {
           .delete(includes)
           .where(
             or(
-              and(
-                isNotNull(includes.deletedAt),
-                lt(includes.deletedAt, cutoff),
-              ),
+              lt(includes.deletedAt, cutoff),
               inArray(includes.parentListId, oldListIds),
               inArray(includes.childListId, oldListIds),
             ),
