@@ -295,10 +295,13 @@ export class SyncEngine {
   start(): void {
     if (this.started) return;
     this.started = true;
+    this.destroyRef.onDestroy(() => void this.stop());
     this.locks.request(
       LOCK_NAME,
       () =>
         new Promise<void>((release) => {
+          // Stopped while another tab held the lock: hand it on at once.
+          if (this.stopped) return release();
           this.lead();
           this.destroyRef.onDestroy(release);
         }),
@@ -496,7 +499,6 @@ export class SyncEngine {
       clearTimeout(this.reconnectTimer);
       socket.disconnect();
     };
-    this.destroyRef.onDestroy(() => void this.stop());
 
     socket.connect();
   }

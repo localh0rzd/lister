@@ -217,7 +217,12 @@ let db: LocalDb;
 let server: FakeServer;
 let engine: SyncEngine;
 
-function setup(options: { leader?: boolean; database?: LocalDb } = {}) {
+/** Grants a lock that `setup({ leader: 'later' })` held back, as when another tab lets go. */
+let grantLock: (() => Promise<void>) | undefined;
+
+function setup(
+  options: { leader?: boolean | 'later'; database?: LocalDb } = {},
+) {
   db = options.database ?? new LocalDb(`test-${newId()}`);
   server = new FakeServer();
   const createSocket = vi.fn(() => server.socket);
@@ -229,7 +234,8 @@ function setup(options: { leader?: boolean; database?: LocalDb } = {}) {
         provide: SYNC_LOCKS,
         useValue: {
           request: (_: string, hold: () => Promise<void>) => {
-            if (options.leader !== false) void hold();
+            if (options.leader === 'later') grantLock = hold;
+            else if (options.leader !== false) void hold();
           },
         },
       },
@@ -243,6 +249,7 @@ function setup(options: { leader?: boolean; database?: LocalDb } = {}) {
 afterEach(async () => {
   vi.useRealTimers();
   await engine.stop(); // no engine work may touch the database once it is closed
+  grantLock = undefined;
   TestBed.resetTestingModule();
   await db.delete();
 });
@@ -1852,20 +1859,36 @@ describe('SyncEngine', () => {
       setup();
       engine.start();
       await settle();
-      void createList('Camping');
+      const created = engine.mutate({
+        spaceId: SPACE,
+        name: 'list.create',
+        args: { id: newId(), title: 'Camping' },
+      });
 
       await engine.stop();
-      await db.close(); // would fail a task that is still running
+      db.close(); // a task still running would now fail with DatabaseClosedError
 
-      expect(db.isOpen()).toBe(false);
+      await expect(created).resolves.toEqual({ ok: true });
     });
 
-    it('can be called again and before start', async () => {
-      setup({ leader: false });
+    it('can be called again and before start, which then does nothing', async () => {
+      setup();
       await engine.stop();
       await engine.stop();
       engine.start();
       expect(server.connectCalls).toBe(0);
+    });
+
+    it('hands on a lock granted after it without syncing', async () => {
+      setup({ leader: 'later' });
+      engine.start();
+      await engine.stop();
+
+      expect(grantLock).toBeDefined();
+      const held = grantLock?.();
+
+      expect(server.connectCalls).toBe(0);
+      await held; // the lock is released at once
     });
   });
 });
