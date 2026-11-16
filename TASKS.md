@@ -25,30 +25,32 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## Backlog
 
-### T-042 — Fix passkey cancel and stale "session ended" notice
+### T-043 — Fix the failing run-page "undone check" test
 
-- Milestone: M5 Accounts and spaces
+- Milestone: M4 Runs
 - Area: web
-- Priority: high
+- Priority: normal
 - Done when:
-  - On the Profile page, cancelling the browser's passkey dialog while adding a passkey brings
-    the "Add a passkey" button back at once (no "Cancel" left behind), and a new attempt works.
-    The same holds when the authenticator, the browser or an extension (e.g. KeePassXC) rejects,
-    or when the request fails. The sign-in page's "Sign in with a passkey" behaves the same.
-  - After a successful sign-in (password or passkey) no "Your session has ended. Sign in to
-    sync your changes; nothing is lost." snackbar appears. It still appears when a session
-    really ends while signed in.
-  - When the browser refuses a ceremony without the user cancelling, the message doesn't
-    claim the user cancelled it.
-  - Tests: unit tests for each fix, and Playwright cases for a cancelled/refused passkey add and
-    sign-in (virtual authenticator with `isUserVerified: false`, or a stubbed
-    `navigator.credentials` that rejects with `NotAllowedError`), plus a check that no
-    session-ended snackbar shows after signing in.
-- Notes: Reported by the user on 2026-11-16 in dev (`localhost:4200`, Chrome with KeePassXC's
-  passkeys allowed on localhost). Add-passkey code: `packages/web/feature-auth/src/lib/passkeys/`,
-  `Passkeys` and `WebAuthnClient` in `data-access-auth`. The notice comes from
-  `packages/web/data-access-sync/src/lib/rejection-notices.ts`. Find the root cause of each
-  first; don't paper over it with a timeout.
+  - `web-feature-runs` `run-page.spec.ts` › "does not count a check made here once someone else
+    has undone it" passes reliably, and the behaviour it describes is confirmed in the app (or the
+    test is corrected if its expectation is wrong).
+  - `npx nx test web-feature-runs` is green.
+- Notes: Found in the T-042 review: fails every time (`expected true to be false`), unchanged since
+  T-029. It only shows up in `affected` runs against `master`.
+
+### T-044 — Stop axe contrast checks failing during animations
+
+- Milestone: M6 Collaboration polish
+- Area: web
+- Priority: normal
+- Done when:
+  - `expectAccessible` in the web e2e fixtures runs only once dialogs and form-field labels have
+    finished animating (wait for animations to end, or disable them in e2e), so the
+    `color-contrast` rule no longer fails at random.
+  - `admin.spec.ts` (add-user dialog) and `passkeys.spec.ts` (passkey hint, remove dialog) pass
+    several runs in a row.
+- Notes: Found in the T-042 review: the failures also happen without T-042's changes and passed on
+  an earlier run.
 
 ### T-031 — Install hint and persistent storage
 
@@ -167,6 +169,33 @@ nosniff`, `Referrer-Policy`, `frame-ancestors` in the CSP, and `app.disable('x-p
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
 
 ## Done
+
+### T-042 — Fix passkey cancel and stale "session ended" notice
+
+- Completed: 2026-11-16 — Passkey ceremonies stop waiting once cancelled (`untilAborted`); a delayed "Waiting for your passkey…" hint next to Cancel, since KeePassXC holds its answer back for the whole timeout after its dialog is dismissed; signing in and changing the password forget the stale sync status; neutral `NotAllowedError` text (`data-access-auth`, `feature-auth`).
+- Review: Changes requested; 3 fixed (3 substantive, 0 trivial), 0 skipped, 0 disagreed; re-review rounds: 1
+- Milestone: M5 Accounts and spaces
+- Area: web
+- Priority: high
+- Done when:
+  - On the Profile page, cancelling the browser's passkey dialog while adding a passkey brings
+    the "Add a passkey" button back at once (no "Cancel" left behind), and a new attempt works.
+    The same holds when the authenticator, the browser or an extension (e.g. KeePassXC) rejects,
+    or when the request fails. The sign-in page's "Sign in with a passkey" behaves the same.
+  - After a successful sign-in (password or passkey) no "Your session has ended. Sign in to
+    sync your changes; nothing is lost." snackbar appears. It still appears when a session
+    really ends while signed in.
+  - When the browser refuses a ceremony without the user cancelling, the message doesn't
+    claim the user cancelled it.
+  - Tests: unit tests for each fix, and Playwright cases for a cancelled/refused passkey add and
+    sign-in (virtual authenticator with `isUserVerified: false`, or a stubbed
+    `navigator.credentials` that rejects with `NotAllowedError`), plus a check that no
+    session-ended snackbar shows after signing in.
+- Notes: Reported by the user on 2026-11-16 in dev (`localhost:4200`, Chrome with KeePassXC's
+  passkeys allowed on localhost). Add-passkey code: `packages/web/feature-auth/src/lib/passkeys/`,
+  `Passkeys` and `WebAuthnClient` in `data-access-auth`. The notice comes from
+  `packages/web/data-access-sync/src/lib/rejection-notices.ts`. Find the root cause of each
+  first; don't paper over it with a timeout.
 
 ### T-030 — Sync status and update handling
 
