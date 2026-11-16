@@ -523,6 +523,8 @@ export class SyncEngine {
   private lead(): void {
     const socket = this.createSocket();
     this.socket = socket;
+    // A new leadership is a new connection: it starts without the old back-off.
+    this.reconnectDelay = FIRST_RECONNECT_DELAY_MS;
     this.setStatus(OFFLINE);
 
     socket.on('connect', () => {

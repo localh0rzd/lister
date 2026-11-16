@@ -81,6 +81,11 @@ class FakeServer {
     },
   }))(this) as unknown as SyncSocket;
 
+  /** The engine got a new socket: the old one's listeners are gone with it. */
+  forgetListeners() {
+    this.handlers.clear();
+  }
+
   fire(event: string, payload?: unknown) {
     for (const handler of this.handlers.get(event) ?? []) handler(payload);
   }
@@ -1777,6 +1782,28 @@ describe('SyncEngine', () => {
       expect(createSocket).toHaveBeenCalledTimes(2);
       expect(server.socket.connected).toBe(true);
       expect(locks.isHeld).toBe(true);
+    });
+
+    it('starts the reconnect back-off over when the page is restored', async () => {
+      setup({ locks: new FakeLocks() });
+      engine.start();
+      await settle();
+      vi.useFakeTimers();
+      server.drop('io server disconnect');
+      vi.advanceTimersByTime(1000);
+      server.drop('io server disconnect');
+      vi.advanceTimersByTime(2000); // the next wait would be 4 s
+      pagehide();
+      server.forgetListeners();
+      pageshow(true);
+      await vi.advanceTimersByTimeAsync(0); // the lock is granted asynchronously
+      const calls = server.connectCalls;
+      server.drop('io server disconnect');
+      vi.advanceTimersByTime(999);
+      expect(server.connectCalls).toBe(calls);
+      vi.advanceTimersByTime(1);
+      expect(server.connectCalls).toBe(calls + 1);
+      await stopUnderFakeTimers();
     });
 
     it('does not lead again after stop()', async () => {

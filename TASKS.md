@@ -23,8 +23,62 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
+## Backlog
+
+### T-050 — Settings destination with sign-out
+
+- Milestone: M8 Editing conveniences
+- Area: web
+- Priority: normal
+- Depends on: T-026, T-030
+- Decisions: D19
+- Done when:
+  - The navigation bar (phone) and rail (desktop) show a fourth destination, "Settings" with the
+    gear icon, after Space; it is highlighted on every page under `/settings`.
+  - Settings shows Account (Profile; Users only for admins), Appearance, Sync status, App
+    (install, update) and About, and a "Sign out" button at the bottom that signs out as it does
+    today. The profile page no longer has its own sign-out button.
+  - Space shows only the space switcher, spaces and members, and Trash.
+  - Profile and Users open at `/settings/profile` and `/settings/users`; `/space/profile` and
+    `/space/users` redirect there, and every in-app link, guard and redirect (sign-in return URL,
+    forced password change, admin guard) points to the new paths.
+  - The four destinations fit the navigation bar at 320 px wide without truncation.
+  - Existing e2e specs that used the old paths or found these sections on Space pass against the
+    new layout.
+- Notes: Per the `module-boundaries` skill the Settings page gets its own library
+  (`packages/web/feature-settings`, `scope:web,type:feature`, add it to design §5 and the
+  CLAUDE.md layout); move the sync, app and about sections out of `feature-space` rather than
+  duplicating them. Run `subset-icons` for the `settings` icon.
+
+### T-051 — Loading spinners instead of jumping Space sections
+
+- Milestone: M8 Editing conveniences
+- Area: web
+- Priority: normal
+- Depends on: T-026
+- Done when:
+  - Opening Space (cold load, and coming back to it) no longer makes the "Spaces" list or the
+    "Members of …" section jump: while their data loads, each shows a Material progress spinner
+    (`mat-progress-spinner`, indeterminate, with an accessible label such as "Loading spaces")
+    in a box that keeps its place, and the content replaces the spinner without moving the
+    sections around it.
+  - Data that is already known (e.g. spaces from the sync welcome, or a refresh of a list that
+    already shows) is shown at once, without a spinner coming back on refresh.
+  - The spinner only appears after a short delay (about 300 ms), so a fast load shows no spinner
+    flash.
+  - A load error still shows the existing error text in place of the spinner.
+  - A Playwright check with the members request slowed down sees the spinner, then the members,
+    and the headings after the section keep their vertical position (layout-shift check).
+- Notes: Find what jumps first with the `ui-review` skill's flicker checks (throttled network,
+  screenshots during load). If T-050 is done first, the same applies to any section it moved;
+  if a spinner pattern is needed elsewhere, put a small shared component in `web/ui`.
+
+## Done
+
 ### T-052 — Sign-out and sign-in rounds: no redirect, then stuck offline
 
+- Completed: 2026-11-16 — sync engine aborts/releases its Web Lock on `pagehide`, leads again on a persisted `pageshow`, steals a lock that is pending with no holder (`web/data-access-sync`; `sign-in-rounds` e2e). The original "no redirect on the second sign-out" symptom is still unverified, pending the user's check on the Docker deployment.
+- Review: Changes requested; 5 fixed (4 substantive, 1 trivial), 0 skipped, 0 disagreed; re-review rounds: 1
 - Was blocked: not reproducible locally (2026-11-16: 5–25 rounds in Playwright, dev and the PWA setup
   over plain HTTP on :3100, one and two users, two tabs, all fine). The user saw it on the **Docker
   deployment behind Traefik (HTTPS)**, so the local-port explanation is out. Next: with T-053 done,
@@ -84,58 +138,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   `storage`-event listener or a guard sending the user back; the service worker answering the
   `/sign-in` navigation from a stale cache. Record the cause in the commit body.
 - Implemented 2026-11-16: `SyncEngine` aborts a pending lock request, releases a held lock and closes the socket on `pagehide`, leads again on a persisted `pageshow`, and steals a lock that is pending but held by nobody (two checks in a row, every 3 s). Unit tests with a fake `SYNC_LOCKS`; Playwright `sign-in-rounds.spec.ts` and `.pwa.spec.ts` (five rounds). The original "no redirect on the second sign-out" symptom was never reproduced locally and has no separate fix: the log shows the sign-out itself worked, and the stuck lock is the only cause found.
-
-## Backlog
-
-### T-050 — Settings destination with sign-out
-
-- Milestone: M8 Editing conveniences
-- Area: web
-- Priority: normal
-- Depends on: T-026, T-030
-- Decisions: D19
-- Done when:
-  - The navigation bar (phone) and rail (desktop) show a fourth destination, "Settings" with the
-    gear icon, after Space; it is highlighted on every page under `/settings`.
-  - Settings shows Account (Profile; Users only for admins), Appearance, Sync status, App
-    (install, update) and About, and a "Sign out" button at the bottom that signs out as it does
-    today. The profile page no longer has its own sign-out button.
-  - Space shows only the space switcher, spaces and members, and Trash.
-  - Profile and Users open at `/settings/profile` and `/settings/users`; `/space/profile` and
-    `/space/users` redirect there, and every in-app link, guard and redirect (sign-in return URL,
-    forced password change, admin guard) points to the new paths.
-  - The four destinations fit the navigation bar at 320 px wide without truncation.
-  - Existing e2e specs that used the old paths or found these sections on Space pass against the
-    new layout.
-- Notes: Per the `module-boundaries` skill the Settings page gets its own library
-  (`packages/web/feature-settings`, `scope:web,type:feature`, add it to design §5 and the
-  CLAUDE.md layout); move the sync, app and about sections out of `feature-space` rather than
-  duplicating them. Run `subset-icons` for the `settings` icon.
-
-### T-051 — Loading spinners instead of jumping Space sections
-
-- Milestone: M8 Editing conveniences
-- Area: web
-- Priority: normal
-- Depends on: T-026
-- Done when:
-  - Opening Space (cold load, and coming back to it) no longer makes the "Spaces" list or the
-    "Members of …" section jump: while their data loads, each shows a Material progress spinner
-    (`mat-progress-spinner`, indeterminate, with an accessible label such as "Loading spaces")
-    in a box that keeps its place, and the content replaces the spinner without moving the
-    sections around it.
-  - Data that is already known (e.g. spaces from the sync welcome, or a refresh of a list that
-    already shows) is shown at once, without a spinner coming back on refresh.
-  - The spinner only appears after a short delay (about 300 ms), so a fast load shows no spinner
-    flash.
-  - A load error still shows the existing error text in place of the spinner.
-  - A Playwright check with the members request slowed down sees the spinner, then the members,
-    and the headings after the section keep their vertical position (layout-shift check).
-- Notes: Find what jumps first with the `ui-review` skill's flicker checks (throttled network,
-  screenshots during load). If T-050 is done first, the same applies to any section it moved;
-  if a spinner pattern is needed elsewhere, put a small shared component in `web/ui`.
-
-## Done
 
 ### T-053 — `LOG_LEVEL` to turn on debug logging
 
