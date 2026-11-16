@@ -644,8 +644,10 @@ Conventions that follow from this (also in `CLAUDE.md`):
   bodies keep using class-validator DTOs. The schemas use `zod/mini` (`import * as z from
 'zod/mini'`), not classic `zod`: the client validates server messages in its lazily loaded
   sync chunk, and classic Zod alone added ~400 kB to it (T-036). Validation is the same on both
-  sides. An `anyScript` budget in `apps/lister-web/project.json` (error at 250 kB per script)
-  catches the chunk growing back.
+  sides, including Zod's own English messages (`z.config(en())` in `common.ts`; `zod/mini` loads
+  none by default, and reject reasons are shown to users). Lint forbids classic `zod` in shared
+  code (`sharedPlatformRules`), and an `anyScript` budget in `apps/lister-web/project.json`
+  (error at 250 kB per script, bounded by the ~205 kB vendor chunk) is the size backstop.
 - Synced data (lists, items, includes, runs, run items) is read from the local database and changed
   through mutations — never through REST CRUD or `httpResource()`. HTTP stays for sign-in,
   passkeys, user administration, spaces, bootstrap, export and health.

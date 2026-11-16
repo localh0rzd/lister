@@ -1,5 +1,13 @@
 import * as z from 'zod/mini';
+import { en } from 'zod/locales';
 import { LIMITS, isPositionKey } from '@lister/shared/domain';
+
+/**
+ * `zod/mini` loads no messages, so every issue without its own would read "Invalid input".
+ * Reject reasons are shown to users, so load the English ones (every schema module imports
+ * this file).
+ */
+z.config(en());
 
 /** Version of the socket protocol; the server answers older clients with `updateRequired`. */
 export const PROTOCOL_VERSION = 2;

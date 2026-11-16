@@ -217,4 +217,38 @@ describe('parseMutation', () => {
       reason: 'A title is required',
     });
   });
+
+  it.each([
+    [
+      'too many items',
+      'run.start',
+      {
+        id: newId(),
+        title: 'Trip',
+        items: Array.from({ length: 2001 }, () => ({
+          id: newId(),
+          title: 'x',
+        })),
+      },
+      'Too big: expected array to have <=2000 items',
+    ],
+    [
+      'an id that is not a UUID',
+      'list.create',
+      { id: 'nope', title: 'A' },
+      'Invalid UUID',
+    ],
+    [
+      'an unknown field',
+      'list.create',
+      { id: newId(), title: 'A', colour: 'red' },
+      'Unrecognized key: "colour"',
+    ],
+  ])('gives Zod’s readable reason for %s', (_, name, args, reason) => {
+    const result = parseMutation({ ...envelope(), name, args } as {
+      mutationId: string;
+    });
+
+    expect(result).toMatchObject({ ok: false, reason });
+  });
 });

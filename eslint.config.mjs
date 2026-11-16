@@ -169,10 +169,18 @@ export const sharedPlatformRules = [
         'error',
         {
           // Exact names: as a pattern, the built-in `domain` would also match @lister/shared/domain.
-          paths: builtinModules.map((name) => ({
-            name,
-            message: 'Shared code runs in the browser too: no Node built-ins.',
-          })),
+          paths: [
+            ...builtinModules.map((name) => ({
+              name,
+              message:
+                'Shared code runs in the browser too: no Node built-ins.',
+            })),
+            ...['zod', 'zod/v4'].map((name) => ({
+              name,
+              message:
+                "Use 'zod/mini': classic Zod adds ~400 kB to the web app's sync chunk (T-036).",
+            })),
+          ],
           patterns: [
             {
               group: ['node:*'],
