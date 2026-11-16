@@ -26,6 +26,36 @@ async function settleAnimations(page: Page): Promise<void> {
   );
 }
 
+/** How often `expectAccessible` checks at most while animations keep starting during a check. */
+const MAX_AXE_RUNS = 3;
+
+type AxeResults = Awaited<ReturnType<AxeBuilder['analyze']>>;
+
+/**
+ * Starts noting whether a CSS animation or transition starts on the page. The returned function
+ * stops watching and says whether one did.
+ */
+async function watchAnimations(page: Page): Promise<() => Promise<boolean>> {
+  const watch = await page.evaluateHandle(() => {
+    const state = { started: false, stop: () => undefined as void };
+    const note = () => (state.started = true);
+    const events = ['animationstart', 'transitionrun'] as const;
+    for (const e of events) document.addEventListener(e, note, true);
+    state.stop = () => {
+      for (const e of events) document.removeEventListener(e, note, true);
+    };
+    return state;
+  });
+  return async () => {
+    const started = await watch.evaluate((state) => {
+      state.stop();
+      return state.started;
+    });
+    await watch.dispose();
+    return started;
+  };
+}
+
 /**
  * `expectAccessible()` runs an axe check (WCAG 2.1 A and AA) on the current page and fails with
  * the violations listed. Happy-path specs call it on every screen they visit (`testing` skill).
@@ -36,10 +66,17 @@ export const test = base.extend<{
   expectAccessible: async ({ page }, use) => {
     // A page the test opened itself (e.g. in a signed-out context) can be passed in.
     await use(async (other = page) => {
-      await settleAnimations(other);
-      const { violations } = await new AxeBuilder({ page: other })
-        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
-        .analyze();
+      let violations: AxeResults['violations'] = [];
+      // Something can start animating while axe runs (a snackbar's timed dismissal, the next
+      // queued notice): then settle and check again. A real violation shows on every run.
+      for (let run = 1; run <= MAX_AXE_RUNS; run++) {
+        await settleAnimations(other);
+        const animated = await watchAnimations(other);
+        ({ violations } = await new AxeBuilder({ page: other })
+          .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+          .analyze());
+        if (!(await animated())) break;
+      }
       expect(
         violations.map(
           (v) =>
