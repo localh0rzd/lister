@@ -27,7 +27,7 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ### T-052 — Sign-out and sign-in rounds: no redirect, then stuck offline
 
-- Blocked: not reproducible locally (2026-11-16: 5–25 rounds in Playwright, dev and the PWA setup
+- Was blocked: not reproducible locally (2026-11-16: 5–25 rounds in Playwright, dev and the PWA setup
   over plain HTTP on :3100, one and two users, two tabs, all fine). The user saw it on the **Docker
   deployment behind Traefik (HTTPS)**, so the local-port explanation is out. Next: with T-053 done,
   reproduce against the Docker image behind an HTTPS reverse proxy (`Secure` cookies,
@@ -35,6 +35,26 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   collect the user's `LOG_LEVEL=debug` server log plus browser console and network output from a
   stuck state. Also check the sync engine's Web Lock (`lister-sync`) when an installed PWA window
   or a bfcached page still holds it.
+- Evidence 2026-11-16 (debug log, Docker): after wiping site data, sign-in → handshake, hello,
+  welcome, pull; sign-out → server disconnects the socket; then **no handshake attempt at all**,
+  neither on the `/sign-in` page after sign-out (it should be refused: "no session cookie") nor
+  after the next sign-in. So the client never calls `socket.connect()`: the engine doesn't lead.
+  Prime suspect: the signed-in page, its socket just closed by the server, enters the bfcache on
+  `location.assign('/sign-in')` still holding `lister-sync`, frozen (its reconnect timer never
+  fires); every later page waits for the lock.
+- Lock state 2026-11-16: `navigator.locks.query()` in the stuck tab gave `held: []` and **three
+  pending** `lister-sync` requests (three client ids). Nobody holds the lock, yet no request is
+  granted. Opening the site in a new tab doesn't help (it just queues behind them); no console
+  errors. So the pending requests of pages that are gone or frozen (earlier rounds' documents)
+  block the queue, and the engine waits forever on a lock it never gets.
+- Fix (both parts): (1) don't leave requests behind: on `pagehide` abort a pending request
+  (`signal` on `navigator.locks.request`), release a held lock and close the socket; on
+  `pageshow` with `persisted` request it again (the engine must be able to lead again, unlike
+  the final `stop()`). (2) Never wait forever: while this page is waiting, check
+  `navigator.locks.query()` every few seconds; if `lister-sync` is pending but held by nobody,
+  take it with `steal: true`. Unit tests with a fake `SYNC_LOCKS` and dispatched
+  `pagehide`/`pageshow` events; a Playwright regression of five sign-out/sign-in rounds that
+  expects "synced" each time (also `*.pwa.spec.ts`).
 - Milestone: M8 Editing conveniences
 - Area: web
 - Priority: high
