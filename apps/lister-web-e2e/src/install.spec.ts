@@ -58,7 +58,7 @@ test.describe('install and persistent storage', () => {
         /Install Lister: Tap Share, then Add to Home Screen/,
       );
       await expect(hint).toBeVisible();
-      await page.getByRole('button', { name: 'OK' }).click();
+      await page.getByRole('button', { name: 'OK', exact: true }).click();
       await expect(hint).toBeHidden();
 
       // After the reload the first sync is already stored, so FirstUse runs again at once (the

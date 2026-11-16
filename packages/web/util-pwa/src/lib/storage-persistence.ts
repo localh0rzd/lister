@@ -8,7 +8,7 @@ export const PERSIST_REFUSED_KEY = 'lister.storagePersistRefused';
 
 /**
  * Asks the browser not to evict the local database (`navigator.storage.persist()`). The server
- * stays the source of truth; only unsynced changes are at risk. The Space page shows the state.
+ * stays the source of truth; only unsynced changes are at risk. The Settings page shows the state.
  *
  * Chromium decides from how much the site is used, so a refusal isn't final: `request()` is
  * called again at the next start until it's granted. Until then the last refusal is remembered,

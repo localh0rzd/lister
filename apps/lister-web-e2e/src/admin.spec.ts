@@ -39,6 +39,12 @@ for (const [name, viewport] of layouts) {
         ).toBeVisible();
         await expect(row).toHaveCount(0);
         await expectAccessible();
+
+        await page.goto('/space/users');
+        await expect(page).toHaveURL(/\/settings\/users$/);
+        await expect(
+          page.getByRole('heading', { level: 1, name: 'Users' }),
+        ).toBeVisible();
       });
 
       await test.step('adding a user', async () => {

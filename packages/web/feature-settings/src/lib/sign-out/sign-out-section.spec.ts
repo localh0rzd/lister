@@ -57,6 +57,21 @@ describe('SignOutSection', () => {
     );
   });
 
+  it('words the warning for a single change in the singular', async () => {
+    const { open } = setup(1, true);
+    render().click();
+
+    await vi.waitFor(() => expect(open).toHaveBeenCalled());
+    expect(open).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        data: expect.objectContaining({
+          message: expect.stringContaining('deletes it from this device'),
+        }),
+      }),
+    );
+  });
+
   it('stays signed in when the warning is declined', async () => {
     const { session, open } = setup(1, false);
     render().click();

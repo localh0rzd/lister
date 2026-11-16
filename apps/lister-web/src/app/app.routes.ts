@@ -35,14 +35,14 @@ export const appRoutes: Route[] = [
         loadChildren: () =>
           import('@lister/web/feature-runs').then((m) => m.runsRoutes),
       },
+      // The old addresses of the profile and user administration (D19).
+      { path: 'space/profile', redirectTo: 'settings/profile' },
+      { path: 'space/users', redirectTo: 'settings/users' },
       {
         path: 'space',
         loadChildren: () =>
           import('@lister/web/feature-space').then((m) => m.spaceRoutes),
       },
-      // The old addresses of the profile and user administration (D19).
-      { path: 'space/profile', redirectTo: 'settings/profile' },
-      { path: 'space/users', redirectTo: 'settings/users' },
       {
         path: 'settings',
         children: [

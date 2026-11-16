@@ -23,31 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-050 — Settings destination with sign-out
-
-- Milestone: M8 Editing conveniences
-- Area: web
-- Priority: normal
-- Depends on: T-026, T-030
-- Decisions: D19
-- Done when:
-  - The navigation bar (phone) and rail (desktop) show a fourth destination, "Settings" with the
-    gear icon, after Space; it is highlighted on every page under `/settings`.
-  - Settings shows Account (Profile; Users only for admins), Appearance, Sync status, App
-    (install, update) and About, and a "Sign out" button at the bottom that signs out as it does
-    today. The profile page no longer has its own sign-out button.
-  - Space shows only the space switcher, spaces and members, and Trash.
-  - Profile and Users open at `/settings/profile` and `/settings/users`; `/space/profile` and
-    `/space/users` redirect there, and every in-app link, guard and redirect (sign-in return URL,
-    forced password change, admin guard) points to the new paths.
-  - The four destinations fit the navigation bar at 320 px wide without truncation.
-  - Existing e2e specs that used the old paths or found these sections on Space pass against the
-    new layout.
-- Notes: Per the `module-boundaries` skill the Settings page gets its own library
-  (`packages/web/feature-settings`, `scope:web,type:feature`, add it to design §5 and the
-  CLAUDE.md layout); move the sync, app and about sections out of `feature-space` rather than
-  duplicating them. Run `subset-icons` for the `settings` icon.
-
 ## Backlog
 
 ### T-057 — An include added during a paste ties with an item, and Sort A–Z then moves it
@@ -178,6 +153,33 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## Done
 
+### T-050 — Settings destination with sign-out
+
+- Completed: 2026-11-16 — Settings destination (`packages/web/feature-settings`): account links, appearance, sync, app, about and sign out moved off Space and the profile page; Profile and Users at `/settings/…` with redirects; fourth navigation destination
+- Review: Approve with minor fixes; 7 fixed (0 substantive, 7 trivial), 0 skipped (finding 8 → T-057), 0 disagreed; re-review rounds: 0
+- Milestone: M8 Editing conveniences
+- Area: web
+- Priority: normal
+- Depends on: T-026, T-030
+- Decisions: D19
+- Done when:
+  - The navigation bar (phone) and rail (desktop) show a fourth destination, "Settings" with the
+    gear icon, after Space; it is highlighted on every page under `/settings`.
+  - Settings shows Account (Profile; Users only for admins), Appearance, Sync status, App
+    (install, update) and About, and a "Sign out" button at the bottom that signs out as it does
+    today. The profile page no longer has its own sign-out button.
+  - Space shows only the space switcher, spaces and members, and Trash.
+  - Profile and Users open at `/settings/profile` and `/settings/users`; `/space/profile` and
+    `/space/users` redirect there, and every in-app link, guard and redirect (sign-in return URL,
+    forced password change, admin guard) points to the new paths.
+  - The four destinations fit the navigation bar at 320 px wide without truncation.
+  - Existing e2e specs that used the old paths or found these sections on Space pass against the
+    new layout.
+- Notes: Per the `module-boundaries` skill the Settings page gets its own library
+  (`packages/web/feature-settings`, `scope:web,type:feature`, add it to design §5 and the
+  CLAUDE.md layout); move the sync, app and about sections out of `feature-space` rather than
+  duplicating them. Run `subset-icons` for the `settings` icon.
+
 ### T-052 — Sign-out and sign-in rounds: no redirect, then stuck offline
 
 - Completed: 2026-11-16 — sync engine aborts/releases its Web Lock on `pagehide`, leads again on a persisted `pageshow`, steals a lock that is pending with no holder (`web/data-access-sync`; `sign-in-rounds` e2e). The original "no redirect on the second sign-out" symptom is still unverified, pending the user's check on the Docker deployment.
@@ -293,8 +295,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   `fractional-indexing` and are assigned to the item slots only, so includes keep theirs. The
   comparison is the existing list-title collator, moved or exported from `shared/domain` if
   needed. Undo sends the previous positions back with the same mutation.
-
-## Backlog
 
 ### T-048 — Paste items into the new-list dialog
 

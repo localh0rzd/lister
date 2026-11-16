@@ -30,7 +30,10 @@ export class SignOutSection {
           .open<ConfirmDialog, ConfirmDialogData, true>(ConfirmDialog, {
             data: {
               heading: 'Sign out without syncing?',
-              message: `${pending === 1 ? '1 change has' : `${pending} changes have`} not reached the server yet. Signing out deletes them from this device, and they are lost.`,
+              message:
+                pending === 1
+                  ? '1 change has not reached the server yet. Signing out deletes it from this device, and it is lost.'
+                  : `${pending} changes have not reached the server yet. Signing out deletes them from this device, and they are lost.`,
               confirm: 'Sign out anyway',
             },
           })

@@ -8,7 +8,7 @@ import { SyncEngine, rejectionText } from '@lister/web/data-access-sync';
 export const CONNECTING_HINT_MS = 5000;
 
 /**
- * The sync status on the Space page: offline state, changes not synced, the last sync, a
+ * The sync status on the Settings page: offline state, changes not synced, the last sync, a
  * "Sync now" action and the recent errors (changes the server refused), which stay readable after
  * their snackbar is gone.
  */

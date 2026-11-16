@@ -60,11 +60,13 @@ test.describe('navigation on the narrowest phone (320 px)', () => {
     const labels = await nav.locator('.label').evaluateAll((els) =>
       els.map((el) => ({
         text: el.textContent?.trim(),
-        clipped: el.scrollWidth > el.clientWidth,
+        oneLine: el.getBoundingClientRect().height <= 20,
+        inside:
+          el.closest('a')!.getBoundingClientRect().right <= window.innerWidth,
       })),
     );
     expect(labels.map((l) => l.text)).toEqual(destinations);
-    expect(labels.every((l) => !l.clipped)).toBe(true);
+    expect(labels.every((l) => l.oneLine && l.inside)).toBe(true);
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth > window.innerWidth,
     );

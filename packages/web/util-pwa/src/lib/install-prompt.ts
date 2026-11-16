@@ -9,12 +9,12 @@ interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<unknown>;
 }
 
-/** What the Space page tells iOS Safari users, who have no install API. */
+/** What the Settings page tells iOS Safari users, who have no install API. */
 export const IOS_INSTALL_STEPS = 'Tap Share, then Add to Home Screen.';
 
 /**
  * Installing the app. On Chromium the browser offers an install prompt (`beforeinstallprompt`),
- * which is kept until the user asks for it from the Space page. iOS Safari has no install API:
+ * which is kept until the user asks for it from the Settings page. iOS Safari has no install API:
  * there, a one-time notice explains "Share → Add to Home Screen". Neither is offered once the
  * app runs installed (standalone).
  */

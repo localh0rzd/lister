@@ -7,7 +7,7 @@ import {
   StoragePersistence,
 } from '@lister/web/util-pwa';
 
-/** The "App" part of the Space page: installing Lister and whether the browser keeps its data. */
+/** The "App" part of the Settings page: installing Lister and whether the browser keeps its data. */
 @Component({
   selector: 'lister-app-section',
   imports: [MatButton, MatIcon],
