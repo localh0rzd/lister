@@ -348,7 +348,7 @@ None of these change the architecture; the table says what goes into v1.
   hijacked cross-site); refuse HTTP writes (anything but GET, HEAD, OPTIONS) whose `Origin` isn't
   `PUBLIC_URL`'s or whose body isn't JSON (`SameOriginGuard`: `SameSite=Lax` alone allows login
   CSRF with a plain form, and CSRF from sibling subdomains); rate-limit sign-in and mutations;
-  cap message sizes; Content Security Policy. The socket handshake needs a live session cookie
+  cap message sizes; Content Security Policy (T-032: the build's inline scripts are allowed by hash through Angular's `security.autoCsp` `<meta>` policy; the server adds the rest of the policy, `frame-ancestors 'none'`, `nosniff`, `Referrer-Policy` and, behind https, HSTS on every response). The socket handshake needs a live session cookie
   (§4.2), and every pull and push checks the user's membership of the space in the database.
 
 ## 3. Domain model

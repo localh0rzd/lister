@@ -115,3 +115,61 @@ describe('without a web build (development)', () => {
     ).toBe(404);
   });
 });
+
+describe('security headers (design §2.9)', () => {
+  let webRoot: string;
+  let api: TestApp;
+
+  beforeEach(async () => {
+    delete process.env['PUBLIC_URL'];
+    webRoot = mkdtempSync(join(tmpdir(), 'lister-web-'));
+    writeFileSync(join(webRoot, 'index.html'), INDEX);
+    writeFileSync(join(webRoot, 'main-ABCD1234.js'), 'console.log(1)');
+    api = await createTestApp({ webRoot });
+  });
+  afterEach(async () => {
+    delete process.env['PUBLIC_URL'];
+    await api.close();
+    rmSync(webRoot, { recursive: true, force: true });
+  });
+
+  it.each([
+    ['the page', '/', 'text/html'],
+    ['a static file', '/main-ABCD1234.js', '*/*'],
+    ['a missing file', '/missing.js', '*/*'],
+    ['the API', '/api/health', 'application/json'],
+    ['an unknown API route', '/api/nope', 'application/json'],
+  ])('sends them on %s', async (_name, path, accept) => {
+    const response = await fetch(`${api.url}${path}`, {
+      headers: { accept },
+    });
+
+    expect(response.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(response.headers.get('referrer-policy')).toBe('same-origin');
+    expect(response.headers.get('x-powered-by')).toBeNull();
+    const csp = response.headers.get('content-security-policy') ?? '';
+    expect(csp).toContain("frame-ancestors 'none'");
+    expect(csp).toContain("object-src 'none'");
+    expect(csp).toContain("base-uri 'self'");
+    // Scripts are left to the build's own hash policy; a header script-src would intersect it.
+    expect(csp).not.toContain('script-src');
+    expect(csp).not.toContain('default-src');
+  });
+
+  it('sends Strict-Transport-Security only when PUBLIC_URL is https', async () => {
+    expect(
+      (await fetch(`${api.url}/api/health`)).headers.has(
+        'strict-transport-security',
+      ),
+    ).toBe(false);
+    await api.close();
+
+    process.env['PUBLIC_URL'] = 'https://lister.example.org';
+    api = await createTestApp({ webRoot });
+    const response = await fetch(`${api.url}/api/health`);
+
+    expect(response.headers.get('strict-transport-security')).toContain(
+      'max-age=',
+    );
+  });
+});

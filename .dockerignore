@@ -1,0 +1,13 @@
+.git
+.nx
+.angular
+node_modules
+dist
+tmp
+data
+coverage
+playwright-report
+test-results
+.claude
+.github
+**/*.log

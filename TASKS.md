@@ -23,6 +23,30 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
+### T-032 — Docker image for running behind Traefik
+
+- Milestone: M7 Deployment
+- Area: infra
+- Priority: normal
+- Depends on: T-012
+- Done when:
+  - A multi-stage Dockerfile builds web and API. The image runs as a non-root user, listens on
+    plain HTTP (`PORT`), keeps the database at `DATABASE_PATH=/data/lister.db` on a volume, and has
+    a health check.
+  - The API trusts Traefik's `X-Forwarded-*` headers, and `PUBLIC_URL` drives the `Origin` check,
+    `Secure` cookies and the passkey relying party.
+  - The README has an example `docker-compose.yml` with Traefik labels (router, entrypoint, TLS)
+    and lists every environment variable.
+  - The image builds for linux/amd64 and linux/arm64.
+  - The served app sends a Content Security Policy (design §2.9). Inline scripts, such as the
+    theme script in `index.html`, are allowed by hash (Angular's `security.autoCsp`) or moved
+    out.
+  - Security headers on every response, static files included (register them **before**
+    `serveWebApp()`, whose Express middleware runs ahead of Nest's): `X-Content-Type-Options:
+nosniff`, `Referrer-Policy`, `frame-ancestors` in the CSP, and `app.disable('x-powered-by')`
+    (T-012 review).
+- Notes: TLS stays in Traefik (D4); the app never handles certificates.
+
 ## Backlog
 
 ### T-045 — Reset the run-page checkbox when a change doesn't show in the data
@@ -53,30 +77,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   - On iOS Safari, a one-time hint explains "Share → Add to Home Screen".
   - After the first real use, the app requests persistent storage (`navigator.storage.persist()`),
     and the Space page shows whether it was granted.
-
-### T-032 — Docker image for running behind Traefik
-
-- Milestone: M7 Deployment
-- Area: infra
-- Priority: normal
-- Depends on: T-012
-- Done when:
-  - A multi-stage Dockerfile builds web and API. The image runs as a non-root user, listens on
-    plain HTTP (`PORT`), keeps the database at `DATABASE_PATH=/data/lister.db` on a volume, and has
-    a health check.
-  - The API trusts Traefik's `X-Forwarded-*` headers, and `PUBLIC_URL` drives the `Origin` check,
-    `Secure` cookies and the passkey relying party.
-  - The README has an example `docker-compose.yml` with Traefik labels (router, entrypoint, TLS)
-    and lists every environment variable.
-  - The image builds for linux/amd64 and linux/arm64.
-  - The served app sends a Content Security Policy (design §2.9). Inline scripts, such as the
-    theme script in `index.html`, are allowed by hash (Angular's `security.autoCsp`) or moved
-    out.
-  - Security headers on every response, static files included (register them **before**
-    `serveWebApp()`, whose Express middleware runs ahead of Nest's): `X-Content-Type-Options:
-nosniff`, `Referrer-Policy`, `frame-ancestors` in the CSP, and `app.disable('x-powered-by')`
-    (T-012 review).
-- Notes: TLS stays in Traefik (D4); the app never handles certificates.
 
 ### T-033 — Backups and purge
 

@@ -3,6 +3,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { SameOriginGuard } from '@lister/api/feature-auth';
 import { SyncIoAdapter, allowedOrigins } from '@lister/api/feature-sync';
 import { API_PREFIX } from '@lister/shared/api-contracts';
+import { addSecurityHeaders } from './security-headers';
 import { serveWebApp } from './web-hosting';
 
 export interface AppOptions {
@@ -17,6 +18,7 @@ export function configureApp(
 ): void {
   const origins = allowedOrigins(process.env);
   app.set('trust proxy', trustProxySetting(process.env['TRUST_PROXY']));
+  addSecurityHeaders(app, process.env['PUBLIC_URL']);
   app.setGlobalPrefix(API_PREFIX);
   app.useGlobalGuards(new SameOriginGuard(origins));
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));

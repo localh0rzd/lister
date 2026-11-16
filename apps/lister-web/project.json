@@ -42,7 +42,8 @@
             }
           ],
           "outputHashing": "all",
-          "serviceWorker": "apps/lister-web/ngsw-config.json"
+          "serviceWorker": "apps/lister-web/ngsw-config.json",
+          "security": { "autoCsp": true }
         },
         "development": {
           "optimization": false,

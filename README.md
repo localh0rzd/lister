@@ -41,12 +41,60 @@ npx nx format:write
 
 | Var                  | Used by    | Default                                                                                                                                                                                                                           |
 | -------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PORT`               | lister-api | `3000`                                                                                                                                                                                                                            |
-| `WEB_ROOT`           | lister-api | the production web build next to the API (`dist/apps/lister-web/browser`); served when it exists                                                                                                                                  |
+| `PORT`               | lister-api | `3000` (also in the Docker image)                                                                                                                                                                                                 |
+| `WEB_ROOT`           | lister-api | the production web build next to the API (`dist/apps/lister-web/browser`); served when it exists; `/app/web` in the Docker image                                                                                                  |
 | `LISTER_SETUP_TOKEN` | lister-api | unset: a random one-time setup token is logged while no account exists. At least 16 characters fixes it instead (for the e2e suites; never logged). Leave unset in production                                                     |
-| `PUBLIC_URL`         | lister-api | none (development allows `http://localhost:4200`); required in production. Its origin is the only one allowed to open the sync socket                                                                                             |
+| `PUBLIC_URL`         | lister-api | none (development allows `http://localhost:4200`); required in production (the Docker image does not set it). Its origin is the only one allowed to open the sync socket                                                          |
 | `TRUST_PROXY`        | lister-api | `loopback, linklocal, uniquelocal` (Traefik on a private Docker network); a hop count or addresses/ranges as in Express's "trust proxy". Decides which `X-Forwarded-For` hops are believed for the client IP (sign-in rate limit) |
-| `DATABASE_PATH`      | lister-api | `data/lister.db` (relative to the working directory; the folder is created)                                                                                                                                                       |
+| `DATABASE_PATH`      | lister-api | `data/lister.db` (relative to the working directory; the folder is created); `/data/lister.db` in the Docker image                                                                                                                |
+
+## Running in Docker behind Traefik
+
+The `Dockerfile` builds the web app and the API into one image: plain HTTP on `PORT` (3000), runs as the
+non-root `node` user, keeps the SQLite database on the `/data` volume (`DATABASE_PATH=/data/lister.db`) and has a
+health check (`/api/health`). Traefik terminates HTTPS; the app never handles certificates.
+
+```bash
+docker build -t lister .
+docker buildx build --platform linux/amd64,linux/arm64 -t lister .   # multi-arch
+```
+
+Example `docker-compose.yml` (adapt the host name, entrypoint and certificate resolver to your Traefik):
+
+```yaml
+services:
+  lister:
+    image: lister:latest # or build: .
+    restart: unless-stopped
+    environment:
+      PUBLIC_URL: https://lister.example.org # required: Origin check, Secure cookies, passkeys
+    volumes:
+      - lister-data:/data
+    networks: [traefik]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik
+      - traefik.http.routers.lister.rule=Host(`lister.example.org`)
+      - traefik.http.routers.lister.entrypoints=websecure
+      - traefik.http.routers.lister.tls=true
+      - traefik.http.routers.lister.tls.certresolver=letsencrypt
+      - traefik.http.services.lister.loadbalancer.server.port=3000
+
+volumes:
+  lister-data:
+
+networks:
+  traefik:
+    external: true # the network Traefik is attached to
+```
+
+Traefik forwards WebSockets (`/socket.io`) without extra configuration. On first start the log prints a one-time
+setup token for creating the first admin account (`docker compose logs lister`). Reset a password with
+`docker compose exec lister node main.js reset-password <username>`.
+
+Every response carries `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin`, a Content Security Policy
+(including `frame-ancestors 'none'`) and, when `PUBLIC_URL` is https, `Strict-Transport-Security`. The web build's
+inline scripts are allowed by hash (Angular's `security.autoCsp`).
 
 ## Working with Claude Code
 
