@@ -14,7 +14,11 @@ catch this kind of thing before they do:
 - the sync badge flashes "1 change not synced" for a split second on every edit;
 - the Edit item dialog is so narrow that the quantity hint wraps and the next field covers it;
 - the Lists page shows only a list's own items, not the total with included lists, nor how many
-  lists it includes.
+  lists it includes;
+- cancelling the browser's passkey dialog while adding a passkey leaves the button stuck on
+  "Cancel";
+- right after signing in, a snackbar says "Your session has ended", left over from the
+  signed-out state.
 
 ## Ground rules
 
@@ -83,6 +87,39 @@ Walk every screen and flow the task touches, then the screens next to them.
   - short, plain English, the same words for the same thing (List, Item, Include, Run, Space);
   - numbers with the right plural;
   - no jargon (no "mutation", "rejected", "tombstone").
+
+### Cancelled, refused and interrupted flows
+
+Happy paths aren't enough: walk every flow the task touches a second time and break it off
+from outside the app. Things outside the app are the browser, its native dialogs, extensions
+and the network.
+
+- **The user cancels:** close every native dialog the flow opens without answering it: the
+  passkey or security-key prompt, permission prompts, file pickers, `beforeunload`. Also press
+  Escape, click outside the dialog, and use the app's own Cancel.
+- **Something outside refuses:**
+  - the browser or an extension rejects at once (a password manager such as KeePassXC that
+    handles passkeys itself; WebAuthn on an origin it doesn't accept);
+  - a prompt is never answered at all;
+  - the network drops halfway, or the server answers 401/403/5xx.
+
+  The pane can't show native dialogs, so simulate them in a Playwright probe:
+  - CDP `WebAuthn.addVirtualAuthenticator` with `isUserVerified: false`, or with no
+    credentials, makes the ceremony reject;
+  - stub `navigator.credentials.get`/`create` to reject with `NotAllowedError` at once, or to
+    never settle;
+  - `page.route` to fail a request.
+
+- **After each of these, check that:**
+  - the screen is back in its idle state: buttons enabled with their normal labels, no
+    spinner or "Cancel" left behind;
+  - the user can try again straight away, and the retry works;
+  - the message says what happened in plain words ("cancelled" only when the user did cancel),
+    or there's no message when the user cancelled on purpose;
+  - nothing that was typed is lost.
+- **Notices across transitions:** sign in, sign out, switch user, reload and come back online,
+  then watch the snackbars and banners for a few seconds. Nothing from before the transition
+  may show afterwards (for example "Your session has ended" right after a successful sign-in).
 
 ### Interaction
 

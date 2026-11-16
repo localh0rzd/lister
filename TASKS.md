@@ -25,6 +25,31 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## Backlog
 
+### T-042 — Fix passkey cancel and stale "session ended" notice
+
+- Milestone: M5 Accounts and spaces
+- Area: web
+- Priority: high
+- Done when:
+  - On the Profile page, cancelling the browser's passkey dialog while adding a passkey brings
+    the "Add a passkey" button back at once (no "Cancel" left behind), and a new attempt works.
+    The same holds when the authenticator, the browser or an extension (e.g. KeePassXC) rejects,
+    or when the request fails. The sign-in page's "Sign in with a passkey" behaves the same.
+  - After a successful sign-in (password or passkey) no "Your session has ended. Sign in to
+    sync your changes; nothing is lost." snackbar appears. It still appears when a session
+    really ends while signed in.
+  - When the browser refuses a ceremony without the user cancelling, the message doesn't
+    claim the user cancelled it.
+  - Tests: unit tests for each fix, and Playwright cases for a cancelled/refused passkey add and
+    sign-in (virtual authenticator with `isUserVerified: false`, or a stubbed
+    `navigator.credentials` that rejects with `NotAllowedError`), plus a check that no
+    session-ended snackbar shows after signing in.
+- Notes: Reported by the user on 2026-11-16 in dev (`localhost:4200`, Chrome with KeePassXC's
+  passkeys allowed on localhost). Add-passkey code: `packages/web/feature-auth/src/lib/passkeys/`,
+  `Passkeys` and `WebAuthnClient` in `data-access-auth`. The notice comes from
+  `packages/web/data-access-sync/src/lib/rejection-notices.ts`. Find the root cause of each
+  first; don't paper over it with a timeout.
+
 ### T-031 — Install hint and persistent storage
 
 - Milestone: M6 Collaboration polish

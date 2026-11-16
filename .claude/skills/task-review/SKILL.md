@@ -49,7 +49,8 @@ bugs until you've looked. Don't approve on trust, and don't invent problems eith
    - Record exactly what passed and what failed.
 4. **Review** against the checklist below.
 5. **Try to break it.** Take the riskiest behaviour and probe it: edge-case input, a double
-   submit, a retry, offline and reconnect, two clients, a non-member, a slow network. Write a
+   submit, a retry, offline and reconnect, two clients, a non-member, a slow network, a
+   cancelled or refused browser dialog, and an extension that rejects or never answers. Write a
    probe test under `tmp/` if that helps, and describe it in the report. Never commit it.
 6. **UI/UX:** when the task changes anything the web app shows, also run the `ui-review`
    skill: use the real screens at phone and desktop widths, and append its "UI/UX" section to
@@ -64,6 +65,17 @@ bugs until you've looked. Don't approve on trust, and don't invent problems eith
   - Logic errors.
   - Edge cases: empty, one, many, duplicates, unicode, maximum lengths.
   - Error handling, and what the user sees when something fails.
+  - **Cancellations and refusals from outside the app:**
+    - the user dismisses a native dialog (passkey prompt, permission, file picker);
+    - the browser or an extension rejects at once, or never answers;
+    - the network or server fails mid-flow.
+
+    For every `await` on something outside the app, check that every outcome (resolve,
+    reject, abort, never settles) brings the UI back to a usable idle state. Check too that
+    notices queued before a sign-in, sign-out or reload can't surface after it. Probe these
+    (Steps 5 and 6, `ui-review` "Cancelled, refused and interrupted flows"), and ask for a test
+    for each that can be simulated.
+
   - Races and ordering, retries and idempotency, time zones.
   - Cleanup of subscriptions, sockets, timers and database handles.
 - **Design conformance:**
