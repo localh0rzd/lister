@@ -106,21 +106,20 @@ gets a full copy of the space on its next sync, so nothing is lost. The backups 
 everything, password hashes included: protect them like the database. Copy the folder off the host if you want a
 backup that survives losing the disk.
 
-To restore a backup (all changes since it are lost): devices that synced after the backup and come back soon get a full
-copy of their spaces, and changes still waiting on them are sent again. A device that stayed offline until its space had
-issued more versions than the backup lost can keep rows of the lost timeline: on such a device, sign out and in again or
-clear the site data. (A `restore-backup` command that avoids this is planned, T-046.)
+To restore a backup, stop the server and run the command on a file from `/data/backups`. It copies the backup over the
+database and moves every space's version past both the backup's and the lost timeline's, so every device fetches a full
+copy of its spaces on its next sync, changes still waiting on a device are sent again, and nothing of the lost timeline
+survives on a device. Changes since the backup and spaces created after it are lost.
 
 ```bash
 docker compose stop lister
-docker compose run --rm --no-deps --entrypoint sh lister -c \
-  'ls /data/backups && rm -f /data/lister.db-wal /data/lister.db-shm && cp /data/backups/lister-2026-11-16T03-00-00Z.db /data/lister.db'
+docker compose run --rm --no-deps lister ls /data/backups
+docker compose run --rm --no-deps lister node main.js restore-backup /data/backups/lister-2026-11-16T03-00-00Z.db
 docker compose start lister
 ```
 
-Pick the file name from the `ls` output (run it once first and adjust). The wal and shm files must go, or SQLite
-would apply the old journal to the restored file. Users whose password or passkeys were created after the backup have to
-be created or reset again (`node main.js reset-password <username>` works on the restored data).
+Pick the file name from the `ls` output. Users whose password or passkeys were created after the backup have to be
+created or reset again (`node main.js reset-password <username>` works on the restored data).
 
 Every response carries `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin`, a Content Security Policy
 (including `frame-ancestors 'none'`) and, when `PUBLIC_URL` is https, `Strict-Transport-Security`. The web build's

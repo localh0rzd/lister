@@ -8,14 +8,24 @@ import {
   RESET_PASSWORD_COMMAND,
   runResetPasswordCommand,
 } from '@lister/api/feature-auth';
+import {
+  RESTORE_BACKUP_COMMAND,
+  runRestoreBackupCommand,
+} from '@lister/api/feature-maintenance';
 import { AppModule } from './app/app.module';
 import { configureApp } from './app/configure-app';
 
-/** `node main.js reset-password <username>`: runs against the same database, then exits. */
+/** `node main.js <command> …` (reset-password, restore-backup): runs against the same database, then exits. */
 async function runCommand(command: string, args: string[]): Promise<number> {
-  if (command !== RESET_PASSWORD_COMMAND) {
+  const run =
+    command === RESET_PASSWORD_COMMAND
+      ? runResetPasswordCommand
+      : command === RESTORE_BACKUP_COMMAND
+        ? runRestoreBackupCommand
+        : undefined;
+  if (!run) {
     console.error(
-      `Unknown command "${command}". Commands: ${RESET_PASSWORD_COMMAND}`,
+      `Unknown command "${command}". Commands: ${RESET_PASSWORD_COMMAND}, ${RESTORE_BACKUP_COMMAND}`,
     );
     return 2;
   }
@@ -23,9 +33,7 @@ async function runCommand(command: string, args: string[]): Promise<number> {
     logger: ['error'],
   });
   try {
-    return await runResetPasswordCommand(context, args, (line) =>
-      console.log(line),
-    );
+    return await run(context, args, (line) => console.log(line));
   } finally {
     await context.close();
   }

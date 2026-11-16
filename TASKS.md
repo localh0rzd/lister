@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-046 — `restore-backup` command
 
 - Milestone: M7 Deployment
@@ -42,6 +40,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 - Notes: found in the T-033 review. Without it a device that was offline at version 140 while the
   restored space (backup at 100, server had reached 150) reaches 160 pulls incrementally and keeps
   the lost timeline's rows 101–140.
+
+## Backlog
 
 ### T-045 — Reset the run-page checkbox when a change doesn't show in the data
 

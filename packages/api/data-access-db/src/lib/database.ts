@@ -26,6 +26,8 @@ export class DatabaseConnection implements OnApplicationShutdown {
   constructor(
     readonly sqlite: BetterSqlite3.Database,
     readonly db: Database,
+    /** What it was opened with: a restore reopens another file the same way. */
+    readonly options?: DatabaseOptions,
   ) {}
 
   /** True when the database answers a trivial query. */
@@ -80,5 +82,5 @@ export function openDatabase(options: DatabaseOptions): DatabaseConnection {
     throw error;
   }
   sqlite.pragma('foreign_keys = ON');
-  return new DatabaseConnection(sqlite, db);
+  return new DatabaseConnection(sqlite, db, options);
 }

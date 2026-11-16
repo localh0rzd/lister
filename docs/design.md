@@ -344,7 +344,11 @@ None of these change the architecture; the table says what goes into v1.
   check. The README shows an example `docker-compose.yml` with Traefik labels.
 - **Backups** with SQLite's online backup (nightly `VACUUM INTO`, after 03:00 UTC, into
   `BACKUP_DIR`, default `backups` beside the database, `/data/backups` in Docker); the last 14 are
-  kept (D15). Restoring is documented in the README.
+  kept (D15). Restoring: `node main.js restore-backup <file>` (server stopped) migrates a copy of the
+  backup, sets every space's `version` and `purged_version` to one above the higher of the backup's
+  and the live database's version, then swaps it in (spaces created after the backup are gone). So
+  versions are never reused and every device pulls a snapshot, even one whose version the space has
+  passed again. Documented in the README.
 - **Purge** (D15, daily, right after the backup, `feature-maintenance`): tombstones and runs
   finished or deleted more than 30 days ago are deleted for good, with the items and includes of
   a purged list and the items of a purged run. A space that lost rows moves one version on, and
