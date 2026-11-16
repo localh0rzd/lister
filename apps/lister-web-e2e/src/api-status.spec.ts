@@ -1,12 +1,12 @@
 import { expect, test } from './support/fixtures';
 
 test('reaches the API through the dev proxy', async ({ page }) => {
-  await page.goto('/space');
+  await page.goto('/settings');
   await expect(page.getByText('API status: ok')).toBeVisible();
 });
 
 test('reaches the sync socket through the dev proxy', async ({ page }) => {
-  await page.goto('/space');
+  await page.goto('/settings');
 
   // A raw engine.io WebSocket handshake: the server answers with an "open" packet ("0{...}").
   const firstPacket = await page.evaluate(

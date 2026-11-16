@@ -1,0 +1,59 @@
+<h1 class="page-title">Settings</h1>
+
+<section aria-labelledby="account-heading">
+  <h2 id="account-heading">Account</h2>
+  <a class="row-link" routerLink="profile">
+    <mat-icon aria-hidden="true">account_circle</mat-icon>
+    <span class="row-text">
+      <span>Profile</span>
+      <span class="row-hint"
+        >{{ session.user()?.displayName }} · name, password, passkeys</span
+      >
+    </span>
+    <mat-icon aria-hidden="true">chevron_right</mat-icon>
+  </a>
+  @if (session.isAdmin()) {
+    <a class="row-link" routerLink="users">
+      <mat-icon aria-hidden="true">admin_panel_settings</mat-icon>
+      <span class="row-text">
+        <span>Users</span>
+        <span class="row-hint">Add, edit and remove accounts</span>
+      </span>
+      <mat-icon aria-hidden="true">chevron_right</mat-icon>
+    </a>
+  }
+</section>
+
+<section aria-labelledby="appearance-heading">
+  <h2 id="appearance-heading">Appearance</h2>
+  <lister-theme-picker
+    [value]="theme.preference()"
+    (valueChange)="theme.setPreference($event)"
+  />
+</section>
+
+<section aria-labelledby="sync-heading">
+  <lister-sync-section />
+</section>
+
+<section aria-labelledby="app-heading">
+  <lister-app-section />
+</section>
+
+<section aria-labelledby="about-heading">
+  <h2 id="about-heading">About</h2>
+  <p>
+    API status:
+    @if (health.isLoading()) {
+      <span>checking…</span>
+    } @else if (health.error()) {
+      <span class="down">unreachable</span>
+    } @else if (health.hasValue()) {
+      <span class="ok">{{ health.value().status }}</span>
+    }
+  </p>
+</section>
+
+<section aria-labelledby="signout-heading">
+  <lister-sign-out-section />
+</section>

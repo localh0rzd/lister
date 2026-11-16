@@ -94,8 +94,8 @@ describe('guards', () => {
   describe('adminGuard', () => {
     it.each([
       [user({ isAdmin: true }), true],
-      [user(), '/space'],
-      [null, '/space'],
+      [user(), '/settings'],
+      [null, '/settings'],
     ])('for %j answers %j', async (known, expected) => {
       setup(known);
       expect(where(await run(adminGuard as CanActivateFn))).toBe(expected);

@@ -1,6 +1,6 @@
 <a class="back" routerLink="..">
   <mat-icon aria-hidden="true">arrow_back</mat-icon>
-  Space
+  Settings
 </a>
 <h1 tabindex="-1">Profile</h1>
 
@@ -48,18 +48,4 @@
 <section aria-labelledby="passkeys-heading">
   <h2 id="passkeys-heading">Passkeys</h2>
   <lister-passkeys-section />
-</section>
-
-<section aria-labelledby="signout-heading">
-  <h2 id="signout-heading">Sign out</h2>
-  <p class="hint">
-    Signing out removes your lists and runs from this device. They stay on the
-    server.
-  </p>
-  @if (signOutError()) {
-    <p class="error" role="alert">{{ signOutError() }}</p>
-  }
-  <button matButton="outlined" type="button" (click)="signOut()">
-    Sign out
-  </button>
 </section>

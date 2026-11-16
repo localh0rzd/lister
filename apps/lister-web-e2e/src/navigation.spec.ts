@@ -1,6 +1,6 @@
 import { expect, test } from './support/fixtures';
 
-const destinations = ['Lists', 'Runs', 'Space'] as const;
+const destinations = ['Lists', 'Runs', 'Space', 'Settings'] as const;
 
 test.describe('navigation on a phone (375 px)', () => {
   test.use({ viewport: { width: 375, height: 812 } });
@@ -39,6 +39,44 @@ test.describe('navigation on a phone (375 px)', () => {
       await page.keyboard.press('Enter');
       await expect(page).toHaveURL('/runs');
     });
+  });
+});
+
+test.describe('navigation on the narrowest phone (320 px)', () => {
+  test.use({ viewport: { width: 320, height: 640 } });
+
+  test('fits all four destinations without truncating their names', async ({
+    page,
+  }) => {
+    await page.goto('/settings/profile');
+    const nav = page.locator('lister-navigation-bar').getByRole('navigation', {
+      name: 'Main',
+    });
+    await expect(nav.getByRole('link', { name: 'Settings' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+
+    const labels = await nav.locator('.label').evaluateAll((els) =>
+      els.map((el) => ({
+        text: el.textContent?.trim(),
+        clipped: el.scrollWidth > el.clientWidth,
+      })),
+    );
+    expect(labels.map((l) => l.text)).toEqual(destinations);
+    expect(labels.every((l) => !l.clipped)).toBe(true);
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth > window.innerWidth,
+    );
+    expect(overflow).toBe(false);
+  });
+
+  test('the old profile address redirects to Settings', async ({ page }) => {
+    await page.goto('/space/profile');
+    await expect(page).toHaveURL(/\/settings\/profile$/);
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Profile' }),
+    ).toBeVisible();
   });
 });
 

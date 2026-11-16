@@ -59,7 +59,7 @@ for (const [name, viewport] of layouts) {
       });
 
       await test.step('the profile', async () => {
-        await page.goto('/space');
+        await page.goto('/settings');
         await page.getByRole('link', { name: /Profile/ }).click();
         await expect(
           page.getByRole('heading', { level: 1, name: 'Profile' }),
@@ -88,6 +88,10 @@ for (const [name, viewport] of layouts) {
       });
 
       await test.step('signing out leads back to sign-in and ends the session', async () => {
+        await page
+          .getByRole('navigation', { name: 'Main' })
+          .getByRole('link', { name: 'Settings' })
+          .click();
         await page.getByRole('button', { name: 'Sign out' }).click();
         await expect(page).toHaveURL(/\/sign-in$/);
         await page.goto('/lists');

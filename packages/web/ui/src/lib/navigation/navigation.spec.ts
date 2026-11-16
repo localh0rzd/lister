@@ -13,6 +13,7 @@ const destinations: NavDestination[] = [
   { path: '/lists', label: 'Lists', icon: 'checklist' },
   { path: '/runs', label: 'Runs', icon: 'playlist_add_check' },
   { path: '/space', label: 'Space', icon: 'group' },
+  { path: '/settings', label: 'Settings', icon: 'settings' },
 ];
 
 describe.each([
@@ -22,9 +23,13 @@ describe.each([
   async function setup(url: string) {
     TestBed.configureTestingModule({
       providers: [
-        provideRouter(
-          destinations.map((d) => ({ path: d.path.slice(1), component: Page })),
-        ),
+        provideRouter([
+          ...destinations.map((d) => ({
+            path: d.path.slice(1),
+            component: Page,
+          })),
+          { path: 'settings/profile', component: Page },
+        ]),
       ],
     });
     const harness = await RouterTestingHarness.create(url);
@@ -44,11 +49,12 @@ describe.each([
     );
     expect(
       links().map((a) => a.querySelector('.label')?.textContent?.trim()),
-    ).toEqual(['Lists', 'Runs', 'Space']);
+    ).toEqual(['Lists', 'Runs', 'Space', 'Settings']);
     expect(links().map((a) => a.getAttribute('href'))).toEqual([
       '/lists',
       '/runs',
       '/space',
+      '/settings',
     ]);
   });
 
@@ -58,12 +64,28 @@ describe.each([
       'page',
       null,
       null,
+      null,
     ]);
 
     await harness.navigateByUrl('/space');
     await fixture.whenStable();
 
     expect(links().map((a) => a.getAttribute('aria-current'))).toEqual([
+      null,
+      null,
+      'page',
+      null,
+    ]);
+  });
+
+  it('keeps Settings active on pages under /settings', async () => {
+    const { harness, fixture, links } = await setup('/lists');
+
+    await harness.navigateByUrl('/settings/profile');
+    await fixture.whenStable();
+
+    expect(links().map((a) => a.getAttribute('aria-current'))).toEqual([
+      null,
       null,
       null,
       'page',

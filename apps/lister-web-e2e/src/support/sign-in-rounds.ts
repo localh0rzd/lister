@@ -27,8 +27,10 @@ export async function signInRounds(browser: Browser) {
       await synced(page);
     });
     await test.step(`round ${round}: sign out, sign-in page, no session`, async () => {
-      await page.getByRole('link', { name: 'Space' }).click();
-      await page.getByRole('link', { name: /Profile/ }).click();
+      await page
+        .getByRole('navigation', { name: 'Main' })
+        .getByRole('link', { name: 'Settings' })
+        .click();
       await page.getByRole('button', { name: 'Sign out' }).click();
       await expect(page).toHaveURL(/\/sign-in$/);
       const me = await page.request.get('/api/auth/me');

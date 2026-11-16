@@ -48,5 +48,5 @@ export const guestGuard: CanActivateFn = async () => {
 export const adminGuard: CanActivateChildFn = async () => {
   const router = inject(Router);
   const user = await inject(AuthSession).ensure();
-  return user?.isAdmin ? true : router.createUrlTree(['/space']);
+  return user?.isAdmin ? true : router.createUrlTree(['/settings']);
 };

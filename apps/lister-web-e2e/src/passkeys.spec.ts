@@ -81,7 +81,7 @@ function storedSyncStatus(page: Page) {
 }
 
 async function openProfile(page: Page) {
-  await page.goto('/space');
+  await page.goto('/settings');
   await page.getByRole('link', { name: /Profile/ }).click();
   await expect(page.getByLabel('Passkey name')).toBeVisible();
 }
@@ -111,7 +111,7 @@ for (const [name, viewport] of layouts) {
       });
 
       await test.step('the profile has no passkeys yet', async () => {
-        await page.goto('/space');
+        await page.goto('/settings');
         await page.getByRole('link', { name: /Profile/ }).click();
         await expect(page.getByText('You have no passkeys yet')).toBeVisible();
         await expectAccessible(page);
@@ -136,6 +136,10 @@ for (const [name, viewport] of layouts) {
       });
 
       await test.step('sign out', async () => {
+        await page
+          .getByRole('navigation', { name: 'Main' })
+          .getByRole('link', { name: 'Settings' })
+          .click();
         await page.getByRole('button', { name: 'Sign out' }).click();
         await expect(page).toHaveURL(/\/sign-in$/);
       });
@@ -155,7 +159,7 @@ for (const [name, viewport] of layouts) {
       });
 
       await test.step('the passkey shows when it was last used, and can be removed', async () => {
-        await page.goto('/space');
+        await page.goto('/settings');
         await page.getByRole('link', { name: /Profile/ }).click();
         const list = page.getByRole('list', { name: 'Your passkeys' });
         await expect(list).toContainText('Last used');
@@ -362,7 +366,10 @@ for (const [name, viewport] of layouts) {
       await page.getByLabel('Username').fill(account.username);
       await page.getByLabel('Password').fill(account.password);
       await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-      await page.getByRole('link', { name: 'Space' }).click();
+      await page
+        .getByRole('navigation', { name: 'Main' })
+        .getByRole('link', { name: 'Settings' })
+        .click();
       await expect(page.locator('lister-sync-section')).toBeVisible();
       await lockHolder.evaluate(() =>
         (

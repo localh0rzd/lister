@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-050 — Settings destination with sign-out
 
 - Milestone: M8 Editing conveniences
@@ -49,6 +47,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   (`packages/web/feature-settings`, `scope:web,type:feature`, add it to design §5 and the
   CLAUDE.md layout); move the sync, app and about sections out of `feature-space` rather than
   duplicating them. Run `subset-icons` for the `settings` icon.
+
+## Backlog
 
 ### T-051 — Loading spinners instead of jumping Space sections
 

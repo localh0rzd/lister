@@ -292,7 +292,7 @@ Consequences:
 - **Install:** install prompt on Chromium; on iOS, a short "Share → Add to Home Screen" hint, since
   there's no install API there. `InstallPrompt` (`util-pwa`) keeps Chromium's `beforeinstallprompt`
   event (`providePwa()` keeps one that fires before the service's chunk has loaded), and the
-  Space page's **App** section offers "Install app", which opens it. On iOS Safari
+  Settings page's **App** section offers "Install app", which opens it. On iOS Safari
   (not other iOS browsers) a one-time snackbar explains the steps (flag in `localStorage`), and
   the App section keeps the same text. Nothing is offered when the app already runs standalone.
 - **Persistent storage:** "first real use" means signed in with the first sync finished
@@ -617,7 +617,7 @@ relational in SQLite, and implements exactly the rules in §2.4.
 - **Local database:** Dexie 4 on IndexedDB. Dexie `liveQuery` results become Angular signals, and
   changes from other tabs arrive automatically.
 - **Sync engine:** a root service using `socket.io-client`. It exposes signals for `online`,
-  `syncing`, `pendingCount`, `lastSyncedAt`, `errors` (refused changes not yet shown) and `errorLog` (the last 20, kept after they were shown), `updateRequired` (starts the service worker update flow via `AppUpdates`) and a `syncNow()` action (any tab can ask; the leader pulls and pushes, or reconnects at once). The Space page shows them.
+  `syncing`, `pendingCount`, `lastSyncedAt`, `errors` (refused changes not yet shown) and `errorLog` (the last 20, kept after they were shown), `updateRequired` (starts the service worker update flow via `AppUpdates`) and a `syncNow()` action (any tab can ask; the leader pulls and pushes, or reconnects at once). The Settings page shows them.
 - **Ids and order:** UUIDv7 via `uuid`; fractional positions via `fractional-indexing`.
 - **Passkeys:** `@simplewebauthn/browser` 14.
 - **PWA:** `@angular/service-worker` (added with `@angular/pwa`), plus `navigator.storage.persist()`.
@@ -651,7 +651,8 @@ packages/
     feature-runs           runs: start, ad-hoc, check/skip, progress, finishing         scope:web type:feature
     feature-auth           sign-in, first-run setup, profile with passkeys              scope:web type:feature
     feature-admin          user administration (admins only)                            scope:web type:feature
-    feature-space          space switcher, spaces and members, sync status              scope:web type:feature
+    feature-space          space switcher, spaces and members, Trash                    scope:web type:feature
+    feature-settings       Settings: account links, appearance, sync status, app, about, sign out  scope:web type:feature
     ui                     nav bar/rail, item row, section header, sync status, dialogs scope:web type:ui
     util-pwa               SW updates, install hint, storage persistence, online signal scope:web type:util
     util-notify            Notifier: the snackbar queue (Undo, rejections, prompts)     scope:web type:util

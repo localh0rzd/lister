@@ -42,8 +42,10 @@ test.describe('a session that ends', () => {
 
     await test.step('signing out warns about the change that is not synced', async () => {
       // In the app, not by address: a new page load would ask the server and find no session.
-      await page.getByRole('link', { name: 'Space' }).click();
-      await page.getByRole('link', { name: /Profile/ }).click();
+      await page
+        .getByRole('navigation', { name: 'Main' })
+        .getByRole('link', { name: 'Settings' })
+        .click();
       await page.getByRole('button', { name: 'Sign out' }).click();
       const dialog = page.getByRole('dialog', {
         name: 'Sign out without syncing?',
@@ -58,7 +60,7 @@ test.describe('a session that ends', () => {
         .getByRole('link', { name: /Sign in/ })
         .click();
       // The user comes back to the page they were on.
-      await expect(page).toHaveURL(/\/sign-in\?returnUrl=%2Fspace%2Fprofile$/);
+      await expect(page).toHaveURL(/\/sign-in\?returnUrl=%2Fsettings$/);
       await page.getByLabel('Username').fill(account.username);
       await page.getByLabel('Password').fill(account.password);
       // The notice that asked for sign-in is still up beside the form's button.
@@ -66,14 +68,14 @@ test.describe('a session that ends', () => {
         .getByRole('main')
         .getByRole('button', { name: 'Sign in', exact: true })
         .click();
-      await expect(page).toHaveURL(/\/space\/profile$/);
+      await expect(page).toHaveURL(/\/settings$/);
       await synced(page);
       await page.getByRole('link', { name: 'Lists' }).click();
       await expect(page.getByRole('link', { name: title })).toBeVisible();
     });
 
     await test.step('signing out then clears this device', async () => {
-      await page.goto('/space/profile');
+      await page.goto('/settings');
       await page.getByRole('button', { name: 'Sign out' }).click();
       await expect(page).toHaveURL(/\/sign-in$/);
       // Everything the device held of the user is gone: every store is empty (or the

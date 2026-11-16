@@ -11,7 +11,7 @@ for (const [name, viewport] of [
   ['phone', { width: 375, height: 812 }],
   ['desktop', { width: 1280, height: 800 }],
 ] as const) {
-  test.describe(`sync status on the Space page (${name})`, () => {
+  test.describe(`sync status on the Settings page (${name})`, () => {
     test.use({ viewport });
 
     test('shows offline and the unsynced changes, then "Sync now" catches up', async ({
@@ -39,7 +39,7 @@ for (const [name, viewport] of [
       const main = page.getByRole('navigation', { name: 'Main' });
       await context.setOffline(true);
       await addItem(page, 'Stove');
-      await main.getByRole('link', { name: 'Space' }).click();
+      await main.getByRole('link', { name: 'Settings' }).click();
       const sync = page.locator('lister-sync-section');
       await expect(sync).toContainText('Offline');
       await expect(sync).toContainText('1 change not synced');

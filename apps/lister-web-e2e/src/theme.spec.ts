@@ -21,7 +21,7 @@ test.describe('theme', () => {
       expectAccessible,
     }) => {
       await page.emulateMedia({ colorScheme: scheme });
-      await page.goto('/space');
+      await page.goto('/settings');
 
       await expect(page.getByRole('radio', { name: 'System' })).toBeChecked();
       await expect.poll(() => bodyBackground(page)).toBe(surface[scheme].rgb);
@@ -35,7 +35,7 @@ test.describe('theme', () => {
 
   test('remembers a manual choice on the device', async ({ page }) => {
     await page.emulateMedia({ colorScheme: 'light' });
-    await page.goto('/space');
+    await page.goto('/settings');
 
     await page.getByRole('radio', { name: 'Dark' }).click();
     await expect.poll(() => bodyBackground(page)).toBe(surface.dark.rgb);
@@ -60,7 +60,7 @@ test.describe('theme', () => {
         external.push(request.url());
     });
 
-    await page.goto('/space');
+    await page.goto('/settings');
     await expect(page.getByText('dark_mode')).toBeVisible();
     const loadedFonts = await page.evaluate(async () => {
       await document.fonts.ready;

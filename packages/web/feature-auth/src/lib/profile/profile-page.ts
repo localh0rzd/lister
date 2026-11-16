@@ -8,20 +8,17 @@ import {
   submit,
 } from '@angular/forms/signals';
 import { MatButton } from '@angular/material/button';
-import { MatDialog } from '@angular/material/dialog';
 import { MatError, MatFormField, MatLabel } from '@angular/material/form-field';
 import { MatIcon } from '@angular/material/icon';
 import { MatInput } from '@angular/material/input';
 import { RouterLink } from '@angular/router';
 import { AUTH_LIMITS } from '@lister/shared/api-contracts';
 import { AuthSession, describeAuthError } from '@lister/web/data-access-auth';
-import { SyncEngine } from '@lister/web/data-access-sync';
 import { NOTICE_DURATION_MS, Notifier } from '@lister/web/util-notify';
-import { ConfirmDialog, type ConfirmDialogData } from '@lister/web/ui';
 import { PasswordForm } from '../password/password-form';
 import { PasskeysSection } from '../passkeys/passkeys-section';
 
-/** The signed-in user's profile: display name, password, and signing out. */
+/** The signed-in user's profile: display name, password and passkeys. */
 @Component({
   selector: 'lister-profile-page',
   imports: [
@@ -41,8 +38,6 @@ import { PasskeysSection } from '../passkeys/passkeys-section';
 })
 export class ProfilePage {
   private readonly session = inject(AuthSession);
-  private readonly sync = inject(SyncEngine);
-  private readonly dialog = inject(MatDialog);
   private readonly notifier = inject(Notifier);
 
   protected readonly user = this.session.user;
@@ -60,7 +55,6 @@ export class ProfilePage {
   });
   protected readonly busy = signal(false);
   protected readonly error = signal('');
-  protected readonly signOutError = signal('');
   protected readonly unchanged = computed(
     () => this.model().displayName.trim() === this.user()?.displayName,
   );
@@ -101,33 +95,5 @@ export class ProfilePage {
       message: 'Password changed',
       duration: NOTICE_DURATION_MS,
     });
-  }
-
-  /** Warns when changes are still waiting to sync: signing out wipes this device's copy. */
-  protected async signOut(): Promise<void> {
-    this.signOutError.set('');
-    const pending = this.sync.pendingCount();
-    if (pending > 0) {
-      const confirmed = await new Promise<boolean>((resolve) => {
-        this.dialog
-          .open<ConfirmDialog, ConfirmDialogData, true>(ConfirmDialog, {
-            data: {
-              heading: 'Sign out without syncing?',
-              message: `${pending === 1 ? '1 change has' : `${pending} changes have`} not reached the server yet. Signing out deletes them from this device, and they are lost.`,
-              confirm: 'Sign out anyway',
-            },
-          })
-          .afterClosed()
-          .subscribe((result) => resolve(result === true));
-      });
-      if (!confirmed) return;
-    }
-    try {
-      await this.session.signOut();
-    } catch (error) {
-      this.signOutError.set(
-        describeAuthError(error, 'Signing out failed. Try again.'),
-      );
-    }
   }
 }

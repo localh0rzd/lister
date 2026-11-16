@@ -19,6 +19,7 @@ function setup(wide: boolean, canActivate: (() => Promise<boolean>)[] = []) {
         { path: 'lists', component: Page, canActivate },
         { path: 'runs', component: Page },
         { path: 'space', component: Page },
+        { path: 'settings', component: Page },
         { path: 'sign-in', component: Page },
         { path: 'change-password', component: Page },
       ]),
@@ -74,14 +75,14 @@ describe('App shell', () => {
     expect(main.scrollTop).toBe(0);
   });
 
-  it('offers Lists, Runs and Space', async () => {
+  it('offers Lists, Runs, Space and Settings', async () => {
     setup(true);
     const el = await render();
 
     const labels = [...el.querySelectorAll('nav a .label')].map((l) =>
       l.textContent?.trim(),
     );
-    expect(labels).toEqual(['Lists', 'Runs', 'Space']);
+    expect(labels).toEqual(['Lists', 'Runs', 'Space', 'Settings']);
     expect(el.querySelector('main')).not.toBeNull();
   });
 

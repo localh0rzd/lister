@@ -1,0 +1,9 @@
+<h2 id="signout-heading">Sign out</h2>
+<p class="hint">
+  Signing out removes your lists and runs from this device. They stay on the
+  server.
+</p>
+@if (error()) {
+  <p class="error" role="alert">{{ error() }}</p>
+}
+<button matButton="outlined" type="button" (click)="signOut()">Sign out</button>

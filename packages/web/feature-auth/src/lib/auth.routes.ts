@@ -38,7 +38,7 @@ export const changePasswordRoutes: Routes = [
   },
 ];
 
-/** The signed-in user's profile, mounted under Space. */
+/** The signed-in user's profile, mounted under Settings. */
 export const profileRoutes: Routes = [
   {
     path: '',

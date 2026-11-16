@@ -226,10 +226,10 @@ test.describe('a loop made on two devices', () => {
     await expect(section(a, y)).toBeHidden();
     await synced(a);
 
-    // The Space page keeps the refusal, naming the change.
+    // The Settings page keeps the refusal, naming the change.
     await a
       .getByRole('navigation', { name: 'Main' })
-      .getByRole('link', { name: 'Space' })
+      .getByRole('link', { name: 'Settings' })
       .click();
     const errors = a.locator('lister-sync-section details');
     await errors.getByText('Sync errors (1)').click();

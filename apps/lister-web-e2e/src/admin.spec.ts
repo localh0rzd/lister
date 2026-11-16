@@ -31,8 +31,8 @@ for (const [name, viewport] of layouts) {
         await page.getByRole('menuitem', { name: action }).click();
       };
 
-      await test.step('the Users page is reachable from Space', async () => {
-        await page.goto('/space');
+      await test.step('the Users page is reachable from Settings', async () => {
+        await page.goto('/settings');
         await page.getByRole('link', { name: /Users/ }).click();
         await expect(
           page.getByRole('heading', { level: 1, name: 'Users' }),
@@ -142,11 +142,11 @@ for (const [name, viewport] of layouts) {
       const page = await signedOutPage(browser);
       await signInThroughTheUi(page, account);
 
-      await page.goto('/space');
+      await page.goto('/settings');
       await expect(page.getByRole('link', { name: /Profile/ })).toBeVisible();
       await expect(page.getByRole('link', { name: /Users/ })).toHaveCount(0);
-      await page.goto('/space/users');
-      await expect(page).toHaveURL(/\/space$/);
+      await page.goto('/settings/users');
+      await expect(page).toHaveURL(/\/settings$/);
       await page.context().close();
     });
   });

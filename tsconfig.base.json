@@ -55,6 +55,9 @@
       ],
       "@lister/api/feature-maintenance": [
         "./packages/api/feature-maintenance/src/index.ts"
+      ],
+      "@lister/web/feature-settings": [
+        "./packages/web/feature-settings/src/index.ts"
       ]
     }
   },

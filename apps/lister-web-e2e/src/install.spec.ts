@@ -8,7 +8,7 @@ test.describe('install and persistent storage', () => {
     page,
     expectAccessible,
   }) => {
-    await page.goto('/space');
+    await page.goto('/settings');
     await expect(page.getByText('Persistent storage')).toBeVisible();
     await expect(page.getByText('Install app')).toBeHidden();
 
@@ -42,7 +42,7 @@ test.describe('install and persistent storage', () => {
   test('asks the browser to keep the data after the first sync and shows the answer', async ({
     page,
   }) => {
-    await page.goto('/space');
+    await page.goto('/settings');
     // Whether Chromium grants it is up to the browser; the page shows the answer either way.
     await expect(page.getByText(/^(Granted|Not granted)/)).toBeVisible();
   });
@@ -50,7 +50,7 @@ test.describe('install and persistent storage', () => {
   test.describe('iOS Safari', () => {
     test.use({ userAgent: IPHONE, viewport: { width: 390, height: 844 } });
 
-    test('explains Share → Add to Home Screen once, and on the Space page', async ({
+    test('explains Share → Add to Home Screen once, and on the Settings page', async ({
       page,
     }) => {
       await page.goto('/lists');
@@ -63,7 +63,7 @@ test.describe('install and persistent storage', () => {
 
       // After the reload the first sync is already stored, so FirstUse runs again at once (the
       // persistence answer shows it did); the hint stays hidden because it was shown once.
-      await page.goto('/space');
+      await page.goto('/settings');
       await expect(page.getByText(/^(Granted|Not granted)/)).toBeVisible();
       await expect(hint).toBeHidden();
       await expect(
