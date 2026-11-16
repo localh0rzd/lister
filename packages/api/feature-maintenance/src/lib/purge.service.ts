@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { eq, inArray, lt, or, sql } from 'drizzle-orm';
 import { DatabaseConnection, schema } from '@lister/api/data-access-db';
+import { TRASH_KEEP_DAYS, TRASH_KEEP_MS } from '@lister/shared/domain';
 
 const { appMeta, includes, items, lists, runItems, runs, spaces } = schema;
 
-/** Tombstones and finished runs are kept this long (D15). */
-export const PURGE_AFTER_DAYS = 30;
-const DAY = 24 * 60 * 60 * 1000;
+/** Tombstones and finished runs are kept this long (D15), as long as the Trash offers them. */
+export const PURGE_AFTER_DAYS = TRASH_KEEP_DAYS;
 const LAST_PURGE_KEY = 'purge.lastDay';
 
 /**
@@ -25,7 +25,7 @@ export class PurgeService {
 
   /** Purges everything older than 30 days as of `now`. Returns how many rows were removed. */
   purge(now: number): number {
-    const cutoff = now - PURGE_AFTER_DAYS * DAY;
+    const cutoff = now - TRASH_KEEP_MS;
     return this.database.db.transaction((tx) => {
       const purgedSpaces = new Set<string>();
       const note = (rows: { spaceId: string }[]) => {

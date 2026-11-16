@@ -23,6 +23,7 @@ export class MaintenanceScheduler
 {
   private readonly logger = new Logger(MaintenanceScheduler.name);
   private timer?: NodeJS.Timeout;
+  private startup?: NodeJS.Timeout;
 
   constructor(
     private readonly database: DatabaseConnection,
@@ -35,15 +36,26 @@ export class MaintenanceScheduler
     this.timer = setInterval(() => this.runDue(Date.now()), CHECK_EVERY_MS);
     this.timer.unref();
     // Soon after startup, not during it.
-    setTimeout(() => this.runDue(Date.now()), 30_000).unref();
+    this.startup = setTimeout(() => this.runDue(Date.now()), 30_000);
+    this.startup.unref();
   }
 
   onApplicationShutdown(): void {
     clearInterval(this.timer);
+    clearTimeout(this.startup);
   }
 
   /** Runs whichever of the backup and the purge is due at `now`. Never throws. */
   runDue(now: number): void {
+    try {
+      this.runDueUnchecked(now);
+    } catch (error) {
+      // A throw out of a timer would end the process.
+      this.logger.error('Maintenance check failed', error);
+    }
+  }
+
+  private runDueUnchecked(now: number): void {
     if (new Date(now).getUTCHours() < MAINTENANCE_HOUR_UTC) return;
     // The backup goes first, so it still holds what the purge removes.
     if (this.backups.isDue(now)) {

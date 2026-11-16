@@ -23,21 +23,25 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-033 — Backups and purge
+## Backlog
+
+### T-046 — `restore-backup` command
 
 - Milestone: M7 Deployment
 - Area: api
 - Priority: normal
-- Depends on: T-017, T-032
+- Depends on: T-033
 - Done when:
-  - Nightly backups with `VACUUM INTO` go to `/data/backups`; the last 14 are kept (D15).
-  - Tombstones and finished runs older than 30 days (D15) are purged daily, and each space
-    remembers its purge point.
-  - A client whose last version is older than the purge point gets a full snapshot on pull
-    (integration test).
-  - Restoring from a backup is documented.
-
-## Backlog
+  - `node main.js restore-backup <file>` (like `reset-password`) copies a backup over the database
+    and sets every space's `version` and `purged_version` above both the backup's and what the
+    server had issued before the restore, so every device pulls a snapshot and versions are never
+    reused.
+  - Spaces created after the backup are gone; a test covers the command with a backup older than
+    the live database, and a device whose version passed the backup's again still converges.
+  - The README restore section uses the command and no longer needs the sign-out workaround.
+- Notes: found in the T-033 review. Without it a device that was offline at version 140 while the
+  restored space (backup at 100, server had reached 150) reaches 160 pulls incrementally and keeps
+  the lost timeline's rows 101–140.
 
 ### T-045 — Reset the run-page checkbox when a change doesn't show in the data
 
@@ -135,6 +139,22 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
 
 ## Done
+
+### T-033 — Backups and purge
+
+- Completed: 2026-11-16 — new `api-feature-maintenance` library: nightly `VACUUM INTO` backups (newest 14 kept) and a daily purge of tombstones and finished runs; `spaces.purged_version` makes older clients (and, after a purge, every client of the space) pull a snapshot; README documents restoring
+- Review: Changes requested; 7 fixed (2 substantive, 5 trivial), 1 skipped (T-046), 0 disagreed; re-review rounds: 1
+- Milestone: M7 Deployment
+- Area: api
+- Priority: normal
+- Depends on: T-017, T-032
+- Done when:
+  - Nightly backups with `VACUUM INTO` go to `/data/backups`; the last 14 are kept (D15).
+  - Tombstones and finished runs older than 30 days (D15) are purged daily, and each space
+    remembers its purge point.
+  - A client whose last version is older than the purge point gets a full snapshot on pull
+    (integration test).
+  - Restoring from a backup is documented.
 
 ### T-032 — Docker image for running behind Traefik
 

@@ -106,12 +106,14 @@ gets a full copy of the space on its next sync, so nothing is lost. The backups 
 everything, password hashes included: protect them like the database. Copy the folder off the host if you want a
 backup that survives losing the disk.
 
-To restore a backup (all changes since it are lost; devices catch up by themselves, and changes still waiting on a
-device are sent again):
+To restore a backup (all changes since it are lost): devices that synced after the backup and come back soon get a full
+copy of their spaces, and changes still waiting on them are sent again. A device that stayed offline until its space had
+issued more versions than the backup lost can keep rows of the lost timeline: on such a device, sign out and in again or
+clear the site data. (A `restore-backup` command that avoids this is planned, T-046.)
 
 ```bash
 docker compose stop lister
-docker compose run --rm --no-deps -v lister-data:/data --entrypoint sh lister -c \
+docker compose run --rm --no-deps --entrypoint sh lister -c \
   'ls /data/backups && rm -f /data/lister.db-wal /data/lister.db-shm && cp /data/backups/lister-2026-11-16T03-00-00Z.db /data/lister.db'
 docker compose start lister
 ```
