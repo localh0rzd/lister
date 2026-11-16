@@ -97,7 +97,7 @@ export function shellIsCached(page: Page) {
     }
     return (
       ['/index.html', '/manifest.webmanifest'].every((url) => urls.has(url)) &&
-      [...urls].some((url) => url.includes('material-symbols-outlined'))
+      [...urls].some((url) => url.includes('material-symbols-subset'))
     );
   });
 }

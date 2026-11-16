@@ -7,10 +7,14 @@
 //   src/index.ts (no aliases into a library's internals).
 // - Every project is linted; Angular projects include the shared Angular best-practice rules, and
 //   shared projects the platform rules (no Node built-ins, no browser globals).
+// - Every icon the web code uses is in the subset icon font (apps/lister-web/src/fonts), which
+//   `npx nx run lister-web:subset-icons` regenerates.
 // - Web libraries declare `"sideEffects": false`, so unused barrel exports don't reach a bundle.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import devkit from '@nx/devkit';
+import { isLigature, openFont } from './material-symbols/font.mjs';
+import { findUsedIcons } from './material-symbols/used-icons.mjs';
 
 const { createProjectGraphAsync, workspaceRoot } = devkit;
 
@@ -102,6 +106,22 @@ for (const alias of Object.keys(paths)) {
       `tsconfig.base.json: "${alias}" is not a library's public entry point (@lister/<scope>/<name>)`,
     );
   }
+}
+
+const iconFontDirectory = join(workspaceRoot, 'apps/lister-web/src/fonts');
+const { icons: subsetIcons } = JSON.parse(
+  readFileSync(join(iconFontDirectory, 'material-symbols-subset.json'), 'utf8'),
+);
+const { font: iconFont } = await openFont(
+  readFileSync(join(iconFontDirectory, 'material-symbols-subset.woff2')),
+);
+const missingIcons = findUsedIcons(workspaceRoot).filter(
+  (name) => !subsetIcons.includes(name) || !isLigature(iconFont, name),
+);
+if (missingIcons.length > 0) {
+  problems.push(
+    `icon font: the subset lacks ${missingIcons.join(', ')}; run \`npx nx run lister-web:subset-icons\` and commit the result`,
+  );
 }
 
 if (problems.length > 0) {

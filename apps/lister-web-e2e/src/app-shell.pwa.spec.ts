@@ -14,7 +14,7 @@ function shellIsCached(page: Page) {
     }
     return (
       wanted.every((url) => urls.has(url)) &&
-      [...urls].some((url) => url.includes('material-symbols-outlined'))
+      [...urls].some((url) => url.includes('material-symbols-subset'))
     );
   });
 }

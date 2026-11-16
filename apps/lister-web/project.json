@@ -6,6 +6,13 @@
   "sourceRoot": "apps/lister-web/src",
   "tags": ["scope:web", "type:app"],
   "targets": {
+    "subset-icons": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node tools/subset-material-symbols.mjs",
+        "cwd": "{workspaceRoot}"
+      }
+    },
     "build": {
       "executor": "@angular/build:application",
       "outputs": ["{options.outputPath}"],
@@ -23,7 +30,7 @@
         ],
         "styles": [
           "node_modules/@fontsource-variable/roboto/index.css",
-          "node_modules/material-symbols/outlined.css",
+          "apps/lister-web/src/material-symbols.css",
           "apps/lister-web/src/styles.scss"
         ]
       },

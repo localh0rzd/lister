@@ -303,7 +303,10 @@ Consequences:
   deep teal seed colour `#00796B` (D11) with Angular Material's `theme-color` schematic.
 - **Self-host fonts and icons** (Roboto, Material Symbols, from npm). Material's `ng-add` loads them
   from Google Fonts, which breaks offline use and sends visitors' IPs to Google (a GDPR concern
-  in the EU).
+  in the EU). The icon font is cut down to the icons in use (about 5 kB instead of 4 MB) by
+  `npx nx run lister-web:subset-icons`; `npm run lint:workspace` fails when the code uses an icon
+  the subset lacks. Icons are written as `<mat-icon>name</mat-icon>` (or quoted names inside its
+  interpolation) or as `icon: 'name'` in TypeScript, so the scanner finds them.
 - **Snackbar with Undo** after deletes and after a run finishes; progress bar for packing progress.
   Snackbars go through one queue (`Notifier`): a newer notice cuts the current one short after
   1.5 s, so none is lost and the latest Undo comes quickly.

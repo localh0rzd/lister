@@ -13,7 +13,7 @@
           "/*.css",
           "/*.js",
           "/icons/**",
-          "/media/material-symbols-outlined*.woff2",
+          "/media/material-symbols-subset*.woff2",
           "/media/roboto-latin-wght-normal*.woff2"
         ]
       }
