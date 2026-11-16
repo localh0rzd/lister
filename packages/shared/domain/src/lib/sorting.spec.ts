@@ -94,6 +94,33 @@ describe('sortByTitle', () => {
     ]);
   });
 
+  it.each([
+    ['start', 0, 'aaa', ['<aaa>', 'x', 'y', 'z']],
+    ['middle', 1, 'id-y0', ['x', 'y', '<id-y0>', 'z']],
+    ['end', 2, 'zzz', ['x', 'y', 'z', '<zzz>']],
+  ])(
+    'keeps an include that shares its key with an item at the %s of the list in place',
+    (_where, slot, includeId, expected) => {
+      const keys = positionsFromStart(3);
+      const list = [
+        { id: 'id-z', title: 'z', position: keys[0] },
+        { id: 'id-y', title: 'y', position: keys[1] },
+        { id: 'id-x', title: 'x', position: keys[2] },
+      ];
+      const include = { id: includeId, position: keys[slot] };
+      const changes = sortByTitle(list, [include]);
+      expect(apply(list, changes, [include])).toEqual(expected);
+      expect(changes.some((c) => c.id === includeId)).toBe(false);
+      // Sorting the result again changes nothing.
+      const moved = new Map(changes.map((c) => [c.id, c.position]));
+      const next = list.map((r) => ({
+        ...r,
+        position: moved.get(r.id) ?? r.position,
+      }));
+      expect(sortByTitle(next, [include])).toEqual([]);
+    },
+  );
+
   it('gives rows that share a key fresh keys between their neighbours', () => {
     const keys = positionsFromStart(3);
     const list = [

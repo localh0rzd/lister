@@ -40,22 +40,38 @@ export function sortByTitle(
   rows: readonly Titled[],
   others: readonly Positioned[] = [],
 ): PositionChange[] {
-  const slots = [...rows].sort(comparePositions).map((row) => row.position);
+  const sortedRows = [...rows].sort(comparePositions);
+  const slots = sortedRows.map((row) => row.position);
   const keys = [...slots];
-  // Tied slots: fresh keys between the nearest keys (rows' or others') on either side.
   const all = [...slots, ...others.map((row) => row.position)];
   for (let start = 0; start < slots.length;) {
     let end = start;
     while (end + 1 < slots.length && slots[end + 1] === slots[start]) end++;
-    if (end > start) {
-      const tie = slots[start];
+    const tie = slots[start];
+    const tiedOthers = others.filter((row) => row.position === tie);
+    if (end > start || tiedOthers.length > 0) {
+      // A tied slot (rows sharing a key, or a row sharing it with an include): fresh keys
+      // between the nearest keys on either side. An include keeps its key, so the rows that
+      // sat before it (by id, the tie-break) get keys below it and the rest above it.
       let lower: string | null = null;
       let upper: string | null = null;
       for (const key of all) {
         if (key < tie && (lower === null || key > lower)) lower = key;
         if (key > tie && (upper === null || key < upper)) upper = key;
       }
-      const fresh = generateNKeysBetween(lower, upper, end - start + 1);
+      const count = end - start + 1;
+      const firstOther = [...tiedOthers].sort(comparePositions)[0];
+      const below = firstOther
+        ? sortedRows
+            .slice(start, end + 1)
+            .filter((row) => comparePositions(row, firstOther) < 0).length
+        : count;
+      const fresh = firstOther
+        ? [
+            ...generateNKeysBetween(lower, tie, below),
+            ...generateNKeysBetween(tie, upper, count - below),
+          ]
+        : generateNKeysBetween(lower, upper, count);
       for (let i = start; i <= end; i++) keys[i] = fresh[i - start];
     }
     start = end + 1;

@@ -45,6 +45,7 @@ for (const [device, viewport] of [
       const trip = await createList(page, unique('Trip'));
       await openList(page, trip);
       await pasteItems(page, ['Tent', 'axe']);
+      await expect(ownItems(page)).toHaveText(['Tent', 'axe']);
       await includeList(page, basics);
       await pasteItems(page, ['Map', 'Bag']);
       await expect(ownItems(page)).toHaveText(['Tent', 'axe', 'Map', 'Bag']);

@@ -223,6 +223,7 @@ export class ListEditorPage {
   private readonly announcer = inject(LiveAnnouncer);
   /** Adds run one at a time, each after the last key handed out, so they never interleave. */
   private adding: Promise<unknown> = Promise.resolve();
+  /** The furthest key an add has handed out: rows that haven't rendered yet still count. */
   private lastAdded: string | null = null;
   /**
    * After a keyboard move, the row whose menu button gets the focus back, with its position
@@ -473,15 +474,23 @@ export class ListEditorPage {
     );
     const childListId = await firstValueFrom(ref.afterClosed());
     if (!childListId) return;
-    await this.changes.apply({
-      name: 'include.create',
-      args: {
-        id: newId(),
-        parentListId: root,
-        childListId,
-        position: positionAtEnd(this.currentRows()),
-      },
+    // In the `adding` chain, after any paste still being written, so the include never takes
+    // the key of an item that hasn't rendered yet.
+    const run = this.adding.then(async () => {
+      const end = positionAtEnd(this.currentRows());
+      const position =
+        this.lastAdded && this.lastAdded >= end
+          ? positionBetween(this.lastAdded, null)
+          : end;
+      const added = await this.changes.apply({
+        name: 'include.create',
+        args: { id: newId(), parentListId: root, childListId, position },
+      });
+      if (added) this.lastAdded = position;
+      return added;
     });
+    this.adding = run;
+    await run;
   }
 
   /** Removes an included list from this list (the list itself stays), with Undo. */
@@ -618,7 +627,8 @@ export class ListEditorPage {
           args: { id, listId: this.listId(), title, position },
         });
         if (!added) return false;
-        this.lastAdded = position;
+        if (!this.lastAdded || position > this.lastAdded)
+          this.lastAdded = position;
         rows.push({ id, position, title });
         own.add(id);
       }

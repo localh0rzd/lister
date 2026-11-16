@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-057 — An include added during a paste ties with an item, and Sort A–Z then moves it
 
 - Milestone: M8 Editing conveniences
@@ -50,6 +48,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   Fix both: create the include inside the `adding` chain (counting the rows it added), and have
   `sortByTitle()` treat a slot equal to an `others` key as tied and give it a fresh key on the
   correct side.
+
+## Backlog
 
 ### T-051 — Loading spinners instead of jumping Space sections
 

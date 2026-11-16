@@ -933,6 +933,34 @@ describe('ListEditorPage — included lists', () => {
     expect(position > 'a1').toBe(true);
   });
 
+  it('puts a list added during a paste after every pasted item', async () => {
+    const b = list('B');
+    await db.lists.put(b);
+    const page = await render();
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(page.titles()).toEqual([]);
+    });
+    const paste = new Event('paste', { cancelable: true }) as ClipboardEvent;
+    Object.defineProperty(paste, 'clipboardData', {
+      value: { getData: () => 'A1\nA2\nA3' },
+    });
+    dialogAnswer = b.id;
+
+    // The items are still being written (none rendered) when the list is added.
+    page.input().dispatchEvent(paste);
+    (page.element.querySelector('.add-list') as HTMLButtonElement).click();
+
+    await vi.waitFor(() => expect(requests).toHaveLength(4));
+    const positions = requests.map(
+      (r) => (r.args as { position: string }).position,
+    );
+    expect(requests[3].name).toBe('include.create');
+    expect(positions[3] > positions[2] && positions[2] > positions[1]).toBe(
+      true,
+    );
+  });
+
   it('removes a section with Undo, and moves it among the items', async () => {
     const toiletries = list('Toiletries');
     await db.lists.put(toiletries);
