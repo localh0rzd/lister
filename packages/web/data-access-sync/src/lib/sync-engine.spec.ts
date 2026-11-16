@@ -361,6 +361,28 @@ describe('SyncEngine', () => {
       expect(await outbox()).toEqual([]);
     });
 
+    it('refuses a change too big for one push, without queueing it', async () => {
+      setup();
+      // 2000 run items with 2000-character notes: valid, but over the push budget.
+      const items = Array.from({ length: 2000 }, () => ({
+        id: newId(),
+        title: 'Tent',
+        note: 'x'.repeat(2000),
+      }));
+
+      const result = await engine.mutate({
+        spaceId: SPACE,
+        name: 'run.start',
+        args: { id: newId(), title: 'Big', items },
+      });
+
+      expect(result).toEqual({
+        ok: false,
+        reason: 'This change is too big to sync. Make it in smaller steps.',
+      });
+      expect(await outbox()).toEqual([]);
+    });
+
     it('refuses invalid input with the schema reason', async () => {
       setup();
 

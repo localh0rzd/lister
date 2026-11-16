@@ -57,6 +57,32 @@ for (const [name, viewport] of [
   });
 }
 
+test.describe('paste items into a new list on a phone', () => {
+  test.use({ viewport: { width: 375, height: 812 } });
+
+  test('shows the whole reason for a refused line', async ({ page }) => {
+    const dialog = await openNewListDialog(page);
+
+    await dialog.getByLabel('Title').fill(unique('Long line'));
+    await dialog
+      .getByLabel('Items (one per line)')
+      .fill(`Tent\n${'Very long item title '.repeat(11)}`);
+    await dialog.getByRole('button', { name: 'Create' }).click();
+
+    const error = dialog.getByText('At most 200 characters');
+    await expect(error).toBeVisible();
+    // Not clipped: the dialog's scrolling content shows the whole message.
+    const [text, content] = await Promise.all([
+      error.boundingBox(),
+      dialog.locator('mat-dialog-content').boundingBox(),
+    ]);
+    if (!text || !content) throw new Error('The dialog is not laid out');
+    expect(text.y + text.height).toBeLessThanOrEqual(
+      content.y + content.height,
+    );
+  });
+});
+
 test.describe('paste items into a new list', () => {
   test('offline it syncs as one change to another device', async ({
     page,
@@ -93,7 +119,13 @@ test.describe('paste items into a new list', () => {
     const lines = Array.from({ length: 2001 }, (_, i) => `Item ${i}`);
 
     await dialog.getByLabel('Title').fill(unique('Too big'));
-    await dialog.getByLabel('Items (one per line)').fill(lines.join('\n'));
+    // `fill` is quadratic in the number of lines (~15 s for 2001); paste it in one step.
+    await dialog
+      .getByLabel('Items (one per line)')
+      .evaluate((field: HTMLTextAreaElement, text) => {
+        field.value = text;
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+      }, lines.join('\n'));
     await dialog.getByRole('button', { name: 'Create' }).click();
 
     await expect(dialog).toContainText('At most 2000 items (you pasted 2001)');

@@ -7,6 +7,15 @@ import { rowSetSchema } from './rows';
 /** Most mutations a client sends in one push; it sends the rest after the acks. */
 export const MAX_PUSH_MUTATIONS = 100;
 
+/**
+ * Most bytes (UTF-8 JSON) of mutations a client sends in one push. The server's Socket.IO
+ * message cap (`maxHttpBufferSize`) is set a little above it, since a message over the cap
+ * closes the connection without a reject, and the client would push the same outbox head again
+ * after every reconnect. The client packs each push under this budget and refuses a single
+ * change bigger than it before queueing it.
+ */
+export const MAX_PUSH_BYTES = 4_000_000;
+
 // Client → server
 
 export const helloSchema = z.strictObject({

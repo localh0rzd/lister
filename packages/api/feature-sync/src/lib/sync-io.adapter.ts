@@ -2,6 +2,7 @@ import type { IncomingMessage } from 'node:http';
 import type { INestApplicationContext } from '@nestjs/common';
 import { IoAdapter } from '@nestjs/platform-socket.io';
 import { AuthService, readSessionToken } from '@lister/api/feature-auth';
+import { MAX_PUSH_BYTES } from '@lister/shared/sync-protocol';
 import type { Server, ServerOptions } from 'socket.io';
 
 /**
@@ -25,6 +26,8 @@ export class SyncIoAdapter extends IoAdapter {
     const server: Server = super.createIOServer(port, {
       ...options,
       transports: ['websocket'],
+      // Room for the largest push a client sends, plus the envelope and Socket.IO framing.
+      maxHttpBufferSize: MAX_PUSH_BYTES + 64 * 1024,
       // The web app bundles socket.io-client; don't serve /socket.io/socket.io.js.
       serveClient: false,
       allowRequest: (

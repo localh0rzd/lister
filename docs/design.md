@@ -534,7 +534,10 @@ client                                     server
   during a pull or push. A storage failure sends **no** reject, so the mutation stays in the
   outbox and is retried; a `reject` is only ever a final verdict on that mutation. After a
   server disconnect Socket.IO doesn't reconnect by itself: the client reconnects with backoff and
-  starts again with hello and a pull. A pull whose `since` is ahead of the server (restored or
+  starts again with hello and a pull. A Socket.IO message over the server's cap also closes the
+  connection without a reject, so the cap sits a little above `MAX_PUSH_BYTES` (4 MB of
+  mutations): the client packs each push under it (and under 100 mutations) and refuses a single
+  change bigger than that before queueing it ("This change is too big to sync"). A pull whose `since` is ahead of the server (restored or
   reset database), or that names another `timeline` than the space's (a restore changed it), gets a
   full snapshot, which replaces the client's copy; the client keeps the timeline of the rows it
   holds (`syncState.timeline`) and sends it back.

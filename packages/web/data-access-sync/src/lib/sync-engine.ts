@@ -13,7 +13,7 @@ import { newId } from '@lister/shared/domain';
 import {
   type Ack,
   type ClientToServerEvents,
-  MAX_PUSH_MUTATIONS,
+  MAX_PUSH_BYTES,
   MemoryRowStore,
   type MutationInput,
   PROTOCOL_VERSION,
@@ -41,6 +41,7 @@ import {
   valueOf,
 } from '@lister/web/data-access-local-db';
 import { describeMutation } from './describe-mutation';
+import { mutationBytes, nextPushBatch } from './push-batch';
 import type { ZodMiniType } from 'zod/mini';
 import {
   SYNC_CLOCK,
@@ -177,6 +178,7 @@ export type MutationRequest = DistributiveOmit<MutationInput, 'mutationId'>;
 
 /** The message the server's handshake check refuses with when there is no usable session. */
 const SIGN_IN_REFUSAL = 'Sign in first';
+const TOO_BIG = 'This change is too big to sync. Make it in smaller steps.';
 const LOCK_NAME = 'lister-sync';
 const FIRST_RECONNECT_DELAY_MS = 1000;
 const MAX_RECONNECT_DELAY_MS = 30_000;
@@ -332,6 +334,9 @@ export class SyncEngine {
     const parsed = parseMutation(mutation);
     if (!parsed.ok)
       return Promise.resolve({ ok: false, reason: parsed.reason });
+    // A push over the server's message cap would drop the connection again and again.
+    if (mutationBytes(mutation) > MAX_PUSH_BYTES)
+      return Promise.resolve({ ok: false, reason: TOO_BIG });
 
     return this.enqueue(async () => {
       const spaceId = parsed.mutation.spaceId;
@@ -733,7 +738,7 @@ export class SyncEngine {
         entry.ackedVersion === undefined &&
         !this.inFlight.has(entry.mutationId),
     );
-    const batch = pending.slice(0, MAX_PUSH_MUTATIONS);
+    const batch = nextPushBatch(pending);
     // The connection may have dropped while reading.
     if (batch.length > 0 && this.connection.online) {
       if (

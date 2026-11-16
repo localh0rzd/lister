@@ -312,6 +312,25 @@ describe('sync gateway', () => {
       });
     });
 
+    it('takes a pasted list over 1 MB (the Socket.IO default cap) in one push', async () => {
+      const { client } = await helloed();
+      // 2000 items of 200 three-byte characters: the largest paste the dialog accepts.
+      const create = mutation('list.create', {
+        id: newId(),
+        title: 'Big',
+        items: Array.from({ length: 2000 }, () => ({
+          id: newId(),
+          title: '帐'.repeat(200),
+        })),
+      });
+      expect(Buffer.byteLength(JSON.stringify(create))).toBeGreaterThan(1e6);
+      const answer = next(client, 'ack');
+
+      client.emit('push', { mutations: [create] });
+
+      expect(await answer).toMatchObject({ mutationId: create.mutationId });
+    });
+
     it('rejects a list.create whose item title is invalid, writing nothing', async () => {
       const { client } = await helloed();
       const rejects = collect(client, 'reject');

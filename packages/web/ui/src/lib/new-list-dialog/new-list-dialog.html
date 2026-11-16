@@ -11,7 +11,8 @@
         <mat-error>{{ error.message }}</mat-error>
       }
     </mat-form-field>
-    <mat-form-field class="field">
+    <!-- Dynamic: a refused line's message can take two lines on a phone. -->
+    <mat-form-field class="field" subscriptSizing="dynamic">
       <mat-label>Items (one per line)</mat-label>
       <textarea
         matInput
