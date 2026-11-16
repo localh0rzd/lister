@@ -834,16 +834,62 @@ describe('sync gateway', () => {
       const thirtyOneDays = Date.now() + 31 * 24 * 60 * 60 * 1000;
       expect(api.app.get(PurgeService).purge(thirtyOneDays)).toBe(1);
 
+      // The purge moved the space on to version 4, its purge point.
       const behind = next(client, 'rows');
       client.emit('pull', { spaceId, since: 2 });
       const snapshot = await behind;
-      expect(snapshot).toMatchObject({ version: 3, snapshot: true });
+      expect(snapshot).toMatchObject({ version: 4, snapshot: true });
       expect(snapshot.rows.lists).toHaveLength(1);
       expect(snapshot.rows.items).toEqual([]);
 
       const current = next(client, 'rows');
-      client.emit('pull', { spaceId, since: 3 });
-      expect(await current).toMatchObject({ version: 3, snapshot: false });
+      client.emit('pull', { spaceId, since: 4 });
+      expect(await current).toMatchObject({ version: 4, snapshot: false });
+    });
+
+    it('sends a snapshot after a purge to a client that was up to date, so purged live rows go too', async () => {
+      const { client } = await helloed();
+      const parentId = newId();
+      const childId = newId();
+      const includeId = newId();
+      const itemId = newId();
+      const done = new Promise<void>((resolve) => {
+        let n = 0;
+        client.on('ack', () => ++n === 5 && resolve());
+      });
+      client.emit('push', {
+        mutations: [
+          mutation('list.create', { id: parentId, title: 'Camping' }),
+          mutation('list.create', { id: childId, title: 'Toiletries' }),
+          mutation('item.create', {
+            id: itemId,
+            listId: childId,
+            title: 'Soap',
+            position: 'a0',
+          }),
+          mutation('include.create', {
+            id: includeId,
+            parentListId: parentId,
+            childListId: childId,
+            position: 'a1',
+          }),
+          mutation('list.delete', { id: childId }),
+        ],
+      });
+      await done;
+
+      // The client has every change: version 5, the list's tombstone included. The purge also
+      // removes the live item and include of the purged list, which it never saw deleted.
+      const thirtyOneDays = Date.now() + 31 * 24 * 60 * 60 * 1000;
+      expect(api.app.get(PurgeService).purge(thirtyOneDays)).toBe(3);
+
+      const rows = next(client, 'rows');
+      client.emit('pull', { spaceId, since: 5 });
+      const snapshot = await rows;
+      expect(snapshot).toMatchObject({ version: 6, snapshot: true });
+      expect(snapshot.rows.lists.map((l) => l.id)).toEqual([parentId]);
+      expect(snapshot.rows.items).toEqual([]);
+      expect(snapshot.rows.includes).toEqual([]);
     });
 
     it('lets a client that missed changes catch up by pulling', async () => {

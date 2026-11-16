@@ -12,9 +12,12 @@ const LAST_PURGE_KEY = 'purge.lastDay';
 /**
  * The daily purge (D15): deletes tombstones and finished runs older than 30 days for good, with
  * the rows that only exist for them (the items and includes of a purged list, the items of a
- * purged run). Each space remembers its purge point (`spaces.purgedVersion`), the highest
- * version among the rows removed: a client that last synced before it gets a full snapshot on
- * its next pull, because it may have missed a tombstone.
+ * purged run). A space that lost rows moves one version on, and that version is its purge point
+ * (`spaces.purgedVersion`): every client of the space is then behind it and gets a full snapshot
+ * on its next pull. Up-to-date clients need one too: they still hold the purged tombstones, and
+ * the live rows that went with a purged list or run, which no change ever told them about.
+ * Nothing is poked: an empty poke at the next version would move a client past the purge point
+ * without a snapshot. Connected clients see the gap at the space's next change and pull.
  */
 @Injectable()
 export class PurgeService {
@@ -24,14 +27,9 @@ export class PurgeService {
   purge(now: number): number {
     const cutoff = now - PURGE_AFTER_DAYS * DAY;
     return this.database.db.transaction((tx) => {
-      const purgedVersions = new Map<string, number>();
-      const note = (rows: { spaceId: string; version: number }[]) => {
-        for (const { spaceId, version } of rows) {
-          purgedVersions.set(
-            spaceId,
-            Math.max(purgedVersions.get(spaceId) ?? 0, version),
-          );
-        }
+      const purgedSpaces = new Set<string>();
+      const note = (rows: { spaceId: string }[]) => {
+        for (const { spaceId } of rows) purgedSpaces.add(spaceId);
         return rows.length;
       };
 
@@ -59,14 +57,14 @@ export class PurgeService {
               inArray(runItems.runId, oldRunIds),
             ),
           )
-          .returning({ spaceId: runItems.spaceId, version: runItems.version })
+          .returning({ spaceId: runItems.spaceId })
           .all(),
       );
       removed += note(
         tx
           .delete(runs)
           .where(oldRuns)
-          .returning({ spaceId: runs.spaceId, version: runs.version })
+          .returning({ spaceId: runs.spaceId })
           .all(),
       );
       removed += note(
@@ -75,7 +73,7 @@ export class PurgeService {
           .where(
             or(lt(items.deletedAt, cutoff), inArray(items.listId, oldListIds)),
           )
-          .returning({ spaceId: items.spaceId, version: items.version })
+          .returning({ spaceId: items.spaceId })
           .all(),
       );
       removed += note(
@@ -88,21 +86,25 @@ export class PurgeService {
               inArray(includes.childListId, oldListIds),
             ),
           )
-          .returning({ spaceId: includes.spaceId, version: includes.version })
+          .returning({ spaceId: includes.spaceId })
           .all(),
       );
       removed += note(
         tx
           .delete(lists)
           .where(oldLists)
-          .returning({ spaceId: lists.spaceId, version: lists.version })
+          .returning({ spaceId: lists.spaceId })
           .all(),
       );
 
-      for (const [spaceId, version] of purgedVersions) {
+      if (purgedSpaces.size > 0) {
+        // Both sides read the old version: the space and its purge point become version + 1.
         tx.update(spaces)
-          .set({ purgedVersion: sql`max(${spaces.purgedVersion}, ${version})` })
-          .where(eq(spaces.id, spaceId))
+          .set({
+            version: sql`${spaces.version} + 1`,
+            purgedVersion: sql`${spaces.version} + 1`,
+          })
+          .where(inArray(spaces.id, [...purgedSpaces]))
           .run();
       }
       return removed;

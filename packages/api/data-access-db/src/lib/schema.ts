@@ -81,9 +81,9 @@ export const spaces = sqliteTable('spaces', {
   personal: integer('personal', { mode: 'boolean' }).notNull().default(false),
   version: integer('version').notNull().default(0),
   /**
-   * The purge point (D15): the highest version among rows the daily purge has deleted for good.
-   * A client that last synced before it may have missed a tombstone, so its pull is a full
-   * snapshot.
+   * The purge point (D15): the version the daily purge moved the space to when it deleted rows
+   * for good. A client that last synced before it may still hold purged rows, so its pull is a
+   * full snapshot.
    */
   purgedVersion: integer('purged_version').notNull().default(0),
   createdAt: integer('created_at').notNull(),

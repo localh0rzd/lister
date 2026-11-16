@@ -86,12 +86,15 @@ describe('PurgeService', () => {
       .from(table)
       .all()
       .map((r) => r.id);
-  const purgePoint = () =>
+  const space = (id = spaceId) =>
     database.db
-      .select({ v: schema.spaces.purgedVersion })
+      .select({
+        version: schema.spaces.version,
+        purgedVersion: schema.spaces.purgedVersion,
+      })
       .from(schema.spaces)
-      .where(eq(schema.spaces.id, spaceId))
-      .get()?.v;
+      .where(eq(schema.spaces.id, id))
+      .get();
 
   it('removes tombstones older than 30 days and keeps recent ones and live rows', () => {
     const live = list();
@@ -155,27 +158,37 @@ describe('PurgeService', () => {
     expect(ids(schema.runs)).toEqual([]);
   });
 
-  it("records the highest purged version as the space's purge point", () => {
-    const l = list();
-    item(l, OLD); // version 2
-    list(OLD); // version 3
-    list(); // version 4, live
-    expect(purgePoint()).toBe(0);
+  it('moves a space that lost rows one version on, and makes that its purge point', () => {
+    database.db
+      .update(schema.spaces)
+      .set({ version: 7 })
+      .where(eq(schema.spaces.id, spaceId))
+      .run();
+    item(list(), OLD);
+    expect(space()).toEqual({ version: 7, purgedVersion: 0 });
 
     service.purge(NOW);
 
-    expect(purgePoint()).toBe(3);
+    expect(space()).toEqual({ version: 8, purgedVersion: 8 });
   });
 
-  it('never lowers the purge point and leaves it alone when nothing is purged', () => {
-    item(list(), OLD); // version 2
-    service.purge(NOW);
-    item(list(), OLD); // version 4
-    service.purge(NOW);
-    expect(purgePoint()).toBe(4);
+  it('leaves a space alone when nothing of it is purged', () => {
+    item(list(), RECENT);
+    const other = insertSpace(database.db, {
+      name: 'Other',
+      ownerId: USER,
+      personal: false,
+      now: 0,
+    }).id;
+    database.db
+      .insert(schema.lists)
+      .values({ ...base(OLD), spaceId: other, title: 'Old' })
+      .run();
 
     service.purge(NOW);
-    expect(purgePoint()).toBe(4);
+
+    expect(space()).toEqual({ version: 0, purgedVersion: 0 });
+    expect(space(other)).toEqual({ version: 1, purgedVersion: 1 });
   });
 
   it('runs once a day', () => {

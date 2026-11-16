@@ -78,7 +78,7 @@ export class SyncReader {
   /**
    * Every row of the space changed after `since`, tombstones included, read in one transaction
    * so `version` matches the rows. `since: 0` is a full snapshot. So is a `since` before the
-   * space's purge point (the purge removed tombstones the client may not have seen, D15), and a
+   * space's purge point (the purge removed rows the client may still hold, D15), and a
    * `since` ahead of the server (its database was restored or reset): the client must replace
    * its copy, or it would never converge.
    */

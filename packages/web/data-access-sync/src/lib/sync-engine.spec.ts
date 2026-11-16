@@ -1595,6 +1595,53 @@ describe('SyncEngine', () => {
       expect(await visibleList(id)).toMatchObject({ version: 2 });
     });
 
+    it('drops rows a snapshot no longer has (purged) and keeps pending changes', async () => {
+      setup();
+      engine.start();
+      await settle();
+      const purged = newId();
+      const kept = newId();
+      server.otherClient('list.create', { id: purged, title: 'Old' });
+      server.otherClient('list.create', { id: kept, title: 'Camping' });
+      await settle();
+      expect(await visibleList(purged)).toBeDefined();
+      server.autoAnswer = false;
+      await engine.mutate({
+        spaceId: SPACE,
+        name: 'list.update',
+        args: { id: kept, patch: { title: 'Hiking' } },
+      });
+      await settle();
+
+      // The daily purge removed a list and moved the space on to its purge point.
+      server.store.lists.delete(purged);
+      server.version++;
+      server.fire('rows', {
+        spaceId: SPACE,
+        version: server.version,
+        snapshot: true,
+        rows: {
+          lists: [...server.store.lists.values()],
+          items: [],
+          includes: [],
+          runs: [],
+          runItems: [],
+        },
+      });
+      await settle();
+
+      expect(await visibleList(purged)).toBeUndefined();
+      expect(await serverList(purged)).toBeUndefined();
+      expect(await serverList(kept)).toMatchObject({ title: 'Camping' });
+      expect(await visibleList(kept)).toMatchObject({ title: 'Hiking' });
+      expect((await outbox()).map((e) => e.mutation.name)).toEqual([
+        'list.update',
+      ]);
+      expect(await db.syncState.get(SPACE)).toMatchObject({
+        version: server.version,
+      });
+    });
+
     it('sends a change again when a snapshot shows the server lost it (restored database)', async () => {
       setup();
       engine.start();

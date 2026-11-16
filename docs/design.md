@@ -347,10 +347,13 @@ None of these change the architecture; the table says what goes into v1.
   kept (D15). Restoring is documented in the README.
 - **Purge** (D15, daily, right after the backup, `feature-maintenance`): tombstones and runs
   finished or deleted more than 30 days ago are deleted for good, with the items and includes of
-  a purged list and the items of a purged run. `spaces.purged_version` is the space's purge
-  point, the highest version among the removed rows; a pull with `since` below it is answered
-  with a full snapshot (§4.2), because the client may have missed a tombstone. The client stores
-  no purge point, so no Dexie change. The jobs run from a timer checked every 15 minutes (no
+  a purged list and the items of a purged run. A space that lost rows moves one version on, and
+  that version becomes `spaces.purged_version`, its purge point; a pull with `since` below it is
+  answered with a full snapshot (§4.2). So every device of the space snapshots once, the
+  up-to-date ones too: they still hold the purged tombstones, and the live items and includes of
+  a purged list, which no change told them about. Nothing is poked (an empty poke would move a
+  client past the purge point); connected devices see the version gap at the next change. The
+  client stores no purge point, so no Dexie change. The jobs run from a timer checked every 15 minutes (no
   scheduler library) and record the last purge day in `app_meta`; an in-memory database runs
   none (tests).
 - **Security:** authorize every mutation (space membership) and every admin endpoint; check the
