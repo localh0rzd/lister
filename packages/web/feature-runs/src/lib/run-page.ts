@@ -107,13 +107,13 @@ export class RunPage {
   private finishedHere = false;
 
   /**
-   * States set here that the local data may not show yet (item id → from, to). Two quick checks
-   * would otherwise each see the other item unchecked, and the one that finishes the run would
-   * not know it.
+   * States set here that the local data may not show yet (item id → from, to, and the item's
+   * `stateAt` when sent). Two quick checks would otherwise each see the other item unchecked, and
+   * the one that finishes the run would not know it.
    */
   private readonly sentStates = new Map<
     string,
-    { from: RunItemState; to: RunItemState }
+    { from: RunItemState; to: RunItemState; stateAt: number | null }
   >();
 
   protected readonly view = computed(() => {
@@ -152,14 +152,14 @@ export class RunPage {
 
   constructor() {
     const title = inject(Title);
-    // A sent state is done with once the local data shows anything else than the state before
-    // it: kept longer, a later change by someone else back to that state would count as sent.
+    // A sent state is done with once the local data shows any later state change: kept longer,
+    // a change by someone else back to the state before it would count as sent.
     effect(() => {
       const items = this.items();
       if (items.status !== 'ready') return;
-      const states = new Map(items.value.map((item) => [item.id, item.state]));
+      const rows = new Map(items.value.map((item) => [item.id, item]));
       for (const [id, sent] of this.sentStates) {
-        if (states.get(id) !== sent.from) this.sentStates.delete(id);
+        if (!this.stillShows(rows.get(id), sent)) this.sentStates.delete(id);
       }
     });
     effect(() => {
@@ -191,7 +191,11 @@ export class RunPage {
     const finishes = this.finishes((items) =>
       items.map((i) => (i.id === item.id ? { ...i, state } : i)),
     );
-    this.sentStates.set(item.id, { from: item.state, to: state });
+    this.sentStates.set(item.id, {
+      from: item.state,
+      to: state,
+      stateAt: item.stateAt,
+    });
     const applied = finishes
       ? await this.finish(change, undo)
       : await this.changes.apply(change);
@@ -438,11 +442,23 @@ export class RunPage {
     const items = view.items.map((item) => {
       const sent = this.sentStates.get(item.id);
       // Still showing the state from before: count the one sent instead.
-      if (sent && item.state === sent.from) return { ...item, state: sent.to };
+      if (sent && this.stillShows(item, sent))
+        return { ...item, state: sent.to };
       this.sentStates.delete(item.id);
       return item;
     });
     return isRunFinished(change(items));
+  }
+
+  /**
+   * Whether the local row still shows the state from before a sent state. Another `stateAt` means
+   * a later change, even one back to the same state (someone undid it before this page saw ours).
+   */
+  private stillShows(
+    item: RunItem | undefined,
+    sent: { from: RunItemState; stateAt: number | null },
+  ): boolean {
+    return item?.state === sent.from && item.stateAt === sent.stateAt;
   }
 
   /**

@@ -383,6 +383,28 @@ describe('RunPage', () => {
     );
   });
 
+  it('does not count a check made here that someone else undid before the page showed it', async () => {
+    const tent = runItem('Tent', 'a0');
+    const stove = runItem('Stove', 'a1');
+    await db.runItems.bulkPut([tent, stove]);
+    const page = await render();
+    await page.settle(() => expect(page.checkbox('Stove')).toBeTruthy());
+
+    page.checkbox('Tent').click();
+    await page.settle(() => expect(requests).toHaveLength(1));
+    // The local data's next change is already someone else's uncheck: it never shows "checked".
+    await db.runItems.put({ ...tent, stateBy: 'ben', stateAt: 9 });
+    // A later visible change proves the page has the data with that uncheck.
+    await db.runItems.put({ ...stove, note: 'Gas' });
+    await page.settle(() => expect(page.element.textContent).toContain('Gas'));
+    page.checkbox('Stove').click();
+
+    await page.settle(() => expect(requests).toHaveLength(2));
+    expect(notify).not.toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'Finished “Alps”' }),
+    );
+  });
+
   it('still says the run is finished elsewhere after its own finishing check was refused', async () => {
     const tent = runItem('Tent', 'a0');
     await db.runItems.put(tent);
