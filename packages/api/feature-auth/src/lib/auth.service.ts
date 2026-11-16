@@ -4,6 +4,7 @@ import {
   ConflictException,
   Inject,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { and, eq, gt, inArray, lt, ne, sql } from 'drizzle-orm';
@@ -59,6 +60,8 @@ function hashToken(token: string): string {
 /** Accounts and sessions. */
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   private dummyHash?: Promise<string>;
 
   constructor(
@@ -107,6 +110,7 @@ export class AuthService {
     const stored = row?.passwordHash ?? (await this.getDummyHash());
     const matches = await verifyPassword(password, stored);
     if (!row || !matches) {
+      this.logger.debug('Sign-in refused: wrong username or password');
       throw new UnauthorizedException('Wrong username or password');
     }
     return this.startSession(row);
@@ -127,6 +131,7 @@ export class AuthService {
         createdAt: now,
       })
       .run();
+    this.logger.debug(`Sign-in: user ${row.id}, session until ${expiresAt}`);
     return { user: toCurrentUser(row), token, expiresAt };
   }
 
@@ -151,6 +156,7 @@ export class AuthService {
         .delete(schema.sessions)
         .where(eq(schema.sessions.id, sessionId))
         .run();
+      this.logger.debug(`Session expired: user ${found.user.id}`);
       return null;
     }
     const user = toCurrentUser(found.user);
@@ -203,8 +209,10 @@ export class AuthService {
       .where(eq(schema.sessions.id, sessionId))
       .returning({ userId: schema.sessions.userId })
       .get();
-    if (ended)
+    if (ended) {
+      this.logger.debug(`Sign-out: user ${ended.userId}`);
       this.events.emit({ kind: 'sessionsEnded', userId: ended.userId });
+    }
   }
 
   /** Ends all of a user's sessions, except `keepSessionId`, and announces it like `endSession`. */

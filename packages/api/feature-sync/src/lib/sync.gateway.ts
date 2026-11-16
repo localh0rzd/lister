@@ -10,6 +10,7 @@ import {
 } from '@lister/api/feature-auth';
 import {
   ConnectedSocket,
+  type OnGatewayConnection,
   MessageBody,
   SubscribeMessage,
   WebSocketGateway,
@@ -47,6 +48,19 @@ type SyncSocket = Socket<
   SocketData
 >;
 
+/** The mutation's name for the log: a client sends it, so only a plain identifier is kept. */
+const identifier = (value: unknown): string =>
+  typeof value === 'string' && /^[\w.-]{1,40}$/.test(value) ? value : '?';
+
+const mutationName = (entry: object): string =>
+  identifier((entry as { name?: unknown }).name);
+
+const mutationSpace = (entry: object): string =>
+  identifier((entry as { spaceId?: unknown }).spaceId);
+
+const countRows = (rows: Record<string, readonly unknown[]>): number =>
+  Object.values(rows).reduce((sum, list) => sum + list.length, 0);
+
 /** One Socket.IO room per space; pokes go to everyone in it (design §4.2). */
 export const spaceRoom = (spaceId: string) => `space:${spaceId}`;
 
@@ -62,7 +76,9 @@ export const spaceRoom = (spaceId: string) => `space:${spaceId}`;
  * sessions at once and re-welcomes the members of a deleted or renamed user's spaces.
  */
 @WebSocketGateway()
-export class SyncGateway implements OnModuleInit, OnModuleDestroy {
+export class SyncGateway
+  implements OnModuleInit, OnModuleDestroy, OnGatewayConnection
+{
   private readonly logger = new Logger(SyncGateway.name);
 
   /** Unset in an application context without an HTTP server (the reset command). */
@@ -81,6 +97,14 @@ export class SyncGateway implements OnModuleInit, OnModuleDestroy {
   onModuleInit(): void {
     this.unsubscribe = this.accounts.subscribe((event) =>
       this.onAccountEvent(event),
+    );
+  }
+
+  /** Logs every connection and disconnection (with the reason) at debug level. */
+  handleConnection(socket: SyncSocket): void {
+    this.logger.debug(`Socket ${socket.id} connected`);
+    socket.on('disconnect', (reason) =>
+      this.logger.debug(`Socket ${socket.id} disconnected: ${reason}`),
     );
   }
 
@@ -129,6 +153,9 @@ export class SyncGateway implements OnModuleInit, OnModuleDestroy {
         void socket.leave(room);
     }
     for (const room of rooms) void socket.join(room);
+    this.logger.debug(
+      `Welcome to ${socket.id}: user ${userId}, ${spaces.length} space(s)`,
+    );
     socket.emit('welcome', { userId, spaces });
   }
 
@@ -157,6 +184,9 @@ export class SyncGateway implements OnModuleInit, OnModuleDestroy {
 
     if (!this.signedIn(socket)) return;
     socket.data.clientId = hello.data.clientId;
+    this.logger.debug(
+      `Hello from ${socket.id}: user ${socket.data.userId}, protocol ${hello.data.protocolVersion}`,
+    );
     this.welcome(socket);
   }
 
@@ -185,6 +215,13 @@ export class SyncGateway implements OnModuleInit, OnModuleDestroy {
       socket.disconnect(true);
       return;
     }
+    this.logger.debug(
+      `Pull from ${socket.id}: space ${pull.data.spaceId}, since ${pull.data.since}, ${
+        rows
+          ? `${rows.snapshot ? 'snapshot' : 'delta'}, ${countRows(rows.rows)} row(s)`
+          : 'unknown space'
+      }`,
+    );
     if (rows) socket.emit('rows', rows);
   }
 
@@ -201,6 +238,9 @@ export class SyncGateway implements OnModuleInit, OnModuleDestroy {
     const push = pushSchema.safeParse(body);
     if (!push.success) return this.drop(socket, 'invalid push');
 
+    this.logger.debug(
+      `Push from ${socket.id}: ${push.data.mutations.length} mutation(s)`,
+    );
     for (const entry of push.data.mutations) {
       let applied;
       try {
@@ -218,6 +258,11 @@ export class SyncGateway implements OnModuleInit, OnModuleDestroy {
       if (spaceId && result.status === 'ack') {
         this.poke({ spaceId, version: result.version, rows });
       }
+      this.logger.debug(
+        result.status === 'ack'
+          ? `Mutation ${entry.mutationId} ${mutationName(entry)} in space ${mutationSpace(entry)} acked at version ${result.version}`
+          : `Mutation ${entry.mutationId} ${mutationName(entry)} in space ${mutationSpace(entry)} rejected: ${result.reason}`,
+      );
       if (result.status === 'ack') {
         socket.emit('ack', {
           mutationId: result.mutationId,

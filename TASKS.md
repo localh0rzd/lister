@@ -23,6 +23,29 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
+### T-053 — `LOG_LEVEL` to turn on debug logging
+
+- Milestone: M8 Editing conveniences
+- Area: api, infra
+- Priority: normal
+- Depends on: T-032
+- Done when:
+  - The API reads `LOG_LEVEL` (`error`, `warn`, `log`, `debug`, `verbose`; default `log`) and
+    passes the matching Nest log levels to the app logger; an unknown value fails at start-up with
+    a clear message.
+  - The Dockerfile's runtime stage sets `LOG_LEVEL=log`, and a comment there (and the deployment
+    notes in the README or `docs/design.md` §2.9) shows how to run with `-e LOG_LEVEL=debug`.
+  - With `debug`, the API logs one line per: socket connect, handshake refusal (with the reason),
+    hello/welcome, pull (space, since, snapshot or not, row count), push (space, mutation names,
+    acks/rejects with reason), disconnect (with the reason), sign-in, sign-out and session expiry.
+    With the default level none of these appear.
+  - Debug lines never contain passwords, cookies, session tokens, passkey material or the text of
+    lists and items: only ids, counts, names of mutations and reasons.
+  - Unit tests for the level parsing; an integration test that, with `debug`, a push logs its
+    summary and nothing secret; the CLI commands keep logging errors only.
+- Notes: Use Nest's `Logger` with a context per class (`new Logger(SyncGateway.name)`), not
+  `console`. This also helps diagnose problems such as T-052 on a real deployment.
+
 ## Backlog
 
 ### T-052 — Sign-out and sign-in rounds: no redirect, then stuck offline
@@ -113,29 +136,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 - Notes: Find what jumps first with the `ui-review` skill's flicker checks (throttled network,
   screenshots during load). If T-050 is done first, the same applies to any section it moved;
   if a spinner pattern is needed elsewhere, put a small shared component in `web/ui`.
-
-### T-053 — `LOG_LEVEL` to turn on debug logging
-
-- Milestone: M8 Editing conveniences
-- Area: api, infra
-- Priority: normal
-- Depends on: T-032
-- Done when:
-  - The API reads `LOG_LEVEL` (`error`, `warn`, `log`, `debug`, `verbose`; default `log`) and
-    passes the matching Nest log levels to the app logger; an unknown value fails at start-up with
-    a clear message.
-  - The Dockerfile's runtime stage sets `LOG_LEVEL=log`, and a comment there (and the deployment
-    notes in the README or `docs/design.md` §2.9) shows how to run with `-e LOG_LEVEL=debug`.
-  - With `debug`, the API logs one line per: socket connect, handshake refusal (with the reason),
-    hello/welcome, pull (space, since, snapshot or not, row count), push (space, mutation names,
-    acks/rejects with reason), disconnect (with the reason), sign-in, sign-out and session expiry.
-    With the default level none of these appear.
-  - Debug lines never contain passwords, cookies, session tokens, passkey material or the text of
-    lists and items: only ids, counts, names of mutations and reasons.
-  - Unit tests for the level parsing; an integration test that, with `debug`, a push logs its
-    summary and nothing secret; the CLI commands keep logging errors only.
-- Notes: Use Nest's `Logger` with a context per class (`new Logger(SyncGateway.name)`), not
-  `console`. This also helps diagnose problems such as T-052 on a real deployment.
 
 ## Done
 

@@ -361,6 +361,12 @@ None of these change the architecture; the table says what goes into v1.
   and the passkey relying-party id and origin.
 - **Docker:** a multi-stage Dockerfile in the repo; non-root; the database on a volume; a health
   check. The README shows an example `docker-compose.yml` with Traefik labels.
+- **Logging:** `LOG_LEVEL` (`error`, `warn`, `log`, `debug`, `verbose`; default `log`, set in the
+  Dockerfile too; an unknown value stops the start-up) picks Nest's log levels. With `debug` the API
+  logs one line per socket connect/disconnect (with the reason), handshake refusal (with the
+  reason), hello/welcome, pull, push (mutation names, acks, rejects with reason), sign-in, sign-out
+  and session expiry: ids, counts and reasons only, never passwords, cookies, tokens, passkey
+  material or list text. The CLI commands log errors only. On a deployment: `-e LOG_LEVEL=debug`.
 - **Backups** with SQLite's online backup (nightly `VACUUM INTO`, after 03:00 UTC, into
   `BACKUP_DIR`, default `backups` beside the database, `/data/backups` in Docker); the last 14 are
   kept (D15). Restoring: `node main.js restore-backup <file>` (refused while another connection,

@@ -1,5 +1,5 @@
 import type { IncomingMessage } from 'node:http';
-import type { INestApplicationContext } from '@nestjs/common';
+import { Logger, type INestApplicationContext } from '@nestjs/common';
 import { IoAdapter } from '@nestjs/platform-socket.io';
 import { AuthService, readSessionToken } from '@lister/api/feature-auth';
 import { MAX_PUSH_BYTES } from '@lister/shared/sync-protocol';
@@ -12,6 +12,8 @@ import type { Server, ServerOptions } from 'socket.io';
  * user is left in `socket.data` for the gateway.
  */
 export class SyncIoAdapter extends IoAdapter {
+  private readonly debugLog = new Logger(SyncIoAdapter.name);
+
   constructor(
     app: INestApplicationContext,
     private readonly origins: readonly string[],
@@ -35,7 +37,13 @@ export class SyncIoAdapter extends IoAdapter {
         callback: (error: string | null | undefined, allowed: boolean) => void,
       ) => {
         const origin = request.headers.origin;
-        callback(null, origin !== undefined && this.origins.includes(origin));
+        const allowed = origin !== undefined && this.origins.includes(origin);
+        if (!allowed) {
+          this.debugLog.debug(
+            `Handshake refused: origin ${origin ?? '(none)'} is not allowed`,
+          );
+        }
+        callback(null, allowed);
       },
     });
     server.use((socket, next) => {
@@ -44,10 +52,20 @@ export class SyncIoAdapter extends IoAdapter {
         ? this.context.get(AuthService, { strict: false }).authenticate(token)
         : null;
       if (!found || found.user.mustChangePassword) {
+        this.debugLog.debug(
+          `Handshake refused: ${
+            !token
+              ? 'no session cookie'
+              : !found
+                ? 'unknown or expired session'
+                : `user ${found.user.id} must change their password`
+          }`,
+        );
         next(new Error('Sign in first'));
         return;
       }
       socket.data = { userId: found.user.id, sessionId: found.sessionId };
+      this.debugLog.debug(`Handshake accepted: user ${found.user.id}`);
       next();
     });
     return server;

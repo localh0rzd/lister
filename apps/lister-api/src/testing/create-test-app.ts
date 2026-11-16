@@ -1,4 +1,4 @@
-import type { Type } from '@nestjs/common';
+import type { LoggerService, Type } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import {
@@ -11,6 +11,8 @@ import { type AppOptions, configureApp } from '../app/configure-app';
 export interface TestAppOptions extends AppOptions {
   /** Extra controllers, for routes that only the test needs (e.g. a guarded probe). */
   controllers?: Type[];
+  /** Where the app logs; none by default. */
+  logger?: LoggerService;
 }
 
 export interface TestApp {
@@ -38,7 +40,7 @@ export async function createTestApp(
     .useValue(database)
     .compile();
   const app = moduleRef.createNestApplication<NestExpressApplication>({
-    logger: false,
+    logger: options.logger ?? false,
   });
   configureApp(app, { webRoot: options.webRoot });
   await app.listen(0, '127.0.0.1');

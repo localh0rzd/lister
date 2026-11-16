@@ -31,10 +31,12 @@ RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev --ignore-scripts --no
 
 # ---- runtime ----
 FROM node:${NODE_VERSION}-slim AS runtime
+# To trace sync, sign-in and sign-out problems run with `-e LOG_LEVEL=debug` (error, warn, log, debug or verbose).
 ENV NODE_ENV=production \
     PORT=3000 \
     DATABASE_PATH=/data/lister.db \
-    WEB_ROOT=/app/web
+    WEB_ROOT=/app/web \
+    LOG_LEVEL=log
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=build /app/dist/apps/lister-api ./

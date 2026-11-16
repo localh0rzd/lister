@@ -14,6 +14,7 @@ import {
 } from '@lister/api/feature-maintenance';
 import { AppModule } from './app/app.module';
 import { configureApp } from './app/configure-app';
+import { COMMAND_LOG_LEVELS, parseLogLevels } from './app/log-levels';
 
 /** `node main.js <command> …` (reset-password, restore-backup): runs against the same database, then exits. */
 async function runCommand(command: string, args: string[]): Promise<number> {
@@ -30,7 +31,7 @@ async function runCommand(command: string, args: string[]): Promise<number> {
     return 2;
   }
   const context = await NestFactory.createApplicationContext(AppModule, {
-    logger: ['error'],
+    logger: COMMAND_LOG_LEVELS,
   });
   try {
     return await run(context, args, (line) => console.log(line));
@@ -46,7 +47,11 @@ async function bootstrap() {
     return;
   }
 
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // Fails here, before anything starts, on an unknown LOG_LEVEL.
+  const logger = parseLogLevels(process.env.LOG_LEVEL);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    logger,
+  });
   // The production build sits next to ours (dist/apps/lister-web/browser); WEB_ROOT overrides.
   const webRoot =
     process.env.WEB_ROOT || join(__dirname, '../lister-web/browser');
