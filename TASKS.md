@@ -23,31 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-049 — Sort items A–Z in lists and runs
-
-- Milestone: M8 Editing conveniences
-- Area: web, shared, api
-- Priority: normal
-- Depends on: T-016, T-020
-- Decisions: D17
-- Done when:
-  - The list editor has a "Sort A–Z" action. It sorts the list's own items in list-title order
-    (ignoring case and accents, numbers by value); included lists keep their slots. It shows
-    Undo in the snackbar, and Undo restores the previous order.
-  - Each included list's section in the editor has its own "Sort A–Z", which sorts that list
-    itself; the new order shows in every list that includes it.
-  - A run has a "Sort A–Z" action that sorts the items within each section, with Undo.
-  - The add-item field in the list editor and on the run page has a choice, "Add at end" /
-    "Sort in", remembered on the device (default: at end). "Sort in" places the new item before
-    the first item, in the same list (or run section), that sorts after it.
-  - Sorting works offline and syncs as one change. Other members see the new order, and an item
-    added or moved concurrently elsewhere still appears exactly once.
-- Notes: One mutation per sort (e.g. `list.sortItems` / `run.sortItems`) that **sets** explicit
-  positions for the given ids, so it stays idempotent (mutations set values). Positions come from
-  `fractional-indexing` and are assigned to the item slots only, so includes keep theirs. The
-  comparison is the existing list-title collator, moved or exported from `shared/domain` if
-  needed. Undo sends the previous positions back with the same mutation.
-
 ## Backlog
 
 ### T-052 — Second sign-out doesn't go to the sign-in page
@@ -122,6 +97,35 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   if a spinner pattern is needed elsewhere, put a small shared component in `web/ui`.
 
 ## Done
+
+### T-049 — Sort items A–Z in lists and runs
+
+- Completed: 2026-11-16 — `list.sortItems` / `run.sortItems` mutations, `sortByTitle()` in `shared/domain`, "Sort A–Z" in the list editor, its sections and runs, and the remembered "Add at end" / "Sort in" toggle
+- Review: Changes requested; 7 fixed (2 substantive, 5 trivial), 0 skipped, 0 disagreed; re-review rounds: 1
+- Milestone: M8 Editing conveniences
+- Area: web, shared, api
+- Priority: normal
+- Depends on: T-016, T-020
+- Decisions: D17
+- Done when:
+  - The list editor has a "Sort A–Z" action. It sorts the list's own items in list-title order
+    (ignoring case and accents, numbers by value); included lists keep their slots. It shows
+    Undo in the snackbar, and Undo restores the previous order.
+  - Each included list's section in the editor has its own "Sort A–Z", which sorts that list
+    itself; the new order shows in every list that includes it.
+  - A run has a "Sort A–Z" action that sorts the items within each section, with Undo.
+  - The add-item field in the list editor and on the run page has a choice, "Add at end" /
+    "Sort in", remembered on the device (default: at end). "Sort in" places the new item before
+    the first item, in the same list (or run section), that sorts after it.
+  - Sorting works offline and syncs as one change. Other members see the new order, and an item
+    added or moved concurrently elsewhere still appears exactly once.
+- Notes: One mutation per sort (e.g. `list.sortItems` / `run.sortItems`) that **sets** explicit
+  positions for the given ids, so it stays idempotent (mutations set values). Positions come from
+  `fractional-indexing` and are assigned to the item slots only, so includes keep theirs. The
+  comparison is the existing list-title collator, moved or exported from `shared/domain` if
+  needed. Undo sends the previous positions back with the same mutation.
+
+## Backlog
 
 ### T-048 — Paste items into the new-list dialog
 

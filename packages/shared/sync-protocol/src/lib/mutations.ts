@@ -96,7 +96,13 @@ export const mutationArgs = {
     listId: idSchema,
     items: z
       .array(positioned)
-      .check(z.minLength(1), z.maxLength(MAX_SORT_ITEMS)),
+      .check(
+        z.minLength(1),
+        z.maxLength(
+          MAX_SORT_ITEMS,
+          'This has too many items to sort in one step',
+        ),
+      ),
   }),
   'item.create': z.strictObject({
     id: idSchema,
@@ -158,7 +164,13 @@ export const mutationArgs = {
     runId: idSchema,
     items: z
       .array(positioned)
-      .check(z.minLength(1), z.maxLength(MAX_SORT_ITEMS)),
+      .check(
+        z.minLength(1),
+        z.maxLength(
+          MAX_SORT_ITEMS,
+          'This has too many items to sort in one step',
+        ),
+      ),
   }),
   'runItem.update': z.strictObject({
     id: idSchema,

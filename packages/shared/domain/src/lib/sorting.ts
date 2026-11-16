@@ -73,7 +73,8 @@ export function sortByTitle(
 /**
  * A key for a new item titled `title` that sorts it in (D17): before the first of `siblings`
  * (the items of the same list or run section) whose title sorts after it, or after `all` (every
- * row of the key space, items and includes) when none does.
+ * row of the key space, items and includes) when none does. When that item shares its key with
+ * the row before it (a tie), the new key goes right after the tie: one key can't split it.
  */
 export function positionForSortedInsert(
   title: string,

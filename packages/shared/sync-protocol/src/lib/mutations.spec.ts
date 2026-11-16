@@ -325,12 +325,14 @@ describe('sort mutations', () => {
       id: newId(),
       position: 'a0',
     }));
-    expect(
-      mutationSchema.safeParse({
-        ...envelope2(),
-        name: 'run.sortItems',
-        args: { runId: newId(), items },
-      }).success,
-    ).toBe(false);
+    const result = mutationSchema.safeParse({
+      ...envelope2(),
+      name: 'run.sortItems',
+      args: { runId: newId(), items },
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0].message).toBe(
+      'This has too many items to sort in one step',
+    );
   });
 });

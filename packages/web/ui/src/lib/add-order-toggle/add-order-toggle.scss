@@ -1,0 +1,11 @@
+@use '@angular/material' as mat;
+
+:host {
+  display: block;
+  // Material's button toggle has no invisible touch target: make it the 48 px minimum.
+  @include mat.button-toggle-overrides(
+    (
+      height: 48px,
+    )
+  );
+}

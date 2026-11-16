@@ -56,7 +56,7 @@ for (const [device, viewport] of [
       await test.step('Sort A–Z sorts the list’s own items and the include keeps its slot', async () => {
         await page.getByRole('button', { name: 'Sort A–Z' }).click();
         await expect(ownItems(page)).toHaveText(['axe', 'Bag', 'Map', 'Tent']);
-        // The section was between "axe" and "Map" before? It was third: after Tent, axe.
+        // The section keeps its slot: third row.
         const order = await page
           .locator('ul.items > li')
           .evaluateAll((rows) =>
@@ -196,16 +196,21 @@ for (const [device, viewport] of [
         const items = page.locator('.item .title');
         await expect(items).toHaveCount(7);
         const field = page.getByLabel('Add item');
-        await field.fill('Fork');
+        await field.fill('Zed');
         await field.press('Enter');
         await expect(field).toHaveValue('');
         await expect(items).toHaveCount(8);
-        const titles = await items.allTextContents();
-        // Typed items go among the typed ones; the listed ones keep their own section.
-        expect(titles.map((t) => t.trim())).toContain('Fork');
+        await field.fill('Fork');
+        await field.press('Enter');
+        await expect(field).toHaveValue('');
+        await expect(items).toHaveCount(9);
+        // Typed items sort among the typed ones: "Fork" goes before "Zed".
+        await expect(items.nth(-2)).toHaveText('Fork');
+        await expect(items.last()).toHaveText('Zed');
         await addOrder(page, 'Add at end').click();
         await field.fill('Ant');
         await field.press('Enter');
+        await expect(items).toHaveCount(10);
         await expect(items.last()).toHaveText('Ant');
       });
     });

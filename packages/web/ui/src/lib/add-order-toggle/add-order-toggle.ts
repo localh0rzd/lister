@@ -12,6 +12,7 @@ export type AddItemOrder = 'end' | 'sorted';
   selector: 'lister-add-order-toggle',
   imports: [MatButtonToggleGroup, MatButtonToggle],
   templateUrl: './add-order-toggle.html',
+  styleUrl: './add-order-toggle.scss',
 })
 export class AddOrderToggle {
   readonly value = model.required<AddItemOrder>();
