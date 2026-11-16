@@ -29,6 +29,8 @@
 | D18 | Pasting a new list       | The new-list dialog takes optional items, one per line. Each line is trimmed; blank lines are dropped; leading markers ("- ", "* ", "• ", "1. ", "[ ] ", "[x] ") are removed; the text becomes the title only (no quantity parsing). Identical lines (D16 rule: case and surrounding spaces ignored) are added once, the first one kept. Each run of tabs inside a line (text copied from a spreadsheet) becomes one space.                                                                                                                                                                                  |
 | D19 | Settings destination     | A fourth destination, **Settings** (gear icon), after Space. It holds what belongs to the user and the device, not to a space: Account (Profile; Users for admins), Appearance, Sync status, App (install, update) and About, with Sign out at the bottom (moved off the profile page). Space keeps the space switcher, spaces and members, and Trash. Profile and Users live under `/settings/…`; the old `/space/profile` and `/space/users` URLs redirect.                                                                                                                                                |
 | D20 | Restoring a finished run | Finished runs go to the trash (T-054). Restore unchecks the item checked last, like Undo, and keeps the other checks, so the run is open again among the active runs. (Answers O14, 2026-11-16.)                                                                                                                                                                                                                                                                                                                                                                                                             |
+| D21 | All-items view           | The "All items" view (T-055) covers the current space only and is opened from the Lists page. (Answers O15, 2026-11-16.)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| D22 | Item autocomplete        | Adding an item (T-056) suggests the titles of items from every space the user belongs to, since all of it is on the device. A suggestion copies the title only, not the quantity or note. (Answers O16, 2026-11-16.)                                                                                                                                                                                                                                                                                                                                                                                         |
 
 ### Glossary
 
@@ -50,13 +52,8 @@
 
 ## Open decisions
 
-- **O15 — Scope and place of the "All items" view** (first needed by T-055). Options: (a) the
-  current space only, opened from the Lists page ("All items"); (b) every space the user belongs
-  to, each list shown with its space; (c) a destination of its own. **Default: (a).**
-- **O16 — Which items autocomplete offers, and what a suggestion copies** (first needed by
-  T-056). Reach: (a) every space the user belongs to, since all of it is on the device; (b) the
-  current space only. What is copied: the title only, or also the quantity and note of the item it
-  came from. **Default: (a), title only.**
+None right now: all open decisions so far (O1–O16) are answered and recorded in the Decisions
+table.
 
 New ones get the next number. Each names the first task that needs it and has a default; if it's
 still open when that task starts, Claude asks once and proposes the default. Answer in chat or

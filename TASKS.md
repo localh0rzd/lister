@@ -103,11 +103,11 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 - Area: web
 - Priority: normal
 - Depends on: T-016, T-049
-- Decisions: O15
+- Decisions: D21
 - Done when:
-  - An "All items" view (where it is reached from and what it covers: O15) lists every item of the
-    lists in its scope, in alphabetical order (the existing list-title collator, `sortByTitle()`
-    in `shared/domain`).
+  - An "All items" view, opened from the Lists page, lists every item of the current space's lists
+    (D21), in alphabetical order (the existing list-title collator, `sortByTitle()` in
+    `shared/domain`).
   - Identical items (D16 rule: titles match ignoring case and surrounding spaces) are one row; next
     to each row are the lists that contain it, each a link that opens that list.
   - Items and lists in the trash are left out; an item reached only through an include is listed
@@ -130,15 +130,16 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 - Area: web
 - Priority: normal
 - Depends on: T-016, T-020
-- Decisions: O16
+- Decisions: D22
 - Done when:
   - Typing in the add-item field of a list (and of a run) offers the titles of existing items
-    within the user's reach (which ones: O16), matching what was typed anywhere in the title,
+    in every space the user belongs to (D22), matching what was typed anywhere in the title,
     ignoring case; titles that are identical by the D16 rule are offered once.
   - Items in the trash, and items already in this list (or run), are not offered.
-  - Choosing a suggestion, with the mouse, by touch or with the arrow keys and Enter, adds the item
-    as typing the title and pressing Enter does today; Enter without a chosen suggestion still adds
-    exactly what was typed, and Escape closes the suggestions without adding.
+  - Choosing a suggestion (mouse, touch, or arrow keys and Enter) adds an item with that title
+    only, no quantity or note (D22), as typing the title and pressing Enter does today. Enter
+    without a chosen suggestion still adds exactly what was typed, and Escape closes the
+    suggestions without adding.
   - Suggestions come from the local database (signals), so they work offline and stay current.
   - Angular Material autocomplete (`mat-autocomplete`), accessible (announced options, visible
     focus), at most a handful of suggestions at a time, and it fits a 320 px wide phone with the
