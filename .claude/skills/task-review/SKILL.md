@@ -1,145 +1,96 @@
 ---
 name: task-review
-description: Critical, independent review of one finished Lister task (its commit range on the work branch) — correctness, the task's Done-when criteria, design conformance, current best practices, required tests, module boundaries, security, offline behaviour and accessibility — reported in tmp/reviews/<task-id>.md. Use when you were started as a review session for a task, when asked to re-check review fixes, or when the user asks for a review of a task's changes.
+description: Critical, independent review of one finished Lister task (its commit range on the work branch) — correctness, the task's Done-when criteria, design conformance, tests, best practices, module boundaries, security, offline behaviour and accessibility — reported in tmp/reviews/<task-id>.md. Use when you were started as a review session for a task, or when the user asks for a review of a task's changes.
 ---
 
 # Reviewing a finished task
 
-You're reviewing another session's work on one TASKS.md task. That session is waiting for your
-report and will fix what you find. Be thorough, specific, sceptical and fair: assume there are
-bugs until you've looked. Don't approve on trust, and don't invent problems either.
+You're reviewing another session's work on one TASKS.md task. Be sceptical and fair: assume
+there are bugs until you've looked, and report only what you can show.
 
 ## Ground rules
 
-- **Read-only while reviewing.** Until the report is written, don't edit tracked files,
-  commit, amend, switch branches, stash, reset or install packages. The only file you write is
-  the report, plus scratch probes under `tmp/`. Run any checks you like (tests, lint, builds,
-  e2e).
-- **Then you fix the substantive findings yourself** (see "Fixing substantive findings"),
-  unless your brief says report only. You already have the context; the test gate and the
-  coordinator's re-review of your fix diff make up for grading your own work.
-- **Scope:**
-  - The review covers the commit range in your brief: `git log --stat <base>..<head>` and
-    `git diff <base>..<head>`.
-  - Read whole changed files, not just the hunks, plus the code they call and the code that
-    calls them.
-  - Problems that existed before the range go in their own short section.
-- **Evidence for every finding:**
-  - file and line, and what's wrong;
-  - a concrete scenario where it breaks (input, state, steps);
-  - a suggested fix.
-  - Say how sure you are, and mark guesses "unverified".
-- Don't report what Prettier or lint already enforce, or matters of taste with no reason
-  behind them.
+- **Read-only until the report is written.** The only files you write are the report and
+  scratch probes under `tmp/`. Run any checks you like. Tracked files, commits, branches, the
+  stash and installed packages stay as you found them.
+- **Scope:** the commit range in your brief (`git log --stat <base>..<head>`,
+  `git diff <base>..<head>`). Read whole changed files, plus the code they call and the code
+  that calls them. Problems that predate the range go under "Outside this task".
+- **Every finding** gives file and line, what's wrong, a concrete scenario where it breaks
+  (input, state, steps), a fix, and how sure you are ("unverified" for guesses). Leave out what
+  Prettier and lint already enforce, and taste with no reason behind it.
 
 ## Steps
 
-1. **Context:**
-   - The task's block in `TASKS.md` (Done when, Notes, Decisions).
-   - The `docs/design.md` sections it touches, and `CLAUDE.md`.
-   - The skills that apply: `best-practices`, `testing` and `module-boundaries`, plus
-     `angular-feature`, `nest-feature` or `fullstack-feature`.
-2. **Done when:** check every bullet against the code and the tests. Mark each one met, partly
-   met or not met, with evidence (file, test name).
-3. **Run the checks** on the reviewed commit:
+1. **Context:** the task's block in `TASKS.md` (Done when, Notes, Decisions), the
+   `docs/design.md` sections it touches, `CLAUDE.md`, and the skills `best-practices`,
+   `testing` and `module-boundaries`, plus `angular-feature`, `nest-feature` or
+   `fullstack-feature`.
+2. **Done when:** mark every bullet met, partly met or not met, with evidence (file, test name).
+3. **Checks** on `<head>`; record exactly what passed and what failed:
    - `npm run lint:workspace`
    - `npx nx format:check`
    - `NX_TUI=false npx nx affected -t lint typecheck test build --base=<base> --head=<head> --outputStyle=static`
    - the e2e suites, when user-facing behaviour or a backend call changed.
-   - Record exactly what passed and what failed.
-4. **Review** against the checklist below.
-5. **Try to break it.** Take the riskiest behaviour and probe it: edge-case input, a double
-   submit, a retry, offline and reconnect, two clients, a non-member, a slow network, a
-   cancelled or refused browser dialog, and an extension that rejects or never answers. Write a
-   probe test under `tmp/` if that helps, and describe it in the report. Never commit it.
-6. **UI/UX:** when the task changes anything the web app shows, also run the `ui-review`
-   skill: use the real screens at phone and desktop widths, and append its "UI/UX" section to
-   the report. Its findings count towards the verdict like any others.
-7. **Write the report** (format below), with a tier on every finding.
-8. **Fix the substantive findings** (section below), unless your brief says report only. Then
-   finish.
+4. **Review** against the checklist below: every item, every changed file.
+5. **Try to break it.** Probe the riskiest behaviour: edge-case input, a double submit, a retry,
+   offline and reconnect, two clients, a non-member, a slow network, a cancelled or refused
+   browser dialog, an extension that rejects or never answers. Probes live under `tmp/`, are
+   described in the report and never committed.
+6. **UI/UX:** when the task changes anything the web app shows, run the `ui-review` skill and
+   append its "UI/UX" section to the report. Its findings count towards the verdict.
+7. **Write the report** (below), with a severity and a tier on every finding.
+8. **Fix the substantive findings** with the `review-fixes` skill, unless your brief says
+   report only.
 
 ## Checklist
 
 - **Correctness:**
-  - Logic errors.
-  - Edge cases: empty, one, many, duplicates, unicode, maximum lengths.
-  - Error handling, and what the user sees when something fails.
-  - **Cancellations and refusals from outside the app:**
-    - the user dismisses a native dialog (passkey prompt, permission, file picker);
-    - the browser or an extension rejects at once, or never answers;
-    - the network or server fails mid-flow.
-
-    For every `await` on something outside the app, check that every outcome (resolve,
-    reject, abort, never settles) brings the UI back to a usable idle state. Check too that
-    notices queued before a sign-in, sign-out or reload can't surface after it. Probe these
-    (Steps 5 and 6, `ui-review` "Cancelled, refused and interrupted flows"), and ask for a test
-    for each that can be simulated.
-
+  - Logic errors; edge cases (empty, one, many, duplicates, unicode, maximum lengths); error
+    handling and what the user sees when something fails.
+  - **Every `await` on something outside the app** (native dialog, browser API, extension,
+    network, server): resolve, reject, abort and never-settles each bring the UI back to a
+    usable idle state. Notices queued before a sign-in, sign-out or reload stay behind it.
+    Probe these (step 5, `ui-review` "Cancelled, refused and interrupted flows") and ask for a
+    test for each one that can be simulated.
   - Races and ordering, retries and idempotency, time zones.
   - Cleanup of subscriptions, sockets, timers and database handles.
-- **Design conformance:**
+- **Design conformance** (`docs/design.md`; behaviour that departs from it without the doc
+  changing is a finding):
   - Decisions D1–D16 and the domain rules: runs copy their items when they start (D2),
     identical items merge (D16), the finishing rules (D10).
-  - Synced data changes only through mutations: no REST CRUD, no `HttpClient` for it.
-  - Handlers run in one synchronous transaction, with no `await` inside.
-  - Mutations set values and never toggle.
-  - Ids are UUIDv7 and generated on the client; deleted rows become tombstones.
-  - Every Drizzle migration comes with its matching Dexie version bump.
-  - Behaviour that departs from docs/design.md without the doc changing is a finding.
-- **Tests** (`testing` skill):
-  - Unit tests for every new unit on both sides.
-  - An integration test for every new or changed HTTP route and socket event, failure cases
-    included.
-  - A Playwright happy path for every user-facing change.
-  - Would each test fail if the behaviour broke? Are they deterministic, with no sleeps and no
-    `.only` or `.skip`?
-- **Current practice** (`best-practices` skill):
-  - Anything deprecated, legacy or experimental where a stable, newer API exists. Examples:
-    decorator inputs, `*ngIf`, `@Injectable({ providedIn: 'root' })` on new services, explicit
-    OnPush, `NgZone`, constructor injection in Angular, Reactive Forms for new forms, `any`,
-    unnamed Express 5 wildcards.
-  - When unsure, check the API against the installed typings.
-- **Structure** (`module-boundaries` skill):
-  - Bigger features live in their own library with the right tags, and the apps stay thin.
-  - Public APIs are minimal, with no deep or relative imports across projects.
-  - No disabled rules, new `allow` entries or changed tags.
-  - New libraries are added to docs/design.md §5.
+  - Synced data changes only through mutations, never REST CRUD or `HttpClient`. Mutations set
+    values (no toggles), run in one synchronous transaction (no `await` inside).
+  - Ids are client-generated UUIDv7; deleted rows become tombstones.
+  - Every Drizzle migration has its matching Dexie version bump.
+- **Tests:** every rule of the `testing` skill. Each test goes red if its behaviour breaks, and
+  is deterministic (no sleeps, no `.only` or `.skip`).
+- **Current practice:** every rule of the `best-practices` skill; check doubtful APIs against
+  the installed typings.
+- **Structure:** every rule of the `module-boundaries` skill; new libraries are in
+  docs/design.md §5.
 - **Security:**
-  - Authentication and space-membership checks on every route and socket event.
+  - Authentication and space membership checked on every route and socket event.
   - Input validated (DTO or Zod) at every boundary.
-  - No secrets, tokens or passwords in code, logs or error messages.
+  - Secrets, tokens and passwords stay out of code, logs and error messages.
   - Cookies are `HttpOnly`, `SameSite`, and `Secure` when `PUBLIC_URL` is https.
-  - Sign-in doesn't reveal whether a username exists.
-  - No `innerHTML` and no `bypassSecurityTrust*`; raw SQL only with parameters.
-- **Offline and sync:**
-  - Works offline and converges after reconnecting.
-  - The outbox survives a reload.
-  - A rejected change is rolled back and shown to the user.
-  - The service worker never serves `/api` or `/socket.io`.
-- **UX and accessibility:**
-  - Matches the mock-ups and Material 3.
-  - Empty, loading, error, offline and "not synced yet" states.
-  - Undo for destructive actions.
-  - Keyboard paths: drag and drop also has Move up / Move down.
-  - Labels, focus handling, and contrast in light and dark.
-  - Layouts at 375 px and at 1280 px.
-  - UI text in English.
-- **Performance:**
-  - Lazy routes and `track` in every `@for`.
-  - No heavy work in templates.
-  - Indexes for new queries, and no N+1 queries.
-  - Within the bundle budgets.
-- **Housekeeping:**
-  - The task is still In progress in `TASKS.md`; it closes after the review.
-  - README env vars, CLAUDE.md and the skills are updated if conventions changed.
-  - No stray files, no debug code, no TODO without a task ID.
-  - Commit messages look like `T-NNN: …`.
+  - Sign-in answers the same whether or not a username exists.
+  - Templates bind text (no `innerHTML`, no `bypassSecurityTrust*`); SQL is parameterised.
+- **Offline and sync:** works offline and converges after reconnecting; the outbox survives a
+  reload; a rejected change is rolled back and shown; the service worker leaves `/api` and
+  `/socket.io` to the network.
+- **UX and accessibility** (code side; `ui-review` covers the screens): empty, loading, error,
+  offline and "not synced yet" states; Undo for destructive actions; drag and drop has Move up /
+  Move down; labels and focus handling; English UI text.
+- **Performance:** lazy routes, `track` in every `@for`, light templates, indexes for new
+  queries, no N+1 queries, within the bundle budgets.
+- **Housekeeping:** the task is still In progress in `TASKS.md`; README env vars, CLAUDE.md and
+  the skills follow any changed convention; no stray files, debug code, or TODO without a task
+  ID; commit messages look like `T-NNN: …`.
 
 ## Report
 
-Write `tmp/reviews/<task-id>.md`; the folder is git-ignored, so create it if it's missing. If
-the file already exists, this is a re-review: add a dated section, don't overwrite.
+Write `tmp/reviews/<task-id>.md` (git-ignored; create the folder if needed).
 
 ```markdown
 # Review of T-NNN — <title>
@@ -173,68 +124,27 @@ Range: <base>..<head> · <date>
 
 - **blocker:** wrong behaviour, data loss, a security hole, a Done-when criterion not met, or a
   required test missing.
-- **major:** a likely bug, a design violation, an outdated practice that has a stable
-  replacement, or a test that wouldn't catch the breakage it's meant to catch.
+- **major:** a likely bug, a design violation, an outdated practice with a stable replacement,
+  or a test that wouldn't catch the breakage it's meant to catch.
 - **minor:** robustness or clarity that's cheap to fix now.
 - **nit:** optional polish.
 
-**Tier** (every finding gets one, next to its severity):
+**Tier:**
 
-- **trivial:** the fix is mechanical and local, and the finding already says exactly what to
-  change: a wording, a missing test case for a behaviour that already exists, a rename, a style
-  tweak. No design choice, nothing else depends on it. The task worker (Sonnet) does these, and
-  nobody re-reviews them; the test gate is enough.
-- **substantive:** anything else, and always every blocker and major: logic, data, sync,
-  security, a design choice, or a fix that touches more than one place. You fix these yourself,
-  and the coordinator re-reviews your fix diff.
+- **trivial:** a mechanical, local fix that the finding spells out exactly (a wording, a
+  missing test case for existing behaviour, a rename, a style tweak), with no design choice and
+  nothing depending on it. The task worker fixes it from the report alone, with no re-review.
+- **substantive:** everything else, and always every blocker and major. You fix it, and the
+  coordinator re-reviews your fix diff.
 
-If you're unsure, it's substantive.
+When unsure, it's substantive.
 
-**Verdict:**
+**Verdict:** any blocker or major → **Changes requested**; only minors and nits → **Approve
+with minor fixes**; nothing → **Approve**.
 
-- any blocker or major → **Changes requested**;
-- only minors and nits → **Approve with minor fixes**;
-- nothing → **Approve**.
-
-End with one line that starts with the verdict, in your wrap-up recap if you have one and in
-your final message:
+End your wrap-up recap (if you have one) and your final message with the verdict line, which
+the coordinator reads first:
 
 `Verdict: Changes requested — 1 blocker, 2 major, 3 minor, 1 nit (2 substantive, 5 trivial) — tmp/reviews/T-NNN.md`
 
-The coordinator sees that line first. When you've also fixed findings, add the fix commit and
-the fix report's path after it.
-
-## Fixing substantive findings
-
-Once the report is written, fix every **substantive** finding. Leave the trivial ones alone: the
-task worker does those.
-
-- Follow `best-practices`, `testing` and `module-boundaries`, the same as the original work.
-  Every bug gets a test that fails without the fix.
-- Run the `verify` skill. Don't commit while it fails.
-- Commit as `T-NNN: address review`, with the fix report in the body. Don't close the task in
-  `TASKS.md`; the task worker does that.
-- **Fix report**, also appended to the review as `## Fixes <date>`. One line per substantive
-  finding, each with exactly one status:
-  - `fixed`: how, and which test covers it;
-  - `skipped`: why (e.g. out of scope, now a Backlog task T-xxx);
-  - `disagree`: why the finding was wrong after all.
-
-  No finding may be missing from the report: that makes a silent partial fix visible.
-
-- If a fix needs a product decision, don't guess. Mark it `skipped`, and put the question under
-  "Questions for the user".
-- End with the verdict line, the commit and the fix report's path.
-
-## Re-review (of a fix diff only)
-
-A re-review covers only the fix commit's diff, never the whole task again. The question is:
-"do these changes correctly address findings X, Y, Z, without regressions?"
-
-1. Read the fix report and the diff (`git diff <fix>^..<fix>`), plus the code the diff touches.
-2. For each finding, say whether its status holds: really fixed, a fair skip, or a disagreement
-   you accept or not.
-3. Look only for regressions that the diff introduced.
-4. Add a `## Re-review <date>` section to the same report, and end with a new verdict line.
-
-There are at most two re-review rounds. After that, the coordinator asks the user.
+When you've also fixed findings, `review-fixes` says what to add to it.

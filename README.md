@@ -147,6 +147,6 @@ inline scripts are allowed by hash (Angular's `security.autoCsp`).
   - Claude stops at the end of each milestone with a summary.
 - `.claude/skills/` — project skills:
   - `best-practices`, `testing` and `module-boundaries` apply to every change;
-  - `tasks` and `task-review` cover the backlog and the reviews;
+  - `tasks`, `task-review`, `review-fixes` and `fix-re-review` cover the backlog, the reviews and their fixes;
   - `fullstack-feature`, `angular-feature`, `nest-feature` and `verify` cover feature work and the final checks.
 - `.claude/settings.json` enables the official Nx plugin (Nx MCP server + Nx skills).

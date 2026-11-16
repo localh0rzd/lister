@@ -33,20 +33,16 @@ with the model and effort given below), one after the other:
 
 The review loop (agreed with the user, 2026-11-12):
 
-1. **Substantive findings: the review worker fixes them.** It already has the context and runs
-   at medium effort. It passes `verify`, commits `T-NNN: address review`, and writes a fix
-   report.
-2. **The coordinator re-reviews only that fix diff**, scoped to "do these changes correctly
-   address findings X, Y, Z without regressions?". The review worker graded its own work, so
-   this check and the test gate both stay. If something is wrong, send it back to the review
-   worker. **Two rounds at most**, then ask the user.
-3. **Trivial findings: the task worker fixes them**, with no re-review; `verify`
-   is the gate. It then closes the task in `TASKS.md` and commits `T-NNN: trivial review fixes`
-   with its own fix report.
-4. **Fix reports.** Every fixer lists every finding it was given, each with one status:
-   `fixed` (how, which test), `skipped` (why) or `disagree` (why). The coordinator checks that
-   no finding is missing, and treats a missing one as not done.
-5. The coordinator reports to the user (see Reviewing it, step 7), then goes on to the next
+1. **Substantive findings: the review worker fixes them** (`review-fixes`) and commits
+   `T-NNN: address review`.
+2. **The coordinator re-reviews only that fix diff** (`fix-re-review`). The review worker graded
+   its own work, so this check and the test gate both stay. Two rounds at most, then ask the
+   user.
+3. **Trivial findings: the task worker fixes them** (`review-fixes`), with no re-review;
+   `verify` is the gate. It closes the task and commits `T-NNN: trivial review fixes`.
+4. Every fixer writes a fix report with one status per finding; the coordinator treats a
+   missing finding as not done.
+5. The coordinator reports to the user (see Reviewing it, step 6), then goes on to the next
    task, stopping at the end of each milestone.
 
 If there are no substantive findings, skip steps 1–2. If there are no trivial ones, the task
@@ -145,10 +141,9 @@ model and effort with `mcp__ccd_session_mgmt__get_session`, and if either is wro
      > `work/v1`. Follow the project's `task-review` skill exactly, including its `ui-review`
      > step when the task changes the web UI. Mark every finding trivial or substantive. Stay
      > read-only until the report `tmp/reviews/T-NNN.md` (screenshots under
-     > `tmp/reviews/T-NNN-ui/`) is written. Then fix the substantive findings yourself, as
-     > the skill's "Fixing substantive findings" says: tests, `verify`, one commit
-     > `T-NNN: address review`, and a fix report with one status (fixed, skipped or disagree)
-     > per finding. Leave the trivial findings and `TASKS.md` alone. Don't switch branches,
+     > `tmp/reviews/T-NNN-ui/`) is written. Then fix the substantive findings yourself with
+     > the `review-fixes` skill (one commit `T-NNN: address review`, a fix report with one
+     > status per finding). Leave the trivial findings to the task worker. Don't switch branches,
      > stash or install anything, and don't stop a server you didn't start. End your wrap-up
      > recap and your final message with the verdict line plus the fix commit, for example
      > `Verdict: Changes requested — 1 blocker, 2 major, 0 minor, 1 nit (3 substantive, 1 trivial) — tmp/reviews/T-NNN.md — fixed in abc1234`.
@@ -164,27 +159,15 @@ model and effort with `mcp__ccd_session_mgmt__get_session`, and if either is wro
    in one line that the review is running, with a link to the session, and end your turn. Edit
    nothing while it runs, because it reads this checkout. The app continues you when the review
    finishes.
-3. **Check the substantive fixes.** Read the review worker's fix report and re-review only its
-   fix diff (`git diff <fix>^..<fix>`), asking: "do these changes correctly address findings
-   X, Y, Z without regressions?". Every substantive finding must be in the report. If a fix
-   is wrong or a finding is missing, send it back to the review worker (SendMessage to its
-   `local_…` id). Two rounds at most, then ask the user.
+3. **Check the substantive fixes** with the `fix-re-review` skill.
 4. **Hand the trivial findings to the task worker** (SendMessage to its `local_…` id): the
-   report path and the trivial finding numbers. It fixes them all, which is the default, nits
-   included. It may only:
-   - skip one, if it's real but outside the task, after adding it to Backlog as a new task;
-   - disagree with one, if it's wrong or contradicts `docs/design.md`.
-
-   Each skip or disagreement goes in its fix report with the reason. It asks you instead of
-   guessing when unsure, and you ask the user (`AskUserQuestion`) if you can't decide.
-
-5. **Gate:** the task worker runs `verify`; there's no re-review for trivial fixes. Check its
-   fix report for completeness.
-6. **Close:** the task worker closes the task (next section) and commits
-   `T-NNN: trivial review fixes`, even when the only change is closing the task.
-7. **Report** to the user: a short summary of every finding that wasn't fixed (skipped or
+   report path, the trivial finding numbers, and "follow the `review-fixes` skill". It fixes
+   them all, nits included, and closes the task. When it asks you and you can't decide, ask the
+   user (`AskUserQuestion`).
+5. **Check** its fix report for completeness; `verify` is the gate, with no re-review.
+6. **Report** to the user: a short summary of every finding that wasn't fixed (skipped or
    disagree, in either fix report), each with its reason, plus any question still open.
-8. Continue with the next task, unless the milestone is complete (see End of a milestone).
+7. Continue with the next task, unless the milestone is complete (see End of a milestone).
 
 If the review session can't be started, or it fails, tell the user, and don't start the next
 task until they decide how to proceed.
