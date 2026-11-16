@@ -19,6 +19,7 @@ import { ERROR_LOG_SIZE, LOCK_CHECK_MS, SyncEngine } from './sync-engine';
 import {
   SYNC_CLOCK,
   SYNC_LOCKS,
+  type SyncLockOptions,
   type SyncLocks,
   SYNC_SOCKET_FACTORY,
   type SyncSocket,
@@ -214,51 +215,80 @@ class FakeServer {
   }
 }
 
-/** The Web Locks of one browser: requests queue in order; a ghost is a request of a gone page. */
+interface LockEntry {
+  hold?: () => Promise<void>;
+  signal?: AbortSignal;
+  resolve: () => void;
+  reject: (error: unknown) => void;
+}
+
+/**
+ * The Web Locks of one browser, as the spec has them: requests queue in order; an aborted wait
+ * rejects with `AbortError`; `steal` with `signal` is refused (`NotSupportedError`); a steal
+ * grants at once and rejects the robbed holder with `AbortError`, whose callback keeps running and
+ * whose later release frees nothing. A ghost is a request of a gone page that is never granted.
+ */
 class FakeLocks implements SyncLocks {
-  held: { release: () => void } | undefined;
-  readonly queue: {
-    hold?: () => Promise<void>;
-    signal?: AbortSignal;
-  }[] = [];
-  readonly requests: { steal?: boolean; signal?: AbortSignal }[] = [];
+  private held?: LockEntry;
+  private readonly queue: LockEntry[] = [];
+  readonly requests: SyncLockOptions[] = [];
 
   request(
     _name: string,
     hold: () => Promise<void>,
-    options: { signal?: AbortSignal; steal?: boolean } = {},
-  ) {
+    options: SyncLockOptions = {},
+  ): Promise<void> {
     this.requests.push(options);
-    if (options.steal) this.queue.unshift({ hold, signal: options.signal });
-    else this.queue.push({ hold, signal: options.signal });
-    if (options.steal) this.held = undefined;
-    this.process();
+    if (options.steal && options.signal)
+      return Promise.reject(new DOMException('', 'NotSupportedError'));
+    if (options.signal?.aborted)
+      return Promise.reject(new DOMException('', 'AbortError'));
+    return new Promise<void>((resolve, reject) => {
+      const entry: LockEntry = { hold, resolve, reject, ...options };
+      options.signal?.addEventListener('abort', () => {
+        const at = this.queue.indexOf(entry);
+        if (at < 0) return;
+        this.queue.splice(at, 1);
+        reject(new DOMException('', 'AbortError'));
+        this.process();
+      });
+      if (options.steal) {
+        this.held?.reject(new DOMException('', 'AbortError'));
+        this.held = undefined;
+        this.queue.unshift(entry);
+      } else this.queue.push(entry);
+      this.process();
+    });
   }
 
   async query() {
-    this.process();
-    return { held: this.held ? 1 : 0, pending: this.live().length };
+    return { held: this.held ? 1 : 0, pending: this.queue.length };
+  }
+
+  /** Another page holds the lock (and never lets go). */
+  holdElsewhere() {
+    this.held = { resolve: () => undefined, reject: () => undefined };
   }
 
   /** A pending request nobody will ever grant. */
   addGhost() {
-    this.queue.push({});
+    this.queue.push({ resolve: () => undefined, reject: () => undefined });
   }
 
-  private live() {
-    return this.queue.filter((entry) => !entry.signal?.aborted);
+  get isHeld() {
+    return this.held !== undefined;
   }
 
   private process() {
-    const next = this.live()[0];
+    const next = this.queue[0];
     if (this.held || !next?.hold) return;
-    this.queue.splice(this.queue.indexOf(next), 1);
-    void next.hold().finally(() => {
-      this.held = undefined;
+    this.queue.shift();
+    this.held = next;
+    void next.hold().then(() => {
+      if (this.held === next) this.held = undefined;
+      next.resolve();
       this.process();
     });
-    // The promise only settles once released: remember how.
-    this.held = { release: () => undefined };
   }
 }
 
@@ -288,7 +318,8 @@ function setup(
         useValue: options.locks ?? {
           request: (_: string, hold: () => Promise<void>) => {
             if (options.leader === 'later') grantLock = hold;
-            else if (options.leader !== false) void hold();
+            else if (options.leader !== false) return hold();
+            return new Promise<void>(() => undefined);
           },
         },
       },
@@ -1667,7 +1698,10 @@ describe('SyncEngine', () => {
       const otherTab = createEnvironmentInjector(
         [
           { provide: SyncEngine, useClass: SyncEngine },
-          { provide: SYNC_LOCKS, useValue: { request: () => undefined } },
+          {
+            provide: SYNC_LOCKS,
+            useValue: { request: () => new Promise<void>(() => undefined) },
+          },
         ],
         TestBed.inject(EnvironmentInjector),
       ).get(SyncEngine);
@@ -1706,7 +1740,7 @@ describe('SyncEngine', () => {
 
     it('aborts a pending request when the page is hidden', async () => {
       const locks = new FakeLocks();
-      locks.held = { release: () => undefined };
+      locks.holdElsewhere();
       setup({ locks });
       engine.start();
       const signal = locks.requests[0].signal;
@@ -1724,7 +1758,7 @@ describe('SyncEngine', () => {
       expect(server.socket.connected).toBe(true);
       pagehide();
       await settle();
-      expect(locks.held).toBeUndefined();
+      expect(locks.isHeld).toBe(false);
       expect(server.socket.connected).toBe(false);
     });
 
@@ -1742,7 +1776,7 @@ describe('SyncEngine', () => {
       await settle();
       expect(createSocket).toHaveBeenCalledTimes(2);
       expect(server.socket.connected).toBe(true);
-      expect(locks.held).toBeDefined();
+      expect(locks.isHeld).toBe(true);
     });
 
     it('does not lead again after stop()', async () => {
@@ -1755,6 +1789,29 @@ describe('SyncEngine', () => {
       await settle();
       expect(createSocket).toHaveBeenCalledTimes(1);
       expect(locks.requests).toHaveLength(1);
+    });
+
+    it('steps back when another page steals the lock, and leads again once it is free', async () => {
+      const locks = new FakeLocks();
+      const { createSocket } = setup({ locks });
+      engine.start();
+      await settle();
+      expect(server.socket.connected).toBe(true);
+      let releaseOther: () => void = () => undefined;
+      void locks.request(
+        'lister-sync',
+        () => new Promise<void>((release) => (releaseOther = release)),
+        { steal: true },
+      );
+      await settle();
+      expect(server.socket.connected).toBe(false);
+      // Waiting again, behind the page that stole it.
+      expect(locks.requests).toHaveLength(3);
+      expect(locks.requests[2]).toEqual({ signal: expect.any(AbortSignal) });
+      releaseOther();
+      await settle();
+      expect(createSocket).toHaveBeenCalledTimes(2);
+      expect(server.socket.connected).toBe(true);
     });
 
     describe('waiting for the lock', () => {
@@ -1770,7 +1827,8 @@ describe('SyncEngine', () => {
         await tick(1);
         expect(locks.requests).toHaveLength(1); // seen once: not yet
         await tick(1);
-        expect(locks.requests.map((r) => r.steal)).toEqual([false, true]);
+        expect(locks.requests.map((r) => r.steal)).toEqual([undefined, true]);
+        expect(locks.requests[1].signal).toBeUndefined(); // browsers refuse both
         await settle();
         expect(createSocket).toHaveBeenCalledTimes(1);
         expect(server.socket.connected).toBe(true);
@@ -1781,7 +1839,7 @@ describe('SyncEngine', () => {
 
       it('does not steal while another page holds the lock', async () => {
         const locks = new FakeLocks();
-        locks.held = { release: () => undefined };
+        locks.holdElsewhere();
         const { createSocket } = setup({ locks });
         engine.start();
         await tick(5);
@@ -1913,7 +1971,10 @@ describe('SyncEngine', () => {
       const otherTab = createEnvironmentInjector(
         [
           { provide: SyncEngine, useClass: SyncEngine },
-          { provide: SYNC_LOCKS, useValue: { request: () => undefined } },
+          {
+            provide: SYNC_LOCKS,
+            useValue: { request: () => new Promise<void>(() => undefined) },
+          },
         ],
         TestBed.inject(EnvironmentInjector),
       ).get(SyncEngine);

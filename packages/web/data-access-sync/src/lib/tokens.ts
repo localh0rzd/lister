@@ -21,19 +21,24 @@ export const SYNC_SOCKET_FACTORY = new InjectionToken<() => SyncSocket>(
   },
 );
 
-/** How a lock request may be changed: cancelled while it waits, or taken from a stuck queue. */
-export interface SyncLockOptions {
-  signal?: AbortSignal;
-  steal?: boolean;
-}
+/**
+ * How a lock request may be changed: cancelled while it waits, or taken from a stuck queue. Never
+ * both: browsers refuse `signal` with `steal` (`NotSupportedError`).
+ */
+export type SyncLockOptions =
+  { signal?: AbortSignal; steal?: never } | { steal: true; signal?: never };
 
-/** Holds a lock while `hold` runs; only one tab at a time gets it (Web Locks). */
+/**
+ * Holds a lock while `hold` runs; only one tab at a time gets it (Web Locks). The promise
+ * resolves once released and rejects when the wait is aborted, the request is refused, or the
+ * lock is stolen from this page (`hold` keeps running then: the page must step back itself).
+ */
 export interface SyncLocks {
   request(
     name: string,
     hold: () => Promise<void>,
     options?: SyncLockOptions,
-  ): void;
+  ): Promise<void>;
   /** How many requests hold and wait for the lock now; absent without Web Locks. */
   query?(name: string): Promise<{ held: number; pending: number }>;
 }
@@ -47,12 +52,8 @@ export const SYNC_LOCKS = new InjectionToken<SyncLocks>('SYNC_LOCKS', {
       request: (name, hold, options) => {
         const available = locks();
         // Without Web Locks every tab syncs; the server's idempotency keeps that safe.
-        if (!available) void hold();
-        // An aborted wait or a stolen lock rejects: that is expected, not an error.
-        else
-          void available
-            .request(name, options ?? {}, hold)
-            .catch(() => undefined);
+        if (!available) return hold();
+        return available.request(name, options ?? {}, hold);
       },
       query: async (name) => {
         const state = await locks()?.query();

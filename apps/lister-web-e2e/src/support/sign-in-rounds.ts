@@ -36,11 +36,26 @@ export async function signInRounds(browser: Browser) {
     });
   }
 
-  await test.step('a fresh page on the same storage syncs too', async () => {
+  await test.step('after a reload and a second page it syncs too', async () => {
     await signIn(page, account);
+    await synced(page);
+    await page.reload();
+    await synced(page);
     const second = await page.context().newPage();
     await second.goto('/lists');
     await synced(second);
   });
-  await page.context().close();
+
+  await test.step('a fresh browser context on the same storage syncs', async () => {
+    // Like closing and reopening the browser: cookies, localStorage and IndexedDB stay, the
+    // pages, their lock requests and the back/forward cache are gone.
+    const storageState = await page.context().storageState({ indexedDB: true });
+    await page.context().close();
+    const { baseURL } = test.info().project.use;
+    const context = await browser.newContext({ storageState, baseURL });
+    const reopened = await context.newPage();
+    await reopened.goto('/lists');
+    await synced(reopened);
+    await context.close();
+  });
 }

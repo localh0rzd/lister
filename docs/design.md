@@ -261,7 +261,9 @@ Consequences:
   leaves nothing behind: it aborts its pending lock request, releases the lock and closes the socket;
   a page restored from the cache (`pageshow` with `persisted`) asks again. A frozen page's request
   would otherwise block every later page. While a page waits, it checks `locks.query()` every 3 s and,
-  when the lock is pending but held by nobody on two checks in a row, takes it with `steal`.
+  when the lock is pending but held by nobody on two checks in a row, takes it with `steal` (a steal
+  request carries no abort `signal`: browsers refuse the two together). A page whose lock is stolen
+  (its request rejects while it leads) stops leading, closes its socket and waits for the lock again.
 - **Session expires while offline:** the app keeps working locally, and queued changes are sent
   after signing in again.
 - **Old app, new server:** the service worker may serve a cached older version of the app. The sync

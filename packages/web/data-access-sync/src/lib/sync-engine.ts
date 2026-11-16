@@ -335,17 +335,34 @@ export class SyncEngine {
     const check = setInterval(() => void this.checkStuck(), LOCK_CHECK_MS);
     this.lockWait = { abort, check };
     this.stuckBefore = false;
-    this.locks.request(
-      LOCK_NAME,
-      () =>
-        new Promise<void>((release) => {
-          if (this.stopped || abort.signal.aborted) return release();
+    let granted: (() => void) | undefined;
+    this.locks
+      .request(
+        LOCK_NAME,
+        () =>
+          new Promise<void>((release) => {
+            if (this.stopped || abort.signal.aborted) return release();
+            this.cancelWait();
+            granted = release;
+            this.releaseLock = release;
+            this.lead();
+          }),
+        // Browsers refuse a steal with a signal; a steal is granted at once, `aborted` guards it.
+        steal ? { steal } : { signal: abort.signal },
+      )
+      .catch((error: unknown) => {
+        if (granted) {
+          // Stolen: another page leads now. Step back and wait behind it.
+          if (this.releaseLock !== granted) return;
+          this.stepBack();
+          granted();
+          this.requestLock();
+        } else if (!abort.signal.aborted) {
+          // Refused (unexpected): report it, so a page that never leads doesn't fail silently.
+          this.errorHandler.handleError(error);
           this.cancelWait();
-          this.releaseLock = release;
-          this.lead();
-        }),
-      { signal: abort.signal, steal },
-    );
+        }
+      });
   }
 
   private cancelWait(): void {
@@ -374,9 +391,15 @@ export class SyncEngine {
   /** The page goes away: drops the request or the lock, and closes the socket and watchers. */
   private leave(): void {
     this.cancelWait();
+    const release = this.releaseLock;
+    this.stepBack();
+    release?.();
+  }
+
+  /** Stops leading: closes the socket and watchers and forgets the lock. */
+  private stepBack(): void {
     this.teardown?.();
     this.teardown = undefined;
-    this.releaseLock?.();
     this.releaseLock = undefined;
   }
 
