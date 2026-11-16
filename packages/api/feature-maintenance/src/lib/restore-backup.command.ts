@@ -1,6 +1,6 @@
 import { copyFileSync, existsSync, renameSync, rmSync } from 'node:fs';
 import type { INestApplicationContext } from '@nestjs/common';
-import { sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import {
   DatabaseConnection,
   openDatabase,
@@ -8,6 +8,19 @@ import {
 } from '@lister/api/data-access-db';
 
 export const RESTORE_BACKUP_COMMAND = 'restore-backup';
+
+/** Deletes a database file and its journal files. */
+function removeDatabaseFiles(path: string): void {
+  for (const suffix of ['', '-wal', '-shm'])
+    rmSync(path + suffix, { force: true });
+}
+
+function readSpaceVersions(connection: DatabaseConnection) {
+  return connection.db
+    .select({ id: schema.spaces.id, version: schema.spaces.version })
+    .from(schema.spaces)
+    .all();
+}
 
 /**
  * Replaces the live database with the backup at `file` (the server must be stopped). Every
@@ -24,32 +37,22 @@ export function restoreBackup(live: DatabaseConnection, file: string): number {
   }
   if (!existsSync(file)) throw new Error(`No such file: ${file}`);
   const path = live.sqlite.name;
-  const issued = new Map(
-    live.db
-      .select({ id: schema.spaces.id, version: schema.spaces.version })
-      .from(schema.spaces)
-      .all()
-      .map((s) => [s.id, s.version]),
-  );
+  const issued = new Map(readSpaceVersions(live).map((s) => [s.id, s.version]));
 
   const staged = `${path}.restoring`;
-  for (const suffix of ['', '-wal', '-shm'])
-    rmSync(staged + suffix, { force: true });
+  removeDatabaseFiles(staged);
   copyFileSync(file, staged);
   let spaces: number;
   try {
     const restored = openDatabase({ ...options, path: staged });
     try {
-      const rows = restored.db
-        .select({ id: schema.spaces.id, version: schema.spaces.version })
-        .from(schema.spaces)
-        .all();
+      const rows = readSpaceVersions(restored);
       for (const row of rows) {
         const next = Math.max(row.version, issued.get(row.id) ?? 0) + 1;
         restored.db
           .update(schema.spaces)
           .set({ version: next, purgedVersion: next })
-          .where(sql`${schema.spaces.id} = ${row.id}`)
+          .where(eq(schema.spaces.id, row.id))
           .run();
       }
       spaces = rows.length;
@@ -57,8 +60,7 @@ export function restoreBackup(live: DatabaseConnection, file: string): number {
       restored.onApplicationShutdown();
     }
   } catch (error) {
-    for (const suffix of ['', '-wal', '-shm'])
-      rmSync(staged + suffix, { force: true });
+    removeDatabaseFiles(staged);
     throw error;
   }
 
