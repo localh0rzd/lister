@@ -13,6 +13,7 @@ import {
   describeAuthError,
   describePasskeyError,
 } from '@lister/web/data-access-auth';
+import { PasskeyWaiting } from '../passkey-waiting/passkey-waiting';
 import { safeReturnUrl } from '../safe-url';
 
 /**
@@ -30,6 +31,7 @@ import { safeReturnUrl } from '../safe-url';
     MatIcon,
     MatInput,
     MatLabel,
+    PasskeyWaiting,
     RouterLink,
   ],
   templateUrl: './sign-in-page.html',

@@ -26,6 +26,7 @@ import {
 import { Passkeys, describePasskeyError } from '@lister/web/data-access-auth';
 import { NOTICE_DURATION_MS, Notifier } from '@lister/web/util-notify';
 import { ConfirmDialog, type ConfirmDialogData } from '@lister/web/ui';
+import { PasskeyWaiting } from '../passkey-waiting/passkey-waiting';
 
 /** The user's passkeys on their profile: list, add (with a name) and remove. */
 @Component({
@@ -40,6 +41,7 @@ import { ConfirmDialog, type ConfirmDialogData } from '@lister/web/ui';
     MatIcon,
     MatInput,
     MatLabel,
+    PasskeyWaiting,
   ],
   templateUrl: './passkeys-section.html',
   styleUrl: './passkeys-section.scss',

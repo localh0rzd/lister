@@ -50,6 +50,7 @@
       }
     </mat-form-field>
     <div class="actions">
+      <lister-passkey-waiting [waiting]="busy()" />
       @if (busy()) {
         <button matButton="outlined" type="button" (click)="cancelAdd()">
           Cancel

@@ -281,13 +281,35 @@ for (const [name, viewport] of layouts) {
       await page.context().close();
     });
 
-    test('a passkey add that is never answered is stopped by Cancel and can be repeated', async ({
+    test('a passkey prompt that is never answered says how to get out; Cancel stops it and it can be repeated', async ({
       browser,
     }) => {
       const account = await createAccount('passkey-silent');
       const page = await signedOutPage(browser);
       await stubCredentials(page, 'hang');
+      const waiting = page
+        .getByRole('status')
+        .filter({ hasText: 'Waiting for your passkey' });
+      const hint =
+        'Waiting for your passkey… If you closed the passkey window, choose Cancel.';
       await page.goto('/sign-in');
+
+      for (const attempt of [1, 2]) {
+        await test.step(`sign-in page, attempt ${attempt}: the hint shows, Cancel stops the prompt`, async () => {
+          await page
+            .getByRole('button', { name: 'Sign in with a passkey' })
+            .click();
+          await expect(waiting).toBeVisible();
+          await expect(waiting).toHaveText(hint);
+          await page.getByRole('button', { name: 'Cancel' }).click();
+          await expect(
+            page.getByRole('button', { name: 'Sign in with a passkey' }),
+          ).toBeEnabled();
+          await expect(waiting).toHaveCount(0);
+          await expect(page.getByRole('alert')).toHaveCount(0);
+        });
+      }
+
       await page.getByLabel('Username').fill(account.username);
       await page.getByLabel('Password').fill(account.password);
       await page.getByRole('button', { name: 'Sign in', exact: true }).click();
@@ -297,13 +319,16 @@ for (const [name, viewport] of layouts) {
       await openProfile(page);
 
       for (const attempt of [1, 2]) {
-        await test.step(`attempt ${attempt}: Cancel stops the prompt`, async () => {
+        await test.step(`profile, attempt ${attempt}: the hint shows, Cancel stops the prompt`, async () => {
           await page.getByLabel('Passkey name').fill('Silent phone');
           await page.getByRole('button', { name: 'Add a passkey' }).click();
+          await expect(waiting).toBeVisible();
+          await expect(waiting).toHaveText(hint);
           await page.getByRole('button', { name: 'Cancel' }).click();
           await expect(
             page.getByRole('button', { name: 'Add a passkey' }),
           ).toBeEnabled();
+          await expect(waiting).toHaveCount(0);
           await expect(page.getByRole('alert')).toHaveCount(0);
         });
       }

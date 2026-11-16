@@ -269,6 +269,26 @@ describe('PasskeysSection', () => {
       expect(element.querySelector('[role="alert"]')).toBeNull();
     });
 
+    it('says how to get out of a prompt that is not answering, next to Cancel, until it ends', async () => {
+      const { element, fixture, button } = await start();
+      const waiting = () =>
+        element
+          .querySelector('.actions lister-passkey-waiting')
+          ?.textContent?.replace(/\s+/g, ' ')
+          .trim();
+      expect(
+        element.querySelector('lister-passkey-waiting')?.getAttribute('role'),
+      ).toBe('status');
+      expect(waiting()).toBe(
+        'Waiting for your passkey… If you closed the passkey window, choose Cancel.',
+      );
+
+      button('Cancel').click();
+      await fixture.whenStable();
+
+      expect(waiting()).toBe('');
+    });
+
     it('lets the user try again after cancelling a prompt that never answered', async () => {
       const { http, button, fixture, element } = await start();
       button('Cancel').click();

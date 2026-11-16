@@ -43,6 +43,7 @@
 </form>
 @if (passkeysSupported) {
   <div class="actions passkey">
+    <lister-passkey-waiting [waiting]="passkeyBusy()" />
     @if (passkeyBusy()) {
       <button matButton="outlined" type="button" (click)="cancelPasskey()">
         Cancel

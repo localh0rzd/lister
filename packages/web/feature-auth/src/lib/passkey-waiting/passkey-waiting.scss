@@ -1,0 +1,15 @@
+:host {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  align-self: center;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+}
+span {
+  // Takes its place at once (no jump later), and shows only if the prompt takes a while.
+  visibility: hidden;
+}
+.shown {
+  visibility: visible;
+}

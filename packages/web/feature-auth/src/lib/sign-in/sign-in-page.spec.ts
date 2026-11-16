@@ -318,6 +318,29 @@ describe('SignInPage', () => {
         expect(element.querySelector('[role="alert"]')).toBeNull();
       });
 
+      it('says how to get out of a prompt that is not answering, next to Cancel, until it ends', async () => {
+        pending();
+        const { element, fixture } = await start();
+        const waiting = () =>
+          element
+            .querySelector('.passkey lister-passkey-waiting')
+            ?.textContent?.replace(/\s+/g, ' ')
+            .trim();
+        expect(
+          element
+            .querySelector('.passkey lister-passkey-waiting')
+            ?.getAttribute('role'),
+        ).toBe('status');
+        expect(waiting()).toBe(
+          'Waiting for your passkey… If you closed the passkey window, choose Cancel.',
+        );
+
+        button(element, 'Cancel')?.click();
+        await fixture.whenStable();
+
+        expect(waiting()).toBe('');
+      });
+
       it('shows no error when the browser reports the cancelled ceremony', async () => {
         const { reject } = pending();
         const { element, fixture } = await start();
