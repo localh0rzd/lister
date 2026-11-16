@@ -253,13 +253,10 @@ class FakeLocks implements SyncLocks {
     const next = this.live()[0];
     if (this.held || !next?.hold) return;
     this.queue.splice(this.queue.indexOf(next), 1);
-    void next
-      .hold()
-      .then(() => undefined)
-      .finally(() => {
-        this.held = undefined;
-        this.process();
-      });
+    void next.hold().finally(() => {
+      this.held = undefined;
+      this.process();
+    });
     // The promise only settles once released: remember how.
     this.held = { release: () => undefined };
   }

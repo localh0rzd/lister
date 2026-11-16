@@ -1,7 +1,14 @@
 import { type Account, createAccount, signedOutPage } from './accounts';
 import { synced } from './app';
-import type { Browser } from '@playwright/test';
+import type { Browser, Page } from '@playwright/test';
 import { expect, test } from './fixtures';
+
+async function signIn(page: Page, account: Account) {
+  await page.getByLabel('Username').fill(account.username);
+  await page.getByLabel('Password').fill(account.password);
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page).toHaveURL(/\/lists$/);
+}
 
 /**
  * T-052: five rounds of signing in and out must leave the app syncing every time. Pages of
@@ -16,10 +23,7 @@ export async function signInRounds(browser: Browser) {
 
   for (let round = 1; round <= 5; round++) {
     await test.step(`round ${round}: sign in, synced`, async () => {
-      await page.getByLabel('Username').fill(account.username);
-      await page.getByLabel('Password').fill(account.password);
-      await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-      await expect(page).toHaveURL(/\/lists$/);
+      await signIn(page, account);
       await synced(page);
     });
     await test.step(`round ${round}: sign out, sign-in page, no session`, async () => {
@@ -33,10 +37,7 @@ export async function signInRounds(browser: Browser) {
   }
 
   await test.step('a fresh page on the same storage syncs too', async () => {
-    await page.getByLabel('Username').fill(account.username);
-    await page.getByLabel('Password').fill(account.password);
-    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-    await expect(page).toHaveURL(/\/lists$/);
+    await signIn(page, account);
     const second = await page.context().newPage();
     await second.goto('/lists');
     await synced(second);

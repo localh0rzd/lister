@@ -305,6 +305,8 @@ export class SyncEngine {
   private releaseLock?: () => void;
   /** The wait looked stuck at the last check (lock pending, held by nobody). */
   private stuckBefore = false;
+  /** Removes the `pagehide` and `pageshow` listeners. */
+  private removePageListeners?: () => void;
 
   /** Starts syncing in this tab once it holds the sync lock (one tab at a time). */
   start(): void {
@@ -325,8 +327,6 @@ export class SyncEngine {
     };
     this.requestLock();
   }
-
-  private removePageListeners?: () => void;
 
   /** Asks for the sync lock; while it waits, a lock that is pending but held by nobody is stolen. */
   private requestLock(steal = false): void {
