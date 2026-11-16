@@ -26,7 +26,8 @@ h1 {
   margin-bottom: 16px;
 
   h1 {
-    flex: 1;
+    // A basis, so the actions wrap under a long title on a phone instead of squeezing it.
+    flex: 1 1 14rem;
     min-width: 0;
     margin: 0;
     overflow-wrap: anywhere;

@@ -489,9 +489,16 @@ export class RunPage {
     const view = this.view();
     if (view.kind !== 'ready') return;
     const { sections } = layoutRun(view.items, () => undefined, false);
-    const changes = sections.flatMap((section) =>
-      sortByTitle(section.rows.map(({ item }) => item)),
-    );
+    // The other sections' items share the key space: tied keys get fresh ones between the
+    // nearest keys of the whole run, so a section never takes another section's keys.
+    const changes = sections.flatMap((section) => {
+      const rows = section.rows.map(({ item }) => item);
+      const own = new Set(rows.map((item) => item.id));
+      return sortByTitle(
+        rows,
+        view.items.filter((item) => !own.has(item.id)),
+      );
+    });
     if (changes.length === 0) {
       this.changes.tell('Already in A–Z order');
       return;

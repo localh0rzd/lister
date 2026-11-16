@@ -239,3 +239,24 @@ test('sorting offline syncs as one change; an item added meanwhile on another de
   await expect(ownItems(other)).toHaveText(['Axe', 'Map', 'Tent', 'Bag']);
   await other.context().close();
 });
+
+test.describe('the list header on a phone', () => {
+  test.use({ viewport: { width: 375, height: 812 } });
+
+  test('keeps a long title readable: "Sort A–Z" and "Start run" wrap under it', async ({
+    page,
+  }) => {
+    const title = await createList(
+      page,
+      unique('A rather long packing list title for the trip'),
+    );
+    await openList(page, title);
+    const heading = page.getByRole('heading', { level: 1, name: title });
+    const box = await heading.boundingBox();
+    const sort = await page
+      .getByRole('button', { name: 'Sort A–Z' })
+      .boundingBox();
+    expect(box?.width).toBeGreaterThan(200);
+    expect(sort?.y).toBeGreaterThan((box?.y ?? 0) + (box?.height ?? 0) - 1);
+  });
+});

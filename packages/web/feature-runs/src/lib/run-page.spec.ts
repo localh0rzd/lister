@@ -880,6 +880,35 @@ describe('RunPage — Sort A–Z (D17)', () => {
     });
   });
 
+  it('gives a section tied at its first slot keys between its neighbours in the run, never another section’s keys', async () => {
+    const listed = [
+      runItem('Tent', 'a0', { sources: [camping.id] }),
+      runItem('Stove', 'a1', { sources: [camping.id] }),
+    ];
+    // Two devices sorted these in at the same spot: they share a key.
+    const typed = [runItem('Zip', 'a2'), runItem('Map', 'a2')];
+    await db.runItems.bulkPut([...listed, ...typed]);
+    const page = await render();
+    await page.settle(() => expect(page.sections()).toHaveLength(2));
+
+    const menu = await TestbedHarnessEnvironment.loader(
+      page.fixture,
+    ).getHarness(
+      MatMenuHarness.with({ selector: '[aria-label="More for this run"]' }),
+    );
+    await menu.clickItem({ text: /Sort A–Z/ });
+
+    await vi.waitFor(() => expect(requests).toHaveLength(1));
+    const request = requests[0];
+    if (request.name !== 'run.sortItems') throw new Error(request.name);
+    const keyOf = new Map(request.args.items.map((i) => [i.id, i.position]));
+    const zip = keyOf.get(typed[0].id) ?? 'a2';
+    const map = keyOf.get(typed[1].id) ?? 'a2';
+    // Map before Zip, both after every listed item, so the sections keep their order.
+    expect(map < zip).toBe(true);
+    expect(map > 'a1').toBe(true);
+  });
+
   it('says so, and changes nothing, when every section is sorted', async () => {
     await db.runItems.bulkPut([runItem('A', 'a0'), runItem('B', 'a1')]);
     const page = await render();
