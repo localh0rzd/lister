@@ -33,9 +33,10 @@ afterEach(async () => {
   await db.delete();
 });
 
-async function render(token = '') {
+/** `null` stands for a link without a token, which the router binds as `undefined`. */
+async function render(token: string | null = '') {
   const fixture = TestBed.createComponent(RegisterPage);
-  fixture.componentRef.setInput('token', token);
+  fixture.componentRef.setInput('token', token ?? undefined);
   await fixture.whenStable();
   const element = fixture.nativeElement as HTMLElement;
   const type = async (autocomplete: string, index: number, text: string) => {
@@ -83,6 +84,24 @@ describe('RegisterPage', () => {
     } satisfies CurrentUser);
 
     await vi.waitFor(() => expect(load).toHaveBeenCalledWith('/'));
+  });
+
+  it('shows an empty token field when the link has no token (the router binds undefined)', async () => {
+    const page = await render(null);
+    const input = page.element.querySelector<HTMLInputElement>(
+      'input[autocomplete="off"]',
+    );
+    expect(input?.value).toBe('');
+
+    await page.fill();
+    await page.submit();
+
+    const call = TestBed.inject(HttpTestingController).expectOne(
+      '/api/auth/register',
+    );
+    expect(call.request.body.token).toBe('abcd1234wxyz');
+    call.flush({}, { status: 403, statusText: 'Forbidden' });
+    await page.fixture.whenStable();
   });
 
   it('says so when the token is no longer valid', async () => {

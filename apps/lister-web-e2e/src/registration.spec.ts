@@ -114,13 +114,18 @@ for (const [name, viewport] of layouts) {
       ).toBeVisible();
 
       await page.getByRole('button', { name: `Remove link ${token}` }).click();
+      const confirm = page.getByRole('dialog', { name: 'Remove this link?' });
+      await confirm.getByRole('button', { name: 'Remove' }).click();
       await expect(page.getByText('Link removed')).toBeVisible();
       await expect(
         page.getByRole('button', { name: `Remove link ${token}` }),
       ).toHaveCount(0);
 
+      // Typed by hand: the registration page also works without a token in the address.
       const guest = await signedOutPage(browser);
-      await guest.goto(`/register?token=${token}`);
+      await guest.goto('/register');
+      await expect(guest.getByLabel('Registration token')).toHaveValue('');
+      await guest.getByLabel('Registration token').fill(token.toLowerCase());
       await guest.getByLabel('Username').fill(uniqueUsername('removed'));
       await guest.getByLabel('Display name').fill('Nobody');
       await guest.getByLabel('Password').fill('a-long-test-password');

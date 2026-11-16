@@ -22,8 +22,13 @@ export class RegisterPage {
   private readonly session = inject(AuthSession);
   private readonly navigator = inject(PageNavigator);
 
-  /** The `token` query parameter (bound from the route), which the form starts with. */
-  readonly token = input('');
+  /**
+   * The `token` query parameter (bound from the route), which the form starts with. The router
+   * sets it to `undefined` when the link has no token, so that becomes an empty field.
+   */
+  readonly token = input('', {
+    transform: (value: string | undefined) => value ?? '',
+  });
   protected readonly busy = signal(false);
   protected readonly error = signal('');
 

@@ -3,6 +3,7 @@ import { httpResource } from '@angular/common/http';
 import { Component, computed, inject } from '@angular/core';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { MatButton, MatIconButton } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
 import {
   type RegistrationToken,
@@ -11,7 +12,11 @@ import {
   registrationLink,
 } from '@lister/shared/api-contracts';
 import { describeAuthError } from '@lister/web/data-access-auth';
-import { LoadingHint } from '@lister/web/ui';
+import {
+  ConfirmDialog,
+  type ConfirmDialogData,
+  LoadingHint,
+} from '@lister/web/ui';
 import { NOTICE_DURATION_MS, Notifier } from '@lister/web/util-notify';
 import { RegistrationTokensApi } from '../registration-tokens-api';
 
@@ -28,6 +33,7 @@ import { RegistrationTokensApi } from '../registration-tokens-api';
 export class RegistrationLinks {
   private readonly api = inject(RegistrationTokensApi);
   private readonly clipboard = inject(Clipboard);
+  private readonly dialog = inject(MatDialog);
   private readonly notifier = inject(Notifier);
   private readonly origin = inject(DOCUMENT).location.origin;
 
@@ -61,14 +67,28 @@ export class RegistrationLinks {
     );
   }
 
-  protected async remove(token: RegistrationToken): Promise<void> {
-    try {
-      await this.api.remove(token.token);
-      this.list.reload();
-      this.say('Link removed. It no longer works.');
-    } catch (error) {
-      this.say(describeAuthError(error));
-    }
+  /** Asks first: a removed link can't come back, and whoever has it can no longer register. */
+  protected remove(token: RegistrationToken): void {
+    this.dialog
+      .open<ConfirmDialog, ConfirmDialogData, true>(ConfirmDialog, {
+        data: {
+          heading: 'Remove this link?',
+          message:
+            'Whoever has it can no longer register with it. This cannot be undone.',
+          confirm: 'Remove',
+        },
+      })
+      .afterClosed()
+      .subscribe(async (confirmed) => {
+        if (!confirmed) return;
+        try {
+          await this.api.remove(token.token);
+          this.list.reload();
+          this.say('Link removed. It no longer works.');
+        } catch (error) {
+          this.say(describeAuthError(error));
+        }
+      });
   }
 
   private say(message: string): void {

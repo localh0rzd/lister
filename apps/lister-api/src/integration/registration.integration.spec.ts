@@ -232,6 +232,29 @@ describe('registration tokens', () => {
       expect(storedTokens()).toHaveLength(1);
     });
 
+    it('counts registrations that fail on a taken username, and keeps the token', async () => {
+      const { token } = await createToken();
+      await createAccount(api, 'newbie');
+      for (let i = 0; i < 10; i++) {
+        expect((await register(token)).status).toBe(409);
+      }
+
+      const response = await register(token, { username: 'other' });
+
+      expect(response.status).toBe(429);
+      expect(storedTokens()).toHaveLength(1);
+    });
+
+    it('does not count a successful registration', async () => {
+      for (let i = 0; i < 9; i++) await register('GUESSGUESS12');
+      const { token } = await createToken();
+      expect((await register(token)).status).toBe(201);
+
+      expect((await register('GUESSGUESS12', { username: 'x' })).status).toBe(
+        403,
+      );
+    });
+
     it('rate-limits wrong tokens like wrong passwords', async () => {
       const { token } = await createToken();
       for (let i = 0; i < 10; i++) await register('GUESSGUESS12');

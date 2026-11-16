@@ -195,7 +195,9 @@ export class AuthController {
 
   /**
    * Registers a regular user with a registration token an admin handed out (D23) and signs them
-   * in. Wrong tokens count against the same limit as sign-in.
+   * in. Every attempt counts against the same limit as sign-in until it succeeds, so a taken
+   * username (409) or a lost race for the token counts too: one valid token can't buy unlimited
+   * password hashes.
    */
   @Public()
   @Post('register')
@@ -208,10 +210,10 @@ export class AuthController {
     if (!this.registrationTokens.isValid(body.token)) {
       throw new ForbiddenException(INVALID_TOKEN_MESSAGE);
     }
-    attempt.release();
     const user = await this.auth.registerUser(body, () =>
       this.registrationTokens.claim(body.token),
     );
+    attempt.release();
     const row = this.auth.findByUsername(user.username);
     if (!row) throw new Error('The account was just created');
     const signedIn = this.auth.startSession(row);

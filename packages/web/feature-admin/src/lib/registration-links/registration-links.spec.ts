@@ -5,6 +5,8 @@ import {
   provideHttpClientTesting,
 } from '@angular/common/http/testing';
 import { Clipboard } from '@angular/cdk/clipboard';
+import { MatDialog } from '@angular/material/dialog';
+import { of } from 'rxjs';
 import type {
   RegistrationToken,
   RegistrationTokenList,
@@ -22,9 +24,17 @@ const token = (value: string): RegistrationToken => ({
 let http: HttpTestingController;
 let notify: ReturnType<typeof vi.fn>;
 let copy: ReturnType<typeof vi.fn>;
+let open: ReturnType<typeof vi.fn>;
+let dialogResult: true | undefined;
 
-async function render(list: RegistrationTokenList, copied = true) {
+async function render(
+  list: RegistrationTokenList,
+  copied = true,
+  confirmed = true,
+) {
   notify = vi.fn(async () => 'dismissed');
+  dialogResult = confirmed ? true : undefined;
+  open = vi.fn(() => ({ afterClosed: () => of(dialogResult) }));
   copy = vi.fn(() => copied);
   TestBed.configureTestingModule({
     providers: [
@@ -32,6 +42,7 @@ async function render(list: RegistrationTokenList, copied = true) {
       provideHttpClientTesting(),
       { provide: Notifier, useValue: { notify } },
       { provide: Clipboard, useValue: { copy } },
+      { provide: MatDialog, useValue: { open } },
     ],
   });
   http = TestBed.inject(HttpTestingController);
@@ -132,7 +143,7 @@ describe('RegistrationLinks', () => {
     );
   });
 
-  it('removes a link at once and says it no longer works', async () => {
+  it('removes a link once confirmed and says it no longer works', async () => {
     const { button, fixture, element } = await render({
       publicUrl: null,
       tokens: [token('ABCD1234WXYZ')],
@@ -158,6 +169,26 @@ describe('RegistrationLinks', () => {
         message: 'Link removed. It no longer works.',
       }),
     );
+  });
+
+  it('keeps the link when the admin cancels the confirmation', async () => {
+    const { button, element } = await render(
+      { publicUrl: null, tokens: [token('ABCD1234WXYZ')] },
+      true,
+      false,
+    );
+
+    button('Remove link ABCD1234WXYZ')?.click();
+
+    expect(open).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        data: expect.objectContaining({ confirm: 'Remove' }),
+      }),
+    );
+    http.expectNone({ method: 'DELETE' });
+    expect(element.querySelector('li.link')).not.toBeNull();
+    expect(notify).not.toHaveBeenCalled();
   });
 
   it('shows the server error when removing fails', async () => {
