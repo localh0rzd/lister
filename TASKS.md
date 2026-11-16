@@ -25,7 +25,7 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## Backlog
 
-### T-052 — Second sign-out doesn't go to the sign-in page
+### T-052 — Sign-out and sign-in rounds: no redirect, then stuck offline
 
 - Milestone: M8 Editing conveniences
 - Area: web
@@ -39,6 +39,16 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   - A Playwright regression test does sign out → sign in → sign out → sign in → sign out and
     expects the sign-in page and a refused session each time (`*.pwa.spec.ts` too if the cause is
     service-worker related).
+  - After five sign-out/sign-in rounds the app connects and shows synced, not "offline", also
+    after a reload and after closing and reopening the browser. Reported by the user
+    2026-11-16: after a few rounds the connection "bricks" and stays offline even after a
+    browser restart, so something persisted (IndexedDB `meta`, e.g. the saved sync status or
+    sync position, localStorage, the sync engine's tab lock or reconnect back-off, or the
+    service worker) survives the session.
+  - A device already in that stuck state recovers by itself on the next sign-in or page load,
+    without clearing site data.
+  - The regression test also reopens a fresh browser context on the same storage after the
+    rounds and expects the app online and syncing.
   - A unit test covers the root cause.
 - Notes: Diagnose first (`mattpocock-skills:diagnosing-bugs`); don't guess. The path is
   `ProfilePage.signOut()` → `AuthSession.signOut()` (`packages/web/data-access-auth/src/lib/auth-session.ts`:
