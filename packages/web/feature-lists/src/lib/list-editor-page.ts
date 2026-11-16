@@ -31,6 +31,7 @@ import {
   type Item,
   type List,
   type Positioned,
+  type Titled,
   flattenEntries,
   moveTo,
   newId,
@@ -591,18 +592,14 @@ export class ListEditorPage {
       // "Sort in" (D17): before the first item of this list that sorts after the new one. Each
       // title counts the ones added before it, which the rows may not show yet.
       const sortIn = this.addOrder.order() === 'sorted';
-      const rows: (Positioned & { title: string })[] = [];
-      for (const row of this.currentRows()) {
-        rows.push({
-          id: row.id,
-          position: row.position,
-          title: row.kind === 'item' ? row.item.title : '',
-        });
-      }
+      const current = this.currentRows();
+      const rows: Titled[] = current.map(({ id, position, ...row }) => ({
+        id,
+        position,
+        title: row.kind === 'item' ? row.item.title : '',
+      }));
       const own = new Set(
-        this.currentRows().flatMap((row) =>
-          row.kind === 'item' ? [row.id] : [],
-        ),
+        current.flatMap((row) => (row.kind === 'item' ? [row.id] : [])),
       );
       for (const title of titles) {
         const end = positionAtEnd(rows);
