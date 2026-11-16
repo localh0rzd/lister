@@ -23,30 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-032 — Docker image for running behind Traefik
-
-- Milestone: M7 Deployment
-- Area: infra
-- Priority: normal
-- Depends on: T-012
-- Done when:
-  - A multi-stage Dockerfile builds web and API. The image runs as a non-root user, listens on
-    plain HTTP (`PORT`), keeps the database at `DATABASE_PATH=/data/lister.db` on a volume, and has
-    a health check.
-  - The API trusts Traefik's `X-Forwarded-*` headers, and `PUBLIC_URL` drives the `Origin` check,
-    `Secure` cookies and the passkey relying party.
-  - The README has an example `docker-compose.yml` with Traefik labels (router, entrypoint, TLS)
-    and lists every environment variable.
-  - The image builds for linux/amd64 and linux/arm64.
-  - The served app sends a Content Security Policy (design §2.9). Inline scripts, such as the
-    theme script in `index.html`, are allowed by hash (Angular's `security.autoCsp`) or moved
-    out.
-  - Security headers on every response, static files included (register them **before**
-    `serveWebApp()`, whose Express middleware runs ahead of Nest's): `X-Content-Type-Options:
-nosniff`, `Referrer-Policy`, `frame-ancestors` in the CSP, and `app.disable('x-powered-by')`
-    (T-012 review).
-- Notes: TLS stays in Traefik (D4); the app never handles certificates.
-
 ## Backlog
 
 ### T-045 — Reset the run-page checkbox when a change doesn't show in the data
@@ -159,6 +135,32 @@ nosniff`, `Referrer-Policy`, `frame-ancestors` in the CSP, and `app.disable('x-p
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
 
 ## Done
+
+### T-032 — Docker image for running behind Traefik
+
+- Completed: 2026-11-16 — Dockerfile (multi-stage, non-root, `/data` volume, health check), security headers and CSP on every response (`security-headers.ts`, Angular `autoCsp`), README with Traefik compose example and env vars
+- Review: Changes requested; 6 fixed (3 substantive, 3 trivial), 0 skipped, 0 disagreed; re-review rounds: 1. linux/arm64 was built via buildx without emulation but never run.
+- Milestone: M7 Deployment
+- Area: infra
+- Priority: normal
+- Depends on: T-012
+- Done when:
+  - A multi-stage Dockerfile builds web and API. The image runs as a non-root user, listens on
+    plain HTTP (`PORT`), keeps the database at `DATABASE_PATH=/data/lister.db` on a volume, and has
+    a health check.
+  - The API trusts Traefik's `X-Forwarded-*` headers, and `PUBLIC_URL` drives the `Origin` check,
+    `Secure` cookies and the passkey relying party.
+  - The README has an example `docker-compose.yml` with Traefik labels (router, entrypoint, TLS)
+    and lists every environment variable.
+  - The image builds for linux/amd64 and linux/arm64.
+  - The served app sends a Content Security Policy (design §2.9). Inline scripts, such as the
+    theme script in `index.html`, are allowed by hash (Angular's `security.autoCsp`) or moved
+    out.
+  - Security headers on every response, static files included (register them **before**
+    `serveWebApp()`, whose Express middleware runs ahead of Nest's): `X-Content-Type-Options:
+nosniff`, `Referrer-Policy`, `frame-ancestors` in the CSP, and `app.disable('x-powered-by')`
+    (T-012 review).
+- Notes: TLS stays in Traefik (D4); the app never handles certificates.
 
 ### T-044 — Stop axe contrast checks failing during animations
 

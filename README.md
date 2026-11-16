@@ -42,6 +42,7 @@ npx nx format:write
 | Var                  | Used by    | Default                                                                                                                                                                                                                           |
 | -------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `PORT`               | lister-api | `3000` (also in the Docker image)                                                                                                                                                                                                 |
+| `NODE_ENV`           | lister-api | unset (development: `PUBLIC_URL` optional, the dev server's origin is allowed); `production` in the Docker image, where `PUBLIC_URL` is required                                                                                  |
 | `WEB_ROOT`           | lister-api | the production web build next to the API (`dist/apps/lister-web/browser`); served when it exists; `/app/web` in the Docker image                                                                                                  |
 | `LISTER_SETUP_TOKEN` | lister-api | unset: a random one-time setup token is logged while no account exists. At least 16 characters fixes it instead (for the e2e suites; never logged). Leave unset in production                                                     |
 | `PUBLIC_URL`         | lister-api | none (development allows `http://localhost:4200`); required in production (the Docker image does not set it). Its origin is the only one allowed to open the sync socket                                                          |
@@ -87,6 +88,8 @@ networks:
   traefik:
     external: true # the network Traefik is attached to
 ```
+
+Using a bind mount instead of a volume? Make the folder writable by uid 1000 first: `sudo chown 1000:1000 ./data`.
 
 Traefik forwards WebSockets (`/socket.io`) without extra configuration. On first start the log prints a one-time
 setup token for creating the first admin account (`docker compose logs lister`). Reset a password with

@@ -22,7 +22,7 @@ export const CONTENT_SECURITY_POLICY = [
   "frame-ancestors 'none'",
 ].join('; ');
 
-const HSTS = 'max-age=31536000; includeSubDomains';
+const HSTS = 'max-age=31536000';
 
 /**
  * Security headers on every response: API, static files and `index.html` alike. Register it
