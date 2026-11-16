@@ -35,3 +35,20 @@ jobs:
       - run: npx nx format:check
       - run: npm run lint:workspace
       - run: npx nx affected -t lint typecheck test build e2e
+
+  # The Docker image for both platforms (not pushed). Only the runtime stage is per platform and
+  # it runs nothing at build time, so no QEMU is needed (Dockerfile).
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
