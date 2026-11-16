@@ -768,11 +768,14 @@ export class SyncEngine {
       await this.db.serverIncludes.bulkPut(rows.includes);
       await this.db.serverRuns.bulkPut(rows.runs);
       await this.db.serverRunItems.bulkPut(rows.runItems);
+      const held = (await this.db.syncState.get(spaceId))?.timeline ?? '';
+      // A restore started a new timeline: acks from the old one confirm nothing here.
+      const restored =
+        timeline !== undefined && held !== '' && timeline !== held;
       await this.db.syncState.put({
         spaceId,
         version,
-        timeline:
-          timeline ?? (await this.db.syncState.get(spaceId))?.timeline ?? '',
+        timeline: timeline ?? held,
         lastSyncedAt: syncedAt,
       });
 
@@ -788,11 +791,15 @@ export class SyncEngine {
         .toArray()) {
         if (entry.ackedVersion === undefined || entry.seq === undefined)
           continue;
-        if (entry.ackedVersion <= version) {
+        if (restored) {
+          // Acked on the lost timeline: the restored server may not have it, so send it again
+          // (a server that has it answers the retry from its record).
+          await this.db.outbox.update(entry.seq, { ackedVersion: undefined });
+        } else if (entry.ackedVersion <= version) {
           await this.db.outbox.delete(entry.seq); // confirmed: its rows are here
           touchedBy([entry.mutation], touched);
         } else if (snapshot) {
-          // The server is behind its own ack (restored database): send it again.
+          // The server is behind its own ack (reset database): send it again.
           await this.db.outbox.update(entry.seq, { ackedVersion: undefined });
         }
       }

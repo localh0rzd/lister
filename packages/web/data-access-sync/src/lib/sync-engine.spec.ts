@@ -1552,6 +1552,35 @@ describe('SyncEngine', () => {
   });
 
   describe('ordering edge cases', () => {
+    it('sends a change again when a restore leaves its ack on the lost timeline', async () => {
+      setup();
+      engine.start();
+      await settle();
+      server.autoAnswer = false;
+      const id = await createList('Mine');
+      await settle();
+      server.connected = false; // swallow the poke…
+      server.answerPushes();
+      server.connected = true; // …but the ack still arrives
+      await settle();
+      expect((await outbox())[0]).toMatchObject({ ackedVersion: 1 });
+
+      // The server is restored from a backup without the change: further on, on a new
+      // timeline. The old ack confirms nothing there.
+      server.drop();
+      await eventually(() => expect(engine.online()).toBe(false));
+      server.store.lists.clear();
+      server.timeline = 'tl-2';
+      server.version = 5;
+      server.autoAnswer = true;
+      server.socket.connect();
+      await settle();
+
+      expect(await serverList(id)).toMatchObject({ title: 'Mine', version: 6 });
+      expect(await outbox()).toEqual([]);
+      expect(await visibleList(id)).toMatchObject({ title: 'Mine' });
+    });
+
     it('keeps an acked change until its rows arrive, then drops it', async () => {
       setup();
       engine.start();
