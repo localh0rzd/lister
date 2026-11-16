@@ -9,9 +9,9 @@ import {
 import { provideServiceWorker } from '@angular/service-worker';
 
 /**
- * The service worker (production builds only; the dev server has none) update handling and the install prompt.
- * `AppUpdates` and `InstallPrompt` (with the Material snackbar) are loaded after bootstrap, so they stay out of the
- * initial bundle.
+ * The service worker (production builds only; the dev server has none), update handling and the
+ * install prompt. `AppUpdates` and `InstallPrompt` are loaded after bootstrap, so they stay out of
+ * the initial bundle.
  */
 export function providePwa(): EnvironmentProviders {
   return makeEnvironmentProviders([
