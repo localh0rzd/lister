@@ -6,10 +6,26 @@ export interface TitleLookup {
   item(id: string): Promise<string | undefined>;
   run(id: string): Promise<string | undefined>;
   runItem(id: string): Promise<string | undefined>;
+  /** The lists an include connects. */
+  include(
+    id: string,
+  ): Promise<{ parentListId: string; childListId: string } | undefined>;
 }
 
-const quote = (title: string | undefined): string =>
-  title === undefined ? '(unknown)' : `“${title}”`;
+/** Titles longer than this are cut short, so a refusal notice stays a few lines long. */
+export const DESCRIBED_TITLE_MAX = 40;
+
+const quote = (title: string | undefined): string => {
+  if (title === undefined) return '(unknown)';
+  // By code point, so an emoji is never cut in half.
+  const chars = Array.from(title);
+  return chars.length > DESCRIBED_TITLE_MAX
+    ? `“${chars
+        .slice(0, DESCRIBED_TITLE_MAX - 1)
+        .join('')
+        .trimEnd()}…”`
+    : `“${title}”`;
+};
 
 /**
  * A short, readable description of a change, e.g. `Add item “Stove” to “Camping”`, stored with
@@ -27,6 +43,10 @@ export async function describeMutation(
   const list = async (key: string) => quote(await titles.list(str(key) ?? ''));
   const patch = (args['patch'] ?? {}) as Record<string, unknown>;
   const changed = Object.keys(patch).join(', ') || 'details';
+  const include = async (verb: string, preposition: string) => {
+    const lists = await titles.include(id);
+    return `${verb} ${quote(lists && (await titles.list(lists.childListId)))} ${preposition} ${quote(lists && (await titles.list(lists.parentListId)))}`;
+  };
   switch (mutation.name) {
     case 'list.create':
       return `Create list ${quote(str('title'))}`;
@@ -69,11 +89,11 @@ export async function describeMutation(
     case 'include.create':
       return `Include ${await list('childListId')} in ${await list('parentListId')}`;
     case 'include.move':
-      return 'Move an included list';
+      return include('Move', 'in');
     case 'include.delete':
-      return 'Remove an included list';
+      return include('Remove', 'from');
     case 'include.restore':
-      return 'Restore an included list';
+      return include('Restore', 'in');
   }
 }
 

@@ -674,12 +674,22 @@ export class SyncEngine {
           .equals(reject.mutationId)
           .first();
         if (entry?.seq === undefined) return;
-        // Described before the rollback, while the rows it names are still there.
+        // Described before the rollback, while the rows it names are still there: by the
+        // titles the server last sent (what the user sees again after the rollback), or the
+        // local ones for rows that exist only here so far.
+        const db = this.db;
         const description = await describeMutation(entry.mutation, {
-          list: async (id) => (await this.db.lists.get(id))?.title,
-          item: async (id) => (await this.db.items.get(id))?.title,
-          run: async (id) => (await this.db.runs.get(id))?.title,
-          runItem: async (id) => (await this.db.runItems.get(id))?.title,
+          list: async (id) =>
+            ((await db.serverLists.get(id)) ?? (await db.lists.get(id)))?.title,
+          item: async (id) =>
+            ((await db.serverItems.get(id)) ?? (await db.items.get(id)))?.title,
+          run: async (id) =>
+            ((await db.serverRuns.get(id)) ?? (await db.runs.get(id)))?.title,
+          runItem: async (id) =>
+            ((await db.serverRunItems.get(id)) ?? (await db.runItems.get(id)))
+              ?.title,
+          include: async (id) =>
+            (await db.serverIncludes.get(id)) ?? (await db.includes.get(id)),
         });
         await this.db.outbox.delete(entry.seq);
         // Rolls the change back.

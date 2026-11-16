@@ -642,6 +642,32 @@ describe('SyncEngine', () => {
         ]),
       );
     });
+    it('names a refused rename by the title the server knows', async () => {
+      setup();
+      engine.start();
+      await settle();
+      const id = await createList('Camping');
+      await settle();
+      server.autoAnswer = false;
+
+      for (const title of ['Trip', 'Big trip'])
+        await engine.mutate({
+          spaceId: SPACE,
+          name: 'list.update',
+          args: { id, patch: { title } },
+        });
+      await settle(); // the pushes go out
+      server.store.lists.delete(id); // makes the server reject both
+      server.answerPushes();
+      await settle();
+
+      await eventually(() =>
+        expect(engine.errors().map((e) => e.description)).toEqual([
+          'Edit list “Camping” (title)',
+          'Edit list “Camping” (title)',
+        ]),
+      );
+    });
   });
 
   describe('includes', () => {
@@ -1434,7 +1460,8 @@ describe('SyncEngine', () => {
       await engine.dismissError('new');
 
       await eventually(() => expect(engine.errors()).toEqual([]));
-      expect(engine.errorLog()).toHaveLength(count + 1);
+      // The log is a live query too: it may still be catching up with the rows put above.
+      await eventually(() => expect(engine.errorLog()).toHaveLength(count + 1));
     });
 
     it('clears the log', async () => {

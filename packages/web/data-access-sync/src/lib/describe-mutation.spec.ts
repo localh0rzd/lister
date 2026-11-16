@@ -3,6 +3,7 @@ import {
   type MutationInput,
 } from '@lister/shared/sync-protocol';
 import {
+  DESCRIBED_TITLE_MAX,
   type TitleLookup,
   describeMutation,
   rejectionText,
@@ -13,6 +14,8 @@ const titles: TitleLookup = {
   item: async (id) => ({ I1: 'Stove' })[id],
   run: async (id) => ({ R1: 'Weekend' })[id],
   runItem: async (id) => ({ RI1: 'Fuel' })[id],
+  include: async (id) =>
+    ({ C1: { parentListId: 'L2', childListId: 'L1' } })[id],
 };
 
 const m = (name: string, args: object) =>
@@ -44,9 +47,27 @@ describe('describeMutation', () => {
       m('run.addItems', { runId: 'R1', items: [] }),
       'Add items to run “Weekend”',
     ],
+    [
+      m('include.move', { id: 'C1', position: 'a' }),
+      'Move “Camping” in “Trip”',
+    ],
+    [m('include.delete', { id: 'C1' }), 'Remove “Camping” from “Trip”'],
+    [m('include.restore', { id: 'C1' }), 'Restore “Camping” in “Trip”'],
+    [m('include.delete', { id: 'gone' }), 'Remove (unknown) from (unknown)'],
     [m('item.delete', { id: 'gone' }), 'Delete item (unknown)'],
   ])('describes %j', async (mutation, expected) => {
     expect(await describeMutation(mutation, titles)).toBe(expected);
+  });
+
+  it('cuts long titles short, keeping whole characters', async () => {
+    const title = `${'a'.repeat(38)}🏕️ and more`;
+    expect(await describeMutation(m('list.create', { title }), titles)).toBe(
+      `Create list “${'a'.repeat(38)}🏕…”`,
+    );
+    const exact = 'b'.repeat(DESCRIBED_TITLE_MAX);
+    expect(
+      await describeMutation(m('list.create', { title: exact }), titles),
+    ).toBe(`Create list “${exact}”`);
   });
 
   it('describes every mutation name', async () => {
