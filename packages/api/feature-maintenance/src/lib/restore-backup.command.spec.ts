@@ -153,6 +153,7 @@ describe('restore-backup', () => {
     writeFileSync(bogus, 'not sqlite');
 
     expect(() => restoreBackup(live, bogus)).toThrow();
+    expect(existsSync(`${path}.restoring`)).toBe(false);
     expect(() => restoreBackup(live, join(folder, 'missing.db'))).toThrow(
       /No such file/,
     );

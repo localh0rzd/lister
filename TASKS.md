@@ -23,25 +23,21 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-046 — `restore-backup` command
+## Backlog
+
+### T-047 — Per-space timeline id so a restore always makes every device snapshot
 
 - Milestone: M7 Deployment
 - Area: api
-- Priority: normal
-- Depends on: T-033
+- Priority: low
+- Depends on: T-046
 - Done when:
-  - `node main.js restore-backup <file>` (like `reset-password`) copies a backup over the database
-    and sets every space's `version` and `purged_version` above both the backup's and what the
-    server had issued before the restore, so every device pulls a snapshot and versions are never
-    reused.
-  - Spaces created after the backup are gone; a test covers the command with a backup older than
-    the live database, and a device whose version passed the backup's again still converges.
-  - The README restore section uses the command and no longer needs the sign-out workaround.
-- Notes: found in the T-033 review. Without it a device that was offline at version 140 while the
-  restored space (backup at 100, server had reached 150) reaches 160 pulls incrementally and keeps
-  the lost timeline's rows 101–140.
-
-## Backlog
+  - A space carries a timeline id that `restore-backup` changes; a device whose pull names another
+    timeline always gets a snapshot, also in the case where a space deleted after the backup had
+    out-versioned every other space and the device was offline across both the deletion and the
+    restore.
+  - Tests cover that case; the README and design §2.9 no longer list it as a limitation.
+- Notes: found in the T-046 review (question for the user, recorded here instead of asked).
 
 ### T-045 — Reset the run-page checkbox when a change doesn't show in the data
 
@@ -139,6 +135,26 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
 
 ## Done
+
+### T-046 — `restore-backup` command
+
+- Completed: 2026-11-16 — `node main.js restore-backup <file>` (`api-feature-maintenance`): migrates a copy of the backup, moves every space's version and purge point past both timelines, ends all sessions, refuses while the server has the database open, then swaps it in; README and design §2.9 updated
+- Review: Changes requested; 5 fixed (4 substantive, 1 trivial), 0 skipped, 0 disagreed; re-review rounds: 1
+- Milestone: M7 Deployment
+- Area: api
+- Priority: normal
+- Depends on: T-033
+- Done when:
+  - `node main.js restore-backup <file>` (like `reset-password`) copies a backup over the database
+    and sets every space's `version` and `purged_version` above both the backup's and what the
+    server had issued before the restore, so every device pulls a snapshot and versions are never
+    reused.
+  - Spaces created after the backup are gone; a test covers the command with a backup older than
+    the live database, and a device whose version passed the backup's again still converges.
+  - The README restore section uses the command and no longer needs the sign-out workaround.
+- Notes: found in the T-033 review. Without it a device that was offline at version 140 while the
+  restored space (backup at 100, server had reached 150) reaches 160 pulls incrementally and keeps
+  the lost timeline's rows 101–140.
 
 ### T-033 — Backups and purge
 
