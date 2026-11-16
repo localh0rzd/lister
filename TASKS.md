@@ -23,20 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-047 — Per-space timeline id so a restore always makes every device snapshot
-
-- Milestone: M7 Deployment
-- Area: api
-- Priority: low
-- Depends on: T-046
-- Done when:
-  - A space carries a timeline id that `restore-backup` changes; a device whose pull names another
-    timeline always gets a snapshot, also in the case where a space deleted after the backup had
-    out-versioned every other space and the device was offline across both the deletion and the
-    restore.
-  - Tests cover that case; the README and design §2.9 no longer list it as a limitation.
-- Notes: found in the T-046 review (question for the user, recorded here instead of asked).
-
 ## Backlog
 
 ### T-036 — Slim the sync engine chunk
@@ -92,6 +78,22 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
 
 ## Done
+
+### T-047 — Per-space timeline id so a restore always makes every device snapshot
+
+- Completed: 2026-11-16 — per-space `timeline` id (migration 0009, Dexie v7, protocol 2) that `restore-backup` replaces; a pull naming another timeline is always a snapshot; README and design §2.9/§4.2 updated
+- Review: Changes requested; 3 fixed (2 substantive, 1 trivial), 0 skipped, 0 disagreed; re-review rounds: 1
+- Milestone: M7 Deployment
+- Area: api
+- Priority: low
+- Depends on: T-046
+- Done when:
+  - A space carries a timeline id that `restore-backup` changes; a device whose pull names another
+    timeline always gets a snapshot, also in the case where a space deleted after the backup had
+    out-versioned every other space and the device was offline across both the deletion and the
+    restore.
+  - Tests cover that case; the README and design §2.9 no longer list it as a limitation.
+- Notes: found in the T-046 review (question for the user, recorded here instead of asked).
 
 ### T-034 — Subset the Material Symbols font
 
