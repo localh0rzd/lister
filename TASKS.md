@@ -23,21 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-041 — Say which change a sync error refers to
-
-- Milestone: M6 Collaboration polish
-- Area: web
-- Priority: low
-- Depends on: T-030
-- Done when:
-  - Each entry in the Space page's "Sync errors" list names the refused change, e.g. "Add item
-    “Stove” to Camping — Item not found", not only the reason.
-  - The refusal snackbar uses the same wording.
-  - Entries recorded before the change still show their reason.
-- Notes: Needs a short description stored with each refusal (`Rejection` in `data-access-local-db`,
-  written by `SyncEngine` when it records the reject), probably in `data-access-sync` and
-  `feature-space`. Found in the T-030 review (finding 5).
-
 ## Backlog
 
 ### T-037 — Quiet the sync-engine test teardown
@@ -53,6 +38,23 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
 
 ## Done
+
+### T-041 — Say which change a sync error refers to
+
+- Completed: 2026-11-16 — refused changes are stored with a description (`Rejection.description`, written by `SyncEngine.onReject`); the Space page's sync errors and the refusal snackbar show "<change> — <reason>" via `rejectionText()`; older entries still show their reason.
+- Review: Changes requested (0 blocker, 1 major, 2 minor, 0 nit); 3 fixed (3 substantive, 0 trivial), 0 skipped, 0 disagreed; re-review rounds: 1
+- Milestone: M6 Collaboration polish
+- Area: web
+- Priority: low
+- Depends on: T-030
+- Done when:
+  - Each entry in the Space page's "Sync errors" list names the refused change, e.g. "Add item
+    “Stove” to Camping — Item not found", not only the reason.
+  - The refusal snackbar uses the same wording.
+  - Entries recorded before the change still show their reason.
+- Notes: Needs a short description stored with each refusal (`Rejection` in `data-access-local-db`,
+  written by `SyncEngine` when it records the reject), probably in `data-access-sync` and
+  `feature-space`. Found in the T-030 review (finding 5).
 
 ### T-040 — Pin CI actions to commit hashes
 
