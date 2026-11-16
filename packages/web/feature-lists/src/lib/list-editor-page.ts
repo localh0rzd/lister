@@ -36,6 +36,8 @@ import {
   newId,
   positionAtEnd,
   positionBetween,
+  positionForSortedInsert,
+  sortByTitle,
   wouldCreateCycle,
 } from '@lister/shared/domain';
 import { titleSchema } from '@lister/shared/sync-protocol';
@@ -45,6 +47,7 @@ import {
   type SpaceComposition,
 } from '@lister/web/data-access-local-db';
 import {
+  AddOrderToggle,
   ItemDialog,
   attribution,
   type ItemDialogData,
@@ -54,7 +57,7 @@ import {
   LoadingHint,
 } from '@lister/web/ui';
 import { SpaceChanges } from '@lister/web/data-access-sync';
-import { RunStarter } from '@lister/web/feature-runs';
+import { AddItemOrderPreference, RunStarter } from '@lister/web/feature-runs';
 import { firstValueFrom } from 'rxjs';
 
 /** A row of the list itself: one of its own items, or an included list (a section). */
@@ -106,6 +109,7 @@ function reachableFrom(space: SpaceComposition, root: string): Set<string> {
 @Component({
   selector: 'lister-list-editor-page',
   imports: [
+    AddOrderToggle,
     LoadingHint,
     CdkDrag,
     CdkDragHandle,
@@ -134,6 +138,7 @@ export class ListEditorPage {
   private readonly dialog = inject(MatDialog);
   private readonly currentSpace = inject(CurrentSpace);
   private readonly starter = inject(RunStarter);
+  protected readonly addOrder = inject(AddItemOrderPreference);
 
   private readonly list = this.repositories.list(this.listId);
   /** The signed-in user, so a delete made on another device of theirs says "you". */
@@ -310,6 +315,43 @@ export class ListEditorPage {
       return;
     }
     void this.addItems(lines);
+  }
+
+  /**
+   * "Sort A–Z" (D17) for `listId`: this list, or an included list's section (which sorts that
+   * list itself, so the new order shows wherever it is included). The includes among the items
+   * keep their slots; Undo sends the old positions back.
+   */
+  protected async sort(listId: string): Promise<void> {
+    const view = this.view();
+    if (view.kind !== 'ready') return;
+    const items = view.space
+      .itemsOf(listId)
+      .filter((i) => i.deletedAt === null);
+    const includes = view.space
+      .includesOf(listId)
+      .filter((row) => row.deletedAt === null);
+    const changes = sortByTitle(items, includes);
+    if (changes.length === 0) {
+      this.changes.tell('Already in A–Z order');
+      return;
+    }
+    const before = new Map(items.map((item) => [item.id, item.position]));
+    const title = view.space.list(listId)?.title ?? 'List';
+    await this.changes.withUndo(
+      { name: 'list.sortItems', args: { listId, items: changes } },
+      `Sorted “${title}” A–Z`,
+      {
+        name: 'list.sortItems',
+        args: {
+          listId,
+          items: changes.map(({ id }) => ({
+            id,
+            position: before.get(id) as string,
+          })),
+        },
+      },
+    );
   }
 
   /** Edits an item; one inside a section belongs to (and changes) the included list. */
@@ -546,18 +588,42 @@ export class ListEditorPage {
   /** Appends items in order; stops at the first refusal (which is shown). */
   private addItems(titles: string[]): Promise<boolean> {
     const run = this.adding.then(async () => {
+      // "Sort in" (D17): before the first item of this list that sorts after the new one. Each
+      // title counts the ones added before it, which the rows may not show yet.
+      const sortIn = this.addOrder.order() === 'sorted';
+      const rows: (Positioned & { title: string })[] = [];
+      for (const row of this.currentRows()) {
+        rows.push({
+          id: row.id,
+          position: row.position,
+          title: row.kind === 'item' ? row.item.title : '',
+        });
+      }
+      const own = new Set(
+        this.currentRows().flatMap((row) =>
+          row.kind === 'item' ? [row.id] : [],
+        ),
+      );
       for (const title of titles) {
-        const end = positionAtEnd(this.currentRows());
-        const position =
-          this.lastAdded && this.lastAdded >= end
+        const end = positionAtEnd(rows);
+        const position = sortIn
+          ? positionForSortedInsert(
+              title,
+              rows.filter((row) => own.has(row.id)),
+              rows,
+            )
+          : this.lastAdded && this.lastAdded >= end
             ? positionBetween(this.lastAdded, null)
             : end;
+        const id = newId();
         const added = await this.changes.apply({
           name: 'item.create',
-          args: { id: newId(), listId: this.listId(), title, position },
+          args: { id, listId: this.listId(), title, position },
         });
         if (!added) return false;
         this.lastAdded = position;
+        rows.push({ id, position, title });
+        own.add(id);
       }
       return true;
     });

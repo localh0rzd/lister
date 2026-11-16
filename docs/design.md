@@ -460,10 +460,18 @@ surrounding spaces. The merged item:
 
 The merge rule is one shared pure function, like flattening. Run mutations (`run.start`,
 `run.addItems`) carry the items in order; the shared rule merges them and appends the rest after
-the run's last item, so every client computes the same positions. An item that merges into another keeps its id
+the run's last item, so every client computes the same positions (an entry may carry its own
+`position`, used by "Sort in", D17; it is ignored when the item merges). An item that merges into another keeps its id
 as an alias (a removed row with `mergedInto`), so changes made to it elsewhere, e.g. a check made
 offline, land on the merged item. Restoring a removed item merges it into an identical item that
 entered meanwhile, so a run never shows the same item twice.
+
+**Sorting (D17):** `list.sortItems` and `run.sortItems` set the positions of the listed items in
+one step (idempotent: positions are values, so a retry changes nothing). The client computes them
+with `sortByTitle()` in `shared/domain`: the sorted items take over the keys the items held (the
+"slots"), so includes in the same list keep theirs; rows that shared a key get fresh keys between
+their neighbours. Items deleted meanwhile are skipped, an item of another list or run is rejected.
+Undo sends the old positions back with the same mutation.
 
 **Finishing:** a run counts as finished while every item is checked or skipped and it has at least
 one item. The server recomputes this in the same transaction as every run-item change, and clients

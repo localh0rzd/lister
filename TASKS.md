@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-049 — Sort items A–Z in lists and runs
 
 - Milestone: M8 Editing conveniences
@@ -49,6 +47,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   `fractional-indexing` and are assigned to the item slots only, so includes keep theirs. The
   comparison is the existing list-title collator, moved or exported from `shared/domain` if
   needed. Undo sends the previous positions back with the same mutation.
+
+## Backlog
 
 ### T-050 — Settings destination with sign-out
 

@@ -58,6 +58,8 @@ export async function describeMutation(
       return `Restore list ${quote(await titles.list(id))}`;
     case 'list.duplicate':
       return `Duplicate list ${await list('sourceListId')} as ${quote(str('title'))}`;
+    case 'list.sortItems':
+      return `Sort list ${await list('listId')} A–Z`;
     case 'item.create':
       return `Add item ${quote(str('title'))} to ${await list('listId')}`;
     case 'item.update':
@@ -76,6 +78,8 @@ export async function describeMutation(
       return `Add items to run ${quote(await titles.run(str('runId') ?? ''))}`;
     case 'run.saveAsList':
       return `Save run ${quote(await titles.run(str('runId') ?? ''))} as list ${quote(str('title'))}`;
+    case 'run.sortItems':
+      return `Sort run ${quote(await titles.run(str('runId') ?? ''))} A–Z`;
     case 'runItem.update':
       return `Edit run item ${quote(await titles.runItem(id))} (${changed})`;
     case 'runItem.move':

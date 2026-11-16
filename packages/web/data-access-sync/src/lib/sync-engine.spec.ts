@@ -1103,6 +1103,104 @@ describe('SyncEngine', () => {
     });
   });
 
+  describe('sorting (D17)', () => {
+    it('sorts a list offline as one queued change, and keeps it when another client adds an item', async () => {
+      setup();
+      engine.start();
+      await settle();
+      const listId = newId();
+      const [b, a] = [newId(), newId()];
+      await engine.mutate({
+        spaceId: SPACE,
+        name: 'list.create',
+        args: {
+          id: listId,
+          title: 'Camping',
+          items: [
+            { id: b, title: 'b' },
+            { id: a, title: 'a' },
+          ],
+        },
+      });
+      await settle();
+      server.autoAnswer = false;
+      const [first, second] = (
+        await db.items.where('listId').equals(listId).sortBy('position')
+      ).map((i) => i.position);
+
+      const sorted = await engine.mutate({
+        spaceId: SPACE,
+        name: 'list.sortItems',
+        args: {
+          listId,
+          items: [
+            { id: a, position: first },
+            { id: b, position: second },
+          ],
+        },
+      });
+      const other = newId();
+      server.otherClient('item.create', {
+        id: other,
+        listId,
+        title: 'c',
+        position: 'a9',
+      });
+      await settle();
+
+      expect(sorted).toEqual({ ok: true });
+      const shown = await db.items
+        .where('listId')
+        .equals(listId)
+        .sortBy('position');
+      expect(shown.map((i) => i.title)).toEqual(['a', 'b', 'c']);
+      expect((await outbox()).map((e) => e.mutation.name)).toEqual([
+        'list.sortItems',
+      ]);
+    });
+
+    it('sorts a run offline and shows the new order at once', async () => {
+      setup({ leader: false });
+      engine.start();
+      const runId = newId();
+      const [b, a] = [newId(), newId()];
+      await engine.mutate({
+        spaceId: SPACE,
+        name: 'run.start',
+        args: {
+          id: runId,
+          title: 'Shop',
+          items: [
+            { id: b, title: 'b' },
+            { id: a, title: 'a' },
+          ],
+        },
+      });
+      const [first, second] = (
+        await db.runItems.where('runId').equals(runId).sortBy('position')
+      ).map((i) => i.position);
+
+      await engine.mutate({
+        spaceId: SPACE,
+        name: 'run.sortItems',
+        args: {
+          runId,
+          items: [
+            { id: a, position: first },
+            { id: b, position: second },
+          ],
+        },
+      });
+
+      const shown = await db.runItems
+        .where('runId')
+        .equals(runId)
+        .sortBy('position');
+      expect(shown.map((i) => i.title)).toEqual(['a', 'b']);
+      expect(await outbox()).toHaveLength(2);
+    });
+  });
+
   describe('connection trouble', () => {
     it('queues changes while offline and flushes them on reconnect', async () => {
       setup();

@@ -34,7 +34,15 @@ const newRunItem = z.strictObject({
   note: z._default(noteSchema, ''),
   /** The list it came from (flattened: the list that owns it); empty when typed in. */
   sources: z._default(z.array(idSchema).check(z.maxLength(50)), []),
+  /** Where it goes ("Sort in", D17) instead of the end; ignored when it merges into an item. */
+  position: z.optional(positionSchema),
 });
+
+/** An item and the key to give it, in a sort (D17). */
+const positioned = z.strictObject({ id: idSchema, position: positionSchema });
+
+/** How many items one sort may re-key. */
+export const MAX_SORT_ITEMS = 2000;
 
 /** How many items may enter a run in one change. */
 export const MAX_RUN_ITEMS = 2000;
@@ -78,6 +86,17 @@ export const mutationArgs = {
     title: titleSchema,
     items: z.array(copyOf).check(z.maxLength(MAX_DUPLICATE_ROWS)),
     includes: z.array(copyOf).check(z.maxLength(MAX_DUPLICATE_ROWS)),
+  }),
+  /**
+   * "Sort A–Z" (D17): sets the position of each listed item of the list, in one step. It sets
+   * values, so a retry is harmless, and Undo is the same mutation with the old positions.
+   * Includes aren't listed: they keep their slots. Items deleted meanwhile are skipped.
+   */
+  'list.sortItems': z.strictObject({
+    listId: idSchema,
+    items: z
+      .array(positioned)
+      .check(z.minLength(1), z.maxLength(MAX_SORT_ITEMS)),
   }),
   'item.create': z.strictObject({
     id: idSchema,
@@ -134,6 +153,13 @@ export const mutationArgs = {
     title: titleSchema,
     items: z.array(copyOf).check(z.maxLength(MAX_DUPLICATE_ROWS)),
   }),
+  /** "Sort A–Z" in a run (D17): like `list.sortItems`, for run items. */
+  'run.sortItems': z.strictObject({
+    runId: idSchema,
+    items: z
+      .array(positioned)
+      .check(z.minLength(1), z.maxLength(MAX_SORT_ITEMS)),
+  }),
   'runItem.update': z.strictObject({
     id: idSchema,
     patch: patch({
@@ -178,6 +204,7 @@ export const mutationSchema = z.discriminatedUnion('name', [
   mutationOf('list.delete'),
   mutationOf('list.restore'),
   mutationOf('list.duplicate'),
+  mutationOf('list.sortItems'),
   mutationOf('item.create'),
   mutationOf('item.update'),
   mutationOf('item.move'),
@@ -187,6 +214,7 @@ export const mutationSchema = z.discriminatedUnion('name', [
   mutationOf('run.update'),
   mutationOf('run.addItems'),
   mutationOf('run.saveAsList'),
+  mutationOf('run.sortItems'),
   mutationOf('runItem.update'),
   mutationOf('runItem.move'),
   mutationOf('runItem.remove'),

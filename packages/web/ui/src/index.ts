@@ -11,3 +11,4 @@ export * from './lib/truncated-tooltip/truncated-tooltip';
 export * from './lib/confirm-dialog/confirm-dialog';
 export * from './lib/attribution/attribution';
 export * from './lib/new-list-dialog/new-list-dialog';
+export * from './lib/add-order-toggle/add-order-toggle';

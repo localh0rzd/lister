@@ -22,6 +22,10 @@
 } @else {
   <div class="header">
     <h1>{{ v.list.title }}</h1>
+    <button matButton type="button" (click)="sort(v.list.id)">
+      <mat-icon>sort_by_alpha</mat-icon>
+      Sort A–Z
+    </button>
     <button matButton="tonal" type="button" (click)="startRun()">
       <mat-icon>play_arrow</mat-icon>
       Start run
@@ -164,6 +168,16 @@
                 <mat-icon>arrow_downward</mat-icon>
                 <span>Move down</span>
               </button>
+              @if (row.state === 'live') {
+                <button
+                  mat-menu-item
+                  type="button"
+                  (click)="sort(row.include.childListId)"
+                >
+                  <mat-icon>sort_by_alpha</mat-icon>
+                  <span>Sort A–Z</span>
+                </button>
+              }
               <button mat-menu-item type="button" (click)="removeSection(row)">
                 <mat-icon>playlist_remove</mat-icon>
                 <span>Remove from this list</span>
@@ -234,6 +248,11 @@
       <mat-icon>add</mat-icon>
     </button>
   </form>
+  <lister-add-order-toggle
+    class="add-order"
+    [value]="addOrder.order()"
+    (valueChange)="addOrder.set($event)"
+  />
   <button matButton type="button" class="add-list" (click)="addList()">
     <mat-icon>playlist_add</mat-icon>
     Add list

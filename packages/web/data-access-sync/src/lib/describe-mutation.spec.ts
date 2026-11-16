@@ -48,6 +48,11 @@ describe('describeMutation', () => {
       'Add items to run “Weekend”',
     ],
     [
+      m('list.sortItems', { listId: 'L1', items: [] }),
+      'Sort list “Camping” A–Z',
+    ],
+    [m('run.sortItems', { runId: 'R1', items: [] }), 'Sort run “Weekend” A–Z'],
+    [
       m('include.move', { id: 'C1', position: 'a' }),
       'Move “Camping” in “Trip”',
     ],

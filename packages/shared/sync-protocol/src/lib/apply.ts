@@ -283,6 +283,7 @@ export function applyMutation(
       quantity: string;
       note: string;
       sources: readonly string[];
+      position?: string;
     }[],
   ): string[] => {
     const items = runItemsOf(runId);
@@ -308,7 +309,7 @@ export function applyMutation(
         for (const id of merged.written) written.add(id);
         continue;
       }
-      last = positionBetween(last, null);
+      const position = next.position ?? (last = positionBetween(last, null));
       const item: RunItem = {
         ...created,
         id: next.id,
@@ -316,7 +317,7 @@ export function applyMutation(
         title: next.title,
         quantity: next.quantity,
         note: next.note,
-        position: last,
+        position,
         sources: [...new Set(next.sources)],
         state: 'unchecked',
         stateBy: null,
@@ -453,6 +454,24 @@ export function applyMutation(
       if (!list) return reject(LIST_MISSING);
       if (list.deletedAt === null) return unchanged;
       return updateList(list, { deletedAt: null });
+    }
+    case 'list.sortItems': {
+      const list = listHere(mutation.args.listId);
+      if (!list) return reject(LIST_MISSING);
+      if (list.deletedAt !== null) return unchanged;
+      // Check everything first: an item of another list is a mistake, one deleted meanwhile
+      // just stays out of the sort.
+      const moves: [Item, string][] = [];
+      for (const { id, position } of mutation.args.items) {
+        const item = itemHere(id);
+        if (!item || item.listId !== list.id) return reject(ITEM_MISSING);
+        if (item.deletedAt === null && item.position !== position)
+          moves.push([item, position]);
+      }
+      for (const [item, position] of moves) updateItem(item, { position });
+      return moves.length === 0
+        ? unchanged
+        : changed({ items: moves.map(([item]) => item.id) });
     }
     case 'item.create': {
       const args = mutation.args;
@@ -595,6 +614,22 @@ export function applyMutation(
         items.push(id);
       }
       return changed({ lists: [args.listId], items });
+    }
+    case 'run.sortItems': {
+      const run = runHere(mutation.args.runId);
+      if (!run) return reject(RUN_MISSING);
+      const moves = new Map<string, [RunItem, string]>();
+      for (const { id, position } of mutation.args.items) {
+        const item = runItemHere(id);
+        if (!item || item.runId !== run.id) return reject(RUN_ITEM_MISSING);
+        if (item.deletedAt === null && item.position !== position)
+          moves.set(item.id, [item, position]);
+      }
+      for (const [item, position] of moves.values())
+        store.putRunItem({ ...item, position, ...stamp });
+      return moves.size === 0
+        ? unchanged
+        : changed({ runItems: [...moves.keys()] });
     }
     case 'runItem.update': {
       const item = liveRunItem(mutation.args.id);

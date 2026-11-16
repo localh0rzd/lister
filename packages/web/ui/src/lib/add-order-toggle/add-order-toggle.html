@@ -1,0 +1,9 @@
+<mat-button-toggle-group
+  [value]="value()"
+  (change)="value.set($event.value)"
+  aria-label="Where new items go"
+  hideSingleSelectionIndicator
+>
+  <mat-button-toggle value="end">Add at end</mat-button-toggle>
+  <mat-button-toggle value="sorted">Sort in</mat-button-toggle>
+</mat-button-toggle-group>

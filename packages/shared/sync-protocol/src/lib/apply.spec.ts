@@ -1268,3 +1268,189 @@ describe('run.saveAsList', () => {
     expect(s.store.lists.size).toBe(lists);
   });
 });
+
+describe('sort items (D17)', () => {
+  function listWith(titles: string[]) {
+    const { store, listId } = withList();
+    const ids = titles.map(() => newId());
+    titles.forEach((title, i) =>
+      apply(store, 'item.create', {
+        id: ids[i],
+        listId,
+        title,
+        position: `a${i}`,
+      }),
+    );
+    return { store, listId, ids };
+  }
+  const sortArgs = (listId: string, ids: string[], keys: string[]) => ({
+    listId,
+    items: ids.map((id, i) => ({ id, position: keys[i] })),
+  });
+
+  it('list.sortItems sets the positions, once: a retry changes nothing', () => {
+    const { store, listId, ids } = listWith(['b', 'a']);
+    const args = sortArgs(listId, ids, ['a1', 'a0']);
+
+    expect(apply(store, 'list.sortItems', args, 5)).toEqual(
+      expect.objectContaining({ kind: 'changed', items: ids }),
+    );
+    expect(store.getItem(ids[0])).toMatchObject({ position: 'a1', version: 5 });
+    expect(store.getItem(ids[1])?.position).toBe('a0');
+    expect(apply(store, 'list.sortItems', args, 6)).toEqual({
+      kind: 'unchanged',
+    });
+  });
+
+  it('list.sortItems leaves includes and unlisted items alone, and skips deleted items', () => {
+    const { store, listId, ids } = listWith(['b', 'a', 'c']);
+    const child = newId();
+    apply(store, 'list.create', { id: child, title: 'Child' });
+    const include = newId();
+    apply(store, 'include.create', {
+      id: include,
+      parentListId: listId,
+      childListId: child,
+      position: 'a05',
+    });
+    apply(store, 'item.delete', { id: ids[1] }, 3);
+
+    const outcome = apply(
+      store,
+      'list.sortItems',
+      sortArgs(listId, ids.slice(0, 2), ['a9', 'a8']),
+      4,
+    );
+
+    expect(outcome).toEqual(
+      expect.objectContaining({ kind: 'changed', items: [ids[0]] }),
+    );
+    expect(store.getItem(ids[0])?.position).toBe('a9');
+    expect(store.getItem(ids[1])?.position).toBe('a1'); // deleted: delete wins
+    expect(store.getItem(ids[2])?.position).toBe('a2');
+    expect(store.getInclude(include)?.position).toBe('a05');
+  });
+
+  it('list.sortItems rejects with a reason and writes nothing', () => {
+    const { store, listId, ids } = listWith(['b', 'a']);
+    const other = listWith(['x']);
+    const before = structuredClone([...store.items.values()]);
+
+    expect(
+      apply(store, 'list.sortItems', sortArgs(newId(), ids, ['a5', 'a6'])),
+    ).toEqual({
+      kind: 'rejected',
+      reason: "This list doesn't exist",
+    });
+    expect(
+      apply(store, 'list.sortItems', {
+        listId,
+        items: [
+          { id: ids[0], position: 'a5' },
+          { id: other.ids[0], position: 'a6' },
+        ],
+      }),
+    ).toEqual({ kind: 'rejected', reason: "This item doesn't exist" });
+    expect([...store.items.values()]).toEqual(before);
+  });
+
+  it('list.sortItems ignores a deleted list and a list of another space', () => {
+    const deleted = listWith(['a']);
+    apply(deleted.store, 'list.delete', { id: deleted.listId }, 3);
+    expect(
+      apply(
+        deleted.store,
+        'list.sortItems',
+        sortArgs(deleted.listId, deleted.ids, ['a7']),
+      ),
+    ).toEqual({ kind: 'unchanged' });
+
+    const foreign = listWith(['a']);
+    moveToAnotherSpace(foreign.store, foreign.listId);
+    expect(
+      apply(
+        foreign.store,
+        'list.sortItems',
+        sortArgs(foreign.listId, foreign.ids, ['a7']),
+      ),
+    ).toEqual({ kind: 'rejected', reason: "This list doesn't exist" });
+  });
+
+  function runWith(titles: string[]) {
+    const store = new MemoryRowStore();
+    const runId = newId();
+    const ids = titles.map(() => newId());
+    apply(store, 'run.start', {
+      id: runId,
+      title: 'Alps',
+      items: titles.map((title, i) => ({ id: ids[i], title })),
+    });
+    return { store, runId, ids };
+  }
+
+  it('run.sortItems sets the positions of the listed run items, once', () => {
+    const { store, runId, ids } = runWith(['b', 'a']);
+    const args = {
+      runId,
+      items: [
+        { id: ids[0], position: 'a9' },
+        { id: ids[1], position: 'a8' },
+      ],
+    };
+    expect(apply(store, 'run.sortItems', args, 4)).toEqual(
+      expect.objectContaining({ kind: 'changed', runItems: ids }),
+    );
+    expect(store.getRunItem(ids[0])?.position).toBe('a9');
+    expect(apply(store, 'run.sortItems', args, 5)).toEqual({
+      kind: 'unchanged',
+    });
+  });
+
+  it('run.sortItems skips removed items and rejects foreign ones', () => {
+    const { store, runId, ids } = runWith(['b', 'a']);
+    const other = runWith(['x']);
+    apply(store, 'runItem.remove', { id: ids[1] }, 3);
+    const before = store.getRunItem(ids[1])?.position;
+
+    expect(
+      apply(store, 'run.sortItems', {
+        runId,
+        items: [
+          { id: ids[0], position: 'a9' },
+          { id: ids[1], position: 'a8' },
+        ],
+      }),
+    ).toEqual(expect.objectContaining({ runItems: [ids[0]] }));
+    expect(store.getRunItem(ids[1])?.position).toBe(before);
+    expect(
+      apply(store, 'run.sortItems', {
+        runId,
+        items: [{ id: other.ids[0], position: 'a8' }],
+      }),
+    ).toEqual({ kind: 'rejected', reason: "This item isn't in the run" });
+    expect(
+      apply(store, 'run.sortItems', {
+        runId: newId(),
+        items: [{ id: ids[0], position: 'a8' }],
+      }),
+    ).toEqual({ kind: 'rejected', reason: "This run doesn't exist" });
+  });
+
+  it('run.addItems puts an item at the given position, and still merges identical ones', () => {
+    const { store, runId, ids } = runWith(['b', 'd']);
+    const between = newId();
+    apply(store, 'run.addItems', {
+      runId,
+      items: [
+        { id: between, title: 'c', position: 'a05' },
+        { id: newId(), title: 'B', position: 'a02' },
+      ],
+    });
+
+    expect(store.getRunItem(between)?.position).toBe('a05');
+    expect(store.getRunItem(ids[0])?.position).toBe('a0'); // "B" merged into "b"
+    expect(
+      [...store.runItems.values()].filter((i) => i.deletedAt === null),
+    ).toHaveLength(3);
+  });
+});

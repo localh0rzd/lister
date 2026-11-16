@@ -1,4 +1,5 @@
 import { newId } from '@lister/shared/domain';
+import { MAX_PUSH_BYTES } from './messages';
 import { MUTATION_NAMES, mutationSchema, parseMutation } from './mutations';
 
 const envelope = () => ({ mutationId: newId(), spaceId: newId() });
@@ -14,6 +15,14 @@ describe('mutationSchema', () => {
       {
         name: 'item.create',
         args: { id, listId: newId(), title: 'Tent', position: 'a0' },
+      },
+      {
+        name: 'list.sortItems',
+        args: { listId: id, items: [{ id: newId(), position: 'a0' }] },
+      },
+      {
+        name: 'run.sortItems',
+        args: { runId: id, items: [{ id: newId(), position: 'a0' }] },
       },
       { name: 'item.update', args: { id, patch: { quantity: '2 pairs' } } },
       { name: 'item.move', args: { id, position: 'a0V' } },
@@ -277,5 +286,51 @@ describe('list.create with items', () => {
     expect(create({ id: newId(), title: 'Camping', items }).success).toBe(
       false,
     );
+  });
+});
+
+describe('sort mutations', () => {
+  const envelope2 = () => ({ mutationId: newId(), spaceId: newId() });
+  it.each(['list.sortItems', 'run.sortItems'])(
+    '%s refuses no items, bad keys and extra fields',
+    (name) => {
+      const key = name === 'list.sortItems' ? 'listId' : 'runId';
+      const ok = { [key]: newId(), items: [{ id: newId(), position: 'a0' }] };
+      const parse = (args: object) =>
+        mutationSchema.safeParse({ ...envelope2(), name, args }).success;
+      expect(parse(ok)).toBe(true);
+      expect(parse({ ...ok, items: [] })).toBe(false);
+      expect(parse({ ...ok, items: [{ id: newId(), position: '!' }] })).toBe(
+        false,
+      );
+      expect(parse({ ...ok, extra: 1 })).toBe(false);
+    },
+  );
+
+  it('keeps every sort under the push byte budget', () => {
+    const items = Array.from({ length: 2000 }, () => ({
+      id: newId(),
+      position: 'a'.repeat(100),
+    }));
+    const bytes = JSON.stringify({
+      ...envelope2(),
+      name: 'list.sortItems',
+      args: { listId: newId(), items },
+    }).length;
+    expect(bytes).toBeLessThan(MAX_PUSH_BYTES);
+  });
+
+  it('refuses more items than one sort may re-key', () => {
+    const items = Array.from({ length: 2001 }, () => ({
+      id: newId(),
+      position: 'a0',
+    }));
+    expect(
+      mutationSchema.safeParse({
+        ...envelope2(),
+        name: 'run.sortItems',
+        args: { runId: newId(), items },
+      }).success,
+    ).toBe(false);
   });
 });

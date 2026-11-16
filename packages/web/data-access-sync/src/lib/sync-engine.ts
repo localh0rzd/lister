@@ -130,6 +130,7 @@ function touchedBy(
     switch (family) {
       case 'list':
         if (a.id) into.lists.add(a.id);
+        if (a.listId) into.lists.add(a.listId); // list.sortItems
         // list.duplicate: reads its source and writes copies of the listed rows.
         if (a.sourceListId) into.lists.add(a.sourceListId);
         for (const row of a.items ?? []) {

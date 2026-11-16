@@ -1601,4 +1601,212 @@ describe('sync gateway', () => {
       ]);
     });
   });
+
+  describe('sorting (D17)', () => {
+    function answerFor(client: Client, sent: MutationInput) {
+      return new Promise<Payload<'ack'> | Payload<'reject'>>((resolve) => {
+        const mine = (payload: Payload<'ack'> | Payload<'reject'>) =>
+          payload.mutationId === sent.mutationId && resolve(payload);
+        client.on('ack', mine);
+        client.on('reject', mine);
+      });
+    }
+    async function push(client: Client, ...mutations: MutationInput[]) {
+      const answers = mutations.map((m) => answerFor(client, m));
+      client.emit('push', { mutations });
+      return Promise.all(answers);
+    }
+    const byPosition = <T extends { position: string }>(rows: T[]) =>
+      [...rows].sort((x, y) => (x.position < y.position ? -1 : 1));
+
+    it('list.sortItems sets the positions as one change, pokes them to the other member and is idempotent', async () => {
+      const anna = await helloed();
+      const ben = await helloed('ben');
+      const listId = newId();
+      const [b, a] = [newId(), newId()];
+      await push(
+        anna.client,
+        mutation('list.create', {
+          id: listId,
+          title: 'Camping',
+          items: [
+            { id: b, title: 'b' },
+            { id: a, title: 'a' },
+          ],
+        }),
+      );
+      const items = (
+        await (async () => {
+          const rows = next(ben.client, 'rows');
+          ben.client.emit('pull', { spaceId, since: 0, timeline: '' });
+          return rows;
+        })()
+      ).rows.items;
+      const [first, second] = byPosition(items).map((i) => i.position);
+      const pokes = collect(ben.client, 'poke');
+      const sort = mutation('list.sortItems', {
+        listId,
+        items: [
+          { id: a, position: first },
+          { id: b, position: second },
+        ],
+      });
+
+      const [answer] = await push(anna.client, sort);
+
+      expect(answer).toEqual({ mutationId: sort.mutationId, version: 2 });
+      await vi.waitFor(() => expect(pokes).toHaveLength(1));
+      expect(byPosition(pokes[0].rows.items).map((i) => i.id)).toEqual([a, b]);
+      // A retry is acknowledged without a new version.
+      const [again] = await push(anna.client, sort);
+      expect(again).toEqual({ mutationId: sort.mutationId, version: 2 });
+      // The same positions in a new mutation change nothing either.
+      const [same] = await push(
+        anna.client,
+        mutation('list.sortItems', { listId, items: sort.args.items }),
+      );
+      expect(same).toMatchObject({ version: 2 });
+    });
+
+    it('list.sortItems rejects an item of another list with its reason, and is not poked to others', async () => {
+      const anna = await helloed();
+      const [one, two, item] = [newId(), newId(), newId()];
+      await push(
+        anna.client,
+        mutation('list.create', { id: one, title: 'One' }),
+        mutation('list.create', {
+          id: two,
+          title: 'Two',
+          items: [{ id: item, title: 'x' }],
+        }),
+      );
+
+      const [answer] = await push(
+        anna.client,
+        mutation('list.sortItems', {
+          listId: one,
+          items: [{ id: item, position: 'a5' }],
+        }),
+      );
+
+      expect(answer).toMatchObject({ reason: "This item doesn't exist" });
+    });
+
+    it('does not let a non-member sort a space’s list', async () => {
+      const anna = await helloed();
+      const [listId, item] = [newId(), newId()];
+      await push(
+        anna.client,
+        mutation('list.create', {
+          id: listId,
+          title: 'One',
+          items: [{ id: item, title: 'x' }],
+        }),
+      );
+      const carl = await helloed('carl');
+      const sort = mutation('list.sortItems', {
+        listId,
+        items: [{ id: item, position: 'a9' }],
+      });
+
+      const [answer] = await push(carl.client, sort);
+
+      expect(answer).toEqual({
+        mutationId: sort.mutationId,
+        reason: "You can't change this space",
+      });
+      expect(
+        api.database.db
+          .select()
+          .from(schema.items)
+          .where(eq(schema.items.id, item))
+          .get()?.position,
+      ).not.toBe('a9');
+    });
+
+    it('run.sortItems sets the positions of the run items as one change and is idempotent', async () => {
+      const anna = await helloed();
+      const ben = await helloed('ben');
+      const runId = newId();
+      const [b, a] = [newId(), newId()];
+      await push(
+        anna.client,
+        mutation('run.start', {
+          id: runId,
+          title: 'Alps',
+          items: [
+            { id: b, title: 'b' },
+            { id: a, title: 'a' },
+          ],
+        }),
+      );
+      const rows = next(ben.client, 'rows');
+      ben.client.emit('pull', { spaceId, since: 0, timeline: '' });
+      const [first, second] = byPosition((await rows).rows.runItems).map(
+        (i) => i.position,
+      );
+      const pokes = collect(ben.client, 'poke');
+      const sort = mutation('run.sortItems', {
+        runId,
+        items: [
+          { id: a, position: first },
+          { id: b, position: second },
+        ],
+      });
+
+      const [answer] = await push(anna.client, sort);
+
+      expect(answer).toEqual({ mutationId: sort.mutationId, version: 2 });
+      await vi.waitFor(() => expect(pokes).toHaveLength(1));
+      expect(byPosition(pokes[0].rows.runItems).map((i) => i.id)).toEqual([
+        a,
+        b,
+      ]);
+      const [again] = await push(anna.client, sort);
+      expect(again).toEqual({ mutationId: sort.mutationId, version: 2 });
+    });
+
+    it('run.sortItems rejects an unknown run with its reason', async () => {
+      const { client } = await helloed();
+      const [answer] = await push(
+        client,
+        mutation('run.sortItems', {
+          runId: newId(),
+          items: [{ id: newId(), position: 'a0' }],
+        }),
+      );
+      expect(answer).toMatchObject({ reason: "This run doesn't exist" });
+    });
+
+    it('run.addItems puts an item at the position it names ("Sort in")', async () => {
+      const { client } = await helloed();
+      const runId = newId();
+      const [x, y] = [newId(), newId()];
+      await push(
+        client,
+        mutation('run.start', {
+          id: runId,
+          title: 'Alps',
+          items: [{ id: x, title: 'x' }],
+        }),
+      );
+      const rows = next(client, 'rows');
+      client.emit('pull', { spaceId, since: 0, timeline: '' });
+      const xKey = (await rows).rows.runItems[0].position;
+      const pokes = collect(client, 'poke');
+
+      await push(
+        client,
+        mutation('run.addItems', {
+          runId,
+          items: [{ id: y, title: 'a', position: 'Zz' }],
+        }),
+      );
+
+      await vi.waitFor(() => expect(pokes).toHaveLength(1));
+      const added = pokes[0].rows.runItems.find((i) => i.id === y);
+      expect(added?.position).toBe('Zz');
+      expect('Zz' < xKey).toBe(true);
+    });
+  });
 });

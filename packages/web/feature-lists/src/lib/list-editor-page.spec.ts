@@ -4,6 +4,7 @@ import { Router, provideRouter } from '@angular/router';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { CdkDropList } from '@angular/cdk/drag-drop';
 import { MatDialog } from '@angular/material/dialog';
+import { MatButtonToggleGroupHarness } from '@angular/material/button-toggle/testing';
 import { MatMenuHarness } from '@angular/material/menu/testing';
 import {
   type Include,
@@ -58,6 +59,7 @@ let notify: ReturnType<typeof vi.fn>;
 let dialogAnswer: unknown;
 
 beforeEach(async () => {
+  localStorage.clear();
   db = new LocalDb(`test-${newId()}`);
   await db.spaces.put({ id: SPACE, name: 'Home', version: 1, members: [] });
   await db.lists.put(camping);
@@ -585,6 +587,116 @@ describe('ListEditorPage', () => {
     );
   });
 
+  describe('Sort A–Z', () => {
+    it('sorts the items with one change, and Undo sends the old positions back', async () => {
+      const [c, a, b] = [item('c', 'a0'), item('A', 'a1'), item('b', 'a2')];
+      await db.items.bulkPut([c, a, b]);
+      const page = await render();
+      await vi.waitFor(() => expect(page.titles()).toEqual(['c', 'A', 'b']));
+      notify.mockResolvedValueOnce('action');
+
+      const sort = [...page.element.querySelectorAll('button')].find((button) =>
+        button.textContent?.includes('Sort A–Z'),
+      ) as HTMLButtonElement;
+      sort.click();
+
+      await vi.waitFor(() => expect(requests).toHaveLength(2));
+      expect(requests[0]).toMatchObject({
+        name: 'list.sortItems',
+        args: {
+          listId: camping.id,
+          items: [
+            { id: a.id, position: 'a0' },
+            { id: b.id, position: 'a1' },
+            { id: c.id, position: 'a2' },
+          ],
+        },
+      });
+      expect(requests[1]).toMatchObject({
+        name: 'list.sortItems',
+        args: {
+          listId: camping.id,
+          items: [
+            { id: a.id, position: 'a1' },
+            { id: b.id, position: 'a2' },
+            { id: c.id, position: 'a0' },
+          ],
+        },
+      });
+      expect(notify).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'Sorted “Camping” A–Z' }),
+      );
+    });
+
+    it('says so, and changes nothing, when the list is already sorted', async () => {
+      await db.items.bulkPut([item('A', 'a0'), item('b', 'a1')]);
+      const page = await render();
+      await vi.waitFor(() => expect(page.titles()).toEqual(['A', 'b']));
+
+      (
+        [...page.element.querySelectorAll('button')].find((button) =>
+          button.textContent?.includes('Sort A–Z'),
+        ) as HTMLButtonElement
+      ).click();
+
+      await vi.waitFor(() =>
+        expect(notify).toHaveBeenCalledWith(
+          expect.objectContaining({ message: 'Already in A–Z order' }),
+        ),
+      );
+      expect(requests).toEqual([]);
+    });
+  });
+
+  describe('adding with "Sort in"', () => {
+    it('remembers the choice and puts the item before the first one that sorts after it', async () => {
+      await db.items.bulkPut([
+        item('a', 'a0'),
+        item('c', 'a1'),
+        item('e', 'a2'),
+      ]);
+      const page = await render();
+      await vi.waitFor(() => expect(page.titles()).toEqual(['a', 'c', 'e']));
+      const toggle = await page.loader.getHarness(MatButtonToggleGroupHarness);
+
+      await (await toggle.getToggles({ text: 'Sort in' }))[0].check();
+      expect(localStorage.getItem('lister.addItemOrder')).toBe('sorted');
+      await page.type('d');
+      await page.submit();
+
+      await vi.waitFor(() => expect(requests).toHaveLength(1));
+      const { position } = requests[0].args as { position: string };
+      expect(position > 'a1' && position < 'a2').toBe(true);
+    });
+
+    it('adds at the end when nothing sorts after it, and sorts a pasted batch in', async () => {
+      localStorage.setItem('lister.addItemOrder', 'sorted');
+      await db.items.bulkPut([item('b', 'a0')]);
+      const page = await render();
+      await vi.waitFor(() => expect(page.titles()).toEqual(['b']));
+      const paste = new Event('paste', { cancelable: true }) as ClipboardEvent;
+      Object.defineProperty(paste, 'clipboardData', {
+        value: { getData: () => 'z\nc\na' },
+      });
+
+      page.input().dispatchEvent(paste);
+
+      await vi.waitFor(() => expect(requests).toHaveLength(3));
+      const all = [
+        { id: 'b', title: 'b', position: 'a0' },
+        ...requests.map(
+          (r) => r.args as { id: string; title: string; position: string },
+        ),
+      ];
+      expect(sortByPosition(all).map((i) => i.title)).toEqual([
+        'a',
+        'b',
+        'c',
+        'z',
+      ]);
+    });
+  });
+
   it('names the browser tab after the list', async () => {
     await render();
 
@@ -864,6 +976,41 @@ describe('ListEditorPage — included lists', () => {
         action: 'Undo',
       }),
     );
+  });
+
+  it('sorts an included list from its section, leaving this list and the includes alone', async () => {
+    const toiletries = list('Toiletries');
+    await db.lists.put(toiletries);
+    const [z, y] = [
+      itemOf(toiletries.id, 'Zinc', 'a0'),
+      itemOf(toiletries.id, 'Soap', 'a1'),
+    ];
+    await db.items.bulkPut([item('Tent', 'a0'), z, y]);
+    await db.includes.put(include(camping.id, toiletries.id, 'a1'));
+    const page = await render();
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(sectionTitles(page.element)).toEqual(['Toiletries']);
+    });
+
+    const menu = await page.loader.getHarness(
+      MatMenuHarness.with({
+        selector: '[aria-label="More for list Toiletries"]',
+      }),
+    );
+    await menu.clickItem({ text: /Sort A–Z/ });
+
+    await vi.waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0]).toMatchObject({
+      name: 'list.sortItems',
+      args: {
+        listId: toiletries.id,
+        items: [
+          { id: y.id, position: 'a0' },
+          { id: z.id, position: 'a1' },
+        ],
+      },
+    });
   });
 
   it('edits an item of an included list, saying which list it changes and who else uses it', async () => {

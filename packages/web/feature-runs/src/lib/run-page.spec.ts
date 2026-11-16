@@ -1,6 +1,8 @@
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MatDialog } from '@angular/material/dialog';
+import { MatMenuHarness } from '@angular/material/menu/testing';
 import {
   type Item,
   type List,
@@ -819,5 +821,128 @@ describe('RunPage', () => {
     await db.runs.delete(alps.id);
     const page = await render();
     expect(page.element.querySelector('h1')?.textContent).toBe('Run not found');
+  });
+});
+
+describe('RunPage — Sort A–Z (D17)', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('sorts within each section with one change, and Undo sends the old positions back', async () => {
+    const [z, a] = [
+      runItem('Zinc', 'a0', { sources: [camping.id] }),
+      runItem('Axe', 'a1', { sources: [camping.id] }),
+    ];
+    const [soap, bag] = [
+      runItem('Soap', 'a2', { sources: [basics.id] }),
+      runItem('Bag', 'a3', { sources: [basics.id] }),
+    ];
+    await db.runItems.bulkPut([z, a, soap, bag]);
+    const page = await render();
+    await page.settle(() =>
+      expect(page.sections().map((s) => s.items)).toEqual([
+        ['Zinc', 'Axe'],
+        ['Soap', 'Bag'],
+      ]),
+    );
+    notify.mockResolvedValueOnce('action');
+
+    const menu = await TestbedHarnessEnvironment.loader(
+      page.fixture,
+    ).getHarness(
+      MatMenuHarness.with({ selector: '[aria-label="More for this run"]' }),
+    );
+    await menu.clickItem({ text: /Sort A–Z/ });
+
+    await vi.waitFor(() => expect(requests).toHaveLength(2));
+    expect(requests[0]).toMatchObject({
+      name: 'run.sortItems',
+      args: {
+        runId: alps.id,
+        items: [
+          { id: a.id, position: 'a0' },
+          { id: z.id, position: 'a1' },
+          { id: bag.id, position: 'a2' },
+          { id: soap.id, position: 'a3' },
+        ],
+      },
+    });
+    expect(requests[1]).toMatchObject({
+      name: 'run.sortItems',
+      args: {
+        runId: alps.id,
+        items: [
+          { id: a.id, position: 'a1' },
+          { id: z.id, position: 'a0' },
+          { id: bag.id, position: 'a3' },
+          { id: soap.id, position: 'a2' },
+        ],
+      },
+    });
+  });
+
+  it('says so, and changes nothing, when every section is sorted', async () => {
+    await db.runItems.bulkPut([runItem('A', 'a0'), runItem('B', 'a1')]);
+    const page = await render();
+    await page.settle(() =>
+      expect(page.sections()[0].items).toEqual(['A', 'B']),
+    );
+
+    const menu = await TestbedHarnessEnvironment.loader(
+      page.fixture,
+    ).getHarness(
+      MatMenuHarness.with({ selector: '[aria-label="More for this run"]' }),
+    );
+    await menu.clickItem({ text: /Sort A–Z/ });
+
+    await vi.waitFor(() =>
+      expect(notify).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'Already in A–Z order' }),
+      ),
+    );
+    expect(requests).toEqual([]);
+  });
+
+  it('sends no position for typed items while "Add at end" is chosen', async () => {
+    await db.runItems.bulkPut([runItem('B', 'a0')]);
+    const page = await render();
+    await page.settle(() => expect(page.sections()[0].items).toEqual(['B']));
+
+    const input = page.element.querySelector(
+      'input:not([type])',
+    ) as HTMLInputElement;
+    input.value = 'A';
+    input.dispatchEvent(new Event('input'));
+    await page.fixture.whenStable();
+    page.element.querySelector('form')?.dispatchEvent(new Event('submit'));
+
+    await vi.waitFor(() => expect(requests).toHaveLength(1));
+    expect(
+      requests[0].name === 'run.addItems' && requests[0].args.items[0].position,
+    ).toBeUndefined();
+  });
+
+  it('with "Sort in", places typed items among the typed ones, not the listed ones', async () => {
+    localStorage.setItem('lister.addItemOrder', 'sorted');
+    await db.runItems.bulkPut([
+      runItem('Zinc', 'a0', { sources: [camping.id] }),
+      runItem('Bread', 'a1'),
+      runItem('Eggs', 'a2'),
+    ]);
+    const page = await render();
+    await page.settle(() => expect(page.sections()).toHaveLength(2));
+
+    const input = page.element.querySelector(
+      'input:not([type])',
+    ) as HTMLInputElement;
+    input.value = 'Cheese';
+    input.dispatchEvent(new Event('input'));
+    await page.fixture.whenStable();
+    page.element.querySelector('form')?.dispatchEvent(new Event('submit'));
+
+    await vi.waitFor(() => expect(requests).toHaveLength(1));
+    const request = requests[0];
+    const position =
+      request.name === 'run.addItems' ? request.args.items[0].position : '';
+    expect(position && position > 'a1' && position < 'a2').toBe(true);
   });
 });

@@ -6,3 +6,4 @@ export * from './lib/positions';
 export * from './lib/quantity';
 export * from './lib/runs';
 export * from './lib/item-lines';
+export * from './lib/sorting';

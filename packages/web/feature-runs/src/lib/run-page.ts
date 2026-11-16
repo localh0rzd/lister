@@ -27,12 +27,15 @@ import {
   type RunItemState,
   isRunFinished,
   newId,
+  positionForSortedInsert,
   runItemsFromList,
+  sortByTitle,
 } from '@lister/shared/domain';
 import { titleSchema } from '@lister/shared/sync-protocol';
 import { CurrentSpace, Repositories } from '@lister/web/data-access-local-db';
 import { type SpaceChange, SpaceChanges } from '@lister/web/data-access-sync';
 import {
+  AddOrderToggle,
   ItemDialog,
   attribution,
   type ItemDialogData,
@@ -45,6 +48,7 @@ import {
 } from '@lister/web/ui';
 import { NOTICE_DURATION_MS, Notifier } from '@lister/web/util-notify';
 import { firstValueFrom } from 'rxjs';
+import { AddItemOrderPreference } from './add-item-order-preference';
 import { DoneSectionPreference } from './done-section-preference';
 import { layoutRun, progressText } from './run-sections';
 
@@ -67,6 +71,7 @@ interface SentState {
 @Component({
   selector: 'lister-run-page',
   imports: [
+    AddOrderToggle,
     FormField,
     LoadingHint,
     MatButton,
@@ -99,6 +104,7 @@ export class RunPage {
   private readonly space = inject(CurrentSpace);
   private readonly environment = inject(EnvironmentInjector);
   protected readonly doneSection = inject(DoneSectionPreference);
+  protected readonly addOrder = inject(AddItemOrderPreference);
 
   private readonly run = this.repositories.run(this.runId);
   private readonly items = this.repositories.itemsOfRun(this.runId);
@@ -475,17 +481,72 @@ export class RunPage {
     });
   }
 
+  /**
+   * "Sort A–Z" (D17): sorts the items within each section. The sections keep their places, and
+   * Undo sends the old positions back.
+   */
+  protected async sort(): Promise<void> {
+    const view = this.view();
+    if (view.kind !== 'ready') return;
+    const { sections } = layoutRun(view.items, () => undefined, false);
+    const changes = sections.flatMap((section) =>
+      sortByTitle(section.rows.map(({ item }) => item)),
+    );
+    if (changes.length === 0) {
+      this.changes.tell('Already in A–Z order');
+      return;
+    }
+    const before = new Map(view.items.map((item) => [item.id, item.position]));
+    const runId = view.run.id;
+    await this.changes.withUndo(
+      { name: 'run.sortItems', args: { runId, items: changes } },
+      `Sorted “${view.run.title}” A–Z`,
+      {
+        name: 'run.sortItems',
+        args: {
+          runId,
+          items: changes.map(({ id }) => ({
+            id,
+            position: before.get(id) as string,
+          })),
+        },
+      },
+    );
+  }
+
   private addTitles(titles: string[]): Promise<boolean> {
+    // "Sort in" (D17): among the items typed into the run, before the first that sorts after.
+    // Each title counts the ones before it, so a pasted batch comes out sorted.
+    const view = this.view();
+    const positions: (string | undefined)[] = [];
+    if (this.addOrder.order() === 'sorted' && view.kind === 'ready') {
+      const all = view.items.map(({ id, title, position, sources }) => ({
+        id,
+        title,
+        position,
+        typed: sources.length === 0,
+      }));
+      for (const title of titles) {
+        const position = positionForSortedInsert(
+          title,
+          all.filter((row) => row.typed),
+          all,
+        );
+        positions.push(position);
+        all.push({ id: newId(), title, position, typed: true });
+      }
+    }
     return this.changes.apply({
       name: 'run.addItems',
       args: {
         runId: this.runId(),
-        items: titles.map((title) => ({
+        items: titles.map((title, i) => ({
           id: newId(),
           title,
           quantity: '',
           note: '',
           sources: [],
+          position: positions[i],
         })),
       },
     });

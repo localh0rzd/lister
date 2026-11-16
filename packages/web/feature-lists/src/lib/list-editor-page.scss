@@ -187,3 +187,8 @@ h1 {
 .items.cdk-drop-list-dragging .section:not(.cdk-drag-placeholder) {
   transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
 }
+
+.add-order {
+  display: block;
+  margin-top: 8px;
+}
