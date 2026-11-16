@@ -187,7 +187,7 @@ export class RunPage {
     effect(() => {
       const view = this.view();
       if (view.kind === 'ready') title.setTitle(`${view.run.title} · Lister`);
-      // Finished, here or by someone else: it appears nowhere any more (D10).
+      // Finished, here or by someone else: it leaves the active runs and is in the trash (D10).
       if (view.kind === 'finished') {
         if (!this.finishedHere)
           this.changes.tell(`“${view.run.title}” is finished`);

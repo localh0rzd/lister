@@ -1192,6 +1192,48 @@ describe('SyncEngine', () => {
     });
   });
 
+  describe('restoring a finished run (D20)', () => {
+    it('reopens it offline, unchecking the item checked last', async () => {
+      setup({ leader: false });
+      engine.start();
+      const runId = newId();
+      const ids = [newId(), newId()];
+      await engine.mutate({
+        spaceId: SPACE,
+        name: 'run.start',
+        args: {
+          id: runId,
+          title: 'Shop',
+          items: [
+            { id: ids[0], title: 'Milk' },
+            { id: ids[1], title: 'Bread' },
+          ],
+        },
+      });
+      for (const id of ids) {
+        await engine.mutate({
+          spaceId: SPACE,
+          name: 'runItem.setState',
+          args: { id, state: 'checked' },
+        });
+        await new Promise((resolve) => setTimeout(resolve, 2));
+      }
+      expect((await db.runs.get(runId))?.finishedAt).not.toBeNull();
+
+      expect(
+        await engine.mutate({
+          spaceId: SPACE,
+          name: 'run.restore',
+          args: { id: runId },
+        }),
+      ).toEqual({ ok: true });
+
+      expect((await db.runs.get(runId))?.finishedAt).toBeNull();
+      expect((await db.runItems.get(ids[1]))?.state).toBe('unchecked');
+      expect((await db.runItems.get(ids[0]))?.state).toBe('checked');
+    });
+  });
+
   describe('sorting (D17)', () => {
     it('sorts a list offline as one queued change, and keeps it when another client adds an item', async () => {
       setup();

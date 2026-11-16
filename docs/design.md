@@ -18,7 +18,7 @@
 | D7  | Language                 | English only                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | D8  | Naming                   | Code and UI: List, Item, Include, Run, Space; destinations Lists, Runs, Space, Settings (D19). "Run" may be renamed in the UI later; that only touches UI text.                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | D9  | Forgotten passwords      | An admin sets a temporary password, which the user must change at the next sign-in. A server command resets a password when no admin can sign in. Either reset also ends the user's sessions and removes all their passkeys, so nothing someone else added survives it; admins never see a user's passkeys.                                                                                                                                                                                                                                                                                                  |
-| D10 | Run lifecycle            | A run is used once. When every item is checked or skipped, it finishes and disappears, with Undo in the snackbar. Finished runs appear nowhere — not among active runs and not where runs are started — and are purged after 30 days (D15). There is no history.                                                                                                                                                                                                                                                                                                                                             |
+| D10 | Run lifecycle            | A run is used once. When every item is checked or skipped, it finishes and disappears from the active runs, with Undo in the snackbar. A finished run goes to the trash (Space › Trash) for 30 days (D15), with who finished it and when, and Restore brings it back (D20); nothing else lists it — not the active runs, not where runs are started. After 30 days it is purged. There is no other history.                                                                                                                                                                                                  |
 | D11 | Look                     | Material 3 theme seeded from deep teal `#00796B`, in light and dark. The theme follows the browser's system setting until the user picks Light or Dark in Settings › Appearance (remembered on the device). App icon: the Material Symbols "checklist" glyph on that colour. Mock-ups: https://claude.ai/artifact/RWjDQCAXmBw9FAgBTua6rC                                                                                                                                                                                                                                                                     |
 | D12 | Checked run items        | They stay in place, struck through. A toggle, remembered on the device, moves them into a "Done" section while it's on.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | D13 | Save a run as list       | Possible as an action on a run, but never suggested automatically and never required.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
@@ -66,23 +66,23 @@ affected tasks.
 Reusable checklists — packing lists being the main use case — that can be composed from other
 lists, checked off by several people in real time, and used offline as an installable PWA.
 
-| #   | Requirement                                                                                   |
-| --- | --------------------------------------------------------------------------------------------- |
-| R1  | Works as a PWA                                                                                |
-| R2  | Material Design                                                                               |
-| R3  | Reusable to-do lists, e.g. packing gear for travel                                            |
-| R4  | Lists composed of other lists: "Motorcycle vacation = Basic travel + Hostel + Camping"        |
-| R5  | Real-time editing over WebSockets: others see items added, removed and checked immediately    |
-| R6  | Works offline; changes sync when back online                                                  |
-| R7  | SQLite as the database                                                                        |
-| R8  | Ad-hoc runs: items added just to be used and checked once (added 2026-11-11)                  |
-| R9  | Runs are used once and are gone when everything is checked off (added 2026-11-12)             |
-| R10 | Admin role: admins create, edit and delete users and can make them admins (added 2026-11-12)  |
-| R11 | Sign-in with username and password, and passkeys users add and remove themselves (2026-11-12) |
-| R12 | Runs as a Docker container behind Traefik, which handles HTTPS (added 2026-11-12)             |
-| R13 | Identical items are merged in a run (added 2026-11-12)                                        |
-| R14 | Finished runs are never listed among active runs or where runs are started (added 2026-11-12) |
-| R15 | Light and dark theme, defaulting to the browser's system setting (added 2026-11-12)           |
+| #   | Requirement                                                                                                 |
+| --- | ----------------------------------------------------------------------------------------------------------- |
+| R1  | Works as a PWA                                                                                              |
+| R2  | Material Design                                                                                             |
+| R3  | Reusable to-do lists, e.g. packing gear for travel                                                          |
+| R4  | Lists composed of other lists: "Motorcycle vacation = Basic travel + Hostel + Camping"                      |
+| R5  | Real-time editing over WebSockets: others see items added, removed and checked immediately                  |
+| R6  | Works offline; changes sync when back online                                                                |
+| R7  | SQLite as the database                                                                                      |
+| R8  | Ad-hoc runs: items added just to be used and checked once (added 2026-11-11)                                |
+| R9  | Runs are used once and are gone when everything is checked off (added 2026-11-12)                           |
+| R10 | Admin role: admins create, edit and delete users and can make them admins (added 2026-11-12)                |
+| R11 | Sign-in with username and password, and passkeys users add and remove themselves (2026-11-12)               |
+| R12 | Runs as a Docker container behind Traefik, which handles HTTPS (added 2026-11-12)                           |
+| R13 | Identical items are merged in a run (added 2026-11-12)                                                      |
+| R14 | Finished runs are only in the trash, never among active runs or where runs are started (changed 2026-11-16) |
+| R15 | Light and dark theme, defaulting to the browser's system setting (added 2026-11-12)                         |
 
 ## 2. Requirements analysis
 
@@ -116,10 +116,13 @@ _Basic_ and _Camping_ both listing "Headlamp" gives one "Headlamp", shown as com
 while it's on.
 
 **Finishing (D10, R14):** when every item is checked or skipped, the run finishes and disappears.
-The snackbar offers Undo, which reverts the last check. Finished runs appear nowhere — not among
-active runs and not where runs are started. They are kept for 30 days, so that offline devices can
-still sync changes to them, and then purged (D15). There's no history of past runs in v1
-(deferred, §8). Edge case: an ad-hoc shopping run whose items are all checked finishes too, even if
+The snackbar offers Undo, which reverts the last check. A finished run is in the trash (Space ›
+Trash, next to deleted lists and items) for 30 days (D15), with who finished it (the user whose
+check, or removal of the last unchecked item, finished it: the run's last change) and when; it is
+not among active runs and not where runs are started. **Restore** (`run.restore`, a synced
+mutation, D20) unchecks the item checked last, like Undo, and keeps the other checks, so the run is
+open again on every device. After 30 days the run is purged (D15); offline devices can still sync
+changes to it until then. There's no other history of past runs in v1 (deferred, §8). Edge case: an ad-hoc shopping run whose items are all checked finishes too, even if
 more items were about to be added — Undo covers it.
 
 **Ad-hoc runs (R8):** a run can also start empty — "New run" on the Runs page — with items added
@@ -343,25 +346,25 @@ Consequences:
 
 None of these change the architecture; the table says what goes into v1.
 
-| Feature                                                                          | Decision                                                     |
-| -------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| Item fields: quantity ("Socks × 5"), note                                        | v1: title, optional quantity (empty = 1), optional note (D6) |
-| Reorder items and included lists                                                 | v1 (drag & drop + menu)                                      |
-| Paste several lines to create several items                                      | v1 (cheap, big win)                                          |
-| Trash, restore, undo                                                             | v1 (sync needs soft deletes anyway)                          |
-| Runs: skip, "Done" section toggle (D12), progress, add items or lists to one run | v1                                                           |
-| Merge identical items in a run                                                   | v1 (D16)                                                     |
-| Ad-hoc runs: start empty, add items, check once                                  | v1 (R8)                                                      |
-| "Checked by Anna · 14:02"                                                        | v1 (comes free with accounts)                                |
-| Duplicate a list                                                                 | v1                                                           |
-| Save a run as a list                                                             | v1, as an optional action (D13)                              |
-| Run history ("what did we take last time?")                                      | deferred: runs are gone once done (D10)                      |
-| Presence ("Ben is looking at this list")                                         | later                                                        |
-| Assign items to people                                                           | later                                                        |
-| Search, tags, favourites                                                         | later                                                        |
-| Import/export (JSON, Markdown), print view                                       | later                                                        |
-| Languages                                                                        | English only (adding i18n later touches every page)          |
-| Push notifications                                                               | not planned                                                  |
+| Feature                                                                          | Decision                                                        |
+| -------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Item fields: quantity ("Socks × 5"), note                                        | v1: title, optional quantity (empty = 1), optional note (D6)    |
+| Reorder items and included lists                                                 | v1 (drag & drop + menu)                                         |
+| Paste several lines to create several items                                      | v1 (cheap, big win)                                             |
+| Trash, restore, undo                                                             | v1 (sync needs soft deletes anyway)                             |
+| Runs: skip, "Done" section toggle (D12), progress, add items or lists to one run | v1                                                              |
+| Merge identical items in a run                                                   | v1 (D16)                                                        |
+| Ad-hoc runs: start empty, add items, check once                                  | v1 (R8)                                                         |
+| "Checked by Anna · 14:02"                                                        | v1 (comes free with accounts)                                   |
+| Duplicate a list                                                                 | v1                                                              |
+| Save a run as a list                                                             | v1, as an optional action (D13)                                 |
+| Run history ("what did we take last time?")                                      | deferred: finished runs are only in the trash for 30 days (D10) |
+| Presence ("Ben is looking at this list")                                         | later                                                           |
+| Assign items to people                                                           | later                                                           |
+| Search, tags, favourites                                                         | later                                                           |
+| Import/export (JSON, Markdown), print view                                       | later                                                           |
+| Languages                                                                        | English only (adding i18n later touches every page)             |
+| Push notifications                                                               | not planned                                                     |
 
 ### 2.9 Operations — Decided (D4)
 
@@ -493,6 +496,13 @@ with `sortByTitle()` in `shared/domain`: the sorted items take over the keys the
 "slots"), so includes in the same list keep theirs; rows that shared a key get fresh keys between
 their neighbours. Items deleted meanwhile are skipped, an item of another list or run is rejected.
 Undo sends the old positions back with the same mutation.
+
+**Restoring a finished run (D20):** `run.restore` unchecks the item whose state was set last
+(`lastCheckedItem()` in `shared/domain`: ties by position, then id) and leaves the run to the same
+finishing rule, which reopens it. It does nothing to a run that isn't finished (a retry is
+harmless) and is rejected for an unknown run. A finished run is in the trash while `finished_at` is
+set and no older than 30 days; there is no `deleted_at` on it and no new column: who finished it
+is the run's `updated_by`.
 
 **Finishing:** a run counts as finished while every item is checked or skipped and it has at least
 one item. The server recomputes this in the same transaction as every run-item change, and clients
@@ -751,7 +761,7 @@ Deliberately not in v1. To pick one up, add a task to `TASKS.md`, and update thi
 it changes a decision above.
 
 - Per-composition exceptions ("camping gear, but without the chair")
-- Run history ("what did we take last time?") — runs are gone once done (D10)
+- Run history ("what did we take last time?") — finished runs are only in the trash for 30 days (D10)
 - Pulling list changes into an active run
 - Presence ("Ben is looking at this list")
 - Assigning items to people

@@ -12,7 +12,7 @@ import { RunStarter } from './run-starter';
 
 /**
  * The Runs destination: the space's active runs with their progress, newest first. Finished
- * runs appear nowhere (D10). "New run" starts an empty ad-hoc run (R8).
+ * runs are only in the trash (D10). "New run" starts an empty ad-hoc run (R8).
  */
 @Component({
   selector: 'lister-runs-page',

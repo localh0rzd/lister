@@ -74,6 +74,8 @@ export async function describeMutation(
       return `Start run ${quote(str('title'))}`;
     case 'run.update':
       return `Rename run ${quote(await titles.run(id))}`;
+    case 'run.restore':
+      return `Restore run ${quote(await titles.run(id))}`;
     case 'run.addItems':
       return `Add items to run ${quote(await titles.run(str('runId') ?? ''))}`;
     case 'run.saveAsList':

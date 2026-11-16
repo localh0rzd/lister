@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-054 — Finished runs in the trash, with Restore
 
 - Milestone: M8 Editing conveniences
@@ -48,6 +46,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   skipped"), so restoring with every check kept would finish the run again at once. D20: Restore
   unchecks the item checked last. Whoever finished a run is the user whose check finished it (the
   run's last change); a column may be needed (Drizzle migration plus Dexie version bump).
+
+## Backlog
 
 ### T-055 — All items, A–Z, with the lists that contain them
 

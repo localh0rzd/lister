@@ -1,5 +1,6 @@
 import {
   isRunFinished,
+  lastCheckedItem,
   mergeNote,
   mergeQuantity,
   mergeRunItem,
@@ -126,5 +127,50 @@ describe('isRunFinished (D10)', () => {
     ['only removed items', [item('checked', 5)], false],
   ])('%s → %s', (_, items, finished) => {
     expect(isRunFinished(items)).toBe(finished);
+  });
+});
+
+describe('lastCheckedItem (D20)', () => {
+  const item = (
+    id: string,
+    state: 'unchecked' | 'checked' | 'skipped',
+    stateAt: number | null,
+    deletedAt: number | null = null,
+    position = 'a0',
+  ) => ({ id, state, stateAt, deletedAt, position });
+
+  it('is the checked or skipped item whose state was set last', () => {
+    const items = [
+      item('a', 'checked', 10),
+      item('b', 'skipped', 30),
+      item('c', 'checked', 20),
+    ];
+    expect(lastCheckedItem(items)?.id).toBe('b');
+  });
+
+  it('ignores unchecked and removed items', () => {
+    const items = [
+      item('a', 'checked', 10),
+      item('b', 'unchecked', 50),
+      item('c', 'checked', 40, 99),
+    ];
+    expect(lastCheckedItem(items)?.id).toBe('a');
+  });
+
+  it('breaks ties by position, then id, the same way everywhere', () => {
+    expect(
+      lastCheckedItem([
+        item('a', 'checked', 10, null, 'a1'),
+        item('b', 'checked', 10, null, 'a2'),
+      ])?.id,
+    ).toBe('b');
+    expect(
+      lastCheckedItem([item('b', 'checked', 10), item('a', 'checked', 10)])?.id,
+    ).toBe('b');
+  });
+
+  it('is undefined when nothing is checked', () => {
+    expect(lastCheckedItem([])).toBeUndefined();
+    expect(lastCheckedItem([item('a', 'unchecked', null)])).toBeUndefined();
   });
 });

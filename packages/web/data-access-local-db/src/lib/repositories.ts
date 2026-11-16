@@ -15,7 +15,10 @@ import { type QueryState, liveQuerySignal } from './live-query-signal';
 /** Case- and accent-insensitive, numbers by value ("List 9" before "List 10"); design §3. */
 const byTitle = new Intl.Collator('en', { sensitivity: 'base', numeric: true });
 
-/** Something in the trash: a deleted list (its items come back with it) or a deleted item. */
+/**
+ * Something in the trash: a deleted list (its items come back with it), a deleted item, or a
+ * finished run (D10). A run has no tombstone: it is in the trash while `finishedAt` is set.
+ */
 export type TrashEntry =
   | {
       kind: 'list';
@@ -25,7 +28,23 @@ export type TrashEntry =
       /** Items of the list that were deleted on their own: they stay deleted. */
       deletedItemCount: number;
     }
-  | { kind: 'item'; row: Item; listTitle: string };
+  | { kind: 'item'; row: Item; listTitle: string }
+  | { kind: 'run'; row: Run; items: number };
+
+/** When an entry went to the trash: deleted, or (for a run) finished. */
+export function trashedAt(entry: TrashEntry): number {
+  return (
+    (entry.kind === 'run' ? entry.row.finishedAt : entry.row.deletedAt) ?? 0
+  );
+}
+
+/**
+ * Who put an entry there: its last change, which for a finished run is the check (or removal)
+ * that finished it.
+ */
+export function trashedBy(entry: TrashEntry): string {
+  return entry.row.updatedBy;
+}
 
 /** An active run with its progress, as the Runs page shows it. */
 export interface RunSummary {
@@ -157,8 +176,8 @@ export class Repositories {
 
   /**
    * The space's trash, newest first: lists deleted within `TRASH_KEEP_MS` (with how many items
-   * come back with them), and items deleted within it whose list isn't deleted (an item of a
-   * deleted list comes back with its list).
+   * come back with them), items deleted within it whose list isn't deleted (an item of a
+   * deleted list comes back with its list), and runs finished within it.
    */
   trashOfSpace(
     spaceId: () => string | undefined,
@@ -180,7 +199,26 @@ export class Repositories {
         }
         const recent = (row: { deletedAt: number | null }) =>
           row.deletedAt !== null && row.deletedAt >= since;
+        const runs = (
+          await this.db.runs.where('spaceId').equals(id).toArray()
+        ).filter(
+          (run) =>
+            run.deletedAt === null &&
+            run.finishedAt !== null &&
+            run.finishedAt >= since,
+        );
+        const runItems = await this.db.runItems
+          .where('runId')
+          .anyOf(runs.map((run) => run.id))
+          .toArray();
         const entries: TrashEntry[] = [
+          ...runs.map((row) => ({
+            kind: 'run' as const,
+            row,
+            items: runItems.filter(
+              (item) => item.runId === row.id && item.deletedAt === null,
+            ).length,
+          })),
           ...lists.filter(recent).map((row) => ({
             kind: 'list' as const,
             row,
@@ -195,8 +233,7 @@ export class Repositories {
         ];
         return entries.sort(
           (a, b) =>
-            (b.row.deletedAt ?? 0) - (a.row.deletedAt ?? 0) ||
-            (a.row.id < b.row.id ? -1 : 1),
+            trashedAt(b) - trashedAt(a) || (a.row.id < b.row.id ? -1 : 1),
         );
       };
     });
@@ -204,7 +241,7 @@ export class Repositories {
 
   /**
    * The space's active runs, newest first, with their progress. Finished and deleted runs are
-   * left out: they appear nowhere (D10).
+   * left out: a finished run is only in the trash (D10).
    */
   activeRunsOfSpace(
     spaceId: () => string | undefined,

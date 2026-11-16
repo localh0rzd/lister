@@ -4,14 +4,17 @@
 </a>
 <!-- A sub-page: always titled (not a .page-title, which phones hide behind the app bar). -->
 <h1 tabindex="-1">Trash</h1>
-<p class="hint">Deleted lists and items stay here for {{ keepDays }} days.</p>
+<p class="hint">
+  Deleted lists and items, and finished runs, stay here for {{ keepDays }} days.
+</p>
 
 @let v = view();
 @if (v.kind === 'loading') {
   <lister-loading-hint />
 } @else if (v.kind === 'no-space') {
   <p class="hint">
-    Deleted lists and items appear here once Lister has connected to the server.
+    Deleted lists and items, and finished runs, appear here once Lister has
+    connected to the server.
   </p>
 } @else if (v.kind === 'error') {
   <p class="hint" role="alert">
@@ -24,11 +27,15 @@
     <p>The trash is empty.</p>
   </div>
 } @else {
-  <ul class="entries" aria-label="Deleted lists and items">
+  <ul class="entries" aria-label="Deleted lists and items, and finished runs">
     @for (entry of v.entries; track entry.row.id) {
       <li class="entry">
         <mat-icon class="kind" aria-hidden="true">{{
-          entry.kind === 'list' ? 'checklist' : 'check_box_outline_blank'
+          entry.kind === 'list'
+            ? 'checklist'
+            : entry.kind === 'run'
+              ? 'task_alt'
+              : 'check_box_outline_blank'
         }}</mat-icon>
         <div class="text">
           <span class="title">{{ entry.row.title }}</span>

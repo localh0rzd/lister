@@ -13,6 +13,8 @@ import {
   CurrentSpace,
   Repositories,
   type TrashEntry,
+  trashedAt,
+  trashedBy,
 } from '@lister/web/data-access-local-db';
 import { SpaceChanges } from '@lister/web/data-access-sync';
 import { TRASH_KEEP_DAYS } from '@lister/shared/domain';
@@ -47,8 +49,8 @@ export function whenDeleted(at: number, now = Date.now()): string {
 }
 
 /**
- * The trash (reached from Space): lists and items deleted in the last `TRASH_KEEP_DAYS` (D15), newest
- * first, with who deleted them and when. Restore syncs like any other change; a list comes back
+ * The trash (reached from Space): lists and items deleted, and runs finished (D10), in the last
+ * `TRASH_KEEP_DAYS` (D15), newest first, with who deleted or finished them and when. Restore syncs like any other change; a list comes back
  * with its items, which stayed as they were.
  */
 @Component({
@@ -101,27 +103,36 @@ export class TrashPage {
 
   /**
    * "List · 3 items · deleted by you, today 14:02" (plus "· 1 more deleted item" for items deleted
-   * on their own), or "Item in Beach · deleted by Ben, …".
+   * on their own), "Item in Beach · deleted by Ben, …" or "Finished run · 5 items · finished by
+   * you, …".
    */
   protected describe(entry: TrashEntry): string {
     const items = (n: number) => (n === 1 ? '1 item' : `${n} items`);
-    const what =
-      entry.kind === 'list'
-        ? `List · ${items(entry.itemCount)}` +
-          // Items deleted on their own stay deleted; they show here once the list is back.
-          (entry.deletedItemCount > 0
+    const at = whenDeleted(trashedAt(entry));
+    const by = this.who(trashedBy(entry));
+    switch (entry.kind) {
+      case 'run':
+        return `Finished run · ${items(entry.items)} · finished by ${by}, ${at}`;
+      case 'item':
+        return `Item in ${entry.listTitle} · deleted by ${by}, ${at}`;
+      case 'list': {
+        // Items deleted on their own stay deleted; they show here once the list is back.
+        const more =
+          entry.deletedItemCount > 0
             ? ` · ${entry.deletedItemCount} more deleted ${entry.deletedItemCount === 1 ? 'item' : 'items'}`
-            : '')
-        : `Item in ${entry.listTitle}`;
-    const at = whenDeleted(entry.row.deletedAt ?? 0);
-    return `${what} · deleted by ${this.who(entry.row.updatedBy)}, ${at}`;
+            : '';
+        return `List · ${items(entry.itemCount)}${more} · deleted by ${by}, ${at}`;
+      }
+    }
   }
 
   protected async restore(entry: TrashEntry, index: number): Promise<void> {
     const restored = await this.changes.apply(
       entry.kind === 'list'
         ? { name: 'list.restore', args: { id: entry.row.id } }
-        : { name: 'item.restore', args: { id: entry.row.id } },
+        : entry.kind === 'run'
+          ? { name: 'run.restore', args: { id: entry.row.id } }
+          : { name: 'item.restore', args: { id: entry.row.id } },
     );
     if (!restored) return;
     this.refocus.set({ id: entry.row.id, index });

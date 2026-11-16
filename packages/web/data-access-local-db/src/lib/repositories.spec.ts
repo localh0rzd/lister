@@ -11,7 +11,7 @@ import {
 } from '@lister/shared/domain';
 import { LOCAL_DB, LocalDb } from './local-db';
 import { type QueryState, valueOf } from './live-query-signal';
-import { Repositories } from './repositories';
+import { Repositories, trashedAt, trashedBy } from './repositories';
 
 const SPACE = newId();
 const OTHER_SPACE = newId();
@@ -390,9 +390,47 @@ describe('Repositories.trashOfSpace', () => {
         valueOf(trash())?.map((entry) =>
           entry.kind === 'list'
             ? `list ${entry.row.title} (${entry.itemCount}, ${entry.deletedItemCount} deleted)`
-            : `item ${entry.row.title} in ${entry.listTitle}`,
+            : entry.kind === 'item'
+              ? `item ${entry.row.title} in ${entry.listTitle}`
+              : `run ${entry.row.title}`,
         ),
       ).toEqual(['list Camping (1, 1 deleted)', 'item Towel in Beach']);
+    });
+  });
+
+  it('lists runs finished within 30 days, not active, old or deleted ones', async () => {
+    const done = run('Alps', { finishedAt: NOW - DAY, updatedBy: 'u-9' });
+    await db.runs.bulkPut([
+      done,
+      run('Active'),
+      run('Old', { finishedAt: NOW - 31 * DAY }),
+      run('Gone', { finishedAt: NOW - DAY, deletedAt: NOW }),
+      { ...run('Elsewhere', { finishedAt: NOW }), spaceId: OTHER_SPACE },
+    ]);
+    await db.runItems.bulkPut([
+      runItem(done.id, 'Tent', 'a0', { state: 'checked' }),
+      runItem(done.id, 'Stove', 'a1', { state: 'skipped' }),
+      runItem(done.id, 'Gone', 'a2', { deletedAt: 1 }),
+    ]);
+    const camping = list('Camping', { deletedAt: NOW - 2 * DAY });
+    await db.lists.put(camping);
+    const trash = TestBed.runInInjectionContext(() =>
+      repositories.trashOfSpace(
+        () => SPACE,
+        () => NOW,
+      ),
+    );
+
+    await vi.waitFor(() => {
+      TestBed.tick();
+      const entries = valueOf(trash()) ?? [];
+      expect(entries.map((e) => `${e.kind} ${e.row.title}`)).toEqual([
+        'run Alps',
+        'list Camping',
+      ]);
+      expect(entries[0]).toMatchObject({ items: 2 });
+      expect(trashedAt(entries[0])).toBe(NOW - DAY);
+      expect(trashedBy(entries[0])).toBe('u-9');
     });
   });
 

@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { type Item, type List, newId } from '@lister/shared/domain';
+import { type Item, type List, type Run, newId } from '@lister/shared/domain';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { SyncEngine } from '@lister/web/data-access-sync';
 import { Notifier } from '@lister/web/util-notify';
@@ -37,6 +37,15 @@ const item = (
   quantity: '',
   note: '',
   position: 'a0',
+  ...extra,
+});
+
+const run = (title: string, extra: Partial<Run> = {}): Run => ({
+  ...meta,
+  id: newId(),
+  title,
+  sourceListId: null,
+  finishedAt: null,
   ...extra,
 });
 
@@ -133,6 +142,51 @@ describe('TrashPage', () => {
       expect(notify).toHaveBeenCalledWith(
         expect.objectContaining({ message: 'Restored “Camping”' }),
       ),
+    );
+  });
+
+  it('lists a finished run with who finished it and when, and restores it', async () => {
+    const now = Date.now();
+    const alps = run('Alps', {
+      finishedAt: now - 1000,
+      updatedBy: BEN,
+      sourceListId: null,
+    });
+    await db.runs.bulkPut([alps, run('Active')]);
+    await db.runItems.put({
+      ...meta,
+      id: newId(),
+      runId: alps.id,
+      title: 'Tent',
+      quantity: '',
+      note: '',
+      position: 'a0',
+      sources: [],
+      state: 'checked',
+      stateBy: BEN,
+      stateAt: now - 1000,
+      mergedInto: null,
+    });
+    const page = await render();
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(page.rows()).toEqual([
+        `Alps | Finished run · 1 item · finished by Ben, ${whenDeleted(now - 1000)}`,
+      ]);
+    });
+
+    (
+      page.element.querySelector(
+        '[aria-label="Restore Alps"]',
+      ) as HTMLButtonElement
+    ).click();
+
+    await vi.waitFor(() =>
+      expect(mutate).toHaveBeenCalledWith({
+        spaceId: SPACE,
+        name: 'run.restore',
+        args: { id: alps.id },
+      }),
     );
   });
 

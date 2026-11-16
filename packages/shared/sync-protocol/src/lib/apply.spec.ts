@@ -1388,6 +1388,63 @@ describe('sort items (D17)', () => {
     return { store, runId, ids };
   }
 
+  describe('run.restore (D20)', () => {
+    function finishedRun() {
+      const { store, runId, ids } = runWith(['a', 'b', 'c']);
+      apply(store, 'runItem.setState', { id: ids[1], state: 'checked' }, 2);
+      apply(store, 'runItem.setState', { id: ids[0], state: 'skipped' }, 3);
+      apply(store, 'runItem.setState', { id: ids[2], state: 'checked' }, 4);
+      return { store, runId, ids };
+    }
+
+    it('unchecks the item checked last and opens the run again', () => {
+      const { store, runId, ids } = finishedRun();
+      expect(store.getRun(runId)?.finishedAt).toBe(4000);
+      expect(apply(store, 'run.restore', { id: runId }, 5)).toMatchObject({
+        kind: 'changed',
+        runItems: [ids[2]],
+        runs: [runId],
+      });
+      expect(store.getRun(runId)?.finishedAt).toBeNull();
+      expect(store.getRunItem(ids[2])).toMatchObject({
+        state: 'unchecked',
+        stateBy: USER,
+      });
+      // The other checks stay.
+      expect(store.getRunItem(ids[0])?.state).toBe('skipped');
+      expect(store.getRunItem(ids[1])?.state).toBe('checked');
+    });
+
+    it('finishes again when that item is checked again', () => {
+      const { store, runId, ids } = finishedRun();
+      apply(store, 'run.restore', { id: runId }, 5);
+      apply(store, 'runItem.setState', { id: ids[2], state: 'checked' }, 6);
+      expect(store.getRun(runId)?.finishedAt).toBe(6000);
+    });
+
+    it('does nothing to a run that is not finished, and a retry is harmless', () => {
+      const { store, runId } = finishedRun();
+      expect(apply(store, 'run.restore', { id: runId }, 5).kind).toBe(
+        'changed',
+      );
+      expect(apply(store, 'run.restore', { id: runId }, 6)).toEqual({
+        kind: 'unchanged',
+      });
+    });
+
+    it('rejects an unknown run and a run of another space', () => {
+      const { store, runId } = finishedRun();
+      expect(apply(store, 'run.restore', { id: newId() })).toEqual({
+        kind: 'rejected',
+        reason: "This run doesn't exist",
+      });
+      const run = store.getRun(runId);
+      if (!run) throw new Error('no run');
+      store.putRun({ ...run, spaceId: newId() });
+      expect(apply(store, 'run.restore', { id: runId }).kind).toBe('rejected');
+    });
+  });
+
   it('run.sortItems sets the positions of the listed run items, once', () => {
     const { store, runId, ids } = runWith(['b', 'a']);
     const args = {

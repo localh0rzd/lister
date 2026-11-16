@@ -38,6 +38,7 @@ describe('mutationSchema', () => {
         },
       },
       { name: 'run.update', args: { id, patch: { title: 'Alps 2027' } } },
+      { name: 'run.restore', args: { id } },
       {
         name: 'run.addItems',
         args: {

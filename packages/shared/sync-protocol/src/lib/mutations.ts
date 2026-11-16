@@ -140,6 +140,11 @@ export const mutationArgs = {
     id: idSchema,
     patch: patch({ title: titleSchema }),
   }),
+  /**
+   * Restores a finished run from the trash (D20): the item checked last is unchecked, which
+   * opens the run again among the active runs. Nothing happens to a run that isn't finished.
+   */
+  'run.restore': byId,
   /** Items typed in or a whole list (as a new section), merged as they enter (D16). */
   'run.addItems': z.strictObject({
     runId: idSchema,
@@ -224,6 +229,7 @@ export const mutationSchema = z.discriminatedUnion('name', [
   mutationOf('item.restore'),
   mutationOf('run.start'),
   mutationOf('run.update'),
+  mutationOf('run.restore'),
   mutationOf('run.addItems'),
   mutationOf('run.saveAsList'),
   mutationOf('run.sortItems'),

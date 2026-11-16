@@ -58,7 +58,7 @@ export interface Include extends SyncMetadata {
 /**
  * A run: one use of a list, or an ad-hoc checklist (D1, D10). It owns copies of its items, so
  * editing a list never changes it. `finishedAt` is set while every item is checked or skipped
- * (and there is at least one); finished runs are shown nowhere.
+ * (and there is at least one); a finished run is only in the trash (D10, D20).
  */
 export interface Run extends SyncMetadata {
   readonly title: string;

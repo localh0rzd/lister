@@ -1315,6 +1315,55 @@ describe('sync gateway', () => {
       expect(foreign).toMatchObject({ reason: "You can't change this space" });
     });
 
+    it('restores a finished run by unchecking the item checked last, poked to the other member (D20)', async () => {
+      const { client } = await helloed();
+      const runId = newId();
+      const [a, b] = [newId(), newId()];
+      await push(
+        client,
+        mutation('run.start', {
+          id: runId,
+          title: 'Shop',
+          items: [
+            { id: a, title: 'Milk' },
+            { id: b, title: 'Bread' },
+          ],
+        }),
+        mutation('runItem.setState', { id: b, state: 'checked' }),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      await push(
+        client,
+        mutation('runItem.setState', { id: a, state: 'checked' }),
+      );
+      const pokes = collect((await helloed()).client, 'poke');
+
+      const restore = mutation('run.restore', { id: runId });
+      const [answer] = await push(client, restore);
+      expect(answer).toHaveProperty('version');
+
+      await vi.waitFor(() => expect(pokes).toHaveLength(1));
+      expect(pokes[0].rows.runs).toEqual([
+        expect.objectContaining({ id: runId, finishedAt: null }),
+      ]);
+      expect(pokes[0].rows.runItems).toEqual([
+        expect.objectContaining({ id: a, state: 'unchecked' }),
+      ]);
+
+      // Restoring a run that is open again changes nothing, so a retry is harmless.
+      await push(client, mutation('run.restore', { id: runId }));
+      expect(pokes).toHaveLength(1);
+    });
+
+    it('refuses restoring a run that does not exist', async () => {
+      const { client } = await helloed();
+      const [answer] = await push(
+        client,
+        mutation('run.restore', { id: newId() }),
+      );
+      expect(answer).toMatchObject({ reason: "This run doesn't exist" });
+    });
+
     it('refuses changes to items of a run that does not exist', async () => {
       const { client } = await helloed();
       const [answer] = await push(

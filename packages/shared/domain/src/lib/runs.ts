@@ -88,6 +88,35 @@ export function isRunFinished(
   return live.length > 0 && live.every((item) => item.state !== 'unchecked');
 }
 
+/**
+ * The item whose check finished a run, which restoring it unchecks (D20): of the live items that
+ * are checked or skipped, the one whose state was set last (ties: the later position, then id,
+ * so every device picks the same one). `undefined` when nothing is checked.
+ */
+export function lastCheckedItem<
+  T extends Pick<
+    RunItem,
+    'id' | 'state' | 'stateAt' | 'deletedAt' | 'position'
+  >,
+>(items: readonly T[]): T | undefined {
+  let last: T | undefined;
+  for (const item of items) {
+    if (item.deletedAt !== null || item.state === 'unchecked') continue;
+    if (!last || isLater(item, last)) last = item;
+  }
+  return last;
+}
+
+function isLater(
+  a: Pick<RunItem, 'id' | 'stateAt' | 'position'>,
+  b: Pick<RunItem, 'id' | 'stateAt' | 'position'>,
+): boolean {
+  const at = (a.stateAt ?? 0) - (b.stateAt ?? 0);
+  if (at !== 0) return at > 0;
+  if (a.position !== b.position) return a.position > b.position;
+  return a.id > b.id;
+}
+
 /** An item about to enter a run, as `run.start` and `run.addItems` carry it. */
 export interface NewRunItem {
   id: Id;

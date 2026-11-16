@@ -5,6 +5,7 @@ import {
   type Run,
   type RunItem,
   isRunFinished,
+  lastCheckedItem,
   mergeRunItem,
   positionBetween,
   positionsFromStart,
@@ -546,6 +547,19 @@ export function applyMutation(
       if (!run) return reject(RUN_MISSING);
       store.putRun({ ...run, ...definedFields(mutation.args.patch), ...stamp });
       return changed({ runs: [run.id] });
+    }
+    case 'run.restore': {
+      const run = runHere(mutation.args.id);
+      if (!run || run.deletedAt !== null) return reject(RUN_MISSING);
+      if (run.finishedAt === null) return unchanged;
+      // Like Undo: the item checked last is open again, the other checks stay (D20).
+      const last = lastCheckedItem(runItemsOf(run.id));
+      if (!last) return unchanged;
+      return updateRunItem(last, {
+        state: 'unchecked',
+        stateBy: ctx.userId,
+        stateAt: ctx.now,
+      });
     }
     case 'run.addItems': {
       const args = mutation.args;
