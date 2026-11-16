@@ -50,6 +50,31 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   comparison is the existing list-title collator, moved or exported from `shared/domain` if
   needed. Undo sends the previous positions back with the same mutation.
 
+### T-050 — Settings destination with sign-out
+
+- Milestone: M8 Editing conveniences
+- Area: web
+- Priority: normal
+- Depends on: T-026, T-030
+- Decisions: D19
+- Done when:
+  - The navigation bar (phone) and rail (desktop) show a fourth destination, "Settings" with the
+    gear icon, after Space; it is highlighted on every page under `/settings`.
+  - Settings shows Account (Profile; Users only for admins), Appearance, Sync status, App
+    (install, update) and About, and a "Sign out" button at the bottom that signs out as it does
+    today. The profile page no longer has its own sign-out button.
+  - Space shows only the space switcher, spaces and members, and Trash.
+  - Profile and Users open at `/settings/profile` and `/settings/users`; `/space/profile` and
+    `/space/users` redirect there, and every in-app link, guard and redirect (sign-in return URL,
+    forced password change, admin guard) points to the new paths.
+  - The four destinations fit the navigation bar at 320 px wide without truncation.
+  - Existing e2e specs that used the old paths or found these sections on Space pass against the
+    new layout.
+- Notes: Per the `module-boundaries` skill the Settings page gets its own library
+  (`packages/web/feature-settings`, `scope:web,type:feature`, add it to design §5 and the
+  CLAUDE.md layout); move the sync, app and about sections out of `feature-space` rather than
+  duplicating them. Run `subset-icons` for the `settings` icon.
+
 ## Done
 
 ### T-048 — Paste items into the new-list dialog
