@@ -135,3 +135,8 @@ export function moveTo(
       return change.id === movedId || row?.position !== change.position;
     });
 }
+
+/** `count` ascending keys for rows entering an empty list, in order. */
+export function positionsFromStart(count: number): string[] {
+  return generateNKeysBetween(null, null, count);
+}

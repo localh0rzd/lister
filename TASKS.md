@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-048 — Paste items into the new-list dialog
 
 - Milestone: M8 Editing conveniences
@@ -46,6 +44,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   carries them) over sending one `item.create` per line. The line cleanup is a pure function in
   `shared/domain`, unit-tested. Clients send it; the server re-validates titles as for
   `item.create`.
+
+## Backlog
 
 ### T-049 — Sort items A–Z in lists and runs
 

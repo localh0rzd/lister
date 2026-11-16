@@ -6,6 +6,7 @@ import {
   positionAtEnd,
   positionBetween,
   sortByPosition,
+  positionsFromStart,
 } from './positions';
 
 const row = (id: string, position: string) => ({ id, position });
@@ -242,5 +243,14 @@ describe('moveTo', () => {
     );
     expect(changes.find((c) => c.id === 'a')).toBeUndefined();
     expect(changes.find((c) => c.id === 'd')).toBeUndefined();
+  });
+});
+
+describe('positionsFromStart', () => {
+  it.each([0, 1, 5, 40])('gives %i ascending distinct keys', (count) => {
+    const keys = positionsFromStart(count);
+    expect(keys).toHaveLength(count);
+    expect([...keys].sort()).toEqual(keys);
+    expect(new Set(keys).size).toBe(count);
   });
 });

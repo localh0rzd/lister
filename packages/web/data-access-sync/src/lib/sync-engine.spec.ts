@@ -320,6 +320,34 @@ describe('SyncEngine', () => {
       expect(engine.online()).toBe(false);
     });
 
+    it('applies a list.create with items locally as one queued change', async () => {
+      setup();
+      const id = newId();
+      const [tent, stove] = [newId(), newId()];
+
+      await engine.mutate({
+        spaceId: SPACE,
+        name: 'list.create',
+        args: {
+          id,
+          title: 'Camping',
+          items: [
+            { id: tent, title: 'Tent' },
+            { id: stove, title: 'Stove' },
+          ],
+        },
+      });
+
+      const items = (await db.items.where('listId').equals(id).toArray()).sort(
+        (a, b) => (a.position < b.position ? -1 : 1),
+      );
+      expect(items.map((i) => [i.id, i.title])).toEqual([
+        [tent, 'Tent'],
+        [stove, 'Stove'],
+      ]);
+      expect(await outbox()).toHaveLength(1);
+    });
+
     it('refuses a change the shared rules reject, without queueing it', async () => {
       setup();
 
@@ -628,6 +656,57 @@ describe('SyncEngine', () => {
 
       expect(await visibleList(other.id)).toEqual(other);
       expect(await visibleList(id)).toMatchObject({ title: 'Renamed' });
+    });
+
+    it('rolls back a rejected list.create together with its items', async () => {
+      setup();
+      engine.start();
+      await settle();
+      server.autoAnswer = false;
+      const id = newId();
+      const taken = newId();
+
+      await engine.mutate({
+        spaceId: SPACE,
+        name: 'list.create',
+        args: {
+          id,
+          title: 'Camping',
+          items: [
+            { id: newId(), title: 'Tent' },
+            { id: taken, title: 'Stove' },
+          ],
+        },
+      });
+      expect(await db.items.where('listId').equals(id).count()).toBe(2);
+      await settle();
+      // An item with that id appears on the server first: the server rejects the whole change.
+      server.store.putItem({
+        id: taken,
+        spaceId: SPACE,
+        version: 1,
+        deletedAt: null,
+        createdBy: 'u',
+        updatedBy: 'u',
+        createdAt: 1,
+        updatedAt: 1,
+        listId: newId(),
+        title: 'Other',
+        quantity: '',
+        note: '',
+        position: 'a0',
+      });
+      server.answerPushes();
+      await settle();
+
+      expect(await visibleList(id)).toBeUndefined();
+      expect(await db.items.where('listId').equals(id).count()).toBe(0);
+      expect(await outbox()).toEqual([]);
+      await eventually(() =>
+        expect(engine.errors()).toEqual([
+          expect.objectContaining({ reason: 'This item already exists' }),
+        ]),
+      );
     });
 
     it('removes an item whose create the server rejects', async () => {

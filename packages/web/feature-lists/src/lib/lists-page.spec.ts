@@ -43,7 +43,7 @@ const item = (listId: string): Item => ({
 
 let db: LocalDb;
 let mutate: ReturnType<typeof vi.fn>;
-let dialogAnswer: string | undefined;
+let dialogAnswer: string | { title: string; items: string[] } | undefined;
 let notify: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
@@ -185,7 +185,7 @@ describe('ListsPage', () => {
 
   it('creates a list from the FAB through the sync engine', async () => {
     const { element } = await render();
-    dialogAnswer = 'Camping';
+    dialogAnswer = { title: 'Camping', items: [] };
 
     newListButton(element).click();
 
@@ -196,6 +196,29 @@ describe('ListsPage', () => {
         args: { id: expect.any(String), title: 'Camping' },
       }),
     );
+  });
+
+  it('creates a list with its pasted items in one change', async () => {
+    const { element } = await render();
+    dialogAnswer = { title: 'Camping', items: ['Tent', 'Stove'] };
+
+    newListButton(element).click();
+
+    await vi.waitFor(() =>
+      expect(mutate).toHaveBeenCalledWith({
+        spaceId: SPACE,
+        name: 'list.create',
+        args: {
+          id: expect.any(String),
+          title: 'Camping',
+          items: [
+            { id: expect.any(String), title: 'Tent' },
+            { id: expect.any(String), title: 'Stove' },
+          ],
+        },
+      }),
+    );
+    expect(mutate).toHaveBeenCalledTimes(1);
   });
 
   it('does nothing when the dialog is cancelled', async () => {
@@ -429,7 +452,7 @@ describe('ListsPage', () => {
       ok: false,
       reason: 'At most 200 characters',
     });
-    dialogAnswer = 'x';
+    dialogAnswer = { title: 'x', items: [] };
 
     newListButton(element).click();
 

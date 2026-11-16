@@ -252,3 +252,30 @@ describe('parseMutation', () => {
     expect(result).toMatchObject({ ok: false, reason });
   });
 });
+
+describe('list.create with items', () => {
+  const create = (args: object) =>
+    mutationSchema.safeParse({
+      ...envelope(),
+      name: 'list.create',
+      args,
+    });
+
+  it('defaults to no items, so older clients still work', () => {
+    const parsed = create({ id: newId(), title: 'Camping' });
+    expect(parsed.success && parsed.data.args).toMatchObject({ items: [] });
+  });
+
+  it.each([
+    ['a blank title', [{ id: newId(), title: '  ' }]],
+    ['an extra field', [{ id: newId(), title: 'Tent', note: 'x' }]],
+    [
+      'too many items',
+      Array.from({ length: 2001 }, () => ({ id: newId(), title: 'x' })),
+    ],
+  ])('refuses %s', (_, items) => {
+    expect(create({ id: newId(), title: 'Camping', items }).success).toBe(
+      false,
+    );
+  });
+});

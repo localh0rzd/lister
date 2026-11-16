@@ -267,6 +267,69 @@ describe('sync gateway', () => {
       expect(await pokeToA).toEqual(poke);
     });
 
+    it('creates a list with its items as one change, in order, poked to the others', async () => {
+      const a = await helloed();
+      const b = await helloed('ben');
+      const pokeToB = next(b.client, 'poke');
+      const listId = newId();
+      const create = mutation('list.create', {
+        id: listId,
+        title: 'Camping',
+        items: [
+          { id: newId(), title: 'Tent' },
+          { id: newId(), title: 'Stove' },
+          { id: newId(), title: 'Lamp' },
+        ],
+      });
+      const answer = next(a.client, 'ack');
+
+      a.client.emit('push', { mutations: [create] });
+
+      expect(await answer).toEqual({
+        mutationId: create.mutationId,
+        version: 1,
+      });
+      const poke = await pokeToB;
+      expect(poke.version).toBe(1);
+      expect(poke.rows.lists).toEqual([
+        expect.objectContaining({ id: listId, title: 'Camping' }),
+      ]);
+      const items = [...poke.rows.items].sort((x, y) =>
+        x.position < y.position ? -1 : 1,
+      );
+      expect(items.map((item) => [item.listId, item.title])).toEqual([
+        [listId, 'Tent'],
+        [listId, 'Stove'],
+        [listId, 'Lamp'],
+      ]);
+
+      // A retry is answered without a second copy of the items.
+      const again = next(a.client, 'ack');
+      a.client.emit('push', { mutations: [create] });
+      expect(await again).toEqual({
+        mutationId: create.mutationId,
+        version: 1,
+      });
+    });
+
+    it('rejects a list.create whose item title is invalid, writing nothing', async () => {
+      const { client } = await helloed();
+      const rejects = collect(client, 'reject');
+      const bad = mutation('list.create', {
+        id: newId(),
+        title: 'Camping',
+        items: [
+          { id: newId(), title: 'Tent' },
+          { id: newId(), title: '   ' },
+        ],
+      });
+
+      client.emit('push', { mutations: [bad] });
+
+      await vi.waitFor(() => expect(rejects).toHaveLength(1));
+      expect(rejects[0].mutationId).toBe(bad.mutationId);
+    });
+
     it('answers each mutation in order, rejecting an invalid one by id', async () => {
       const { client } = await helloed();
       const acks = collect(client, 'ack');

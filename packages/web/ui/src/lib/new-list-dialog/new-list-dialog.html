@@ -1,0 +1,33 @@
+<h2 mat-dialog-title>New list</h2>
+<form novalidate (submit)="save($event)">
+  <mat-dialog-content>
+    <mat-form-field class="field">
+      <mat-label>Title</mat-label>
+      <input matInput [formField]="listForm.title" cdkFocusInitial />
+      @if (
+        listForm.title().touched() && listForm.title().errors()[0];
+        as error
+      ) {
+        <mat-error>{{ error.message }}</mat-error>
+      }
+    </mat-form-field>
+    <mat-form-field class="field">
+      <mat-label>Items (one per line)</mat-label>
+      <textarea
+        matInput
+        rows="5"
+        [formField]="listForm.items"
+        placeholder="Paste a list here: bullets and checkboxes are removed"
+      ></textarea>
+      @if (listForm.items().errors()[0]; as error) {
+        <mat-error>{{ error.message }}</mat-error>
+      } @else {
+        <mat-hint>Optional</mat-hint>
+      }
+    </mat-form-field>
+  </mat-dialog-content>
+  <mat-dialog-actions align="end">
+    <button matButton type="button" mat-dialog-close>Cancel</button>
+    <button matButton="filled" type="submit">Create</button>
+  </mat-dialog-actions>
+</form>

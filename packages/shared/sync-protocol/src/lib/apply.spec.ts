@@ -60,6 +60,77 @@ describe('applyMutation (shared by server and client)', () => {
     });
   });
 
+  it('creates a list with its items in order, as one change', () => {
+    const store = new MemoryRowStore();
+    const id = newId();
+    const [tent, stove, lamp] = [newId(), newId(), newId()];
+
+    const outcome = apply(store, 'list.create', {
+      id,
+      title: 'Camping',
+      items: [
+        { id: tent, title: 'Tent' },
+        { id: stove, title: 'Stove' },
+        { id: lamp, title: 'Lamp' },
+      ],
+    });
+
+    expect(outcome).toEqual({
+      kind: 'changed',
+      lists: [id],
+      items: [tent, stove, lamp],
+      includes: [],
+      runs: [],
+      runItems: [],
+    });
+    const items = [tent, stove, lamp].map((i) => store.getItem(i));
+    expect(items.map((i) => i?.title)).toEqual(['Tent', 'Stove', 'Lamp']);
+    expect(items.every((i) => i?.listId === id && i.quantity === '')).toBe(
+      true,
+    );
+    const positions = items.map((i) => i?.position ?? '');
+    expect([...positions].sort()).toEqual(positions);
+    expect(new Set(positions).size).toBe(3);
+  });
+
+  it('writes nothing when one of the new item ids is taken', () => {
+    const { store, listId } = withList();
+    const taken = newId();
+    apply(store, 'item.create', {
+      id: taken,
+      listId,
+      title: 'Tent',
+      position: 'a0',
+    });
+    const id = newId();
+
+    expect(
+      apply(store, 'list.create', {
+        id,
+        title: 'Other',
+        items: [
+          { id: newId(), title: 'Stove' },
+          { id: taken, title: 'Lamp' },
+        ],
+      }),
+    ).toEqual({ kind: 'rejected', reason: 'This item already exists' });
+    expect(store.getList(id)).toBeUndefined();
+    expect(store.items.size).toBe(1);
+  });
+
+  it('ignores a retried list.create with items', () => {
+    const store = new MemoryRowStore();
+    const args = {
+      id: newId(),
+      title: 'Camping',
+      items: [{ id: newId(), title: 'Tent' }],
+    };
+    apply(store, 'list.create', args);
+
+    expect(apply(store, 'list.create', args, 2)).toEqual({ kind: 'unchanged' });
+    expect(store.items.size).toBe(1);
+  });
+
   it('patches only the given fields', () => {
     const { store, listId } = withList();
 

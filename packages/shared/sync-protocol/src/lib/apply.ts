@@ -7,6 +7,7 @@ import {
   isRunFinished,
   mergeRunItem,
   positionBetween,
+  positionsFromStart,
   sameItemKey,
   wouldCreateCycle,
 } from '@lister/shared/domain';
@@ -363,13 +364,29 @@ export function applyMutation(
           ? unchanged
           : reject('This list already exists');
       }
+      // Everything is checked before anything is written.
+      for (const { id } of args.items) {
+        if (store.getItem(id)) return reject('This item already exists');
+      }
       store.putList({
         ...created,
         id: args.id,
         title: args.title,
         description: args.description,
       });
-      return changedList(args.id);
+      const positions = positionsFromStart(args.items.length);
+      args.items.forEach(({ id, title }, i) =>
+        store.putItem({
+          ...created,
+          id,
+          listId: args.id,
+          title,
+          quantity: '',
+          note: '',
+          position: positions[i],
+        }),
+      );
+      return changed({ lists: [args.id], items: args.items.map((i) => i.id) });
     }
     case 'list.duplicate': {
       const args = mutation.args;

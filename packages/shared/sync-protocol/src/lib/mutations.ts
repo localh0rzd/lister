@@ -45,10 +45,21 @@ export const MAX_RUN_ITEMS = 2000;
  * share their parent's position key space with its items.
  */
 export const mutationArgs = {
+  /**
+   * A new list, optionally with its first items (pasted into the new-list dialog, D18), in one
+   * step like `list.duplicate`: the items are `items` in order, each with the client's id, and
+   * get positions from the server rules, so client and server agree.
+   */
   'list.create': z.strictObject({
     id: idSchema,
     title: titleSchema,
     description: z._default(descriptionSchema, ''),
+    items: z._default(
+      z
+        .array(z.strictObject({ id: idSchema, title: titleSchema }))
+        .check(z.maxLength(MAX_DUPLICATE_ROWS)),
+      [],
+    ),
   }),
   'list.update': z.strictObject({
     id: idSchema,

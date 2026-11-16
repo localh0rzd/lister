@@ -15,6 +15,8 @@ import {
   TitleDialog,
   type TitleDialogData,
   LoadingHint,
+  NewListDialog,
+  type NewListResult,
   TruncatedTooltip,
 } from '@lister/web/ui';
 import { SpaceChanges } from '@lister/web/data-access-sync';
@@ -92,15 +94,24 @@ export class ListsPage {
   });
 
   protected async create(): Promise<void> {
-    const title = await this.askTitle({
-      heading: 'New list',
-      confirm: 'Create',
+    const ref = this.dialog.open<NewListDialog, void, NewListResult>(
+      NewListDialog,
+      { autoFocus: 'first-tabbable' },
+    );
+    const result = await firstValueFrom(ref.afterClosed());
+    if (!result?.title) return;
+    // Pasted items travel inside the one change, so the list arrives with all of them or the
+    // whole change is rolled back (D18).
+    await this.changes.apply({
+      name: 'list.create',
+      args: {
+        id: newId(),
+        title: result.title,
+        ...(result.items.length > 0 && {
+          items: result.items.map((title) => ({ id: newId(), title })),
+        }),
+      },
     });
-    if (title)
-      await this.changes.apply({
-        name: 'list.create',
-        args: { id: newId(), title },
-      });
   }
 
   /** "Start run" from a list's menu: copies its items (included lists' too) and opens the run. */
