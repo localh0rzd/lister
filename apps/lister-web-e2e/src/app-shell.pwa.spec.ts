@@ -201,3 +201,51 @@ test.describe('one origin (production setup)', () => {
     expect(await api.text()).not.toContain('<lister-root');
   });
 });
+
+test.describe('Content Security Policy (production build, design §2.9)', () => {
+  test('the page carries a script policy by hash and runs without violations', async ({
+    page,
+  }) => {
+    // Noted from before the page's own scripts run, so nothing blocked at load slips by.
+    await page.addInitScript(() => {
+      const seen: string[] = [];
+      (window as unknown as { cspViolations: string[] }).cspViolations = seen;
+      document.addEventListener('securitypolicyviolation', (event) =>
+        seen.push(`${event.effectiveDirective} ${event.blockedURI}`),
+      );
+      // The inline theme script in index.html applies this before the app starts.
+      localStorage.setItem('lister.theme', 'dark');
+    });
+
+    const response = await page.goto('/lists');
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Lists' }),
+    ).toBeVisible();
+    await expect(
+      page
+        .getByRole('banner')
+        .or(page.locator('lister-navigation-rail'))
+        .getByRole('status'),
+    ).not.toContainText('not synced');
+
+    // The header: everything but scripts, and frame-ancestors (which a <meta> can't set).
+    const header = (await response?.allHeaders())?.['content-security-policy'];
+    expect(header).toContain("frame-ancestors 'none'");
+    // The build's own policy: inline scripts allowed by hash (Angular's security.autoCsp).
+    const meta = page.locator('meta[http-equiv="Content-Security-Policy"]');
+    await expect(meta).toHaveAttribute(
+      'content',
+      /script-src [^;]*'strict-dynamic'/,
+    );
+    await expect(meta).toHaveAttribute('content', /'sha256-[A-Za-z0-9+/=]+'/);
+    // The inline theme script ran.
+    expect(
+      await page.evaluate(() => document.documentElement.style.colorScheme),
+    ).toBe('dark');
+    expect(
+      await page.evaluate(
+        () => (window as unknown as { cspViolations: string[] }).cspViolations,
+      ),
+    ).toEqual([]);
+  });
+});
