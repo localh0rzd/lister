@@ -115,7 +115,9 @@ const { icons: subsetIcons } = JSON.parse(
 const { font: iconFont } = await openFont(
   readFileSync(join(iconFontDirectory, 'material-symbols-subset.woff2')),
 );
-const missingIcons = findUsedIcons(workspaceRoot).filter(
+const usedIcons = findUsedIcons(workspaceRoot);
+problems.push(...usedIcons.problems.map((problem) => `icon font: ${problem}`));
+const missingIcons = usedIcons.icons.filter(
   (name) => !subsetIcons.includes(name) || !isLigature(iconFont, name),
 );
 if (missingIcons.length > 0) {

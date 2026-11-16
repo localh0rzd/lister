@@ -15,7 +15,11 @@ import { isLigature, openFont, subsetIcons } from './material-symbols/font.mjs';
 const root = process.cwd();
 const outDir = join(root, 'apps/lister-web/src/fonts');
 
-const used = findUsedIcons(root);
+const { icons: used, problems } = findUsedIcons(root);
+if (problems.length > 0) {
+  console.error(`Icons the scanner can't read:\n- ${problems.join('\n- ')}`);
+  process.exit(1);
+}
 
 const { sfnt, font } = await openFont(
   readFileSync(

@@ -26,6 +26,26 @@ async function settleAnimations(page: Page): Promise<void> {
   );
 }
 
+/**
+ * The visible icons that the icon font can't draw. A name the subset font
+ * (`npx nx run lister-web:subset-icons`) lacks lays out as plain letters, far wider than one
+ * glyph, so this is a net for icons the subset scanner can't see.
+ */
+async function iconsNotDrawn(page: Page): Promise<string[]> {
+  return page.evaluate(async () => {
+    await document.fonts.ready;
+    return [...document.querySelectorAll('mat-icon')]
+      .filter((icon) => icon.checkVisibility())
+      .filter((icon) => {
+        const range = document.createRange();
+        range.selectNodeContents(icon);
+        const size = parseFloat(getComputedStyle(icon).fontSize);
+        return range.getBoundingClientRect().width > size * 1.2;
+      })
+      .map((icon) => icon.textContent?.trim() ?? '');
+  });
+}
+
 /** How often `expectAccessible` checks at most while animations keep starting during a check. */
 const MAX_AXE_RUNS = 3;
 
@@ -58,7 +78,8 @@ async function watchAnimations(page: Page): Promise<() => Promise<boolean>> {
 
 /**
  * `expectAccessible()` runs an axe check (WCAG 2.1 A and AA) on the current page and fails with
- * the violations listed. Happy-path specs call it on every screen they visit (`testing` skill).
+ * the violations listed, and with any visible icon that the icon font can't draw. Happy-path
+ * specs call it on every screen they visit (`testing` skill).
  */
 export const test = base.extend<{
   expectAccessible: (other?: Page) => Promise<void>;
@@ -77,12 +98,15 @@ export const test = base.extend<{
           .analyze());
         if (!(await animated())) break;
       }
-      expect(
-        violations.map(
+      // Plus any visible icon the subset font lacks (run `npx nx run lister-web:subset-icons`).
+      const iconsMissingFromFont = await iconsNotDrawn(other);
+      expect({
+        violations: violations.map(
           (v) =>
             `${v.id}: ${v.help} (${v.nodes.length}): ${v.nodes.map((n) => n.html.slice(0, 160)).join(' | ')}`,
         ),
-      ).toEqual([]);
+        iconsMissingFromFont,
+      }).toEqual({ violations: [], iconsMissingFromFont: [] });
     });
   },
 });
