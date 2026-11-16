@@ -6,7 +6,9 @@
   </button>
 </div>
 
-@if (spaces().length > 0) {
+@if (spacesLoading()) {
+  <lister-loading-spinner label="Loading spaces" class="spaces-loading" />
+} @else if (spaces().length > 0) {
   <ul class="spaces" aria-label="Switch space">
     @for (space of spaces(); track space.id) {
       <li>
@@ -40,55 +42,70 @@
   </p>
 }
 
-@if (selected(); as space) {
-  <section class="details" [attr.aria-label]="space.name + ' members'">
-    <h3>Members of {{ space.name }}</h3>
-    <ul class="members" aria-label="Members">
-      @for (member of space.members; track member.userId) {
-        <li class="member">
-          <span class="text">
-            <span class="name">{{ member.displayName }}</span>
-            <span class="meta">{{
-              member.role === 'owner' ? 'Owner' : 'Member'
-            }}</span>
-          </span>
-          @if (isOwner() && member.userId !== myId()) {
-            <button
-              matButton
-              type="button"
-              (click)="removeMember(space, member)"
-            >
-              Remove<span class="cdk-visually-hidden"
-                >&nbsp;{{ member.displayName }}</span
+@if (local(); as device) {
+  @let space = selected();
+  <section
+    class="details"
+    [attr.aria-label]="(space?.name ?? device.name) + ' members'"
+  >
+    <h3>Members of {{ space?.name ?? device.name }}</h3>
+    @if (space) {
+      <ul class="members" aria-label="Members">
+        @for (member of space.members; track member.userId) {
+          <li class="member">
+            <span class="text">
+              <span class="name">{{ member.displayName }}</span>
+              <span class="meta">{{
+                member.role === 'owner' ? 'Owner' : 'Member'
+              }}</span>
+            </span>
+            @if (isOwner() && member.userId !== myId()) {
+              <button
+                matButton
+                type="button"
+                (click)="removeMember(space, member)"
               >
+                Remove<span class="cdk-visually-hidden"
+                  >&nbsp;{{ member.displayName }}</span
+                >
+              </button>
+            }
+          </li>
+        }
+      </ul>
+    } @else if (summaries.error()) {
+      <p class="hint">
+        Members and sharing need a connection to the server.
+        <button matButton type="button" (click)="summaries.reload()">
+          Try again
+        </button>
+      </p>
+    } @else {
+      <lister-loading-spinner
+        label="Loading members"
+        [style.height.px]="device.members.length * 56"
+      />
+    }
+    <div class="actions">
+      @if (space) {
+        @if (isOwner()) {
+          <button matButton type="button" (click)="rename(space)">
+            Rename
+          </button>
+          @if (!space.personal) {
+            <button matButton type="button" (click)="addMember(space)">
+              Add member
+            </button>
+            <button matButton type="button" (click)="remove(space)">
+              Delete space
             </button>
           }
-        </li>
-      }
-    </ul>
-    <div class="actions">
-      @if (isOwner()) {
-        <button matButton type="button" (click)="rename(space)">Rename</button>
-        @if (!space.personal) {
-          <button matButton type="button" (click)="addMember(space)">
-            Add member
-          </button>
-          <button matButton type="button" (click)="remove(space)">
-            Delete space
+        } @else if (!space.personal) {
+          <button matButton type="button" (click)="leave(space)">
+            Leave space
           </button>
         }
-      } @else if (!space.personal) {
-        <button matButton type="button" (click)="leave(space)">
-          Leave space
-        </button>
       }
     </div>
   </section>
-} @else if (summaries.error()) {
-  <p class="hint">
-    Members and sharing need a connection to the server.
-    <button matButton type="button" (click)="summaries.reload()">
-      Try again
-    </button>
-  </p>
 }

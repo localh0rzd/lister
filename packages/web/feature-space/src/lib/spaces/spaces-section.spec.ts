@@ -41,7 +41,11 @@ let http: HttpTestingController;
 let open: ReturnType<typeof vi.fn>;
 let notify: ReturnType<typeof vi.fn>;
 
-async function render(spaces: SpaceSummary[], dialogResult: unknown = true) {
+async function render(
+  spaces: SpaceSummary[],
+  dialogResult: unknown = true,
+  answer = true,
+) {
   localStorage.removeItem(CURRENT_SPACE_KEY);
   db = new LocalDb(`test-${newId()}`);
   await db.spaces.bulkPut(
@@ -70,10 +74,12 @@ async function render(spaces: SpaceSummary[], dialogResult: unknown = true) {
   http = TestBed.inject(HttpTestingController);
   const fixture = TestBed.createComponent(SpacesSection);
   fixture.detectChanges();
-  http.expectOne('/api/spaces').flush(spaces);
+  if (answer) http.expectOne('/api/spaces').flush(spaces);
   const element = fixture.nativeElement as HTMLElement;
   await vi.waitFor(async () => {
-    await fixture.whenStable();
+    // A pending request keeps the fixture from ever being stable.
+    if (answer) await fixture.whenStable();
+    else fixture.detectChanges();
     expect(element.querySelectorAll('.space').length).toBe(spaces.length);
   });
   const button = (name: string) =>
@@ -243,5 +249,66 @@ describe('SpacesSection', () => {
         expect.objectContaining({ message: 'Only the owner can do that' }),
       ),
     );
+  });
+
+  describe('while the members load', () => {
+    it('keeps the members place with a labelled spinner, after a short delay, then shows the members', async () => {
+      const trip = summary('Trip');
+      const { fixture, element } = await render([trip], true, false);
+      const spinner = () =>
+        element.querySelector('lister-loading-spinner mat-progress-spinner');
+      const box = element.querySelector<HTMLElement>(
+        '.details lister-loading-spinner',
+      );
+
+      // The name and the room for two members are known from the device at once.
+      expect(element.textContent).toContain('Members of Trip');
+      expect(box?.style.height).toBe('112px');
+      expect(element.querySelector('.member')).toBeNull();
+      expect(spinner()).toBeNull();
+
+      await vi.waitFor(() => {
+        fixture.detectChanges();
+        expect(spinner()?.getAttribute('aria-label')).toBe('Loading members');
+      });
+
+      http.expectOne('/api/spaces').flush([trip]);
+      await vi.waitFor(async () => {
+        await fixture.whenStable();
+        expect(element.querySelectorAll('.member').length).toBe(2);
+      });
+      expect(
+        element.querySelector('.details lister-loading-spinner'),
+      ).toBeNull();
+    });
+
+    it('shows the existing error text, not a spinner, when the request fails', async () => {
+      const { fixture, element } = await render([summary('Trip')], true, false);
+
+      http
+        .expectOne('/api/spaces')
+        .flush(null, { status: 500, statusText: 'Server Error' });
+      await vi.waitFor(async () => {
+        await fixture.whenStable();
+        expect(element.textContent).toContain(
+          'Members and sharing need a connection to the server.',
+        );
+      });
+      expect(
+        element.querySelector('.details lister-loading-spinner'),
+      ).toBeNull();
+    });
+
+    it('keeps showing the members while they are refreshed', async () => {
+      const trip = summary('Trip');
+      const { fixture, element } = await render([trip]);
+
+      fixture.componentInstance['summaries'].reload();
+      fixture.detectChanges();
+
+      expect(element.querySelectorAll('.member').length).toBe(2);
+      expect(element.querySelector('lister-loading-spinner')).toBeNull();
+      http.expectOne('/api/spaces').flush([trip]);
+    });
   });
 });

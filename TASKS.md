@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-051 — Loading spinners instead of jumping Space sections
 
 - Milestone: M8 Editing conveniences
@@ -47,6 +45,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 - Notes: Find what jumps first with the `ui-review` skill's flicker checks (throttled network,
   screenshots during load). If T-050 is done first, the same applies to any section it moved;
   if a spinner pattern is needed elsewhere, put a small shared component in `web/ui`.
+
+## Backlog
 
 ### T-054 — Finished runs in the trash, with Restore
 

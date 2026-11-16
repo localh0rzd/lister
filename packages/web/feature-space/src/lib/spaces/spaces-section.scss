@@ -64,7 +64,12 @@ ul {
   min-height: 56px;
   padding-inline: 4px;
 }
+.spaces-loading {
+  height: 56px;
+}
 .actions {
+  min-height: 40px;
+  align-items: center;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;

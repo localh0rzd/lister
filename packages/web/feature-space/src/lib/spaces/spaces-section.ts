@@ -11,7 +11,11 @@ import {
 } from '@lister/shared/api-contracts';
 import { AuthSession, describeAuthError } from '@lister/web/data-access-auth';
 import { CurrentSpace, valueOf } from '@lister/web/data-access-local-db';
-import { ConfirmDialog, type ConfirmDialogData } from '@lister/web/ui';
+import {
+  ConfirmDialog,
+  type ConfirmDialogData,
+  LoadingSpinner,
+} from '@lister/web/ui';
 import { NOTICE_DURATION_MS, Notifier } from '@lister/web/util-notify';
 import {
   FieldDialog,
@@ -22,7 +26,7 @@ import { SpacesApi } from './spaces-api';
 /** Space switcher, and creating, renaming and leaving spaces and managing their members (D14). */
 @Component({
   selector: 'lister-spaces-section',
-  imports: [MatButton, MatIcon],
+  imports: [LoadingSpinner, MatButton, MatIcon],
   templateUrl: './spaces-section.html',
   styleUrl: './spaces-section.scss',
 })
@@ -35,6 +39,11 @@ export class SpacesSection {
 
   /** The switcher reads the device's copy, so it works offline. */
   protected readonly spaces = computed(() => valueOf(this.current.all()) ?? []);
+  protected readonly spacesLoading = computed(
+    () => this.current.all().status === 'loading',
+  );
+  /** The current space as this device knows it: its name and member count are there at once. */
+  protected readonly local = computed(() => valueOf(this.current.state()));
   protected readonly currentId = this.current.id;
   /** Roles and members come from the server; managing a space needs a connection. */
   protected readonly summaries = httpResource<SpaceSummary[]>(() =>
