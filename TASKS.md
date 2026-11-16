@@ -23,20 +23,24 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-043 — Fix the failing run-page "undone check" test
-
-- Milestone: M4 Runs
-- Area: web
-- Priority: normal
-- Done when:
-  - `web-feature-runs` `run-page.spec.ts` › "does not count a check made here once someone else
-    has undone it" passes reliably, and the behaviour it describes is confirmed in the app (or the
-    test is corrected if its expectation is wrong).
-  - `npx nx test web-feature-runs` is green.
-- Notes: Found in the T-042 review: fails every time (`expected true to be false`), unchanged since
-  T-029. It only shows up in `affected` runs against `master`.
-
 ## Backlog
+
+### T-045 — Reset the run-page checkbox when a change doesn't show in the data
+
+- Milestone: M6 Collaboration polish
+- Area: web
+- Priority: low
+- Done when:
+  - On the run page, a checkbox never stays checked (or unchecked) while the run's data and the
+    progress text say otherwise: e.g. a click whose local change never shows (two quick changes
+    that merge, or a change the prediction refuses before writing anything, such as on a run
+    finished elsewhere) puts the checkbox back to what the data says.
+  - A unit test covers the refused-prediction case; the merged case is already covered by
+    T-043's test.
+- Notes: found in the T-043 review. `[checked]` is a one-way binding, so when the local row never
+  changes the binding value doesn't change and `MatCheckbox` keeps the state the click gave it.
+  Unverified in the app for the refusal path. Idea: reset the checkbox from the data when
+  `apply()` resolves without the local row changing.
 
 ### T-044 — Stop axe contrast checks failing during animations
 
@@ -169,6 +173,21 @@ nosniff`, `Referrer-Policy`, `frame-ancestors` in the CSP, and `app.disable('x-p
   fail, so the engine probably needs a `stop()` that cancels its watchers and timers first.
 
 ## Done
+
+### T-043 — Fix the failing run-page "undone check" test
+
+- Completed: 2026-11-16 — Fixed the racy "undone check" spec (waits for the page to show the local data) and the real bug it exposed: a sent state is dropped once the local row shows another state or another `stateAt` (`web-feature-runs`).
+- Review: Approve with minor fixes; 1 fixed (1 substantive, 0 trivial), 0 skipped, 0 disagreed; re-review rounds: 1
+- Milestone: M4 Runs
+- Area: web
+- Priority: normal
+- Done when:
+  - `web-feature-runs` `run-page.spec.ts` › "does not count a check made here once someone else
+    has undone it" passes reliably, and the behaviour it describes is confirmed in the app (or the
+    test is corrected if its expectation is wrong).
+  - `npx nx test web-feature-runs` is green.
+- Notes: Found in the T-042 review: fails every time (`expected true to be false`), unchanged since
+  T-029. It only shows up in `affected` runs against `master`.
 
 ### T-042 — Fix passkey cancel and stale "session ended" notice
 

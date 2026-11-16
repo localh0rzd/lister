@@ -107,7 +107,7 @@ model and effort with `mcp__ccd_session_mgmt__get_session`, and if either is wro
 ## Simplifying it (after the task commit, before the review)
 
 1. **Start the simplifier session** with `mcp__ccd_session__start_session`: `initiation:
-   "user_asked"`, `context: "fresh"`, `use_worktree: false`, `wake_when_done: true`,
+"user_asked"`, `context: "fresh"`, `use_worktree: false`, `wake_when_done: true`,
    `name: "simplify-t-nnn"`, `title: "Simplify T-NNN: <title>"`, `model: "claude-sonnet-5-5"`,
    `effort: "medium"`; check model and effort with `get_session` afterwards.
    - `prompt`:
