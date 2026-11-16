@@ -2,7 +2,7 @@ import { DatePipe } from '@angular/common';
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { MatButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
-import { SyncEngine } from '@lister/web/data-access-sync';
+import { SyncEngine, rejectionText } from '@lister/web/data-access-sync';
 
 /** How long "Connecting…" shows after "Sync now" while offline. */
 export const CONNECTING_HINT_MS = 5000;
@@ -27,6 +27,8 @@ export class SyncSection {
   constructor() {
     inject(DestroyRef).onDestroy(() => clearTimeout(this.connectingTimer));
   }
+
+  protected readonly text = rejectionText;
 
   protected readonly state = computed(() => {
     if (this.sync.updateRequired()) return 'Update required';

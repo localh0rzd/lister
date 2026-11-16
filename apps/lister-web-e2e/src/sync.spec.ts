@@ -220,11 +220,24 @@ test.describe('a loop made on two devices', () => {
     await context.setOffline(false);
     await expect(
       a.getByText(
-        `Change not saved: That would make a loop: “${y}” already contains “${x}”`,
+        `Change not saved: Include “${y}” in “${x}” — That would make a loop: “${y}” already contains “${x}”`,
       ),
     ).toBeVisible();
     await expect(section(a, y)).toBeHidden();
     await synced(a);
+
+    // The Space page keeps the refusal, naming the change.
+    await a
+      .getByRole('navigation', { name: 'Main' })
+      .getByRole('link', { name: 'Space' })
+      .click();
+    const errors = a.locator('lister-sync-section details');
+    await errors.getByText('Sync errors (1)').click();
+    await expect(
+      errors.getByText(
+        `Include “${y}” in “${x}” — That would make a loop: “${y}” already contains “${x}”`,
+      ),
+    ).toBeVisible();
     await b.context().close();
   });
 });

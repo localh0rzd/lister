@@ -7,6 +7,7 @@ import { AuthSession, isBarePath } from '@lister/web/data-access-auth';
 import { DISCARDED_CHANGES_KEY } from '@lister/web/data-access-local-db';
 import { AppUpdates } from '@lister/web/util-pwa';
 import { NOTICE_DURATION_MS, Notifier } from '@lister/web/util-notify';
+import { rejectionText } from './describe-mutation';
 import { SyncEngine } from './sync-engine';
 
 /**
@@ -48,7 +49,7 @@ export class RejectionNotices {
           this.shown.add(error.mutationId);
           void this.notifier
             .notify({
-              message: `Change not saved: ${error.reason}`,
+              message: `Change not saved: ${rejectionText(error)}`,
               action: 'OK',
               duration: NOTICE_DURATION_MS,
             })

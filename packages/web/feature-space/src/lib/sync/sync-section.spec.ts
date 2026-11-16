@@ -107,10 +107,17 @@ describe('SyncSection', () => {
 
     engine.errorLog.set([
       { mutationId: 'a', reason: 'First problem', at: 1 },
-      { mutationId: 'b', reason: 'Second problem', at: 2, seen: true },
+      {
+        mutationId: 'b',
+        reason: 'Second problem',
+        description: 'Add item “Stove” to “Camping”',
+        at: 2,
+        seen: true,
+      },
     ]);
     await fixture.whenStable();
     expect(text()).toContain('Sync errors (2)');
+    expect(text()).toContain('Add item “Stove” to “Camping” — Second problem');
     expect(text().indexOf('Second problem')).toBeLessThan(
       text().indexOf('First problem'),
     );

@@ -183,6 +183,25 @@ describe('RejectionNotices', () => {
     });
   });
 
+  it('names the refused change in the notice', () => {
+    const { errors, notifier, notices } = setup();
+    notices.start();
+    errors.set([
+      {
+        ...rejection('Item not found'),
+        description: 'Add item “Stove” to “Camping”',
+      },
+    ]);
+    TestBed.tick();
+
+    expect(notifier.notify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message:
+          'Change not saved: Add item “Stove” to “Camping” — Item not found',
+      }),
+    );
+  });
+
   it('shows each refused change once, with its reason, then dismisses it', async () => {
     const { errors, engine, notifier, notices, close } = setup();
     notices.start();

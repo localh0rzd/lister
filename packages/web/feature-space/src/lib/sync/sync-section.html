@@ -35,7 +35,7 @@
     <ul>
       @for (error of errors(); track error.mutationId) {
         <li>
-          <span>{{ error.reason }}</span>
+          <span>{{ text(error) }}</span>
           <span class="row-hint">{{ error.at | date: 'medium' }}</span>
         </li>
       }

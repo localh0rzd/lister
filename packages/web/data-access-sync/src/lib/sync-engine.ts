@@ -40,6 +40,7 @@ import {
   liveQuerySignal,
   valueOf,
 } from '@lister/web/data-access-local-db';
+import { describeMutation } from './describe-mutation';
 import type { ZodMiniType } from 'zod/mini';
 import {
   SYNC_CLOCK,
@@ -673,12 +674,20 @@ export class SyncEngine {
           .equals(reject.mutationId)
           .first();
         if (entry?.seq === undefined) return;
+        // Described before the rollback, while the rows it names are still there.
+        const description = await describeMutation(entry.mutation, {
+          list: async (id) => (await this.db.lists.get(id))?.title,
+          item: async (id) => (await this.db.items.get(id))?.title,
+          run: async (id) => (await this.db.runs.get(id))?.title,
+          runItem: async (id) => (await this.db.runItems.get(id))?.title,
+        });
         await this.db.outbox.delete(entry.seq);
         // Rolls the change back.
         await this.rebuild(entry.spaceId, touchedBy([entry.mutation]));
         await this.db.rejections.put({
           mutationId: reject.mutationId,
           reason: reject.reason,
+          description,
           at: this.now(),
         });
       },

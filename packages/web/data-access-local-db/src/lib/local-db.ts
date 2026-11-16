@@ -54,6 +54,8 @@ export interface SyncState {
 export interface Rejection {
   mutationId: string;
   reason: string;
+  /** Which change it was, e.g. "Add item “Stove” to “Camping”" (older entries don't have it). */
+  description?: string;
   at: number;
   seen?: boolean;
 }

@@ -509,6 +509,7 @@ describe('SyncEngine', () => {
         expect(engine.errors()).toEqual([
           {
             mutationId: expect.any(String),
+            description: 'Restore list “Camping”',
             reason: "This list doesn't exist",
             at: 42,
           },
@@ -633,6 +634,13 @@ describe('SyncEngine', () => {
 
       expect(await db.items.get(id)).toBeUndefined();
       expect(await visibleList(listId)).toMatchObject({ title: 'Camping' });
+      await eventually(() =>
+        expect(engine.errors()).toEqual([
+          expect.objectContaining({
+            description: 'Add item “Tent” to “Camping”',
+          }),
+        ]),
+      );
     });
   });
 

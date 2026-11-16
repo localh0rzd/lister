@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-041 — Say which change a sync error refers to
 
 - Milestone: M6 Collaboration polish
@@ -39,6 +37,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 - Notes: Needs a short description stored with each refusal (`Rejection` in `data-access-local-db`,
   written by `SyncEngine` when it records the reject), probably in `data-access-sync` and
   `feature-space`. Found in the T-030 review (finding 5).
+
+## Backlog
 
 ### T-037 — Quiet the sync-engine test teardown
 
