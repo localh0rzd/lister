@@ -4,6 +4,7 @@ import {
   Controller,
   Get,
   HttpCode,
+  Logger,
   NotFoundException,
   Patch,
   Post,
@@ -45,6 +46,8 @@ import { UsersService } from './users.service';
 
 @Controller('auth')
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+
   constructor(
     private readonly auth: AuthService,
     private readonly setupToken: SetupTokenService,
@@ -102,9 +105,12 @@ export class AuthController {
     @Res({ passthrough: true }) response: AuthResponse,
   ): void {
     const token = readSessionToken(request.headers['cookie']);
-    if (token) {
+    if (!token) {
+      this.logger.debug('Sign-out without a session cookie');
+    } else {
       const found = this.auth.authenticate(token);
       if (found) this.auth.endSession(found.sessionId);
+      else this.logger.debug('Sign-out: unknown or expired session');
     }
     response.clearCookie(SESSION_COOKIE, sessionCookieOptions(process.env));
   }

@@ -1,4 +1,4 @@
-import type { LoggerService } from '@nestjs/common';
+import { ConsoleLogger, type LoggerService } from '@nestjs/common';
 import { newId } from '@lister/shared/domain';
 import {
   type ClientToServerEvents,
@@ -8,6 +8,7 @@ import {
 import { DEV_WEB_ORIGIN } from '@lister/api/feature-sync';
 import { type Socket, io } from 'socket.io-client';
 import { PASSWORD, createAccount, send, signIn } from '../testing/auth-client';
+import { parseLogLevels } from '../app/log-levels';
 import { type TestApp, createTestApp } from '../testing/create-test-app';
 
 /** Collects what the app logs, per level. */
@@ -259,5 +260,56 @@ describe('debug logging', () => {
     );
     expect(logger.debugText).toContain(`Sign-out: user ${anna.id}`);
     expect(logger.debugText).not.toContain('wrong password!');
+  });
+
+  it('names the allowed origins when it refuses a socket origin', async () => {
+    await createAccount(api, 'anna');
+    const cookie = await signIn(api, 'anna');
+    const refused = io(api.url, {
+      transports: ['websocket'],
+      forceNew: true,
+      reconnection: false,
+      extraHeaders: { origin: 'https://evil.test', cookie },
+    });
+    await new Promise((resolve) => refused.once('connect_error', resolve));
+    refused.disconnect();
+
+    expect(logger.debugText).toContain(
+      `Handshake refused: origin https://evil.test is not allowed; PUBLIC_URL allows ${DEV_WEB_ORIGIN}`,
+    );
+  });
+
+  it('logs a sign-out that ends no session', async () => {
+    await send(api, 'POST', '/auth/logout', {});
+    await send(api, 'POST', '/auth/logout', {
+      cookie: 'lister_session=not-a-session',
+    });
+
+    expect(logger.debugText).toContain('Sign-out without a session cookie');
+    expect(logger.debugText).toContain('Sign-out: unknown or expired session');
+  });
+});
+
+describe('default log level', () => {
+  it('writes none of the debug lines', async () => {
+    await api.close();
+    const written: string[] = [];
+    const write = vi
+      .spyOn(process.stdout, 'write')
+      .mockImplementation((chunk: string | Uint8Array) => {
+        written.push(String(chunk));
+        return true;
+      });
+    api = await createTestApp({
+      logger: new ConsoleLogger({ logLevels: parseLogLevels(undefined) }),
+    });
+    try {
+      await createAccount(api, 'anna');
+      await signIn(api, 'anna');
+    } finally {
+      write.mockRestore();
+    }
+
+    expect(written.join('')).not.toContain('Sign-in:');
   });
 });

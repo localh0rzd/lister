@@ -40,7 +40,7 @@ export class SyncIoAdapter extends IoAdapter {
         const allowed = origin !== undefined && this.origins.includes(origin);
         if (!allowed) {
           this.debugLog.debug(
-            `Handshake refused: origin ${origin ?? '(none)'} is not allowed`,
+            `Handshake refused: origin ${origin ?? '(none)'} is not allowed; PUBLIC_URL allows ${this.origins.join(', ')}`,
           );
         }
         callback(null, allowed);
