@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-040 — Pin CI actions to commit hashes
 
 - Milestone: M7 Deployment
@@ -36,6 +34,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   - Dependabot (`.github/dependabot.yml`, `github-actions` ecosystem) proposes updates to the
     pinned hashes.
 - Notes: Found in the security audit (2026-11-13), rated low: CI has no deploy secrets today.
+
+## Backlog
 
 ### T-041 — Say which change a sync error refers to
 
