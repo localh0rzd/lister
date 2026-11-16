@@ -42,6 +42,8 @@ export interface LocalSpace extends Space {
 export interface SyncState {
   spaceId: string;
   version: number;
+  /** The space's timeline the rows belong to; another one on the server means a snapshot. */
+  timeline: string;
   lastSyncedAt: number | null;
 }
 
@@ -142,6 +144,11 @@ export class LocalDb extends Dexie {
       .upgrade((tx) => tx.table('syncState').clear());
     // Server migration 0004: run items' `mergedInto` (a new synced field: snapshot).
     this.version(6)
+      .stores({})
+      .upgrade((tx) => tx.table('syncState').clear());
+    // Server migration 0009: the space's timeline, stored in `syncState` and sent with every
+    // pull. Entries without one are dropped: the next pull is a snapshot.
+    this.version(7)
       .stores({})
       .upgrade((tx) => tx.table('syncState').clear());
   }

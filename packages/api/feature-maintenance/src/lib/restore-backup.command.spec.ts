@@ -80,6 +80,8 @@ describe('restore-backup', () => {
       const space = versionOf(restored, kept.id);
       expect(space?.version).toBe(151);
       expect(space?.purgedVersion).toBe(151);
+      expect(space?.timeline).not.toBe(kept.timeline);
+      expect(space?.timeline).toBeTruthy();
     } finally {
       restored.onApplicationShutdown();
     }

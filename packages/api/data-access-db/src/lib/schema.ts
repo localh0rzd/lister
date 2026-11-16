@@ -86,6 +86,12 @@ export const spaces = sqliteTable('spaces', {
    * full snapshot.
    */
   purgedVersion: integer('purged_version').notNull().default(0),
+  /**
+   * Names the history the space's versions belong to. `restore-backup` replaces it, so a device
+   * that synced before the restore (its pull names the old timeline) always gets a snapshot,
+   * whatever versions it holds.
+   */
+  timeline: text('timeline').notNull().default(''),
   createdAt: integer('created_at').notNull(),
 });
 

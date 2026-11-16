@@ -1,3 +1,4 @@
+import { eq } from 'drizzle-orm';
 import {
   type DatabaseConnection,
   createTestDatabase,
@@ -103,7 +104,30 @@ describe('SyncReader', () => {
 
   describe('rowsSince', () => {
     it('has nothing for a space that does not exist', () => {
-      expect(reader.rowsSince(newId(), 0)).toBeUndefined();
+      expect(reader.rowsSince(newId(), 0, '')).toBeUndefined();
+    });
+
+    it("answers a pull that names another timeline with a snapshot, and one that names the space's with the changes", () => {
+      const shared = space('Family', ANNA);
+      const current = database.db
+        .select()
+        .from(schema.spaces)
+        .where(eq(schema.spaces.id, shared.id))
+        .get()!;
+      database.db
+        .update(schema.spaces)
+        .set({ version: 10 })
+        .where(eq(schema.spaces.id, shared.id))
+        .run();
+
+      expect(reader.rowsSince(shared.id, 5, 'other')).toMatchObject({
+        snapshot: true,
+        timeline: current.timeline,
+      });
+      expect(reader.rowsSince(shared.id, 5, '')?.snapshot).toBe(true);
+      expect(reader.rowsSince(shared.id, 5, current.timeline)?.snapshot).toBe(
+        false,
+      );
     });
   });
 });

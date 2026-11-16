@@ -108,7 +108,7 @@ backup that survives losing the disk.
 
 To restore a backup, stop the server and run the command on a file from `/data/backups` (it refuses while the server
 still has the database open). It copies the backup over the database and moves every space's version past both the
-backup's and the lost timeline's, so every device fetches a full copy of its spaces on its next sync, changes still
+backup's and the lost timeline's and starts a new timeline for them, so every device fetches a full copy of its spaces on its next sync, changes still
 waiting on a device are sent again, and nothing of the lost timeline survives on a device. Changes since the backup and
 spaces created after it are lost. Every session ends, so everyone signs in again (pending changes on a device are kept).
 

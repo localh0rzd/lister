@@ -33,6 +33,8 @@ const USER = newId();
 class FakeServer {
   readonly store = new MemoryRowStore();
   version = 0;
+  /** What a restore of the server's database changes. */
+  timeline = 'tl-1';
   /** What the client sent, in order. */
   readonly received: [string, unknown][] = [];
   connected = false;
@@ -123,22 +125,29 @@ class FakeServer {
         ],
       });
     } else if (event === 'pull') {
-      const { since, spaceId } = payload as { since: number; spaceId: string };
+      const { since, spaceId, timeline } = payload as {
+        since: number;
+        spaceId: string;
+        timeline: string;
+      };
       if (spaceId !== SPACE) {
         // Any other space is at version 3 with nothing new.
         this.fire('rows', {
           spaceId,
           version: 3,
+          timeline: 'tl-other',
           snapshot: false,
           rows: { lists: [], items: [], includes: [], runs: [], runItems: [] },
         });
         return;
       }
-      const snapshot = since === 0 || since > this.version;
+      const snapshot =
+        since === 0 || since > this.version || timeline !== this.timeline;
       const from = snapshot ? 0 : since;
       this.fire('rows', {
         spaceId: SPACE,
         version: this.version,
+        timeline: this.timeline,
         snapshot,
         rows: {
           lists: [...this.store.lists.values()].filter((r) => r.version > from),
@@ -339,7 +348,11 @@ describe('SyncEngine', () => {
       expect(server.sent('hello')[0]).toMatchObject({
         protocolVersion: PROTOCOL_VERSION,
       });
-      expect(server.sent('pull')[0]).toEqual({ spaceId: SPACE, since: 0 });
+      expect(server.sent('pull')[0]).toEqual({
+        spaceId: SPACE,
+        since: 0,
+        timeline: '',
+      });
       expect(
         (
           server.sent('push')[0] as { mutations: MutationInput[] }
@@ -411,6 +424,39 @@ describe('SyncEngine', () => {
       expect(await db.syncState.get(SPACE)).toMatchObject({ version: 1 });
     });
 
+    it('replaces its copy when the server names another timeline, whatever versions it holds', async () => {
+      setup();
+      engine.start();
+      await settle();
+      const lost = newId();
+      server.otherClient('list.create', { id: lost, title: 'Lost timeline' });
+      await settle();
+      expect(await db.syncState.get(SPACE)).toMatchObject({
+        version: 1,
+        timeline: 'tl-1',
+      });
+
+      // The server was restored: its versions are ahead of this device's again, but on a new
+      // timeline, so an incremental answer would keep the lost row.
+      server.drop();
+      await eventually(() => expect(engine.online()).toBe(false));
+      server.store.lists.clear();
+      server.timeline = 'tl-2';
+      server.version = 5;
+      server.socket.connect();
+      await settle();
+
+      expect(server.sent('pull').at(-1)).toMatchObject({
+        since: 1,
+        timeline: 'tl-1',
+      });
+      expect(await visibleList(lost)).toBeUndefined();
+      expect(await db.syncState.get(SPACE)).toMatchObject({
+        version: 5,
+        timeline: 'tl-2',
+      });
+    });
+
     it('pulls when a poke reveals a gap', async () => {
       setup();
       engine.start();
@@ -426,7 +472,11 @@ describe('SyncEngine', () => {
       server.otherClient('list.create', { id: newId(), title: 'Later' });
       await settle();
 
-      expect(server.sent('pull').at(-1)).toEqual({ spaceId: SPACE, since: 1 });
+      expect(server.sent('pull').at(-1)).toEqual({
+        spaceId: SPACE,
+        since: 1,
+        timeline: 'tl-1',
+      });
       expect(await visibleList(missed)).toMatchObject({ title: 'Missed' });
       expect(await db.syncState.get(SPACE)).toMatchObject({ version: 3 });
     });
@@ -916,7 +966,11 @@ describe('SyncEngine', () => {
       await settle();
 
       expect(server.sent('push')).toHaveLength(1);
-      expect(server.sent('pull').at(-1)).toEqual({ spaceId: SPACE, since: 0 });
+      expect(server.sent('pull').at(-1)).toEqual({
+        spaceId: SPACE,
+        since: 0,
+        timeline: 'tl-1',
+      });
       expect(await serverList(id)).toMatchObject({ title: 'Camping' });
       expect(await outbox()).toEqual([]);
     });
@@ -1171,7 +1225,12 @@ describe('SyncEngine', () => {
         spaceId: other,
         title: 'Elsewhere',
       } as never);
-      await db.syncState.put({ spaceId: other, version: 3, lastSyncedAt: 1 });
+      await db.syncState.put({
+        spaceId: other,
+        version: 3,
+        timeline: 't1',
+        lastSyncedAt: 1,
+      });
       server.autoAnswer = false;
       const pending = await createList('Pending');
 
@@ -1469,7 +1528,11 @@ describe('SyncEngine', () => {
       server.welcome();
       await settle();
       expect(server.sent('pull').slice(pullsBefore)).toEqual([
-        { spaceId: SPACE, since: expect.any(Number) },
+        {
+          spaceId: SPACE,
+          since: expect.any(Number),
+          timeline: expect.any(String),
+        },
       ]);
     });
 
@@ -1619,6 +1682,7 @@ describe('SyncEngine', () => {
       server.fire('rows', {
         spaceId: SPACE,
         version: server.version,
+        timeline: server.timeline,
         snapshot: true,
         rows: {
           lists: [...server.store.lists.values()],
@@ -1663,6 +1727,7 @@ describe('SyncEngine', () => {
       server.fire('rows', {
         spaceId: SPACE,
         version: 0,
+        timeline: server.timeline,
         snapshot: true,
         rows: { lists: [], items: [] },
       });

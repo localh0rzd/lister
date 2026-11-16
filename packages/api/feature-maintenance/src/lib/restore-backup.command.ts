@@ -1,6 +1,7 @@
 import { copyFileSync, existsSync, renameSync, rmSync } from 'node:fs';
 import type { INestApplicationContext } from '@nestjs/common';
 import BetterSqlite3 from 'better-sqlite3';
+import { newId } from '@lister/shared/domain';
 import {
   DatabaseConnection,
   openDatabase,
@@ -74,7 +75,7 @@ export function restoreBackup(live: DatabaseConnection, file: string): number {
       restored.sqlite.transaction(() => {
         spaces = restored.db
           .update(schema.spaces)
-          .set({ version: next, purgedVersion: next })
+          .set({ version: next, purgedVersion: next, timeline: newId() })
           .run().changes;
         restored.db.delete(schema.sessions).run();
       })();

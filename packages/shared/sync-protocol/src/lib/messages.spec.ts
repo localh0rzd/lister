@@ -58,16 +58,26 @@ describe('socket messages', () => {
   });
 
   it('pulls from version 0 (snapshot) or later, never negative', () => {
+    expect(
+      pullSchema.safeParse({ spaceId: newId(), since: 0, timeline: '' })
+        .success,
+    ).toBe(true);
+    expect(
+      pullSchema.safeParse({ spaceId: newId(), since: 12, timeline: 't' })
+        .success,
+    ).toBe(true);
+    expect(
+      pullSchema.safeParse({ spaceId: newId(), since: -1, timeline: '' })
+        .success,
+    ).toBe(false);
+    expect(
+      pullSchema.safeParse({ spaceId: newId(), since: 1.5, timeline: '' })
+        .success,
+    ).toBe(false);
+  });
+
+  it('needs the timeline the client holds', () => {
     expect(pullSchema.safeParse({ spaceId: newId(), since: 0 }).success).toBe(
-      true,
-    );
-    expect(pullSchema.safeParse({ spaceId: newId(), since: 12 }).success).toBe(
-      true,
-    );
-    expect(pullSchema.safeParse({ spaceId: newId(), since: -1 }).success).toBe(
-      false,
-    );
-    expect(pullSchema.safeParse({ spaceId: newId(), since: 1.5 }).success).toBe(
       false,
     );
   });
@@ -126,6 +136,7 @@ describe('socket messages', () => {
       rowsSchema.safeParse({
         spaceId: newId(),
         version: 7,
+        timeline: 'tl',
         snapshot: true,
         rows,
       }).success,
@@ -154,6 +165,7 @@ describe('socket messages', () => {
       rowsSchema.safeParse({
         spaceId: newId(),
         version: 1,
+        timeline: 'tl',
         snapshot: false,
         rows: { lists: [tombstone], items: [] },
       }).success,
@@ -164,6 +176,7 @@ describe('socket messages', () => {
     const result = rowsSchema.safeParse({
       spaceId: newId(),
       version: 1,
+      timeline: 'tl',
       snapshot: false,
       futureFlag: true,
       rows: { lists: [{ ...list(), icon: 'hiking' }], items: [], trips: [] },
@@ -183,6 +196,7 @@ describe('socket messages', () => {
     const result = rowsSchema.parse({
       spaceId: newId(),
       version: 1,
+      timeline: 'tl',
       snapshot: false,
       rows: { lists: [], items: [] },
     });

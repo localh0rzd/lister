@@ -175,7 +175,11 @@ export class SyncGateway implements OnModuleInit, OnModuleDestroy {
     }
     let rows;
     try {
-      rows = this.reader.rowsSince(pull.data.spaceId, pull.data.since);
+      rows = this.reader.rowsSince(
+        pull.data.spaceId,
+        pull.data.since,
+        pull.data.timeline,
+      );
     } catch (error) {
       this.logger.error(`Pull for ${pull.data.spaceId} failed`, error as Error);
       socket.disconnect(true);

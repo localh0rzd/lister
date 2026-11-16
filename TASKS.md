@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-047 — Per-space timeline id so a restore always makes every device snapshot
 
 - Milestone: M7 Deployment
@@ -38,6 +36,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
     restore.
   - Tests cover that case; the README and design §2.9 no longer list it as a limitation.
 - Notes: found in the T-046 review (question for the user, recorded here instead of asked).
+
+## Backlog
 
 ### T-036 — Slim the sync engine chunk
 

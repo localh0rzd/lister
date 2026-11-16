@@ -610,8 +610,11 @@ export class SyncEngine {
   }
 
   private async pull(spaceId: string): Promise<void> {
-    const since = (await this.db.syncState.get(spaceId))?.version ?? 0;
-    if (this.send('pull', { spaceId, since })) this.pulling.add(spaceId);
+    const state = await this.db.syncState.get(spaceId);
+    const since = state?.version ?? 0;
+    const timeline = state?.timeline ?? '';
+    if (this.send('pull', { spaceId, since, timeline }))
+      this.pulling.add(spaceId);
   }
 
   private async onRows(rows: Rows): Promise<void> {
@@ -621,6 +624,7 @@ export class SyncEngine {
       rows.rows,
       rows.version,
       rows.snapshot,
+      rows.timeline,
     );
     await this.flush();
   }
@@ -747,6 +751,8 @@ export class SyncEngine {
     rows: RowSet,
     version: number,
     snapshot: boolean,
+    /** The space's timeline; a poke doesn't carry it, so the stored one stays. */
+    timeline?: string,
   ): Promise<void> {
     const syncedAt = this.now();
     await this.db.transaction('rw', this.syncTables(), async () => {
@@ -762,7 +768,13 @@ export class SyncEngine {
       await this.db.serverIncludes.bulkPut(rows.includes);
       await this.db.serverRuns.bulkPut(rows.runs);
       await this.db.serverRunItems.bulkPut(rows.runItems);
-      await this.db.syncState.put({ spaceId, version, lastSyncedAt: syncedAt });
+      await this.db.syncState.put({
+        spaceId,
+        version,
+        timeline:
+          timeline ?? (await this.db.syncState.get(spaceId))?.timeline ?? '',
+        lastSyncedAt: syncedAt,
+      });
 
       const touched = noneTouched();
       for (const row of rows.lists) touched.lists.add(row.id);

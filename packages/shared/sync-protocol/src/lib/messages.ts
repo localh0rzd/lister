@@ -19,6 +19,8 @@ export const pullSchema = z.strictObject({
   spaceId: idSchema,
   /** The last version the client has; 0 asks for a full snapshot. */
   since: versionSchema,
+  /** The timeline of the space's rows the client holds (`''` when it holds none). */
+  timeline: z.string().max(64),
 });
 
 /**
@@ -57,6 +59,8 @@ export const updateRequiredSchema = z.object({
 export const rowsSchema = z.object({
   spaceId: idSchema,
   version: versionSchema,
+  /** The space's timeline (changed by a restore); the client sends it back with its next pull. */
+  timeline: z.string(),
   /** True when this is the space's whole state (since 0, or `since` predates purged tombstones). */
   snapshot: z.boolean(),
   rows: rowSetSchema,

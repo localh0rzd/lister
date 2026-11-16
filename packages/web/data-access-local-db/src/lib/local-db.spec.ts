@@ -109,7 +109,12 @@ describe('LocalDb.clearAll', () => {
         members: [],
       });
       await db.meta.put({ key: 'userId', value: newId() });
-      await db.syncState.put({ spaceId, version: 3, lastSyncedAt: 1 });
+      await db.syncState.put({
+        spaceId,
+        version: 3,
+        timeline: 't1',
+        lastSyncedAt: 1,
+      });
       await db.outbox.add({
         mutationId: newId(),
         spaceId,

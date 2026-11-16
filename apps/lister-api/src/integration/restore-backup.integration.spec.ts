@@ -43,6 +43,7 @@ describe('restore-backup and sync', () => {
           .run();
       setVersion(live, 100);
       const backup = new BackupService(live).backup(Date.UTC(2026, 0, 1));
+      const before = space.timeline;
       setVersion(live, 150);
 
       restoreBackup(live, backup);
@@ -52,11 +53,15 @@ describe('restore-backup and sync', () => {
         const reader = new SyncReader(restored);
         // The restored server issues versions again, up to 160 (it had issued 150 before).
         setVersion(restored, 160);
-        // A tablet that was at 140 (lost timeline) or 160 must replace its copy ...
-        expect(reader.rowsSince(space.id, 140)?.snapshot).toBe(true);
-        expect(reader.rowsSince(space.id, 150)?.snapshot).toBe(true);
+        // A tablet that synced before the restore names the old timeline: whatever version it
+        // holds (140, 150, or one the restored space has not reached), it replaces its copy ...
+        expect(reader.rowsSince(space.id, 140, before)?.snapshot).toBe(true);
+        expect(reader.rowsSince(space.id, 155, before)?.snapshot).toBe(true);
+        expect(reader.rowsSince(space.id, 159, before)?.snapshot).toBe(true);
         // ... and one that has synced since the restore pulls incrementally.
-        expect(reader.rowsSince(space.id, 152)?.snapshot).toBe(false);
+        const after = reader.rowsSince(space.id, 155, 'x')!.timeline;
+        expect(after).not.toBe(before);
+        expect(reader.rowsSince(space.id, 155, after)?.snapshot).toBe(false);
       } finally {
         restored.onApplicationShutdown();
       }

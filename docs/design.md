@@ -363,11 +363,12 @@ None of these change the architecture; the table says what goes into v1.
   kept (D15). Restoring: `node main.js restore-backup <file>` (refused while another connection,
   i.e. the server, has the database open) migrates a copy of the backup, sets every space's
   `version` and `purged_version` to one above the highest version of any space in the backup or the
-  live database, deletes every session, then swaps it in (spaces created after the backup are gone).
-  So versions are never reused and every device pulls a snapshot, even one whose version the space
-  has passed again. The bound is global because a space deleted after the backup (deleted for good)
-  is missing from the live database; it only fails for a device offline across both that deletion
-  and the restore of a space that had out-versioned every other space. Sessions go because the
+  live database (so versions are never reused), gives every space a new `timeline` id, deletes every
+  session, then swaps it in (spaces created after the backup are gone). A space's `timeline` names
+  the history its versions belong to; a client stores the one its rows came from (`syncState`) and
+  sends it with every pull (§4.2), and a pull naming another timeline is always a snapshot. So every
+  device replaces its copy, whatever versions it holds or how long it was offline, and a space
+  deleted after the backup cannot matter. Sessions go because the
   backup still holds those ended since (sign-out, password change, revoked sign-ins); the same user
   keeps their pending changes across the new sign-in. Documented in the README.
 - **Purge** (D15, daily, right after the backup, `feature-maintenance`): tombstones and runs
@@ -500,8 +501,8 @@ client                                     server
   │ connect (cookie, Origin) ────────────────►│ session cookie → user, check Origin; else refused
   │ hello {protocolVersion, clientId} ───────►│ join the rooms of the user's spaces
   │◄─────────── welcome {spaces + members}    │ (again whenever memberships change)
-  │ pull {spaceId, since: v} ────────────────►│ rows with version > v, or a full snapshot
-  │◄─────────── rows…, version: v2            │   if v predates the purge point
+  │ pull {spaceId, since: v, timeline} ─────►│ rows with version > v, or a full snapshot if v predates
+  │◄─────────── rows…, version: v2, timeline  │   the purge point or the timeline is not the space's
   │ push [{mutationId, spaceId, name, args}] ►│ each mutation in one SQLite transaction:
   │                                           │   authorize → validate → apply → version + 1
   │◄─────────── ack {mutationId, version}     │   or reject {mutationId, reason}
@@ -532,7 +533,9 @@ client                                     server
   outbox and is retried; a `reject` is only ever a final verdict on that mutation. After a
   server disconnect Socket.IO doesn't reconnect by itself: the client reconnects with backoff and
   starts again with hello and a pull. A pull whose `since` is ahead of the server (restored or
-  reset database) gets a full snapshot, which replaces the client's copy.
+  reset database), or that names another `timeline` than the space's (a restore changed it), gets a
+  full snapshot, which replaces the client's copy; the client keeps the timeline of the rows it
+  holds (`syncState.timeline`) and sends it back.
 - **Authentication and authorization:** the handshake needs the session cookie of a live session
   (and a user who isn't forced to change their password), or the connection is refused; the
   `Origin` check stays. The welcome lists the spaces of the user's memberships with the members'

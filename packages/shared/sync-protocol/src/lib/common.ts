@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { LIMITS, isPositionKey } from '@lister/shared/domain';
 
 /** Version of the socket protocol; the server answers older clients with `updateRequired`. */
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 
 /** Lower case only: SQLite and IndexedDB keys are case-sensitive. */
 export const idSchema = z.uuidv7().regex(/^[0-9a-f-]+$/, 'Ids are lower case');

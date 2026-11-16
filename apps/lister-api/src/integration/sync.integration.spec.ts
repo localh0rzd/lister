@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import { schema } from '@lister/api/data-access-db';
+import { DatabaseConnection, schema } from '@lister/api/data-access-db';
 import { PurgeService } from '@lister/api/feature-maintenance';
 import {
   DEV_WEB_ORIGIN,
@@ -62,6 +62,16 @@ afterEach(async () => {
   for (const client of clients.splice(0)) client.disconnect();
   await api.close();
 });
+
+/** The space's timeline, as a device that synced it holds it. */
+function timelineOf(): string {
+  return api.app
+    .get(DatabaseConnection)
+    .db.select()
+    .from(schema.spaces)
+    .where(eq(schema.spaces.id, spaceId))
+    .get()!.timeline;
+}
 
 /** A socket like the browser's: WebSocket only, with an Origin header and the session cookie. */
 function connect(
@@ -205,7 +215,11 @@ describe('sync gateway', () => {
     });
 
     it.each([
-      ['pulls before hello', 'pull', { spaceId: spaceId, since: 0 }],
+      [
+        'pulls before hello',
+        'pull',
+        { spaceId: spaceId, since: 0, timeline: '' },
+      ],
       ['pushes before hello', 'push', { mutations: [] }],
       ['sends an invalid hello', 'hello', { protocolVersion: 'one' }],
     ] as const)('disconnects a client that %s', async (_, event, body) => {
@@ -395,7 +409,7 @@ describe('sync gateway', () => {
       const rows = collect(client, 'rows');
       const gone = disconnected(client);
 
-      client.emit('pull', { spaceId, since: 0 });
+      client.emit('pull', { spaceId, since: 0, timeline: '' });
 
       expect(await gone).toBe('io server disconnect');
       expect(rows).toEqual([]);
@@ -463,7 +477,7 @@ describe('sync gateway', () => {
       ben.client.emit('push', { mutations: [stale] });
       expect((await rejected).reason).toBe("You can't change this space");
       const gone = disconnected(ben.client);
-      ben.client.emit('pull', { spaceId, since: 0 });
+      ben.client.emit('pull', { spaceId, since: 0, timeline: '' });
       expect(await gone).toBe('io server disconnect');
     });
 
@@ -548,7 +562,7 @@ describe('sync gateway', () => {
       const gone = disconnected(client);
 
       await send(api, 'POST', '/auth/logout', { cookie: cookies.ben });
-      client.emit('pull', { spaceId, since: 0 });
+      client.emit('pull', { spaceId, since: 0, timeline: '' });
 
       expect(await gone).toBe('io server disconnect');
     });
@@ -705,7 +719,7 @@ describe('sync gateway', () => {
       const { client } = await helloed();
       const reason = disconnected(client);
 
-      client.emit('pull', { spaceId: newId(), since: 0 });
+      client.emit('pull', { spaceId: newId(), since: 0, timeline: '' });
 
       expect(await reason).toBe('io server disconnect');
     });
@@ -748,7 +762,7 @@ describe('sync gateway', () => {
       });
       const reason = disconnected(client);
 
-      client.emit('pull', { spaceId: spaceId, since: 0 });
+      client.emit('pull', { spaceId: spaceId, since: 0, timeline: '' });
 
       expect(await reason).toBe('io server disconnect');
     });
@@ -764,7 +778,11 @@ describe('sync gateway', () => {
       await acked;
 
       const rows = next(client, 'rows');
-      client.emit('pull', { spaceId: spaceId, since: 57 });
+      client.emit('pull', {
+        spaceId: spaceId,
+        since: 57,
+        timeline: timelineOf(),
+      });
 
       expect(await rows).toMatchObject({ version: 1, snapshot: true });
       expect((await rows).rows.lists).toHaveLength(1);
@@ -793,7 +811,7 @@ describe('sync gateway', () => {
       await done;
 
       const rows = next(client, 'rows');
-      client.emit('pull', { spaceId: spaceId, since: 0 });
+      client.emit('pull', { spaceId: spaceId, since: 0, timeline: '' });
 
       expect(await rows).toMatchObject({
         spaceId: spaceId,
@@ -836,14 +854,14 @@ describe('sync gateway', () => {
 
       // The purge moved the space on to version 4, its purge point.
       const behind = next(client, 'rows');
-      client.emit('pull', { spaceId, since: 2 });
+      client.emit('pull', { spaceId, since: 2, timeline: timelineOf() });
       const snapshot = await behind;
       expect(snapshot).toMatchObject({ version: 4, snapshot: true });
       expect(snapshot.rows.lists).toHaveLength(1);
       expect(snapshot.rows.items).toEqual([]);
 
       const current = next(client, 'rows');
-      client.emit('pull', { spaceId, since: 4 });
+      client.emit('pull', { spaceId, since: 4, timeline: timelineOf() });
       expect(await current).toMatchObject({ version: 4, snapshot: false });
     });
 
@@ -884,7 +902,7 @@ describe('sync gateway', () => {
       expect(api.app.get(PurgeService).purge(thirtyOneDays)).toBe(3);
 
       const rows = next(client, 'rows');
-      client.emit('pull', { spaceId, since: 5 });
+      client.emit('pull', { spaceId, since: 5, timeline: timelineOf() });
       const snapshot = await rows;
       expect(snapshot).toMatchObject({ version: 6, snapshot: true });
       expect(snapshot.rows.lists.map((l) => l.id)).toEqual([parentId]);
@@ -917,7 +935,11 @@ describe('sync gateway', () => {
 
       const back = await helloed();
       const rows = next(back.client, 'rows');
-      back.client.emit('pull', { spaceId: spaceId, since: lastSeenByB });
+      back.client.emit('pull', {
+        spaceId: spaceId,
+        since: lastSeenByB,
+        timeline: timelineOf(),
+      });
 
       const caughtUp = await rows;
       expect(caughtUp).toMatchObject({ version: 3, snapshot: false });
@@ -1077,7 +1099,7 @@ describe('sync gateway', () => {
 
       // Whatever the order, the stored run agrees with its items.
       const rows = next(ben.client, 'rows');
-      ben.client.emit('pull', { spaceId: spaceId, since: 0 });
+      ben.client.emit('pull', { spaceId: spaceId, since: 0, timeline: '' });
       const snapshot = await rows;
       const items = snapshot.rows.runItems.filter((i) => i.runId === runId);
       const run = snapshot.rows.runs.find((r) => r.id === runId);
@@ -1116,7 +1138,7 @@ describe('sync gateway', () => {
 
       expect(answers.every((a) => 'version' in a)).toBe(true);
       const rows = next(ben.client, 'rows');
-      ben.client.emit('pull', { spaceId: spaceId, since: 0 });
+      ben.client.emit('pull', { spaceId: spaceId, since: 0, timeline: '' });
       const items = (await rows).rows.runItems.filter((i) => i.runId === runId);
       expect(items.find((i) => i.id === bens)).toMatchObject({
         state: 'checked',
@@ -1273,7 +1295,7 @@ describe('sync gateway', () => {
 
       // The list's own items were never touched: Tent is still live, as before.
       const rows = next(ben.client, 'rows');
-      ben.client.emit('pull', { spaceId: spaceId, since: 0 });
+      ben.client.emit('pull', { spaceId: spaceId, since: 0, timeline: '' });
       const snapshot = await rows;
       expect(
         snapshot.rows.items
@@ -1482,7 +1504,7 @@ describe('sync gateway', () => {
 
       // Only Anna's half exists.
       const rows = next(ben.client, 'rows');
-      ben.client.emit('pull', { spaceId: spaceId, since: 0 });
+      ben.client.emit('pull', { spaceId: spaceId, since: 0, timeline: '' });
       const snapshot = await rows;
       expect(snapshot.version).toBe(3);
       expect(snapshot.rows.includes.map((row) => row.id)).toEqual([

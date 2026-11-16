@@ -20,6 +20,7 @@ export function insertSpace(
       name: input.name,
       personal: input.personal,
       version: 0,
+      timeline: newId(),
       createdAt: input.now,
     })
     .returning()
