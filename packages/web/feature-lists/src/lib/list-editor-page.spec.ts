@@ -956,9 +956,7 @@ describe('ListEditorPage — included lists', () => {
       (r) => (r.args as { position: string }).position,
     );
     expect(requests[3].name).toBe('include.create');
-    expect(positions[3] > positions[2] && positions[2] > positions[1]).toBe(
-      true,
-    );
+    for (const p of positions.slice(0, 3)) expect(positions[3] > p).toBe(true);
   });
 
   it('removes a section with Undo, and moves it among the items', async () => {

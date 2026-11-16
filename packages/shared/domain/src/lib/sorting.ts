@@ -34,6 +34,8 @@ function compareRows(a: Titled, b: Titled): number {
  * includes among a list's items (`others`) keep their places. Only rows whose key changes are
  * returned (`[]` when already sorted). Rows that share a key (two clients adding at the same
  * spot, design §2.4) get fresh keys between their neighbours, so the result is unambiguous.
+ * A row that shares its key with one of `others` gets a fresh key on the side it sat on (by id),
+ * and `others` keep their keys. So a row between two `others` on the same key ends up after both.
  * Applying the returned keys again, or sorting the result, changes nothing.
  */
 export function sortByTitle(

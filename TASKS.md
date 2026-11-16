@@ -23,32 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-057 — An include added during a paste ties with an item, and Sort A–Z then moves it
-
-- Milestone: M8 Editing conveniences
-- Area: web, shared
-- Priority: high
-- Depends on: T-049
-- Done when:
-  - Adding a list to a list right after pasting several items (before they have all shown) puts the
-    include after every pasted item, never on the same position key as one of them.
-  - "Sort A–Z" keeps every include in its slot even when the include shares its key with an item
-    (a tie that two devices adding at the end while offline can also produce, design §2.4).
-  - `sort.spec.ts` "sorts a list A–Z with Undo, keeping its included list in place…" passes in
-    the full web e2e run, phone and desktop, and under CPU throttling.
-  - Tests: a unit test for `sortByTitle()` with an include tied to an item slot (start, middle and
-    end of the list), a list-editor unit test that an include created while `addItems()` is still
-    running goes after the queued items, and the e2e spec waits for the first paste to show
-    before adding the list.
-- Notes: Found in the T-050 review (`tmp/reviews/T-050.md`, finding 8, with probe evidence).
-  `list-editor-page.ts` places the include at `positionAtEnd(this.currentRows())` (rendered rows
-  only), while `addItems()` writes its items one by one in the `this.adding` chain; under load the
-  include gets e.g. `a0` next to `Tent@a0`. `sortByTitle()` re-keys ties among the sorted rows only,
-  so a slot tied with one of `others` is handed to another item and the include changes place.
-  Fix both: create the include inside the `adding` chain (counting the rows it added), and have
-  `sortByTitle()` treat a slot equal to an `others` key as tied and give it a fresh key on the
-  correct side.
-
 ## Backlog
 
 ### T-051 — Loading spinners instead of jumping Space sections
@@ -152,6 +126,36 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   touches no data itself).
 
 ## Done
+
+### T-057 — An include added during a paste ties with an item, and Sort A–Z then moves it
+
+- Completed: 2026-11-16 — `sortByTitle()` keeps includes in place when tied with an item (fresh keys on the right side, neighbouring ties kept apart); `addList()` creates the include in the `adding` chain after pasted items (`shared/domain`, `web/feature-lists`; `sort.spec.ts` waits for the paste)
+- Review: Changes requested; 3 fixed (1 substantive, 2 trivial), 0 skipped, 0 disagreed; re-review rounds: 1
+- Milestone: M8 Editing conveniences
+- Area: web, shared
+- Priority: high
+- Depends on: T-049
+- Done when:
+  - Adding a list to a list right after pasting several items (before they have all shown) puts the
+    include after every pasted item, never on the same position key as one of them.
+  - "Sort A–Z" keeps every include in its slot even when the include shares its key with an item
+    (a tie that two devices adding at the end while offline can also produce, design §2.4).
+  - `sort.spec.ts` "sorts a list A–Z with Undo, keeping its included list in place…" passes in
+    the full web e2e run, phone and desktop, and under CPU throttling.
+  - Tests: a unit test for `sortByTitle()` with an include tied to an item slot (start, middle and
+    end of the list), a list-editor unit test that an include created while `addItems()` is still
+    running goes after the queued items, and the e2e spec waits for the first paste to show
+    before adding the list.
+- Notes: Found in the T-050 review (`tmp/reviews/T-050.md`, finding 8, with probe evidence).
+  `list-editor-page.ts` places the include at `positionAtEnd(this.currentRows())` (rendered rows
+  only), while `addItems()` writes its items one by one in the `this.adding` chain; under load the
+  include gets e.g. `a0` next to `Tent@a0`. `sortByTitle()` re-keys ties among the sorted rows only,
+  so a slot tied with one of `others` is handed to another item and the include changes place.
+  Fix both: create the include inside the `adding` chain (counting the rows it added), and have
+  `sortByTitle()` treat a slot equal to an `others` key as tied and give it a fresh key on the
+  correct side.
+
+## Backlog
 
 ### T-050 — Settings destination with sign-out
 
