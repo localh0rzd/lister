@@ -17,13 +17,60 @@ Statuses: tasks move **Backlog → In progress → Done**. Claude moves them, co
 review is resolved. Anything blocked or needing a decision goes back with a `Blocked:` note.
 
 Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composition · **M4** Runs ·
-**M5** Accounts and spaces · **M6** Collaboration polish · **M7** Deployment
+**M5** Accounts and spaces · **M6** Collaboration polish · **M7** Deployment · **M8** Editing conveniences
 
 ---
 
 ## In progress
 
 ## Backlog
+
+### T-048 — Paste items into the new-list dialog
+
+- Milestone: M8 Editing conveniences
+- Area: web, shared, api
+- Priority: normal
+- Depends on: T-011
+- Decisions: D18
+- Done when:
+  - The "New list" dialog has an optional multi-line "Items (one per line)" field under the title.
+  - Creating the list with pasted text creates the list and one item per remaining line, in the
+    pasted order, cleaned up as D18 says (trimmed, blank lines dropped, bullet and checkbox
+    markers removed, identical lines added once).
+  - It works offline and syncs as one change: other members see the list arrive with all its
+    items at once, and a rejection rolls back the list and its items together.
+  - A paste over the item limit (the same cap as `list.duplicate`) is refused in the dialog with a
+    clear message, not by the server.
+  - Leaving the field empty behaves exactly as today.
+- Notes: Prefer extending `list.create` with an optional `items` array (as `list.duplicate`
+  carries them) over sending one `item.create` per line. The line cleanup is a pure function in
+  `shared/domain`, unit-tested. Clients send it; the server re-validates titles as for
+  `item.create`.
+
+### T-049 — Sort items A–Z in lists and runs
+
+- Milestone: M8 Editing conveniences
+- Area: web, shared, api
+- Priority: normal
+- Depends on: T-016, T-020
+- Decisions: D17
+- Done when:
+  - The list editor has a "Sort A–Z" action. It sorts the list's own items in list-title order
+    (ignoring case and accents, numbers by value); included lists keep their slots. It shows
+    Undo in the snackbar, and Undo restores the previous order.
+  - Each included list's section in the editor has its own "Sort A–Z", which sorts that list
+    itself; the new order shows in every list that includes it.
+  - A run has a "Sort A–Z" action that sorts the items within each section, with Undo.
+  - The add-item field in the list editor and on the run page has a choice, "Add at end" /
+    "Sort in", remembered on the device (default: at end). "Sort in" places the new item before
+    the first item, in the same list (or run section), that sorts after it.
+  - Sorting works offline and syncs as one change. Other members see the new order, and an item
+    added or moved concurrently elsewhere still appears exactly once.
+- Notes: One mutation per sort (e.g. `list.sortItems` / `run.sortItems`) that **sets** explicit
+  positions for the given ids, so it stays idempotent (mutations set values). Positions come from
+  `fractional-indexing` and are assigned to the item slots only, so includes keep theirs. The
+  comparison is the existing list-title collator, moved or exported from `shared/domain` if
+  needed. Undo sends the previous positions back with the same mutation.
 
 ## Done
 
