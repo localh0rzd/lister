@@ -48,15 +48,13 @@ type SyncSocket = Socket<
   SocketData
 >;
 
-/** The mutation's name for the log: a client sends it, so only a plain identifier is kept. */
-const identifier = (value: unknown): string =>
-  typeof value === 'string' && /^[\w.-]{1,40}$/.test(value) ? value : '?';
-
-const mutationName = (entry: object): string =>
-  identifier((entry as { name?: unknown }).name);
-
-const mutationSpace = (entry: object): string =>
-  identifier((entry as { spaceId?: unknown }).spaceId);
+/** A field of a client's mutation for the log: a client sends it, so only a plain identifier is kept. */
+const logField = (entry: object, key: 'name' | 'spaceId'): string => {
+  const value = (entry as Record<string, unknown>)[key];
+  return typeof value === 'string' && /^[\w.-]{1,40}$/.test(value)
+    ? value
+    : '?';
+};
 
 const countRows = (rows: Record<string, readonly unknown[]>): number =>
   Object.values(rows).reduce((sum, list) => sum + list.length, 0);
@@ -259,9 +257,11 @@ export class SyncGateway
         this.poke({ spaceId, version: result.version, rows });
       }
       this.logger.debug(
-        result.status === 'ack'
-          ? `Mutation ${entry.mutationId} ${mutationName(entry)} in space ${mutationSpace(entry)} acked at version ${result.version}`
-          : `Mutation ${entry.mutationId} ${mutationName(entry)} in space ${mutationSpace(entry)} rejected: ${result.reason}`,
+        `Mutation ${entry.mutationId} ${logField(entry, 'name')} in space ${logField(entry, 'spaceId')} ${
+          result.status === 'ack'
+            ? `acked at version ${result.version}`
+            : `rejected: ${result.reason}`
+        }`,
       );
       if (result.status === 'ack') {
         socket.emit('ack', {

@@ -52,15 +52,12 @@ export class SyncIoAdapter extends IoAdapter {
         ? this.context.get(AuthService, { strict: false }).authenticate(token)
         : null;
       if (!found || found.user.mustChangePassword) {
-        this.debugLog.debug(
-          `Handshake refused: ${
-            !token
-              ? 'no session cookie'
-              : !found
-                ? 'unknown or expired session'
-                : `user ${found.user.id} must change their password`
-          }`,
-        );
+        const why = !token
+          ? 'no session cookie'
+          : !found
+            ? 'unknown or expired session'
+            : `user ${found.user.id} must change their password`;
+        this.debugLog.debug(`Handshake refused: ${why}`);
         next(new Error('Sign in first'));
         return;
       }
