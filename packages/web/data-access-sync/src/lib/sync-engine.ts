@@ -181,6 +181,8 @@ export type MutationRequest = DistributiveOmit<MutationInput, 'mutationId'>;
 const SIGN_IN_REFUSAL = 'Sign in first';
 const TOO_BIG = 'This change is too big to sync. Make it in smaller steps.';
 const LOCK_NAME = 'lister-sync';
+/** How often a page that waits for the sync lock checks that the lock is not stuck. */
+export const LOCK_CHECK_MS = 3000;
 const FIRST_RECONNECT_DELAY_MS = 1000;
 const MAX_RECONNECT_DELAY_MS = 30_000;
 /** How many shown errors the error log keeps. */
@@ -294,33 +296,102 @@ export class SyncEngine {
   /** Cancels the watchers, listeners, timers and the socket of `lead()`. */
   private teardown?: () => void;
 
+  /** The pending lock request of this page, until it is granted or cancelled. */
+  private lockWait?: {
+    abort: AbortController;
+    check: ReturnType<typeof setInterval>;
+  };
+  /** Lets go of the lock this page holds. */
+  private releaseLock?: () => void;
+  /** The wait looked stuck at the last check (lock pending, held by nobody). */
+  private stuckBefore = false;
+
   /** Starts syncing in this tab once it holds the sync lock (one tab at a time). */
   start(): void {
     if (this.started) return;
     this.started = true;
     this.destroyRef.onDestroy(() => void this.stop());
+    // A page that goes away (also into the back/forward cache) leaves nothing behind: a lock
+    // request of a frozen page would block every later page. A restored page leads again.
+    const leave = () => this.leave();
+    const comeBack = (event: PageTransitionEvent) => {
+      if (event.persisted) this.requestLock();
+    };
+    this.window?.addEventListener('pagehide', leave);
+    this.window?.addEventListener('pageshow', comeBack);
+    this.removePageListeners = () => {
+      this.window?.removeEventListener('pagehide', leave);
+      this.window?.removeEventListener('pageshow', comeBack);
+    };
+    this.requestLock();
+  }
+
+  private removePageListeners?: () => void;
+
+  /** Asks for the sync lock; while it waits, a lock that is pending but held by nobody is stolen. */
+  private requestLock(steal = false): void {
+    if (this.stopped || this.lockWait || this.releaseLock) return;
+    const abort = new AbortController();
+    const check = setInterval(() => void this.checkStuck(), LOCK_CHECK_MS);
+    this.lockWait = { abort, check };
+    this.stuckBefore = false;
     this.locks.request(
       LOCK_NAME,
       () =>
         new Promise<void>((release) => {
-          // Stopped while another tab held the lock: hand it on at once.
-          if (this.stopped) return release();
+          if (this.stopped || abort.signal.aborted) return release();
+          this.cancelWait();
+          this.releaseLock = release;
           this.lead();
-          this.destroyRef.onDestroy(release);
         }),
+      { signal: abort.signal, steal },
     );
+  }
+
+  private cancelWait(): void {
+    if (!this.lockWait) return;
+    clearInterval(this.lockWait.check);
+    this.lockWait.abort.abort();
+    this.lockWait = undefined;
+  }
+
+  /**
+   * Requests of pages that are gone or frozen can leave the lock pending with no holder, so
+   * nobody is ever granted it. Seen twice in a row, the wait takes the lock. Never while another
+   * page holds it, so live tabs don't steal from each other.
+   */
+  private async checkStuck(): Promise<void> {
+    const wait = this.lockWait;
+    const state = await this.locks.query?.(LOCK_NAME);
+    if (!state || this.lockWait !== wait) return;
+    const stuck = state.held === 0 && state.pending > 0;
+    if (stuck && this.stuckBefore) {
+      this.cancelWait();
+      this.requestLock(true);
+    } else this.stuckBefore = stuck;
+  }
+
+  /** The page goes away: drops the request or the lock, and closes the socket and watchers. */
+  private leave(): void {
+    this.cancelWait();
+    this.teardown?.();
+    this.teardown = undefined;
+    this.releaseLock?.();
+    this.releaseLock = undefined;
   }
 
   /**
    * Stops syncing: cancels the watchers, listeners, timers and the socket, skips queued background
    * work (pokes, pushes, status writes) and resolves once the remaining queued work (mutations) is
    * done. The engine itself touches the database no more, so it can be closed unless the app
-   * still calls mutate() or the other public methods. Final: a stopped engine does not start again.
+   * still calls mutate() or the other public methods. Final: a stopped engine does not start again
+   * (unlike a page that is hidden and shown again).
    */
   async stop(): Promise<void> {
     this.stopped = true;
-    this.teardown?.();
-    this.teardown = undefined;
+    this.removePageListeners?.();
+    this.removePageListeners = undefined;
+    this.leave();
     await this.whenIdle();
   }
 

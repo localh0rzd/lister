@@ -21,22 +21,47 @@ export const SYNC_SOCKET_FACTORY = new InjectionToken<() => SyncSocket>(
   },
 );
 
+/** How a lock request may be changed: cancelled while it waits, or taken from a stuck queue. */
+export interface SyncLockOptions {
+  signal?: AbortSignal;
+  steal?: boolean;
+}
+
 /** Holds a lock while `hold` runs; only one tab at a time gets it (Web Locks). */
 export interface SyncLocks {
-  request(name: string, hold: () => Promise<void>): void;
+  request(
+    name: string,
+    hold: () => Promise<void>,
+    options?: SyncLockOptions,
+  ): void;
+  /** How many requests hold and wait for the lock now; absent without Web Locks. */
+  query?(name: string): Promise<{ held: number; pending: number }>;
 }
 
 export const SYNC_LOCKS = new InjectionToken<SyncLocks>('SYNC_LOCKS', {
   providedIn: 'root',
-  factory: () => ({
-    request: (name, hold) => {
-      const locks =
-        typeof navigator === 'undefined' ? undefined : navigator.locks;
-      // Without Web Locks every tab syncs; the server's idempotency keeps that safe.
-      if (!locks) void hold();
-      else void locks.request(name, hold);
-    },
-  }),
+  factory: () => {
+    const locks = () =>
+      typeof navigator === 'undefined' ? undefined : navigator.locks;
+    return {
+      request: (name, hold, options) => {
+        const available = locks();
+        // Without Web Locks every tab syncs; the server's idempotency keeps that safe.
+        if (!available) void hold();
+        // An aborted wait or a stolen lock rejects: that is expected, not an error.
+        else
+          void available
+            .request(name, options ?? {}, hold)
+            .catch(() => undefined);
+      },
+      query: async (name) => {
+        const state = await locks()?.query();
+        const count = (list?: LockInfo[]) =>
+          list?.filter((lock) => lock.name === name).length ?? 0;
+        return { held: count(state?.held), pending: count(state?.pending) };
+      },
+    } satisfies SyncLocks;
+  },
 });
 
 /** Current time in epoch milliseconds; replaced in tests. */

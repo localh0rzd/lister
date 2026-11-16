@@ -257,7 +257,11 @@ Consequences:
   server is the source of truth: we request persistent storage, and only unsynced changes are at
   risk.
 - **Several tabs:** one tab runs the sync engine (chosen with the Web Locks API). All tabs read the
-  same IndexedDB and update live.
+  same IndexedDB and update live. A page that goes away (`pagehide`, also into the back/forward cache)
+  leaves nothing behind: it aborts its pending lock request, releases the lock and closes the socket;
+  a page restored from the cache (`pageshow` with `persisted`) asks again. A frozen page's request
+  would otherwise block every later page. While a page waits, it checks `locks.query()` every 3 s and,
+  when the lock is pending but held by nobody on two checks in a row, takes it with `steal`.
 - **Session expires while offline:** the app keeps working locally, and queued changes are sent
   after signing in again.
 - **Old app, new server:** the service worker may serve a cached older version of the app. The sync

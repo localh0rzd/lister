@@ -15,10 +15,11 @@ import {
 } from '@lister/shared/sync-protocol';
 import { USER_STORAGE_KEY } from '@lister/web/data-access-auth';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
-import { ERROR_LOG_SIZE, SyncEngine } from './sync-engine';
+import { ERROR_LOG_SIZE, LOCK_CHECK_MS, SyncEngine } from './sync-engine';
 import {
   SYNC_CLOCK,
   SYNC_LOCKS,
+  type SyncLocks,
   SYNC_SOCKET_FACTORY,
   type SyncSocket,
 } from './tokens';
@@ -213,6 +214,57 @@ class FakeServer {
   }
 }
 
+/** The Web Locks of one browser: requests queue in order; a ghost is a request of a gone page. */
+class FakeLocks implements SyncLocks {
+  held: { release: () => void } | undefined;
+  readonly queue: {
+    hold?: () => Promise<void>;
+    signal?: AbortSignal;
+  }[] = [];
+  readonly requests: { steal?: boolean; signal?: AbortSignal }[] = [];
+
+  request(
+    _name: string,
+    hold: () => Promise<void>,
+    options: { signal?: AbortSignal; steal?: boolean } = {},
+  ) {
+    this.requests.push(options);
+    if (options.steal) this.queue.unshift({ hold, signal: options.signal });
+    else this.queue.push({ hold, signal: options.signal });
+    if (options.steal) this.held = undefined;
+    this.process();
+  }
+
+  async query() {
+    this.process();
+    return { held: this.held ? 1 : 0, pending: this.live().length };
+  }
+
+  /** A pending request nobody will ever grant. */
+  addGhost() {
+    this.queue.push({});
+  }
+
+  private live() {
+    return this.queue.filter((entry) => !entry.signal?.aborted);
+  }
+
+  private process() {
+    const next = this.live()[0];
+    if (this.held || !next?.hold) return;
+    this.queue.splice(this.queue.indexOf(next), 1);
+    void next
+      .hold()
+      .then(() => undefined)
+      .finally(() => {
+        this.held = undefined;
+        this.process();
+      });
+    // The promise only settles once released: remember how.
+    this.held = { release: () => undefined };
+  }
+}
+
 let db: LocalDb;
 let server: FakeServer;
 let engine: SyncEngine;
@@ -221,7 +273,11 @@ let engine: SyncEngine;
 let grantLock: (() => Promise<void>) | undefined;
 
 function setup(
-  options: { leader?: boolean | 'later'; database?: LocalDb } = {},
+  options: {
+    leader?: boolean | 'later';
+    database?: LocalDb;
+    locks?: SyncLocks;
+  } = {},
 ) {
   db = options.database ?? new LocalDb(`test-${newId()}`);
   server = new FakeServer();
@@ -232,7 +288,7 @@ function setup(
       { provide: SYNC_SOCKET_FACTORY, useValue: createSocket },
       {
         provide: SYNC_LOCKS,
-        useValue: {
+        useValue: options.locks ?? {
           request: (_: string, hold: () => Promise<void>) => {
             if (options.leader === 'later') grantLock = hold;
             else if (options.leader !== false) void hold();
@@ -1635,6 +1691,116 @@ describe('SyncEngine', () => {
         expect(engine.errors().map((e) => e.reason)).toEqual(['Refused']),
       );
       expect(await visibleList(id)).toBeDefined();
+    });
+  });
+
+  describe('sync lock', () => {
+    const pageshow = (persisted: boolean) => {
+      const event = new Event('pageshow');
+      Object.defineProperty(event, 'persisted', { value: persisted });
+      window.dispatchEvent(event);
+    };
+    const pagehide = () => window.dispatchEvent(new Event('pagehide'));
+    const tick = async (times = 1) => {
+      for (let i = 0; i < times; i++) {
+        await vi.advanceTimersByTimeAsync(LOCK_CHECK_MS);
+      }
+    };
+
+    it('aborts a pending request when the page is hidden', async () => {
+      const locks = new FakeLocks();
+      locks.held = { release: () => undefined };
+      setup({ locks });
+      engine.start();
+      const signal = locks.requests[0].signal;
+      expect(signal?.aborted).toBe(false);
+      pagehide();
+      expect(signal?.aborted).toBe(true);
+    });
+
+    it('releases a held lock and closes the socket when the page is hidden', async () => {
+      const locks = new FakeLocks();
+      const { createSocket } = setup({ locks });
+      engine.start();
+      await settle();
+      expect(createSocket).toHaveBeenCalledTimes(1);
+      expect(server.socket.connected).toBe(true);
+      pagehide();
+      await settle();
+      expect(locks.held).toBeUndefined();
+      expect(server.socket.connected).toBe(false);
+    });
+
+    it('leads again when the page is restored from the back/forward cache', async () => {
+      const locks = new FakeLocks();
+      const { createSocket } = setup({ locks });
+      engine.start();
+      await settle();
+      pagehide();
+      await settle();
+      pageshow(false); // a normal load of the same page: not a restore
+      await settle();
+      expect(createSocket).toHaveBeenCalledTimes(1);
+      pageshow(true);
+      await settle();
+      expect(createSocket).toHaveBeenCalledTimes(2);
+      expect(server.socket.connected).toBe(true);
+      expect(locks.held).toBeDefined();
+    });
+
+    it('does not lead again after stop()', async () => {
+      const locks = new FakeLocks();
+      const { createSocket } = setup({ locks });
+      engine.start();
+      await settle();
+      await engine.stop();
+      pageshow(true);
+      await settle();
+      expect(createSocket).toHaveBeenCalledTimes(1);
+      expect(locks.requests).toHaveLength(1);
+    });
+
+    describe('waiting for the lock', () => {
+      beforeEach(() =>
+        vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] }),
+      );
+
+      it('steals a lock that is pending but held by nobody', async () => {
+        const locks = new FakeLocks();
+        locks.addGhost();
+        const { createSocket } = setup({ locks });
+        engine.start();
+        await tick(1);
+        expect(locks.requests).toHaveLength(1); // seen once: not yet
+        await tick(1);
+        expect(locks.requests.map((r) => r.steal)).toEqual([false, true]);
+        await settle();
+        expect(createSocket).toHaveBeenCalledTimes(1);
+        expect(server.socket.connected).toBe(true);
+        // Granted: the check stops.
+        await tick(3);
+        expect(locks.requests).toHaveLength(2);
+      });
+
+      it('does not steal while another page holds the lock', async () => {
+        const locks = new FakeLocks();
+        locks.held = { release: () => undefined };
+        const { createSocket } = setup({ locks });
+        engine.start();
+        await tick(5);
+        expect(locks.requests).toHaveLength(1);
+        expect(createSocket).not.toHaveBeenCalled();
+      });
+
+      it('stops checking once the page is hidden', async () => {
+        const locks = new FakeLocks();
+        locks.addGhost();
+        setup({ locks });
+        engine.start();
+        pagehide();
+        await tick(5);
+        expect(locks.requests).toHaveLength(1);
+      });
     });
   });
 

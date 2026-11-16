@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-052 — Sign-out and sign-in rounds: no redirect, then stuck offline
 
 - Was blocked: not reproducible locally (2026-11-16: 5–25 rounds in Playwright, dev and the PWA setup
@@ -85,6 +83,9 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   logout POST failing (stale CSRF/origin state) and only showing `signOutError`; the
   `storage`-event listener or a guard sending the user back; the service worker answering the
   `/sign-in` navigation from a stale cache. Record the cause in the commit body.
+- Implemented 2026-11-16: `SyncEngine` aborts a pending lock request, releases a held lock and closes the socket on `pagehide`, leads again on a persisted `pageshow`, and steals a lock that is pending but held by nobody (two checks in a row, every 3 s). Unit tests with a fake `SYNC_LOCKS`; Playwright `sign-in-rounds.spec.ts` and `.pwa.spec.ts` (five rounds). The original "no redirect on the second sign-out" symptom was never reproduced locally and has no separate fix: the log shows the sign-out itself worked, and the stuck lock is the only cause found.
+
+## Backlog
 
 ### T-050 — Settings destination with sign-out
 
