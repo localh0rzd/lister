@@ -50,8 +50,8 @@ export function whenDeleted(at: number, now = Date.now()): string {
 
 /**
  * The trash (reached from Space): lists and items deleted, and runs finished (D10), in the last
- * `TRASH_KEEP_DAYS` (D15), newest first, with who deleted or finished them and when. Restore syncs like any other change; a list comes back
- * with its items, which stayed as they were.
+ * `TRASH_KEEP_DAYS` (D15), newest first, with who deleted or finished them and when. Restore
+ * syncs like any other change; a list comes back with its items, which stayed as they were.
  */
 @Component({
   selector: 'lister-trash-page',

@@ -207,17 +207,22 @@ export class Repositories {
             run.finishedAt !== null &&
             run.finishedAt >= since,
         );
-        const runItems = await this.db.runItems
+        const runItemCounts = new Map<string, number>();
+        await this.db.runItems
           .where('runId')
           .anyOf(runs.map((run) => run.id))
-          .toArray();
+          .each((item) => {
+            if (item.deletedAt === null)
+              runItemCounts.set(
+                item.runId,
+                (runItemCounts.get(item.runId) ?? 0) + 1,
+              );
+          });
         const entries: TrashEntry[] = [
           ...runs.map((row) => ({
             kind: 'run' as const,
             row,
-            items: runItems.filter(
-              (item) => item.runId === row.id && item.deletedAt === null,
-            ).length,
+            items: runItemCounts.get(row.id) ?? 0,
           })),
           ...lists.filter(recent).map((row) => ({
             kind: 'list' as const,
