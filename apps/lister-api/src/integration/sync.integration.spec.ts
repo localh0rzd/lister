@@ -334,11 +334,13 @@ describe('sync gateway', () => {
     it('rejects a list.create whose item title is invalid, writing nothing', async () => {
       const { client } = await helloed();
       const rejects = collect(client, 'reject');
+      const badList = newId();
+      const badItem = newId();
       const bad = mutation('list.create', {
-        id: newId(),
+        id: badList,
         title: 'Camping',
         items: [
-          { id: newId(), title: 'Tent' },
+          { id: badItem, title: 'Tent' },
           { id: newId(), title: '   ' },
         ],
       });
@@ -347,6 +349,11 @@ describe('sync gateway', () => {
 
       await vi.waitFor(() => expect(rejects).toHaveLength(1));
       expect(rejects[0].mutationId).toBe(bad.mutationId);
+      const rows = next(client, 'rows');
+      client.emit('pull', { spaceId, since: 0, timeline: '' });
+      const pulled = await rows;
+      expect(pulled.rows.lists.map((l) => l.id)).not.toContain(badList);
+      expect(pulled.rows.items.map((i) => i.id)).not.toContain(badItem);
     });
 
     it('answers each mutation in order, rejecting an invalid one by id', async () => {

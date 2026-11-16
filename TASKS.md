@@ -23,28 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-048 — Paste items into the new-list dialog
-
-- Milestone: M8 Editing conveniences
-- Area: web, shared, api
-- Priority: normal
-- Depends on: T-011
-- Decisions: D18
-- Done when:
-  - The "New list" dialog has an optional multi-line "Items (one per line)" field under the title.
-  - Creating the list with pasted text creates the list and one item per remaining line, in the
-    pasted order, cleaned up as D18 says (trimmed, blank lines dropped, bullet and checkbox
-    markers removed, identical lines added once).
-  - It works offline and syncs as one change: other members see the list arrive with all its
-    items at once, and a rejection rolls back the list and its items together.
-  - A paste over the item limit (the same cap as `list.duplicate`) is refused in the dialog with a
-    clear message, not by the server.
-  - Leaving the field empty behaves exactly as today.
-- Notes: Prefer extending `list.create` with an optional `items` array (as `list.duplicate`
-  carries them) over sending one `item.create` per line. The line cleanup is a pure function in
-  `shared/domain`, unit-tested. Clients send it; the server re-validates titles as for
-  `item.create`.
-
 ## Backlog
 
 ### T-049 — Sort items A–Z in lists and runs
@@ -73,6 +51,30 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   needed. Undo sends the previous positions back with the same mutation.
 
 ## Done
+
+### T-048 — Paste items into the new-list dialog
+
+- Completed: 2026-11-16 — `list.create` takes optional items (shared domain `cleanItemLines`, sync-protocol, apply); new `NewListDialog` in web/ui, Lists page sends one mutation; pushes are size-capped
+- Review: Changes requested; 8 fixed (3 substantive, 5 trivial incl. the tab rule), 0 skipped, 0 disagreed; re-review rounds: 1
+- Milestone: M8 Editing conveniences
+- Area: web, shared, api
+- Priority: normal
+- Depends on: T-011
+- Decisions: D18
+- Done when:
+  - The "New list" dialog has an optional multi-line "Items (one per line)" field under the title.
+  - Creating the list with pasted text creates the list and one item per remaining line, in the
+    pasted order, cleaned up as D18 says (trimmed, blank lines dropped, bullet and checkbox
+    markers removed, identical lines added once).
+  - It works offline and syncs as one change: other members see the list arrive with all its
+    items at once, and a rejection rolls back the list and its items together.
+  - A paste over the item limit (the same cap as `list.duplicate`) is refused in the dialog with a
+    clear message, not by the server.
+  - Leaving the field empty behaves exactly as today.
+- Notes: Prefer extending `list.create` with an optional `items` array (as `list.duplicate`
+  carries them) over sending one `item.create` per line. The line cleanup is a pure function in
+  `shared/domain`, unit-tested. Clients send it; the server re-validates titles as for
+  `item.create`.
 
 ### T-037 — Quiet the sync-engine test teardown
 

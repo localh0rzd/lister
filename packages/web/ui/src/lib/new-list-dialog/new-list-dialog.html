@@ -20,7 +20,10 @@
         [formField]="listForm.items"
         placeholder="Paste a list here: bullets and checkboxes are removed"
       ></textarea>
-      @if (listForm.items().errors()[0]; as error) {
+      @if (
+        listForm.items().touched() && listForm.items().errors()[0];
+        as error
+      ) {
         <mat-error>{{ error.message }}</mat-error>
       } @else {
         <mat-hint>Optional</mat-hint>

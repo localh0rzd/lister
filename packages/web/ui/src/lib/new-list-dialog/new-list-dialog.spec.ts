@@ -105,7 +105,16 @@ describe('NewListDialog', () => {
     await dialog.submit();
 
     expect(dialog.close).not.toHaveBeenCalled();
-    expect(dialog.errors()[0]).toContain('Item 2');
+    expect(dialog.errors()[0]).toContain(`“${'x'.repeat(30)}”`);
     expect(dialog.errors()[0]).toContain('At most 200 characters');
+  });
+
+  it('shows no error for the items field until it is touched, and keeps the hint', async () => {
+    const dialog = await render();
+
+    await dialog.items(`Tent\n${'x'.repeat(201)}`);
+
+    expect(dialog.errors()).toEqual([]);
+    expect(dialog.element.textContent).toContain('Optional');
   });
 });

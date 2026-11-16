@@ -68,12 +68,12 @@ export class NewListDialog {
           message: `At most ${MAX_DUPLICATE_ROWS} items (you pasted ${lines.length})`,
         };
       }
-      for (const [index, line] of lines.entries()) {
+      for (const line of lines) {
         const issue = titleSchema.safeParse(line).error?.issues[0];
         if (issue) {
           return {
             kind: 'badLine',
-            message: `Item ${index + 1} (“${line.slice(0, 30)}”): ${issue.message}`,
+            message: `“${line.slice(0, 30)}”: ${issue.message}`,
           };
         }
       }
