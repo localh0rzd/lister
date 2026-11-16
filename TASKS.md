@@ -25,6 +25,43 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## Backlog
 
+### T-058 — Registration links handed out by admins
+
+- Milestone: M8 Editing conveniences
+- Area: web, api, shared
+- Priority: high
+- Depends on: T-023, T-026, T-050
+- Decisions: D23, D3 (changes)
+- Done when:
+  - Under Settings › Users, admins (and only admins: the section and every endpoint answer
+    non-admins with 403, signed-out callers with 401) can create a registration token: 12
+    characters A–Z and 0–9 from a cryptographically secure source, stored in the database (a
+    Drizzle migration; no Dexie change, it is not synced data).
+  - Each token is shown as a link `<PUBLIC_URL>/register?token=<TOKEN>` (the page's own origin
+    when `PUBLIC_URL` is unset), with a button that copies the link to the clipboard and confirms
+    it with a snackbar (`Notifier`).
+  - Admins see every unused, unexpired token with when it was created, by whom, and when it
+    expires (7 days after creation, D23), and can remove one (it stops working at once).
+  - Opening the link shows a registration page like first-run setup (token prefilled from the
+    URL and editable, username, display name, password with the same rules as setup); the token
+    is accepted ignoring case and surrounding spaces. Registering creates a regular user (not an
+    admin) with a personal space and signs them in straight into the app.
+  - A token works once: registering deletes it in the same transaction that creates the account,
+    so two simultaneous registrations with one token can't both succeed. Wrong, used, removed or
+    expired tokens get one clear error, and failed attempts count against the same per-client
+    rate limit as sign-in. Expired tokens are deleted by the daily purge (T-033) and never listed.
+  - A taken username gives the same error as when an admin creates a user.
+  - Tests: unit tests for token generation and normalization; integration tests for create, list,
+    remove (admin, non-admin, signed out) and register (success, case-insensitive, reused,
+    removed, expired, rate limit, username taken); a Playwright happy path: an admin creates a
+    link, copies it, a new browser context opens it, registers, lands in the app as a non-admin,
+    and the token is gone from the admin's list.
+- Notes: Reuse the setup page's form and the account creation of `UsersService` / `AuthService`
+  rather than copying them; registration belongs in `api/feature-auth` and the admin UI in
+  `web/feature-admin`. The register route sits next to `/setup` and `/sign-in` (no auth guard).
+  Update the API contracts in `shared/api-contracts` with `apiPath()` routes. docs/design.md §2.3
+  and D23 were updated when the task was added.
+
 ### T-054 — Finished runs in the trash, with Restore
 
 - Milestone: M8 Editing conveniences
