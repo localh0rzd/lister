@@ -12,6 +12,14 @@
   text-decoration: none;
 }
 
+// A sub-page: unlike the top-level pages' `.page-title`, its heading stays visible on phones,
+// where the top app bar still says "Lists".
+h1 {
+  font: var(--mat-sys-headline-small);
+  margin: 0 0 16px;
+  overflow-wrap: anywhere;
+}
+
 .items,
 .lists {
   list-style: none;
@@ -39,8 +47,10 @@
 .lists {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 8px;
-  margin-top: 4px;
+  // Wide enough that the chips' 48 px touch areas (below) don't overlap between rows.
+  gap: 16px 8px;
+  margin-top: 12px;
+  margin-bottom: 8px;
 }
 
 .chip {
@@ -54,6 +64,14 @@
   font: var(--mat-sys-label-medium);
   text-decoration: none;
   overflow-wrap: anywhere;
+  position: relative;
+
+  // A 32 px chip with a 48 px touch target, as Material 3 chips have.
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -8px 0;
+  }
 }
 
 .hint {
