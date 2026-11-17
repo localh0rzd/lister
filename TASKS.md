@@ -23,23 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-061 — A colour and icon per list
-
-- Milestone: M9 Data and finding things
-- Area: web, api, shared
-- Priority: low
-- Depends on: T-016
-- Decisions: D26
-- Done when:
-  - In a list's menu, **Colour and icon** lets members pick (or clear) them as D26 decides; the
-    choice syncs to other devices like any field (per-field last write wins, D5).
-  - The Lists page, the list header and included-list sections show them; both themes keep
-    sufficient contrast (axe passes).
-  - Synced as optional fields: a Drizzle migration, a sync-protocol field, a Dexie version bump
-    that forces a snapshot (design §2.5); clients without the field ignore it.
-  - Tests: unit tests for the mutation, an integration test for the new field over sync, a
-    Playwright happy path that sets a colour and icon and sees them on the Lists page.
-
 ## Backlog
 
 ### T-062 — Print without blank pages
@@ -66,6 +49,26 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   root rather than adding page-break hacks.
 
 ## Done
+
+### T-061 — A colour and icon per list
+
+- Completed: 2026-11-17 — optional colour (12 tones) and icon (40 Material Symbols) per list (D26): `shared/domain` sets, `list.update` patch, migration 0011, Dexie v8, `ListAvatar` and `ListAppearanceDialog` in `web/ui`, shown on Lists, list header, included lists and runs
+- Review: Changes requested; 6 fixed (4 substantive, 2 trivial), 0 skipped, 0 disagreed; re-review rounds: 1
+
+- Milestone: M9 Data and finding things
+- Area: web, api, shared
+- Priority: low
+- Depends on: T-016
+- Decisions: D26
+- Done when:
+  - In a list's menu, **Colour and icon** lets members pick (or clear) them as D26 decides; the
+    choice syncs to other devices like any field (per-field last write wins, D5).
+  - The Lists page, the list header and included-list sections show them; both themes keep
+    sufficient contrast (axe passes).
+  - Synced as optional fields: a Drizzle migration, a sync-protocol field, a Dexie version bump
+    that forces a snapshot (design §2.5); clients without the field ignore it.
+  - Tests: unit tests for the mutation, an integration test for the new field over sync, a
+    Playwright happy path that sets a colour and icon and sees them on the Lists page.
 
 ### T-060 — Search
 

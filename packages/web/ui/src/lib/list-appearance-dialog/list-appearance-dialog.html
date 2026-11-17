@@ -8,10 +8,11 @@
   />
   <p class="hint">Choose the selected one again to clear it.</p>
   <!-- One tab stop per group; the arrow keys, Home and End move inside it. -->
+  <h3 class="label" id="appearance-colour">Colour</h3>
   <div
     class="group"
     role="group"
-    aria-label="Colour"
+    aria-labelledby="appearance-colour"
     (keydown)="moveFocus($event)"
   >
     @for (name of colours; track name) {
@@ -28,10 +29,11 @@
       </button>
     }
   </div>
+  <h3 class="label" id="appearance-icon">Icon</h3>
   <div
     class="group"
     role="group"
-    aria-label="Icon"
+    aria-labelledby="appearance-icon"
     (keydown)="moveFocus($event)"
   >
     @for (entry of icons; track entry.icon) {

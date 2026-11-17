@@ -34,6 +34,8 @@ for (const [device, viewport] of [
       page,
       expectAccessible,
     }) => {
+      // Many steps, with axe runs in both themes: near the default 30 s on a busy machine.
+      test.slow();
       const title = await createList(page);
 
       const dialog = await pick(page, title, 'teal', 'Tent');

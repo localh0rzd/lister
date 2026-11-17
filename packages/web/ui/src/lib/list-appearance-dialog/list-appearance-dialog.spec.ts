@@ -22,7 +22,7 @@ async function render(data: Partial<ListAppearanceDialogData> = {}) {
   const element = fixture.nativeElement as HTMLElement;
   const button = (group: string, label: string) =>
     element.querySelector(
-      `[aria-label="${group}"] button[aria-label="${label}"]`,
+      `[aria-labelledby="appearance-${group.toLowerCase()}"] button[aria-label="${label}"]`,
     ) as HTMLButtonElement;
   const click = async (target: HTMLElement) => {
     target.click();
@@ -41,12 +41,12 @@ describe('ListAppearanceDialog', () => {
   it('offers the 12 colours and the curated icons', async () => {
     const { element } = await render();
     expect(
-      element.querySelectorAll('[aria-label="Colour"] button'),
+      element.querySelectorAll('[aria-labelledby="appearance-colour"] button'),
     ).toHaveLength(LIST_COLOURS.length);
     expect(LIST_COLOURS).toHaveLength(12);
-    expect(element.querySelectorAll('[aria-label="Icon"] button')).toHaveLength(
-      LIST_ICONS.length,
-    );
+    expect(
+      element.querySelectorAll('[aria-labelledby="appearance-icon"] button'),
+    ).toHaveLength(LIST_ICONS.length);
     expect(LIST_ICONS.length).toBeGreaterThanOrEqual(36);
   });
 

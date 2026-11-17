@@ -27,11 +27,13 @@
       <li class="row">
         <div class="head">
           @if (entry.source; as source) {
-            <lister-list-avatar
-              [title]="source.title"
-              [colour]="source.colour"
-              [icon]="source.icon"
-            />
+            @if (source.colour || source.icon) {
+              <lister-list-avatar
+                [title]="source.title"
+                [colour]="source.colour"
+                [icon]="source.icon"
+              />
+            }
           }
           <a class="title" [routerLink]="entry.run.id">{{ entry.run.title }}</a>
         </div>

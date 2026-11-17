@@ -183,6 +183,28 @@ describe('RunsPage', () => {
     );
   });
 
+  it('shows no avatar for a run whose source list has neither colour nor icon', async () => {
+    await withSpace();
+    const camping: List = {
+      ...meta,
+      id: newId(),
+      title: 'Camping',
+      description: '',
+      colour: null,
+      icon: null,
+    };
+    await db.lists.put(camping);
+    await db.runs.put(run('Alps', { sourceListId: camping.id }));
+    const page = await render();
+
+    await page.settle(() =>
+      expect(page.element.querySelector('.runs .title')?.textContent).toContain(
+        'Alps',
+      ),
+    );
+    expect(page.element.querySelector('lister-list-avatar')).toBeNull();
+  });
+
   it('starts an empty ad-hoc run from New run and opens it', async () => {
     await withSpace();
     const page = await render();

@@ -331,6 +331,17 @@ describe('RunPage', () => {
     );
   });
 
+  it('shows no avatar when the source list has neither colour nor icon', async () => {
+    const page = await render();
+
+    await page.settle(() =>
+      expect(page.element.querySelector('.header h1')?.textContent).toContain(
+        'Alps',
+      ),
+    );
+    expect(page.element.querySelector('lister-list-avatar')).toBeNull();
+  });
+
   it('shows who checked or skipped an item and when', async () => {
     await db.spaces.put({
       id: SPACE,
