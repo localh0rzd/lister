@@ -1,0 +1,12 @@
+<button matButton type="button" (click)="file.click()">
+  <mat-icon>upload_file</mat-icon>
+  Import
+</button>
+<input
+  #file
+  type="file"
+  accept=".md,.markdown,.txt,.json,text/plain,text/markdown,application/json"
+  aria-label="File to import"
+  hidden
+  (change)="picked(file)"
+/>

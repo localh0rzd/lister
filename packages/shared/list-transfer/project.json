@@ -1,0 +1,9 @@
+{
+  "name": "shared-list-transfer",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/shared/list-transfer/src",
+  "projectType": "library",
+  "tags": ["scope:shared", "type:util"],
+  "// targets": "to see all targets run: nx show project shared-list-transfer --web",
+  "targets": {}
+}

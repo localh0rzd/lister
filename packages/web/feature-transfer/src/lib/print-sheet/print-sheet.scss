@@ -1,0 +1,50 @@
+:host {
+  display: none;
+  color: #000;
+  background: #fff;
+  font:
+    12pt/1.5 Roboto,
+    sans-serif;
+}
+
+@media print {
+  :host {
+    display: block;
+  }
+}
+
+h1 {
+  font-size: 20pt;
+  margin: 0 0 12pt;
+}
+
+h2 {
+  font-size: 14pt;
+  margin: 14pt 0 4pt;
+  break-after: avoid;
+}
+
+ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+li {
+  break-inside: avoid;
+  padding: 1pt 0;
+}
+
+.mark {
+  display: inline-block;
+  width: 1.6em;
+}
+
+.checked .name {
+  text-decoration: line-through;
+}
+
+.extra {
+  color: #333;
+  margin-left: 0.4em;
+}

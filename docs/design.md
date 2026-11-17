@@ -306,7 +306,7 @@ Consequences:
   splash screen; the manifest can't follow the colour scheme (accepted, T-003 review).
 - **Service worker** (`@angular/service-worker`) caches the app shell and assets only. Data lives in
   IndexedDB, not in the SW cache. `/api/**` and `/socket.io/**` are excluded from the navigation
-  fallback, so that e.g. export downloads still reach the server.
+  fallback (nothing is cached for them).
 - **Updates:** a "New version available — Reload" snackbar (`SwUpdate`).
 - **Install:** install prompt on Chromium; on iOS, a short "Share → Add to Home Screen" hint, since
   there's no install API there. `InstallPrompt` (`util-pwa`) keeps Chromium's `beforeinstallprompt`
@@ -507,6 +507,14 @@ with `sortByTitle()` in `shared/domain`: the sorted items take over the keys the
 their neighbours. Items deleted meanwhile are skipped, an item of another list or run is rejected.
 Undo sends the old positions back with the same mutation.
 
+**Import (D24):** a Lister JSON export (`shared/list-transfer`: format `lister-lists`, version 1,
+validated by a Zod schema; it holds the exported lists plus every list they include) is imported
+by one `list.import` mutation: every list is new (the client picks all ids), each list's items
+and includes get positions in the file's order, and an include points at another list of the same
+import (includes whose target is missing from the file are dropped by the client). A loop among
+the imported lists, a duplicate include or a taken id rejects the whole import, so it is never
+half done; a retry is harmless. Markdown and text files are one `list.create` with items (D18).
+
 **Restoring a finished run (D20):** `run.restore` unchecks the item whose state was set last
 (`lastCheckedItem()` in `shared/domain`: ties by position, then id) and leaves the run to the same
 finishing rule, which reopens it. It does nothing to a run that isn't finished (a retry is
@@ -531,7 +539,7 @@ apply the same shared rule for the optimistic UI. Unchecking or adding an item r
 ┌───────────────────────────────────────┐            ┌────────────────────────────────────────┐
 │ Angular UI (Material 3, signals)      │            │ NestJS (plain HTTP behind Traefik)     │
 │   │ read: Dexie liveQuery → signals   │            │  ├ REST /api: sign-in, passkeys,       │
-│   │ write: mutation                   │            │  │   users, spaces, export, health     │
+│   │ write: mutation                   │            │  │   users, spaces, health            │
 │   ▼                                   │            │  ├ Socket.IO gateway                   │
 │ Local DB (IndexedDB via Dexie)        │ Socket.IO  │  │   push mutations → ack              │
 │   server rows + pending outbox        │◄──────────►│  │   pull rows since version           │
@@ -667,6 +675,7 @@ packages/
     domain                 entities, flatten(), cycle check, positions                  scope:shared type:util
     sync-protocol          mutation schemas and rules, messages, protocol version       scope:shared type:util
     api-contracts          REST types (exists)                                          scope:shared type:util
+    list-transfer          export format (Zod), Markdown export, import parsers (D24)   scope:shared type:util
   api/
     data-access-db         Drizzle schema, migrations, DB provider                      scope:api type:data-access
     feature-auth           sessions, sign-in, passkeys, user admin, registration tokens, guards scope:api type:feature
@@ -682,6 +691,7 @@ packages/
     feature-auth           sign-in, first-run setup, registration, profile, passkeys scope:web type:feature
     feature-admin          user administration, registration links (admins only) scope:web type:feature
     feature-space          space switcher, spaces and members, Trash                    scope:web type:feature
+    feature-transfer       export, import and print of lists and runs (D24)             scope:web type:feature
     feature-settings       Settings: account links, appearance, sync status, app, about, sign out  scope:web type:feature
     ui                     nav bar/rail, item row, section header, sync status, dialogs scope:web type:ui
     util-pwa               SW updates, install hint, storage persistence, online signal scope:web type:util
@@ -710,7 +720,8 @@ Conventions that follow from this (also in `CLAUDE.md`):
   (error at 250 kB per script, bounded by the ~205 kB vendor chunk) is the size backstop.
 - Synced data (lists, items, includes, runs, run items) is read from the local database and changed
   through mutations — never through REST CRUD or `httpResource()`. HTTP stays for sign-in,
-  passkeys, user administration, spaces, bootstrap, export and health.
+  passkeys, user administration, spaces, bootstrap and health. Export is built in the browser from
+  the local database and import is a mutation (D24), so neither has an endpoint.
 
 ## 6. Testing strategy
 

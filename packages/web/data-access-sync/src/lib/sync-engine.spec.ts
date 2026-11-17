@@ -1041,6 +1041,70 @@ describe('SyncEngine', () => {
     });
   });
 
+  describe('list.import', () => {
+    it('shows every imported list at once, as one queued change', async () => {
+      setup({ leader: false });
+      engine.start();
+      const [trip, basics, tent, include] = [
+        newId(),
+        newId(),
+        newId(),
+        newId(),
+      ];
+
+      expect(
+        await engine.mutate({
+          spaceId: SPACE,
+          name: 'list.import',
+          args: {
+            lists: [
+              {
+                id: trip,
+                title: 'Trip',
+                entries: [
+                  { id: tent, title: 'Tent' },
+                  { id: include, listId: basics },
+                ],
+              },
+              { id: basics, title: 'Basics', entries: [] },
+            ],
+          },
+        }),
+      ).toEqual({ ok: true });
+
+      expect(await visibleList(trip)).toMatchObject({ title: 'Trip' });
+      expect(await visibleList(basics)).toMatchObject({ title: 'Basics' });
+      expect(await db.items.get(tent)).toMatchObject({ listId: trip });
+      expect(await db.includes.get(include)).toMatchObject({
+        parentListId: trip,
+        childListId: basics,
+      });
+      expect(await outbox()).toHaveLength(1);
+    });
+
+    it('refuses an import with a loop as a whole and changes nothing', async () => {
+      setup({ leader: false });
+      engine.start();
+      const [a, b] = [newId(), newId()];
+
+      const result = await engine.mutate({
+        spaceId: SPACE,
+        name: 'list.import',
+        args: {
+          lists: [
+            { id: a, title: 'A', entries: [{ id: newId(), listId: b }] },
+            { id: b, title: 'B', entries: [{ id: newId(), listId: a }] },
+          ],
+        },
+      });
+
+      expect(result).toMatchObject({ ok: false });
+      expect(await visibleList(a)).toBeUndefined();
+      expect(await visibleList(b)).toBeUndefined();
+      expect(await outbox()).toEqual([]);
+    });
+  });
+
   describe('runs', () => {
     async function startRun(titles: string[]) {
       const runId = newId();

@@ -51,6 +51,8 @@ describe('describeMutation', () => {
       m('list.sortItems', { listId: 'L1', items: [] }),
       'Sort list “Camping” A–Z',
     ],
+    [m('list.import', { lists: [{}, {}] }), 'Import 2 lists'],
+    [m('list.import', { lists: [{}] }), 'Import 1 list'],
     [m('run.sortItems', { runId: 'R1', items: [] }), 'Sort run “Weekend” A–Z'],
     [m('run.restore', { id: 'R1' }), 'Restore run “Weekend”'],
     [

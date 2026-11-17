@@ -58,6 +58,10 @@ export async function describeMutation(
       return `Restore list ${quote(await titles.list(id))}`;
     case 'list.duplicate':
       return `Duplicate list ${await list('sourceListId')} as ${quote(str('title'))}`;
+    case 'list.import': {
+      const count = Array.isArray(args['lists']) ? args['lists'].length : 0;
+      return `Import ${count === 1 ? '1 list' : `${count} lists`}`;
+    }
     case 'list.sortItems':
       return `Sort list ${await list('listId')} A–Z`;
     case 'item.create':

@@ -16,6 +16,7 @@ import {
 import type { MutationRequest } from '@lister/web/data-access-sync';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { SyncEngine } from '@lister/web/data-access-sync';
+import { Transfers } from '@lister/web/feature-transfer';
 import { Notifier } from '@lister/web/util-notify';
 import { MatAutocompleteHarness } from '@angular/material/autocomplete/testing';
 import { of } from 'rxjs';
@@ -918,6 +919,61 @@ describe('ListEditorPage — included lists', () => {
     await page.fixture.whenStable();
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
     expect(page.element.querySelector('.section-entries')).toBeNull();
+  });
+
+  const printed = (element: HTMLElement) => {
+    const sheet = element.querySelector('lister-print-sheet') as HTMLElement;
+    return [...sheet.querySelectorAll('h2, li')].map((el) =>
+      el.tagName === 'H2' ? `# ${el.textContent}` : el.textContent?.trim(),
+    );
+  };
+
+  it('prints every item grouped by included list, even a folded section', async () => {
+    const toiletries = list('Toiletries');
+    await db.lists.put(toiletries);
+    await db.items.bulkPut([
+      item('Tent', 'a0'),
+      itemOf(toiletries.id, 'Soap', 'a0'),
+    ]);
+    await db.includes.put(include(camping.id, toiletries.id, 'a1'));
+    const page = await render();
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(page.element.querySelector('.section-entries')).not.toBeNull();
+    });
+    (page.element.querySelector('.section-toggle') as HTMLElement).click();
+    await page.fixture.whenStable();
+
+    expect(printed(page.element)).toEqual(['Tent', '# Toiletries', 'Soap']);
+    // The print stylesheet hides everything in the page but the sheet.
+    expect(page.element.hasAttribute('data-printable')).toBe(true);
+  });
+
+  it('exports and prints from the list menu', async () => {
+    await db.items.put(item('Tent', 'a0'));
+    const page = await render();
+    const transfers = TestBed.inject(Transfers);
+    const exportList = vi
+      .spyOn(transfers, 'exportList')
+      .mockImplementation(() => undefined);
+    const print = vi
+      .spyOn(transfers, 'print')
+      .mockImplementation(() => undefined);
+    await vi.waitFor(() => expect(page.titles()).toEqual(['Tent']));
+    const open = () =>
+      page.loader.getHarness(
+        MatMenuHarness.with({ selector: '[aria-label="More for this list"]' }),
+      );
+
+    await (await open()).clickItem({ text: /Export as Markdown/ });
+    await (await open()).clickItem({ text: /Export as JSON/ });
+    await (await open()).clickItem({ text: /Print/ });
+
+    expect(exportList.mock.calls.map(([l, format]) => [l.id, format])).toEqual([
+      [camping.id, 'markdown'],
+      [camping.id, 'json'],
+    ]);
+    expect(print).toHaveBeenCalledTimes(1);
   });
 
   it('shows a list in the trash as a placeholder, and a repeat as shown above', async () => {

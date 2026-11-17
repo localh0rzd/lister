@@ -21,6 +21,7 @@ import {
 } from '@lister/web/ui';
 import { SpaceChanges } from '@lister/web/data-access-sync';
 import { RunStarter } from '@lister/web/feature-runs';
+import { ImportButton, Transfers } from '@lister/web/feature-transfer';
 import { NOTICE_DURATION_MS, Notifier } from '@lister/web/util-notify';
 import { firstValueFrom } from 'rxjs';
 
@@ -38,6 +39,7 @@ export interface ListCounts {
 @Component({
   selector: 'lister-lists-page',
   imports: [
+    ImportButton,
     LoadingHint,
     MatFabButton,
     MatIcon,
@@ -59,6 +61,7 @@ export class ListsPage {
   private readonly notifier = inject(Notifier);
   private readonly router = inject(Router);
   private readonly starter = inject(RunStarter);
+  private readonly transfers = inject(Transfers);
 
   private readonly lists = this.repositories.listsOfSpace(this.space.id);
   private readonly composition = this.repositories.compositionOfSpace(
@@ -122,6 +125,16 @@ export class ListsPage {
       return Promise.resolve();
     }
     return this.starter.fromList(list, composition.value);
+  }
+
+  /** "Export as Markdown / JSON" from a list's menu: a download built from the local rows. */
+  protected exportList(list: List, format: 'markdown' | 'json'): void {
+    const composition = this.composition();
+    if (composition.status !== 'ready') {
+      this.changes.tell("Can't export right now: try again in a moment");
+      return;
+    }
+    this.transfers.exportList(list, format, composition.value);
   }
 
   protected async rename(list: List): Promise<void> {

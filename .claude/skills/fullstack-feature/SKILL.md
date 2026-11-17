@@ -1,6 +1,6 @@
 ---
 name: fullstack-feature
-description: Build a Lister feature that spans the API and the web app — either synced data (lists, items, includes, runs and anything else users edit together; local-first, changed through mutations over the sync engine) or a plain HTTP endpoint (sign-in, passkeys, user administration, spaces, export). Use when a change touches both apps/lister-api and apps/lister-web, adds a synced entity, field or mutation, or adds an HTTP endpoint the UI consumes.
+description: Build a Lister feature that spans the API and the web app — either synced data (lists, items, includes, runs and anything else users edit together; local-first, changed through mutations over the sync engine) or a plain HTTP endpoint (sign-in, passkeys, user administration, spaces; export is client-side, D24). Use when a change touches both apps/lister-api and apps/lister-web, adds a synced entity, field or mutation, or adds an HTTP endpoint the UI consumes.
 ---
 
 # Full-stack feature

@@ -38,6 +38,24 @@ const newRunItem = z.strictObject({
   position: z.optional(positionSchema),
 });
 
+/** How many lists, and how many rows in all, one import may create. */
+export const MAX_IMPORT_LISTS = 200;
+export const MAX_IMPORT_ROWS = 5000;
+
+/**
+ * One entry of an imported list: an item, or an include of another list of the same import
+ * (`listId`, the new id the client gave it). Entries are in the list's order.
+ */
+const importEntry = z.union([
+  z.strictObject({
+    id: idSchema,
+    title: titleSchema,
+    quantity: z._default(quantitySchema, ''),
+    note: z._default(noteSchema, ''),
+  }),
+  z.strictObject({ id: idSchema, listId: idSchema }),
+]);
+
 /** An item and the key to give it, in a sort (D17). */
 const positioned = z.strictObject({ id: idSchema, position: positionSchema });
 
@@ -86,6 +104,32 @@ export const mutationArgs = {
     title: titleSchema,
     items: z.array(copyOf).check(z.maxLength(MAX_DUPLICATE_ROWS)),
     includes: z.array(copyOf).check(z.maxLength(MAX_DUPLICATE_ROWS)),
+  }),
+  /**
+   * Imports a Lister export (D24) as new lists, in one step: every list is new, its entries get
+   * positions in the order given, and includes point at other lists of the same import. A loop
+   * among them, or any other broken rule, refuses the whole import.
+   */
+  'list.import': z.strictObject({
+    lists: z
+      .array(
+        z.strictObject({
+          id: idSchema,
+          title: titleSchema,
+          description: z._default(descriptionSchema, ''),
+          entries: z.array(importEntry).check(z.maxLength(MAX_DUPLICATE_ROWS)),
+        }),
+      )
+      .check(
+        z.minLength(1),
+        z.maxLength(MAX_IMPORT_LISTS, 'This import has too many lists'),
+        z.refine(
+          (lists) =>
+            lists.reduce((sum, list) => sum + list.entries.length, 0) <=
+            MAX_IMPORT_ROWS,
+          'This import has too many items',
+        ),
+      ),
   }),
   /**
    * "Sort A–Z" (D17): sets the position of each listed item of the list, in one step. It sets
@@ -221,6 +265,7 @@ export const mutationSchema = z.discriminatedUnion('name', [
   mutationOf('list.delete'),
   mutationOf('list.restore'),
   mutationOf('list.duplicate'),
+  mutationOf('list.import'),
   mutationOf('list.sortItems'),
   mutationOf('item.create'),
   mutationOf('item.update'),

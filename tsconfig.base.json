@@ -58,6 +58,12 @@
       ],
       "@lister/web/feature-settings": [
         "./packages/web/feature-settings/src/index.ts"
+      ],
+      "@lister/shared/list-transfer": [
+        "./packages/shared/list-transfer/src/index.ts"
+      ],
+      "@lister/web/feature-transfer": [
+        "./packages/web/feature-transfer/src/index.ts"
       ]
     }
   },

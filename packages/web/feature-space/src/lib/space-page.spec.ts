@@ -9,6 +9,7 @@ import { provideRouter } from '@angular/router';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { newId } from '@lister/shared/domain';
 import { SyncEngine } from '@lister/web/data-access-sync';
+import { Transfers } from '@lister/web/feature-transfer';
 import { SpacePage } from './space-page';
 
 describe('SpacePage', () => {
@@ -69,5 +70,47 @@ describe('SpacePage', () => {
     for (const heading of ['Account', 'Appearance', 'Sync', 'App', 'About']) {
       expect(text).not.toContain(heading);
     }
+  });
+
+  it('exports every list of the space as JSON from the local rows', async () => {
+    const spaceId = newId();
+    const meta = {
+      spaceId,
+      version: 1,
+      deletedAt: null,
+      createdBy: 'u',
+      updatedBy: 'u',
+      createdAt: 0,
+      updatedAt: 0,
+    };
+    await db.spaces.put({ id: spaceId, name: 'Home', version: 1, members: [] });
+    await db.lists.bulkPut([
+      { ...meta, id: newId(), title: 'Camping', description: '' },
+      { ...meta, id: newId(), title: 'Old', description: '', deletedAt: 3 },
+    ]);
+    const exportAll = vi
+      .spyOn(TestBed.inject(Transfers), 'exportAll')
+      .mockImplementation(() => undefined);
+    const fixture = TestBed.createComponent(SpacePage);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    await vi.waitFor(() => {
+      for (const call of TestBed.inject(HttpTestingController).match(
+        () => true,
+      ))
+        call.flush([]);
+      fixture.detectChanges();
+      expect(element.querySelector('#data-heading')).not.toBeNull();
+    });
+    const button = [...element.querySelectorAll('button.row-link')].find((b) =>
+      b.textContent?.includes('Export all lists (JSON)'),
+    ) as HTMLButtonElement;
+
+    await vi.waitFor(() => {
+      button.click();
+      expect(exportAll).toHaveBeenCalled();
+    });
+
+    expect(exportAll.mock.calls[0][0].map((l) => l.title)).toEqual(['Camping']);
   });
 });

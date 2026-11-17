@@ -438,6 +438,103 @@ export function applyMutation(
       }
       return changed({ lists: [args.id], items, includes });
     }
+    case 'list.import': {
+      const { lists } = mutation.args;
+      const first = store.getList(lists[0].id);
+      if (first) {
+        return first.spaceId === ctx.spaceId
+          ? unchanged
+          : reject('This list already exists');
+      }
+      // Everything is built and checked before anything is written.
+      const titles = new Map<string, string>();
+      for (const list of lists) {
+        if (titles.has(list.id) || store.getList(list.id)) {
+          return reject('This list already exists');
+        }
+        titles.set(list.id, list.title);
+      }
+      const rows = {
+        lists: [] as List[],
+        items: [] as Item[],
+        includes: [] as Include[],
+      };
+      const ids = new Set<string>();
+      for (const list of lists) {
+        rows.lists.push({
+          ...created,
+          id: list.id,
+          title: list.title,
+          description: list.description,
+        });
+        const positions = positionsFromStart(list.entries.length);
+        list.entries.forEach((entry, i) => {
+          const position = positions[i];
+          if ('listId' in entry) {
+            rows.includes.push({
+              ...created,
+              id: entry.id,
+              parentListId: list.id,
+              childListId: entry.listId,
+              position,
+            });
+          } else {
+            rows.items.push({
+              ...created,
+              id: entry.id,
+              listId: list.id,
+              title: entry.title,
+              quantity: entry.quantity,
+              note: entry.note,
+              position,
+            });
+          }
+        });
+      }
+      for (const row of [...rows.items, ...rows.includes]) {
+        if (
+          ids.has(row.id) ||
+          store.getItem(row.id) ||
+          store.getInclude(row.id)
+        )
+          return reject('This item already exists');
+        ids.add(row.id);
+      }
+      const includesOf = (parentId: string) =>
+        rows.includes.filter((row) => row.parentListId === parentId);
+      for (const include of rows.includes) {
+        const parent = titles.get(include.parentListId) as string;
+        const child = titles.get(include.childListId);
+        if (child === undefined) return reject(LIST_MISSING);
+        if (include.parentListId === include.childListId)
+          return reject("A list can't include itself");
+        if (
+          includesOf(include.parentListId).some(
+            (other) =>
+              other !== include && other.childListId === include.childListId,
+          )
+        ) {
+          return reject(`“${child}” is already included`);
+        }
+        if (
+          wouldCreateCycle(include.parentListId, include.childListId, (id) =>
+            includesOf(id).filter((other) => other !== include),
+          )
+        ) {
+          return reject(
+            `That would make a loop: “${child}” already contains “${parent}”`,
+          );
+        }
+      }
+      for (const row of rows.lists) store.putList(row);
+      for (const row of rows.items) store.putItem(row);
+      for (const row of rows.includes) store.putInclude(row);
+      return changed({
+        lists: rows.lists.map((row) => row.id),
+        items: rows.items.map((row) => row.id),
+        includes: rows.includes.map((row) => row.id),
+      });
+    }
     case 'list.update': {
       const list = listHere(mutation.args.id);
       if (!list) return reject(LIST_MISSING);

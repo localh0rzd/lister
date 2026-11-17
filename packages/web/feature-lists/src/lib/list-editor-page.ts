@@ -56,6 +56,11 @@ import {
   type ListPickerData,
   LoadingHint,
 } from '@lister/web/ui';
+import {
+  PrintSheet,
+  Transfers,
+  printGroupsOfList,
+} from '@lister/web/feature-transfer';
 import { SpaceChanges } from '@lister/web/data-access-sync';
 import { AddItemOrderPreference, RunStarter } from '@lister/web/feature-runs';
 import { firstValueFrom } from 'rxjs';
@@ -112,6 +117,7 @@ function reachableFrom(space: SpaceComposition, root: string): Set<string> {
     AddItemField,
     AddOrderToggle,
     LoadingHint,
+    PrintSheet,
     CdkDrag,
     CdkDragHandle,
     CdkDropList,
@@ -124,6 +130,7 @@ function reachableFrom(space: SpaceComposition, root: string): Set<string> {
     MatMenuTrigger,
     RouterLink,
   ],
+  host: { 'data-printable': '' },
   templateUrl: './list-editor-page.html',
   styleUrl: './list-editor-page.scss',
 })
@@ -132,6 +139,7 @@ export class ListEditorPage {
   readonly listId = input.required<string>();
 
   private readonly repositories = inject(Repositories);
+  private readonly transfers = inject(Transfers);
   private readonly changes = inject(SpaceChanges);
   private readonly dialog = inject(MatDialog);
   private readonly currentSpace = inject(CurrentSpace);
@@ -158,6 +166,14 @@ export class ListEditorPage {
    * database (in several steps when ties are re-keyed).
    */
   private readonly heldOrder = signal<readonly string[] | null>(null);
+
+  /** What "Print" prints: every item of the list, grouped by included list (D24). */
+  protected readonly printGroups = computed(() => {
+    const view = this.dataView();
+    return view.kind === 'ready'
+      ? printGroupsOfList(view.list.id, view.space)
+      : [];
+  });
 
   protected readonly view = computed(() => {
     const view = this.dataView();
@@ -349,6 +365,18 @@ export class ListEditorPage {
    * list itself, so the new order shows wherever it is included). The includes among the items
    * keep their slots; Undo sends the old positions back.
    */
+  /** "Export as Markdown / JSON": a download built from the local rows (D24). */
+  protected exportList(format: 'markdown' | 'json'): void {
+    const view = this.dataView();
+    if (view.kind === 'ready') {
+      this.transfers.exportList(view.list, format, view.space);
+    }
+  }
+
+  protected print(): void {
+    this.transfers.print();
+  }
+
   protected async sort(listId: string): Promise<void> {
     const view = this.view();
     if (view.kind !== 'ready') return;

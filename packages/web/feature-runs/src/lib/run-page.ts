@@ -33,6 +33,11 @@ import { titleSchema } from '@lister/shared/sync-protocol';
 import { CurrentSpace, Repositories } from '@lister/web/data-access-local-db';
 import { type SpaceChange, SpaceChanges } from '@lister/web/data-access-sync';
 import {
+  type PrintGroup,
+  PrintSheet,
+  Transfers,
+} from '@lister/web/feature-transfer';
+import {
   AddItemField,
   AddOrderToggle,
   ItemDialog,
@@ -74,6 +79,7 @@ interface SentState {
     AddOrderToggle,
     FormField,
     LoadingHint,
+    PrintSheet,
     MatButton,
     MatCheckbox,
     MatIcon,
@@ -86,6 +92,7 @@ interface SentState {
     NgTemplateOutlet,
     RouterLink,
   ],
+  host: { 'data-printable': '' },
   templateUrl: './run-page.html',
   styleUrl: './run-page.scss',
 })
@@ -95,6 +102,7 @@ export class RunPage {
 
   private readonly repositories = inject(Repositories);
   private readonly changes = inject(SpaceChanges);
+  private readonly transfers = inject(Transfers);
   private readonly dialog = inject(MatDialog);
   private readonly router = inject(Router);
   private readonly notifier = inject(Notifier);
@@ -128,6 +136,26 @@ export class RunPage {
    * other item unchecked, and the one that finishes the run would not know it.
    */
   private readonly sentStates = new Map<string, SentState>();
+
+  /** What "Print" prints: every item with its check state, in the sections of the page. */
+  protected readonly printGroups = computed<PrintGroup[]>(() => {
+    const view = this.view();
+    if (view.kind !== 'ready') return [];
+    const composition = this.composition();
+    const { sections } = layoutRun(
+      view.items,
+      (id) =>
+        composition.status === 'ready'
+          ? composition.value.list(id)?.title
+          : undefined,
+      false,
+    );
+    return sections.map((section) => ({
+      key: section.key,
+      title: section.title,
+      items: section.rows.map((row) => row.item),
+    }));
+  });
 
   protected readonly view = computed(() => {
     const run = this.run();
@@ -270,6 +298,10 @@ export class RunPage {
       // Not tied to this view, so it schedules a render of its own.
       { injector: this.environment },
     );
+  }
+
+  protected print(): void {
+    this.transfers.print();
   }
 
   protected async rename(): Promise<void> {

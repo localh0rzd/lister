@@ -16,8 +16,11 @@
     "cloud_off",
     "content_copy",
     "dark_mode",
+    "data_object",
     "delete",
     "delete_outline",
+    "description",
+    "download",
     "drag_indicator",
     "edit",
     "expand_less",
@@ -35,6 +38,7 @@
     "playlist_add",
     "playlist_add_check",
     "playlist_remove",
+    "print",
     "radio_button_checked",
     "radio_button_unchecked",
     "redo",
@@ -44,6 +48,7 @@
     "storage",
     "sync",
     "task_alt",
-    "undo"
+    "undo",
+    "upload_file"
   ]
 }

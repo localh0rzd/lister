@@ -1,0 +1,29 @@
+<h1>{{ title() }}</h1>
+@for (group of groups(); track group.key) {
+  <div class="group">
+    @if (group.title) {
+      <h2>{{ group.title }}</h2>
+    }
+    <ul>
+      @for (item of group.items; track item.id) {
+        <li [class.checked]="item.state === 'checked'">
+          @if (item.state) {
+            <span class="mark" aria-hidden="true">{{ mark(item.state) }}</span>
+          }
+          <span class="name">{{ item.title }}</span>
+          @if (item.quantity) {
+            <span class="extra">× {{ item.quantity }}</span>
+          }
+          @if (item.state === 'skipped') {
+            <span class="extra">(skipped)</span>
+          }
+          @if (item.note) {
+            <span class="extra">— {{ item.note }}</span>
+          }
+        </li>
+      }
+    </ul>
+  </div>
+} @empty {
+  <p>No items.</p>
+}

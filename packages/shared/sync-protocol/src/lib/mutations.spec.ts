@@ -61,6 +61,21 @@ describe('mutationSchema', () => {
       { name: 'runItem.restore', args: { id } },
       { name: 'runItem.setState', args: { id, state: 'skipped' } },
       {
+        name: 'list.import',
+        args: {
+          lists: [
+            {
+              id,
+              title: 'Trip',
+              entries: [
+                { id: newId(), title: 'Tent' },
+                { id: newId(), listId: newId() },
+              ],
+            },
+          ],
+        },
+      },
+      {
         name: 'list.duplicate',
         args: {
           id,
@@ -115,6 +130,22 @@ describe('mutationSchema', () => {
   it.each([
     ['an unknown mutation', { name: 'item.toggle', args: { id: newId() } }],
     ['a missing title', { name: 'list.create', args: { id: newId() } }],
+    ['an import without lists', { name: 'list.import', args: { lists: [] } }],
+    [
+      'an import entry with unknown fields',
+      {
+        name: 'list.import',
+        args: {
+          lists: [
+            {
+              id: newId(),
+              title: 'Trip',
+              entries: [{ id: newId(), title: 'Tent', listId: newId() }],
+            },
+          ],
+        },
+      },
+    ],
     [
       'a blank title',
       { name: 'list.create', args: { id: newId(), title: '   ' } },

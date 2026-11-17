@@ -25,3 +25,10 @@ h2 {
   font: var(--mat-sys-body-medium);
   color: var(--mat-sys-on-surface-variant);
 }
+button.row-link {
+  width: 100%;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}

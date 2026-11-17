@@ -1,0 +1,10 @@
+{
+  "name": "web-feature-transfer",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/web/feature-transfer/src",
+  "prefix": "lister",
+  "projectType": "library",
+  "tags": ["scope:web", "type:feature"],
+  "// targets": "to see all targets run: nx show project web-feature-transfer --web",
+  "targets": {}
+}

@@ -1,4 +1,9 @@
-<h1 class="page-title">Lists</h1>
+<div class="header">
+  <h1 class="page-title">Lists</h1>
+  @if (view().kind === 'lists') {
+    <lister-import-button />
+  }
+</div>
 @let v = view();
 @if (v.kind === 'lists' && v.lists.length > 0) {
   <a class="all-items" routerLink="items">
@@ -59,6 +64,22 @@
           <button mat-menu-item type="button" (click)="duplicate(entry.list)">
             <mat-icon>content_copy</mat-icon>
             <span>Duplicate</span>
+          </button>
+          <button
+            mat-menu-item
+            type="button"
+            (click)="exportList(entry.list, 'markdown')"
+          >
+            <mat-icon>description</mat-icon>
+            <span>Export as Markdown</span>
+          </button>
+          <button
+            mat-menu-item
+            type="button"
+            (click)="exportList(entry.list, 'json')"
+          >
+            <mat-icon>data_object</mat-icon>
+            <span>Export as JSON</span>
           </button>
           <button mat-menu-item type="button" (click)="remove(entry.list)">
             <mat-icon>delete</mat-icon>

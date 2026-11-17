@@ -114,6 +114,8 @@ interface TouchingArgs {
   runId?: string;
   items?: { id: string; from?: string }[];
   includes?: { id: string; from: string }[];
+  /** list.import: new lists, each with entries that are items or (with `listId`) includes. */
+  lists?: { id: string; entries: { id: string; listId?: string }[] }[];
 }
 
 /**
@@ -139,6 +141,11 @@ function touchedBy(
         }
         for (const row of a.includes ?? [])
           into.includes.add(row.id).add(row.from);
+        for (const list of a.lists ?? []) {
+          into.lists.add(list.id);
+          for (const entry of list.entries)
+            (entry.listId ? into.includes : into.items).add(entry.id);
+        }
         break;
       case 'item':
         if (a.id) into.items.add(a.id);

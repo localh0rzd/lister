@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-059 — Export, import and print lists
 
 - Milestone: M9 Data and finding things
@@ -59,6 +57,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   the format schema and conversion functions belong in `shared/domain` or a new shared library
   with no browser APIs. Reuse the paste parser from T-048. Design §4/CLAUDE.md still list "export"
   among the REST uses; adjust the wording to say export is client-side (D24).
+
+## Backlog
 
 ### T-060 — Search
 

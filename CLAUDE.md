@@ -23,9 +23,9 @@ Nx monorepo: **Angular** web app + **NestJS** API, sharing TypeScript libraries.
 
 `packages/<scope>/<name>`, project `<scope>-<name>`, import path `@lister/<scope>/<name>`:
 
-- **shared:** `api-contracts` (HTTP DTO types, `apiPath()`), `domain` (entities, ids, positions, flattening, cycle check), `sync-protocol` (Zod schemas for mutations and socket messages, `applyMutation()`)
+- **shared:** `api-contracts` (HTTP DTO types, `apiPath()`), `domain` (entities, ids, positions, flattening, cycle check), `sync-protocol` (Zod schemas for mutations and socket messages, `applyMutation()`), `list-transfer` (export format, Markdown export, import parsers)
 - **api:** `data-access-db` (SQLite + Drizzle, migrations), `feature-auth`, `feature-spaces`, `feature-sync`, `feature-maintenance` (backups, purge)
-- **web:** `data-access-local-db` (Dexie, liveQuery signals, repositories), `data-access-sync` (sync engine, outbox, socket; `SpaceChanges`), `data-access-auth`, `feature-lists`, `feature-runs`, `feature-auth`, `feature-admin`, `feature-space`, `feature-settings`, `ui` (nav bar and rail), `util-theme`, `util-notify` (`Notifier`), `util-pwa`
+- **web:** `data-access-local-db` (Dexie, liveQuery signals, repositories), `data-access-sync` (sync engine, outbox, socket; `SpaceChanges`), `data-access-auth`, `feature-lists`, `feature-runs`, `feature-auth`, `feature-admin`, `feature-space`, `feature-settings`, `feature-transfer` (export, import, print), `ui` (nav bar and rail), `util-theme`, `util-notify` (`Notifier`), `util-pwa`
 
 Apps stay thin: they wire routes, modules and config. **Every bigger feature gets its own library from its first line of code** (`module-boundaries` skill). Planned libraries and their tags are in docs/design.md §5; add any new one there.
 
@@ -34,7 +34,7 @@ Apps stay thin: they wire routes, modules and config. **Every bigger feature get
 - **List**: reusable, composable, no check state. **Item**: belongs to exactly one list. **Include**: list A contains list B, any depth, never a cycle; a list reached twice appears once; a live reference (D2).
 - **Run**: a one-off checklist, started from a list (items copied in, D2) or empty; identical items merged (D16). Holds checked/skipped state; when every item is checked or skipped it finishes and goes to the trash (D10, D20). The UI says "run" too.
 - **Users and spaces**: admins manage accounts (no self-registration; registration links, D23); sign-in with password or passkeys. A **space** owns lists and runs; all its members can edit them (D14).
-- **Local-first:** the web app reads synced data from IndexedDB (Dexie) and changes it only through **mutations** via the sync engine. The server applies each mutation in one SQLite transaction and pokes the changed rows to the space over Socket.IO, which is authenticated by the session cookie and checks membership on every pull and push. REST is only for sign-in, passkeys, user administration, spaces, bootstrap, export and health. **Never build synced data on REST CRUD** (Path A of `fullstack-feature`).
+- **Local-first:** the web app reads synced data from IndexedDB (Dexie) and changes it only through **mutations** via the sync engine. The server applies each mutation in one SQLite transaction and pokes the changed rows to the space over Socket.IO, which is authenticated by the session cookie and checks membership on every pull and push. REST is only for sign-in, passkeys, user administration, spaces, bootstrap and health; export is client-side and import is a mutation (D24). **Never build synced data on REST CRUD** (Path A of `fullstack-feature`).
 - **Conflicts:** per field, last write to reach the server wins; deletes win (tombstones); a mutation that breaks a rule is rejected and rolled back on the client.
 - **Production:** one Docker container behind Traefik (HTTPS there); the app speaks HTTP and takes its public URL from `PUBLIC_URL`.
 - UI text is English only.

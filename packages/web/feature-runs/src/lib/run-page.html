@@ -40,8 +40,13 @@
         <mat-icon>playlist_add_check</mat-icon>
         <span>Save as list</span>
       </button>
+      <button mat-menu-item type="button" (click)="print()">
+        <mat-icon>print</mat-icon>
+        <span>Print</span>
+      </button>
     </mat-menu>
   </div>
+  <lister-print-sheet [title]="v.run.title" [groups]="printGroups()" />
 
   @if (v.items.length > 0) {
     <div class="progress">

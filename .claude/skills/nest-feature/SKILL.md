@@ -19,7 +19,7 @@ Always load `best-practices`, `testing` and `module-boundaries` too.
 - **Generate, don't hand-roll:**
 
 ```bash
-npx nx g @nx/nest:resource packages/api/<lib>/src/lib/<feature>/<feature> --type=rest --crud --dry-run   # REST only: auth, passkeys, users, spaces, export
+npx nx g @nx/nest:resource packages/api/<lib>/src/lib/<feature>/<feature> --type=rest --crud --dry-run   # REST only: auth, passkeys, users, spaces
 npx nx g @nx/nest:service packages/api/<lib>/src/lib/<feature>/<name> --dry-run
 ```
 
@@ -48,7 +48,7 @@ gets REST CRUD endpoints.** It changes through mutations, applied by `MutationSe
 ## DTOs & validation
 
 A global `ValidationPipe({ whitelist: true, transform: true })` covers REST request bodies
-(sign-in, user administration, spaces, export). Mutations and socket messages are validated
+(sign-in, user administration, spaces). Mutations and socket messages are validated
 with the shared Zod schemas instead.
 
 ```ts

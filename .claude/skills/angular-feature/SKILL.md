@@ -79,7 +79,7 @@ export class ListCard {
     `SyncEngine.mutate()`. The whole recipe is Path A of the `fullstack-feature` skill.
 - **Sync state:** show it where it matters: pending ("not synced yet"), offline, and rejected
   changes (a snackbar with the reason, and Undo where it makes sense).
-- **Other HTTP** (sign-in, passkeys, user administration, spaces, export, health):
+- **Other HTTP** (sign-in, passkeys, user administration, spaces, health):
   - Reads: `httpResource<T>(() => apiPath(...))`, with `.value()`, `.isLoading()`, `.error()`,
     `.hasValue()` and `.reload()`.
   - Writes: a `@Service()` class using `HttpClient`, typed with `@lister/shared/api-contracts`.

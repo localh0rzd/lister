@@ -13,6 +13,7 @@ import {
 } from '@lister/shared/domain';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { type MutationRequest, SyncEngine } from '@lister/web/data-access-sync';
+import { Transfers } from '@lister/web/feature-transfer';
 import { Notifier } from '@lister/web/util-notify';
 import { Observable, Subject, of } from 'rxjs';
 import type { ItemDialogData } from '@lister/web/ui';
@@ -231,6 +232,44 @@ describe('RunPage', () => {
     expect(page.element.querySelector('.skipped')?.textContent).toContain(
       'Skipped',
     );
+  });
+
+  it('prints every item with its check state, grouped as on the page, even with "Done" on', async () => {
+    await db.runItems.bulkPut([
+      runItem('Tent', 'a0', { sources: [camping.id], state: 'checked' }),
+      runItem('Socks', 'a1', { sources: [basics.id], state: 'skipped' }),
+      runItem('Milk', 'a2'),
+    ]);
+    const page = await render(true);
+    const print = vi
+      .spyOn(TestBed.inject(Transfers), 'print')
+      .mockImplementation(() => undefined);
+    await page.settle(() =>
+      expect(page.element.querySelector('lister-print-sheet')).not.toBeNull(),
+    );
+
+    const sheet = page.element.querySelector(
+      'lister-print-sheet',
+    ) as HTMLElement;
+    const lines = [...sheet.querySelectorAll('h2, li')].map((el) =>
+      el.tagName === 'H2' ? `# ${el.textContent}` : el.textContent?.trim(),
+    );
+    expect(lines).toEqual([
+      '# Camping',
+      '☑Tent',
+      '# Basics',
+      '⊘Socks(skipped)',
+      '# Added to this run',
+      '☐Milk',
+    ]);
+
+    const menu = await TestbedHarnessEnvironment.loader(
+      page.fixture,
+    ).getHarness(
+      MatMenuHarness.with({ selector: '[aria-label="More for this run"]' }),
+    );
+    await menu.clickItem({ text: /Print/ });
+    expect(print).toHaveBeenCalledTimes(1);
   });
 
   it('shows who checked or skipped an item and when', async () => {

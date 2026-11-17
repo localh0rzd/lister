@@ -1773,6 +1773,106 @@ describe('sync gateway', () => {
       ).not.toBe('a9');
     });
 
+    it('list.import creates every list as one change, pokes it to the other member and is idempotent', async () => {
+      const anna = await helloed();
+      const ben = await helloed('ben');
+      const pokes = collect(ben.client, 'poke');
+      const [trip, basics, tent, include] = [
+        newId(),
+        newId(),
+        newId(),
+        newId(),
+      ];
+      const imported = mutation('list.import', {
+        lists: [
+          {
+            id: trip,
+            title: 'Trip',
+            description: '',
+            entries: [
+              { id: tent, title: 'Tent', quantity: '2', note: '' },
+              { id: include, listId: basics },
+            ],
+          },
+          {
+            id: basics,
+            title: 'Basics',
+            description: '',
+            entries: [
+              { id: newId(), title: 'Passport', quantity: '', note: '' },
+            ],
+          },
+        ],
+      });
+
+      const [answer] = await push(anna.client, imported);
+
+      expect(answer).toEqual({ mutationId: imported.mutationId, version: 1 });
+      await vi.waitFor(() => expect(pokes).toHaveLength(1));
+      expect(pokes[0].rows.lists.map((l) => l.title).sort()).toEqual([
+        'Basics',
+        'Trip',
+      ]);
+      expect(pokes[0].rows.items.map((i) => i.title).sort()).toEqual([
+        'Passport',
+        'Tent',
+      ]);
+      expect(pokes[0].rows.includes).toEqual([
+        expect.objectContaining({ parentListId: trip, childListId: basics }),
+      ]);
+      const [again] = await push(anna.client, imported);
+      expect(again).toEqual({ mutationId: imported.mutationId, version: 1 });
+    });
+
+    it('list.import refuses a loop between the imported lists with its reason and creates nothing', async () => {
+      const anna = await helloed();
+      const [a, b] = [newId(), newId()];
+      const imported = mutation('list.import', {
+        lists: [
+          {
+            id: a,
+            title: 'A',
+            description: '',
+            entries: [{ id: newId(), listId: b }],
+          },
+          {
+            id: b,
+            title: 'B',
+            description: '',
+            entries: [{ id: newId(), listId: a }],
+          },
+        ],
+      });
+
+      const [answer] = await push(anna.client, imported);
+
+      expect(answer).toMatchObject({
+        mutationId: imported.mutationId,
+        reason: expect.stringContaining('That would make a loop'),
+      });
+      expect(
+        api.database.db
+          .select()
+          .from(schema.lists)
+          .where(eq(schema.lists.id, a))
+          .get(),
+      ).toBeUndefined();
+    });
+
+    it('does not let a non-member import lists into a space', async () => {
+      const carl = await helloed('carl');
+      const imported = mutation('list.import', {
+        lists: [{ id: newId(), title: 'A', description: '', entries: [] }],
+      });
+
+      const [answer] = await push(carl.client, imported);
+
+      expect(answer).toEqual({
+        mutationId: imported.mutationId,
+        reason: "You can't change this space",
+      });
+    });
+
     it('run.sortItems sets the positions of the run items as one change and is idempotent', async () => {
       const anna = await helloed();
       const ben = await helloed('ben');

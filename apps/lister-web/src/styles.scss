@@ -60,3 +60,36 @@ body {
     white-space: nowrap;
   }
 }
+
+// Printing a list or a run (D24): only the page's print sheet (`lister-print-sheet`) is printed,
+// without the navigation, menus and buttons, on the paper size the user picks (A4, Letter).
+@page {
+  margin: 15mm;
+}
+
+@media print {
+  body {
+    background: none;
+    color: #000;
+  }
+
+  .top-bar,
+  .nav,
+  .cdk-overlay-container {
+    display: none !important;
+  }
+
+  .shell {
+    display: block;
+    height: auto;
+  }
+
+  .shell .content {
+    overflow: visible;
+    padding: 0;
+  }
+
+  [data-printable] > :not(lister-print-sheet) {
+    display: none !important;
+  }
+}

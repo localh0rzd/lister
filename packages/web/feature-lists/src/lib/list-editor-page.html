@@ -30,7 +30,30 @@
       <mat-icon>play_arrow</mat-icon>
       Start run
     </button>
+    <button
+      matIconButton
+      type="button"
+      [matMenuTriggerFor]="listMenu"
+      aria-label="More for this list"
+    >
+      <mat-icon>more_vert</mat-icon>
+    </button>
+    <mat-menu #listMenu="matMenu">
+      <button mat-menu-item type="button" (click)="exportList('markdown')">
+        <mat-icon>description</mat-icon>
+        <span>Export as Markdown</span>
+      </button>
+      <button mat-menu-item type="button" (click)="exportList('json')">
+        <mat-icon>data_object</mat-icon>
+        <span>Export as JSON</span>
+      </button>
+      <button mat-menu-item type="button" (click)="print()">
+        <mat-icon>print</mat-icon>
+        <span>Print</span>
+      </button>
+    </mat-menu>
   </div>
+  <lister-print-sheet [title]="v.list.title" [groups]="printGroups()" />
 
   @if (v.rows.length === 0) {
     <p class="hint">No items yet. Add the first one below, or add a list.</p>

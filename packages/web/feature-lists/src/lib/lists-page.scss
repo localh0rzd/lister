@@ -120,3 +120,16 @@
   color: var(--mat-sys-primary);
   text-decoration: none;
 }
+
+.header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-bottom: 16px;
+
+  .page-title {
+    flex: 1 1 auto;
+    margin: 0;
+  }
+}

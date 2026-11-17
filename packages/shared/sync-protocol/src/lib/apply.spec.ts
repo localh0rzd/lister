@@ -1,4 +1,9 @@
-import { newId } from '@lister/shared/domain';
+import {
+  type Include,
+  type Item,
+  comparePositions,
+  newId,
+} from '@lister/shared/domain';
 import { MemoryRowStore, applyMutation } from './apply';
 import { type Mutation, mutationSchema } from './mutations';
 
@@ -1509,5 +1514,146 @@ describe('sort items (D17)', () => {
     expect(
       [...store.runItems.values()].filter((i) => i.deletedAt === null),
     ).toHaveLength(3);
+  });
+});
+
+describe('list.import', () => {
+  const entry = (title: string) => ({ id: newId(), title });
+
+  it('creates every list with its items and includes in order, as one change', () => {
+    const store = new MemoryRowStore();
+    const [trip, toiletries] = [newId(), newId()];
+    const [tent, include, soap] = [newId(), newId(), newId()];
+
+    const outcome = apply(store, 'list.import', {
+      lists: [
+        {
+          id: trip,
+          title: 'Trip',
+          description: 'Summer',
+          entries: [
+            { id: tent, title: 'Tent', quantity: '1', note: 'big' },
+            { id: include, listId: toiletries },
+          ],
+        },
+        {
+          id: toiletries,
+          title: 'Toiletries',
+          entries: [{ id: soap, title: 'Soap' }],
+        },
+      ],
+    });
+
+    expect(outcome).toEqual({
+      kind: 'changed',
+      lists: [trip, toiletries],
+      items: [tent, soap],
+      includes: [include],
+      runs: [],
+      runItems: [],
+    });
+    expect(store.getList(trip)).toMatchObject({
+      title: 'Trip',
+      description: 'Summer',
+      spaceId: SPACE,
+    });
+    expect(store.getItem(tent)).toMatchObject({
+      listId: trip,
+      quantity: '1',
+      note: 'big',
+    });
+    expect(store.getInclude(include)).toMatchObject({
+      parentListId: trip,
+      childListId: toiletries,
+    });
+    // The item comes before the include, as listed.
+    expect(
+      comparePositions(
+        store.getItem(tent) as Item,
+        store.getInclude(include) as Include,
+      ),
+    ).toBeLessThan(0);
+  });
+
+  it('is harmless when retried', () => {
+    const store = new MemoryRowStore();
+    const args = {
+      lists: [{ id: newId(), title: 'Trip', entries: [entry('Tent')] }],
+    };
+    apply(store, 'list.import', args);
+    expect(apply(store, 'list.import', args, 2)).toEqual({ kind: 'unchanged' });
+  });
+
+  it.each([
+    [
+      'a loop between the lists',
+      (a: string, b: string) => [
+        { id: a, title: 'A', entries: [{ id: newId(), listId: b }] },
+        { id: b, title: 'B', entries: [{ id: newId(), listId: a }] },
+      ],
+      'That would make a loop',
+    ],
+    [
+      'a list that includes itself',
+      (a: string) => [
+        { id: a, title: 'A', entries: [{ id: newId(), listId: a }] },
+      ],
+      "A list can't include itself",
+    ],
+    [
+      'an include of a list that is not in the import',
+      (a: string) => [
+        { id: a, title: 'A', entries: [{ id: newId(), listId: newId() }] },
+      ],
+      "This list doesn't exist",
+    ],
+    [
+      'the same list included twice',
+      (a: string, b: string) => [
+        {
+          id: a,
+          title: 'A',
+          entries: [
+            { id: newId(), listId: b },
+            { id: newId(), listId: b },
+          ],
+        },
+        { id: b, title: 'B', entries: [] },
+      ],
+      'is already included',
+    ],
+  ])('refuses %s and writes nothing', (_, lists, reason) => {
+    const store = new MemoryRowStore();
+    const outcome = apply(store, 'list.import', {
+      lists: lists(newId(), newId()),
+    });
+
+    expect(outcome).toMatchObject({ kind: 'rejected' });
+    expect(JSON.stringify(outcome)).toContain(reason);
+    expect(store.lists.size).toBe(0);
+    expect(store.items.size).toBe(0);
+    expect(store.includes.size).toBe(0);
+  });
+
+  it('refuses an id that already belongs to another row, writing nothing', () => {
+    const { store, listId } = withList();
+    const item = newId();
+    apply(store, 'item.create', {
+      id: item,
+      listId,
+      title: 'Tent',
+      position: 'a0',
+    });
+    const before = store.lists.size;
+
+    const outcome = apply(store, 'list.import', {
+      lists: [
+        { id: newId(), title: 'Other', entries: [] },
+        { id: newId(), title: 'Trip', entries: [{ id: item, title: 'Tent' }] },
+      ],
+    });
+
+    expect(outcome).toMatchObject({ kind: 'rejected' });
+    expect(store.lists.size).toBe(before);
   });
 });

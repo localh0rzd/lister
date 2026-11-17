@@ -11,6 +11,7 @@ import {
 } from '@lister/shared/domain';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { SyncEngine } from '@lister/web/data-access-sync';
+import { Transfers } from '@lister/web/feature-transfer';
 import { Notifier } from '@lister/web/util-notify';
 import { of } from 'rxjs';
 import { ListsPage, copyTitle } from './lists-page';
@@ -478,5 +479,42 @@ describe('copyTitle', () => {
     const family = '👨‍👩‍👧‍👦';
     const near = 'x'.repeat(190) + family;
     expect(copyTitle(near)).toBe(`Copy of ${'x'.repeat(190)}`.trimEnd());
+  });
+
+  it('offers Export as Markdown and Export as JSON in a list’s menu', async () => {
+    const camping = list('Camping');
+    await db.lists.put(camping);
+    await db.items.put(item(camping.id));
+    const { loader, settle } = await render();
+    await settle();
+    const exportList = vi
+      .spyOn(TestBed.inject(Transfers), 'exportList')
+      .mockImplementation(() => undefined);
+    const open = () =>
+      loader.getHarness(
+        MatMenuHarness.with({ selector: '[aria-label="More for Camping"]' }),
+      );
+
+    await (await open()).clickItem({ text: /Export as Markdown/ });
+    await (await open()).clickItem({ text: /Export as JSON/ });
+
+    expect(
+      exportList.mock.calls.map(([l, format]) => [l.title, format]),
+    ).toEqual([
+      ['Camping', 'markdown'],
+      ['Camping', 'json'],
+    ]);
+    // Built from the local rows of the space, including the lists it includes.
+    expect(exportList.mock.calls[0][2].itemsOf(camping.id)).toHaveLength(1);
+  });
+
+  it('offers Import once there is a space', async () => {
+    expect((await render()).element.textContent).toContain('Import');
+  });
+
+  it('does not offer Import before the first connection', async () => {
+    expect((await render({ space: false })).element.textContent).not.toContain(
+      'Import',
+    );
   });
 });
