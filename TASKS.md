@@ -23,7 +23,14 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
+## Backlog
+
+## Done
+
 ### T-056 — Autocomplete when adding an item
+
+- Completed: 2026-11-17 — Autocomplete in the add-item field of lists and runs: `suggestTitles()` in `shared/domain`, `Repositories.itemTitles()`, shared `AddItemField` in `web/ui`, used by `feature-lists` and `feature-runs`.
+- Review: Changes requested; 3 fixed (3 substantive, 0 trivial), 0 skipped, 0 disagreed; re-review rounds: 1
 
 - Milestone: M8 Editing conveniences
 - Area: web
@@ -48,10 +55,7 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 - Notes: The suggestion query belongs in `data-access-local-db`; share one suggestion component
   between `feature-lists` and `feature-runs` (in `web/ui` if it takes the titles as an input and
   touches no data itself).
-
-## Done
-
-## Backlog
+- Open question for the user: should titles that exist only in runs also be suggested? D22 currently means list items only.
 
 ### T-055 — All items, A–Z, with the lists that contain them
 
