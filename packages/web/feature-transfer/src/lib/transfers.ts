@@ -78,7 +78,14 @@ export class Transfers {
       this.changes.tell('This file is too big to import');
       return;
     }
-    const parsed = parseImportFile(file.name, await file.text());
+    let text: string;
+    try {
+      text = await file.text();
+    } catch {
+      this.changes.tell("Couldn't read this file");
+      return;
+    }
+    const parsed = parseImportFile(file.name, text);
     if (parsed.kind === 'error') {
       this.changes.tell(parsed.message);
       return;

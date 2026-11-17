@@ -1694,4 +1694,60 @@ describe('list.import', () => {
     expect(outcome).toMatchObject({ kind: 'rejected' });
     expect(store.lists.size).toBe(before);
   });
+
+  it('refuses a first list whose id belongs to another space, writing nothing', () => {
+    const { store, listId } = withList();
+    moveToAnotherSpace(store, listId);
+
+    const outcome = apply(store, 'list.import', {
+      lists: [{ id: listId, title: 'Trip', entries: [] }],
+    });
+
+    expect(outcome).toEqual({
+      kind: 'rejected',
+      reason: 'This list already exists',
+    });
+    expect(store.lists.size).toBe(1);
+  });
+
+  it('refuses two lists with the same id, writing nothing', () => {
+    const store = new MemoryRowStore();
+    const id = newId();
+
+    const outcome = apply(store, 'list.import', {
+      lists: [
+        { id, title: 'A', entries: [] },
+        { id: newId(), title: 'B', entries: [] },
+        { id, title: 'C', entries: [entry('x')] },
+      ],
+    });
+
+    expect(outcome).toEqual({
+      kind: 'rejected',
+      reason: 'This list already exists',
+    });
+    expect(store.lists.size).toBe(0);
+    expect(store.items.size).toBe(0);
+  });
+
+  it('refuses an include of an existing list that is not part of the import', () => {
+    const { store, listId } = withList();
+
+    const outcome = apply(store, 'list.import', {
+      lists: [
+        {
+          id: newId(),
+          title: 'Trip',
+          entries: [{ id: newId(), listId }],
+        },
+      ],
+    });
+
+    expect(outcome).toEqual({
+      kind: 'rejected',
+      reason: "This list doesn't exist",
+    });
+    expect(store.lists.size).toBe(1);
+    expect(store.includes.size).toBe(0);
+  });
 });

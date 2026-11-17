@@ -360,11 +360,6 @@ export class ListEditorPage {
     void this.addItems(lines);
   }
 
-  /**
-   * "Sort A–Z" (D17) for `listId`: this list, or an included list's section (which sorts that
-   * list itself, so the new order shows wherever it is included). The includes among the items
-   * keep their slots; Undo sends the old positions back.
-   */
   /** "Export as Markdown / JSON": a download built from the local rows (D24). */
   protected exportList(format: 'markdown' | 'json'): void {
     const view = this.dataView();
@@ -377,6 +372,11 @@ export class ListEditorPage {
     this.transfers.print();
   }
 
+  /**
+   * "Sort A–Z" (D17) for `listId`: this list, or an included list's section (which sorts that
+   * list itself, so the new order shows wherever it is included). The includes among the items
+   * keep their slots; Undo sends the old positions back.
+   */
   protected async sort(listId: string): Promise<void> {
     const view = this.view();
     if (view.kind !== 'ready') return;

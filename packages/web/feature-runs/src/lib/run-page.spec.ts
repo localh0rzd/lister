@@ -244,24 +244,23 @@ describe('RunPage', () => {
     const print = vi
       .spyOn(TestBed.inject(Transfers), 'print')
       .mockImplementation(() => undefined);
-    await page.settle(() =>
-      expect(page.element.querySelector('lister-print-sheet')).not.toBeNull(),
-    );
-
     const sheet = page.element.querySelector(
       'lister-print-sheet',
     ) as HTMLElement;
-    const lines = [...sheet.querySelectorAll('h2, li')].map((el) =>
-      el.tagName === 'H2' ? `# ${el.textContent}` : el.textContent?.trim(),
-    );
-    expect(lines).toEqual([
-      '# Camping',
-      '☑Tent',
-      '# Basics',
-      '⊘Socks(skipped)',
-      '# Added to this run',
-      '☐Milk',
-    ]);
+    // The section titles come from the space's lists, which are read a moment after the items.
+    await page.settle(() => {
+      const lines = [...sheet.querySelectorAll('h2, li')].map((el) =>
+        el.tagName === 'H2' ? `# ${el.textContent}` : el.textContent?.trim(),
+      );
+      expect(lines).toEqual([
+        '# Camping',
+        '☑Tent',
+        '# Basics',
+        '⊘Socks(skipped)',
+        '# Added to this run',
+        '☐Milk',
+      ]);
+    });
 
     const menu = await TestbedHarnessEnvironment.loader(
       page.fixture,

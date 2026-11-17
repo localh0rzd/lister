@@ -46,6 +46,10 @@ export class SpacePage {
       this.changes.tell("Can't export right now: try again in a moment");
       return;
     }
+    if (lists.value.length === 0) {
+      this.changes.tell('There are no lists to export');
+      return;
+    }
     this.transfers.exportAll(lists.value, composition.value);
   }
 }

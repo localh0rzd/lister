@@ -159,6 +159,19 @@ describe('Transfers', () => {
     expect(tell).toHaveBeenCalledWith(expect.stringContaining(message));
   });
 
+  it('tells when the file can’t be read, and creates nothing', async () => {
+    const unreadable = {
+      name: 'a.md',
+      size: 10,
+      text: vi.fn().mockRejectedValue(new Error('gone')),
+    };
+
+    await TestBed.inject(Transfers).importFile(unreadable);
+
+    expect(tell).toHaveBeenCalledWith("Couldn't read this file");
+    expect(apply).not.toHaveBeenCalled();
+  });
+
   it('refuses a file that is too big, without reading it', async () => {
     const big = { name: 'a.md', size: 6 * 1024 * 1024, text: vi.fn() };
 

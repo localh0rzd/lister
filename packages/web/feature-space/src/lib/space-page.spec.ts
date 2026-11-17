@@ -8,7 +8,7 @@ import { signal } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { newId } from '@lister/shared/domain';
-import { SyncEngine } from '@lister/web/data-access-sync';
+import { SpaceChanges, SyncEngine } from '@lister/web/data-access-sync';
 import { Transfers } from '@lister/web/feature-transfer';
 import { SpacePage } from './space-page';
 
@@ -72,7 +72,8 @@ describe('SpacePage', () => {
     }
   });
 
-  it('exports every list of the space as JSON from the local rows', async () => {
+  /** The Space page of a space holding `lists`, with its export button once it is enabled. */
+  async function withLists(lists: { title: string; deletedAt?: number }[]) {
     const spaceId = newId();
     const meta = {
       spaceId,
@@ -84,12 +85,19 @@ describe('SpacePage', () => {
       updatedAt: 0,
     };
     await db.spaces.put({ id: spaceId, name: 'Home', version: 1, members: [] });
-    await db.lists.bulkPut([
-      { ...meta, id: newId(), title: 'Camping', description: '' },
-      { ...meta, id: newId(), title: 'Old', description: '', deletedAt: 3 },
-    ]);
+    await db.lists.bulkPut(
+      lists.map((list) => ({
+        ...meta,
+        id: newId(),
+        description: '',
+        ...list,
+      })),
+    );
     const exportAll = vi
       .spyOn(TestBed.inject(Transfers), 'exportAll')
+      .mockImplementation(() => undefined);
+    const tell = vi
+      .spyOn(TestBed.inject(SpaceChanges), 'tell')
       .mockImplementation(() => undefined);
     const fixture = TestBed.createComponent(SpacePage);
     fixture.detectChanges();
@@ -105,15 +113,34 @@ describe('SpacePage', () => {
     const button = [...element.querySelectorAll('button.row-link')].find((b) =>
       b.textContent?.includes('Export all lists (JSON)'),
     ) as HTMLButtonElement;
-
     // Disabled until the local rows are read, so a click never lands on "not ready".
     await vi.waitFor(() => {
       fixture.detectChanges();
       expect(button.disabled).toBe(false);
     });
-    button.click();
-    expect(exportAll).toHaveBeenCalledTimes(1);
+    return { button, exportAll, tell };
+  }
 
+  it('exports every list of the space as JSON from the local rows', async () => {
+    const { button, exportAll } = await withLists([
+      { title: 'Camping' },
+      { title: 'Old', deletedAt: 3 },
+    ]);
+
+    button.click();
+
+    expect(exportAll).toHaveBeenCalledTimes(1);
     expect(exportAll.mock.calls[0][0].map((l) => l.title)).toEqual(['Camping']);
+  });
+
+  it('says so, and downloads nothing, when the space has no lists', async () => {
+    const { button, exportAll, tell } = await withLists([
+      { title: 'Old', deletedAt: 3 },
+    ]);
+
+    button.click();
+
+    expect(exportAll).not.toHaveBeenCalled();
+    expect(tell).toHaveBeenCalledWith('There are no lists to export');
   });
 });
