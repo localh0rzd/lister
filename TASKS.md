@@ -17,13 +17,83 @@ Statuses: tasks move **Backlog → In progress → Done**. Claude moves them, co
 review is resolved. Anything blocked or needing a decision goes back with a `Blocked:` note.
 
 Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composition · **M4** Runs ·
-**M5** Accounts and spaces · **M6** Collaboration polish · **M7** Deployment · **M8** Editing conveniences
+**M5** Accounts and spaces · **M6** Collaboration polish · **M7** Deployment · **M8** Editing conveniences · **M9** Data and finding things
 
 ---
 
 ## In progress
 
 ## Backlog
+
+### T-059 — Export, import and print lists
+
+- Milestone: M9 Data and finding things
+- Area: web, shared
+- Priority: high
+- Depends on: T-016, T-020, T-048
+- Decisions: D24, D18, D2
+- Done when:
+  - A list's menu offers **Export as Markdown** and **Export as JSON**; each downloads a file named
+    after the list. Markdown: the title as `#`, its items as `- ` lines with quantity and note,
+    each included list as a sub-heading with its items (a list reached twice appears once, D2).
+  - The Space page offers **Export all lists (JSON)**: every non-trashed list of the space, with
+    items and includes.
+  - Exports are built from the local database in the browser: they work offline and add no API
+    endpoint. The JSON has a format version and holds the exported lists plus every list they
+    include; it is validated by a Zod schema in a shared library.
+  - The Lists page offers **Import**: picking a `.md` or `.txt` file creates one new list (title
+    from the first `#` heading, else the file name), one item per line with bullets and `[ ]` /
+    `[x]` boxes stripped, as a paste does (D18). Picking a Lister `.json` export creates new copies
+    of all its lists in the current space, with new ids and includes remapped among them; existing
+    lists are never changed, and a list whose include target is missing from the file keeps no
+    include. An invalid or unsupported file shows a clear error and creates nothing.
+  - Imports go through sync-engine mutations (no REST), so they work offline and appear on other
+    devices; an import that would break a rule (cycle, limits) is rejected as a whole, not half done.
+  - **Print** on a list prints every item, grouped by included list; **Print** on a run prints its
+    items with their check state. The print stylesheet hides the navigation, menus and buttons and
+    fits A4 and Letter.
+  - Tests: unit tests for Markdown and JSON export, both import parsers (round trip JSON export →
+    import), id remapping and invalid files; a Playwright happy path that exports a list as JSON,
+    imports it as a copy, and opens the print view of a list.
+- Notes: New library for export/import (e.g. `packages/web/feature-transfer`, add it to design §5);
+  the format schema and conversion functions belong in `shared/domain` or a new shared library
+  with no browser APIs. Reuse the paste parser from T-048. Design §4/CLAUDE.md still list "export"
+  among the REST uses; adjust the wording to say export is client-side (D24).
+
+### T-060 — Search
+
+- Milestone: M9 Data and finding things
+- Area: web
+- Priority: normal
+- Depends on: T-055
+- Decisions: O17
+- Done when:
+  - A search field finds lists, items and runs as O17 decides, from the local database (works
+    offline, updates live as data changes), ignoring case and accents.
+  - Results are grouped and each opens the page it belongs to; an item result names its list.
+  - Keyboard (`/` focuses search, arrows and Enter pick a result, Escape clears), accessible, fits
+    a 320 px phone.
+  - Tests: unit tests for matching and ranking; a Playwright happy path that searches for an item
+    and opens its list.
+- Notes: Query in `data-access-local-db`, matching in `shared/domain` (reuse T-056's matching where
+  it fits).
+
+### T-061 — A colour and icon per list
+
+- Milestone: M9 Data and finding things
+- Area: web, api, shared
+- Priority: low
+- Depends on: T-016
+- Decisions: O18
+- Done when:
+  - In a list's menu, **Colour and icon** lets members pick (or clear) them as O18 decides; the
+    choice syncs to other devices like any field (per-field last write wins, D5).
+  - The Lists page, the list header and included-list sections show them; both themes keep
+    sufficient contrast (axe passes).
+  - Synced as optional fields: a Drizzle migration, a sync-protocol field, a Dexie version bump
+    that forces a snapshot (design §2.5); clients without the field ignore it.
+  - Tests: unit tests for the mutation, an integration test for the new field over sync, a
+    Playwright happy path that sets a colour and icon and sees them on the Lists page.
 
 ## Done
 
