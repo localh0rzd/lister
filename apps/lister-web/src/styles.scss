@@ -68,25 +68,18 @@ body {
 }
 
 @media print {
+  // The paper is white and black in both themes (the sheet sets its own colours).
+  html {
+    color-scheme: light;
+  }
+
   body {
     background: none;
     color: #000;
   }
 
-  .top-bar,
-  .nav,
   .cdk-overlay-container {
     display: none !important;
-  }
-
-  .shell {
-    display: block;
-    height: auto;
-  }
-
-  .shell .content {
-    overflow: visible;
-    padding: 0;
   }
 
   [data-printable] > :not(lister-print-sheet) {

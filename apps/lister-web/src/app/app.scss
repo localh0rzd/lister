@@ -69,3 +69,28 @@
 .shell.wide .nav {
   padding-left: env(safe-area-inset-left);
 }
+
+// Printing (D24): the shell is out of the way and the page flows over as many sheets as it needs.
+// These rules live here, not in styles.scss: component styles carry an attribute selector, so
+// global rules of the same kind lose to the shell's grid, its window-high height and its
+// scrolling, padded content, which printed blank pages around the sheet.
+@media print {
+  .shell,
+  .shell.wide,
+  .shell.bare {
+    display: block;
+    height: auto;
+  }
+
+  .shell .content,
+  .shell.wide .content {
+    overflow: visible;
+    padding: 0;
+  }
+
+  // Beats `.shell.wide .top-bar { display: flex }`.
+  .top-bar,
+  .nav {
+    display: none !important;
+  }
+}

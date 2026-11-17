@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-062 — Print without blank pages
 
 - Milestone: M9 Data and finding things
@@ -47,6 +45,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   print styles in `apps/lister-web/src/styles.scss` and the shell hide the app with `visibility`
   or leave fixed/100vh/min-height containers in the flow; fix the `@media print` styling at its
   root rather than adding page-break hacks.
+
+## Backlog
 
 ## Done
 
