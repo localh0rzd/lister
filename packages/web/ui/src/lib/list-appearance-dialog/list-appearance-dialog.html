@@ -7,26 +7,41 @@
     [icon]="icon()"
   />
   <p class="hint">Choose the selected one again to clear it.</p>
-  <div class="group" role="group" aria-label="Colour">
+  <!-- One tab stop per group; the arrow keys, Home and End move inside it. -->
+  <div
+    class="group"
+    role="group"
+    aria-label="Colour"
+    (keydown)="moveFocus($event)"
+  >
     @for (name of colours; track name) {
       <button
         type="button"
         class="choice"
         [attr.aria-label]="name"
         [attr.aria-pressed]="colour() === name"
+        [tabIndex]="colourStop() === name ? 0 : -1"
+        (focus)="colourStop.set(name)"
         (click)="pickColour(name)"
       >
         <lister-list-avatar [colour]="name" />
       </button>
     }
   </div>
-  <div class="group" role="group" aria-label="Icon">
+  <div
+    class="group"
+    role="group"
+    aria-label="Icon"
+    (keydown)="moveFocus($event)"
+  >
     @for (entry of icons; track entry.icon) {
       <button
         type="button"
         class="choice"
         [attr.aria-label]="entry.label"
         [attr.aria-pressed]="icon() === entry.icon"
+        [tabIndex]="iconStop() === entry.icon ? 0 : -1"
+        (focus)="iconStop.set(entry.icon)"
         (click)="pickIcon(entry.icon)"
       >
         <lister-list-avatar [colour]="colour()" [icon]="entry.icon" />

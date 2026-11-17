@@ -456,8 +456,9 @@ clients only get the display names of the members of their spaces.
 
 **List colour and icon (D26, T-061):** `lists.colour` is one of the 12 names in `LIST_COLOURS` and
 `lists.icon` one of the Material Symbols in `LIST_ICONS` (both in `shared/domain`), each `null` when
-not set. `list.update` patches them per field (`null` clears one), and schemas refuse anything
-outside the sets. The web app draws the colour as a light/dark pair of OKLCH tones (about 9:1 and
+not set. `list.update` patches them per field (`null` clears one), and the mutation schemas refuse
+anything outside the sets; the row schema reads a value it doesn't know as `null`, so a later app
+can grow either set without breaking older clients' sync. The web app draws the colour as a light/dark pair of OKLCH tones (about 9:1 and
 7:1 contrast) behind the icon. A **run does not copy them**: it keeps only `source_list`, and its
 avatar (Runs page, run header) looks the source list up live, like the source link itself, so a
 recoloured list recolours its runs, and a run whose list is deleted or was ad-hoc shows none.

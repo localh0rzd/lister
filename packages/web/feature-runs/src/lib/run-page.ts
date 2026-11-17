@@ -174,6 +174,12 @@ export class RunPage {
       return { kind: 'missing' as const };
     if (run.value.finishedAt !== null)
       return { kind: 'finished' as const, run: run.value };
+    // The header shows the source list's avatar: wait for it, so the title doesn't jump.
+    if (
+      run.value.sourceListId !== null &&
+      this.spaceLists().status === 'loading'
+    )
+      return { kind: 'loading' as const };
     const composition = this.composition();
     const listTitle = (id: string) =>
       composition.status === 'ready'

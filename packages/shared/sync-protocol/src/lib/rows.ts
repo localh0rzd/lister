@@ -39,8 +39,10 @@ export const listRowSchema = z.object({
   ...syncMetadata,
   title: z.string().check(z.maxLength(LIMITS.title)),
   description: descriptionSchema,
-  colour: z._default(z.nullable(colourSchema), null),
-  icon: z._default(z.nullable(iconSchema), null),
+  // A colour or icon a newer app added reads as none here, instead of failing the whole message
+  // (D26): growing the sets is an additive change too.
+  colour: z._default(z.catch(z.nullable(colourSchema), null), null),
+  icon: z._default(z.catch(z.nullable(iconSchema), null), null),
 }) satisfies z.ZodMiniType<List>;
 
 export const itemRowSchema = z.object({

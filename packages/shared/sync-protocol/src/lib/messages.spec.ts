@@ -196,6 +196,26 @@ describe('socket messages', () => {
     ).toBe(true);
   });
 
+  it('reads a list colour or icon a newer app added as none, keeping the rest of the message (D26)', () => {
+    const known = { ...list(), colour: 'teal', icon: 'camping' };
+    const result = rowsSchema.safeParse({
+      spaceId: newId(),
+      version: 1,
+      timeline: 'tl',
+      snapshot: false,
+      rows: {
+        lists: [{ ...list(), colour: 'ultraviolet', icon: 'kayaking' }, known],
+        items: [],
+      },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.rows.lists).toEqual([
+      expect.objectContaining({ colour: null, icon: null }),
+      expect.objectContaining({ colour: 'teal', icon: 'camping' }),
+    ]);
+  });
+
   it('reads rows from a server that sends no includes yet as none', () => {
     const result = rowsSchema.parse({
       spaceId: newId(),

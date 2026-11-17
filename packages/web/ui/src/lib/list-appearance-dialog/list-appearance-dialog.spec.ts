@@ -34,7 +34,7 @@ async function render(data: Partial<ListAppearanceDialogData> = {}) {
         (b) => b.textContent?.trim() === 'Save',
       ) as HTMLElement,
     );
-  return { element, button, click, save, close };
+  return { element, button, click, save, close, fixture };
 }
 
 describe('ListAppearanceDialog', () => {
@@ -73,5 +73,34 @@ describe('ListAppearanceDialog', () => {
     await save();
 
     expect(close).toHaveBeenCalledWith({ colour: null, icon: 'hiking' });
+  });
+
+  it('makes each group one tab stop, moved with the arrow keys, Home and End', async () => {
+    const { element, button, fixture } = await render({ icon: 'hiking' });
+    const tabStops = () =>
+      [...element.querySelectorAll<HTMLButtonElement>('button.choice')]
+        .filter((b) => b.tabIndex === 0)
+        .map((b) => b.getAttribute('aria-label'));
+    // No colour yet: the first one; an icon: the selected one.
+    expect(tabStops()).toEqual(['red', 'Hiking']);
+
+    const key = (target: HTMLElement, key: string) =>
+      target.dispatchEvent(
+        new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }),
+      );
+    button('Colour', 'red').focus();
+    key(button('Colour', 'red'), 'ArrowRight');
+    expect(document.activeElement).toBe(button('Colour', 'orange'));
+    key(button('Colour', 'orange'), 'ArrowLeft');
+    key(button('Colour', 'red'), 'ArrowLeft'); // wraps around
+    expect(document.activeElement).toBe(button('Colour', 'grey'));
+    key(button('Colour', 'grey'), 'Home');
+    expect(document.activeElement).toBe(button('Colour', 'red'));
+    key(button('Colour', 'red'), 'End');
+    expect(document.activeElement).toBe(button('Colour', 'grey'));
+
+    // Tab now comes back to the last one focused.
+    await fixture.whenStable();
+    expect(tabStops()).toEqual(['grey', 'Hiking']);
   });
 });

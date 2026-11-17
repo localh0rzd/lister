@@ -45,6 +45,23 @@ for (const [device, viewport] of [
       await expect(avatar).toHaveText('camping');
       await expectAccessible();
 
+      await test.step('in the dark theme too (D26: the tones keep contrast)', async () => {
+        await page.emulateMedia({ colorScheme: 'dark' });
+        await expectAccessible();
+        await page.getByRole('button', { name: `More for ${title}` }).click();
+        await page.getByRole('menuitem', { name: 'Colour and icon' }).click();
+        const dark = page.getByRole('dialog', { name: 'Colour and icon' });
+        await expect(
+          dark.getByRole('group', { name: 'Colour' }).getByRole('button', {
+            name: 'teal',
+          }),
+        ).toHaveAttribute('aria-pressed', 'true');
+        await expectAccessible();
+        await dark.getByRole('button', { name: 'Cancel' }).click();
+        await expect(dark).toBeHidden();
+        await page.emulateMedia({ colorScheme: 'light' });
+      });
+
       await test.step('in the list header', async () => {
         await openList(page, title);
         await expect(

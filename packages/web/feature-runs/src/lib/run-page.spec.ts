@@ -1,3 +1,4 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
@@ -11,7 +12,12 @@ import {
   type RunItem,
   newId,
 } from '@lister/shared/domain';
-import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
+import {
+  LOCAL_DB,
+  LocalDb,
+  type QueryState,
+  Repositories,
+} from '@lister/web/data-access-local-db';
 import { type MutationRequest, SyncEngine } from '@lister/web/data-access-sync';
 import { Transfers } from '@lister/web/feature-transfer';
 import { Notifier } from '@lister/web/util-notify';
@@ -107,7 +113,7 @@ afterEach(async () => {
   await db.delete();
 });
 
-async function render(doneSection = false) {
+async function render(doneSection = false, waitUntilReady = true) {
   TestBed.configureTestingModule({
     providers: [
       provideRouter([]),
@@ -147,9 +153,10 @@ async function render(doneSection = false) {
       await fixture.whenStable();
       check();
     });
-  await settle(() =>
-    expect(element.querySelector('lister-loading-hint')).toBeNull(),
-  );
+  if (waitUntilReady)
+    await settle(() =>
+      expect(element.querySelector('lister-loading-hint')).toBeNull(),
+    );
   const sections = () =>
     [...element.querySelectorAll('section')].map((section) => ({
       title: section.querySelector('h2')?.textContent?.trim() ?? null,
@@ -289,6 +296,39 @@ describe('RunPage', () => {
       expect(avatar?.getAttribute('data-colour')).toBe('teal');
       expect(avatar?.textContent?.trim()).toBe('camping');
     });
+  });
+
+  it("waits for the source list before showing the run, so the title doesn't jump (D26)", async () => {
+    await db.lists.put({ ...camping, colour: 'teal', icon: 'camping' });
+    const lists = signal<QueryState<List[]>>({ status: 'loading' });
+    const spy = vi
+      .spyOn(Repositories.prototype, 'listsOfSpace')
+      .mockReturnValue(lists);
+    onTestFinished(() => spy.mockRestore());
+    const page = await render(false, false);
+
+    // Once the run and its items are loaded, the header would draw without its avatar.
+    const queries = page.fixture.componentInstance as unknown as Record<
+      'run' | 'items',
+      () => QueryState<unknown>
+    >;
+    await page.settle(() => {
+      expect(queries.run().status).toBe('ready');
+      expect(queries.items().status).toBe('ready');
+    });
+    expect(page.element.querySelector('h1')).toBeNull();
+
+    lists.set({
+      status: 'ready',
+      value: [{ ...camping, colour: 'teal', icon: 'camping' }],
+    });
+    await page.settle(() =>
+      expect(
+        page.element
+          .querySelector('.header lister-list-avatar')
+          ?.getAttribute('data-colour'),
+      ).toBe('teal'),
+    );
   });
 
   it('shows who checked or skipped an item and when', async () => {
