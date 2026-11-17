@@ -14,11 +14,7 @@ import {
   MatOption,
   type MatAutocompleteSelectedEvent,
 } from '@angular/material/autocomplete';
-import {
-  MatFormField,
-  MatLabel,
-  MatPrefix,
-} from '@angular/material/form-field';
+import { MatFormField, MatPrefix } from '@angular/material/form-field';
 import { MatIcon } from '@angular/material/icon';
 import { MatInput } from '@angular/material/input';
 import { Router } from '@angular/router';
@@ -43,7 +39,6 @@ import {
     MatFormField,
     MatIcon,
     MatInput,
-    MatLabel,
     MatOptgroup,
     MatOption,
     MatPrefix,
@@ -56,9 +51,15 @@ export class SearchField {
   private readonly router = inject(Router);
   private readonly space = inject(CurrentSpace);
   private readonly text = signal('');
-  // Only looks at the database while something is typed.
-  private readonly data = inject(Repositories).searchDataOfSpace(() =>
+  /**
+   * The space to search, only while something is typed. A `computed`, so further typing (which
+   * keeps the value) does not restart the live query.
+   */
+  private readonly searchedSpace = computed(() =>
     this.text().trim() ? this.space.id() : undefined,
+  );
+  private readonly data = inject(Repositories).searchDataOfSpace(
+    this.searchedSpace,
   );
   private readonly trigger = viewChild.required(MatAutocompleteTrigger);
   private readonly field =

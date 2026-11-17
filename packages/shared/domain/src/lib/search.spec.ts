@@ -106,6 +106,40 @@ describe('search (D25)', () => {
     expect(found.lists.map((l) => l.id)).toEqual(['c', 'd', 'b', 'a']);
   });
 
+  it('finds a text that contains every word of the query, in any order', () => {
+    const found = search(
+      {
+        lists: [
+          list('a', 'Wool socks'),
+          list('b', 'Stove and gas'),
+          list('c', 'Socks'),
+          list('d', 'Backpack wool'),
+        ],
+        items: [item('i', 'b', 'Red woollen socks', 'warm')],
+        runs: [],
+      },
+      'sock WOOL',
+    );
+    expect(found.lists.map((l) => l.id)).toEqual(['a']);
+    expect(found.items.map((m) => m.item.id)).toEqual(['i']);
+    expect(
+      search({ lists: [], items: [], runs }, 'week camp').runs.map((r) => r.id),
+    ).toEqual(['r1']);
+    expect(search({ lists: [], items: [], runs }, 'camp zzz').runs).toEqual([]);
+  });
+
+  it('ranks words that each start a word above words found inside others', () => {
+    const found = search(
+      {
+        lists: [list('a', 'Backpack daytrip'), list('b', 'Day pack')],
+        items: [],
+        runs: [],
+      },
+      'pack day',
+    );
+    expect(found.lists.map((l) => l.id)).toEqual(['b', 'a']);
+  });
+
   it('orders equal ranks A–Z with numbers by value, then by id', () => {
     const found = search(
       {

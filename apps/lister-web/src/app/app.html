@@ -12,6 +12,9 @@
       <div class="top-bar">
         @defer (on idle) {
           <lister-search-field />
+        } @placeholder {
+          <!-- The field's height, so the page does not jump when it arrives. -->
+          <div class="search-placeholder"></div>
         }
       </div>
     }
@@ -22,6 +25,8 @@
         @if (searchable()) {
           @defer (on idle) {
             <lister-search-field class="search" />
+          } @placeholder {
+            <span class="spacer search-placeholder"></span>
           }
         } @else {
           <span class="spacer"></span>

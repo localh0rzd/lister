@@ -62,8 +62,8 @@ describe('App shell', () => {
     expect(el.querySelector('mat-toolbar')).toBeNull();
   });
 
-  // The search field itself is deferred (it needs the local database), so these look at its
-  // place: the app bar.
+  // The search field itself is deferred (it needs the local database), so these look at the
+  // placeholder that holds its place until it arrives.
   it.each([
     ['/lists', true],
     ['/lists/abc', true],
@@ -77,6 +77,9 @@ describe('App shell', () => {
       const el = await render(url);
 
       expect(el.querySelector('.top-bar') !== null).toBe(shown);
+      expect(el.querySelector('.top-bar .search-placeholder') !== null).toBe(
+        shown,
+      );
     },
   );
 
@@ -90,7 +93,10 @@ describe('App shell', () => {
       setup(false);
       const el = await render(url);
 
-      expect(el.querySelector('header .spacer') === null).toBe(shown);
+      expect(el.querySelector('header .search-placeholder') !== null).toBe(
+        shown,
+      );
+      expect(el.querySelector('header .spacer')).not.toBeNull();
     },
   );
 

@@ -167,6 +167,22 @@ describe('SearchField (D25)', () => {
     await until(() => expect(panel()).toEqual(['Lists', 'Tent trip']));
   });
 
+  it('keeps one live query while more is typed', async () => {
+    const { harness } = await show();
+    await db.lists.put(list('Camping'));
+    const where = vi.spyOn(db.lists, 'where');
+    await harness.enterText('c');
+    await until(() => expect(panel()).toEqual(['Lists', 'Camping']));
+    const queries = where.mock.calls.length;
+    expect(queries).toBeGreaterThan(0);
+
+    await harness.enterText('amp');
+    await until(() => expect(panel()).toEqual(['Lists', 'Camping']));
+    await harness.enterText('x');
+    await until(() => expect(panel()).toEqual(['No matches']));
+    expect(where).toHaveBeenCalledTimes(queries);
+  });
+
   it('searches only the current space', async () => {
     const { harness } = await show();
     const other = newId();

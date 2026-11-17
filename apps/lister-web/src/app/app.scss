@@ -42,6 +42,11 @@
   margin: 0 8px 0 12px;
 }
 
+// As tall as the search field (48 px, see search-field.scss).
+.search-placeholder {
+  height: 48px;
+}
+
 .spacer {
   flex: 1;
 }

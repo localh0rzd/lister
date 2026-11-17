@@ -1,5 +1,15 @@
+@use '@angular/material' as mat;
+
 :host {
   display: block;
+  // An M3 search bar: no floating label (it would stick out of the 56 px phone toolbar), and a
+  // field lower than the toolbar so it sits centred in it.
+  @include mat.form-field-overrides(
+    (
+      container-height: 48px,
+      container-vertical-padding: 12px,
+    )
+  );
   min-width: 0;
   flex: 1 1 0;
   max-width: 28rem;
