@@ -4,8 +4,17 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
 import { MatProgressBar } from '@angular/material/progress-bar';
 import { RouterLink } from '@angular/router';
-import { CurrentSpace, Repositories } from '@lister/web/data-access-local-db';
-import { LoadingHint, TitleDialog, type TitleDialogData } from '@lister/web/ui';
+import {
+  CurrentSpace,
+  Repositories,
+  valueOf,
+} from '@lister/web/data-access-local-db';
+import {
+  ListAvatar,
+  LoadingHint,
+  TitleDialog,
+  type TitleDialogData,
+} from '@lister/web/ui';
 import { firstValueFrom } from 'rxjs';
 import { progressText, runTitle } from './run-sections';
 import { RunStarter } from './run-starter';
@@ -16,7 +25,14 @@ import { RunStarter } from './run-starter';
  */
 @Component({
   selector: 'lister-runs-page',
-  imports: [LoadingHint, MatFabButton, MatIcon, MatProgressBar, RouterLink],
+  imports: [
+    ListAvatar,
+    LoadingHint,
+    MatFabButton,
+    MatIcon,
+    MatProgressBar,
+    RouterLink,
+  ],
   templateUrl: './runs-page.html',
   styleUrl: './runs-page.scss',
 })
@@ -27,6 +43,8 @@ export class RunsPage {
   private readonly starter = inject(RunStarter);
 
   private readonly runs = this.repositories.activeRunsOfSpace(this.space.id);
+  /** A run shows its source list's colour and icon as they are now (design §3, D26). */
+  private readonly lists = this.repositories.listsOfSpace(this.space.id);
 
   protected readonly view = computed(() => {
     const space = this.space.state();
@@ -36,10 +54,14 @@ export class RunsPage {
     const runs = this.runs();
     if (runs.status === 'error') return { kind: 'error' as const };
     if (runs.status === 'loading') return { kind: 'loading' as const };
+    const sources = new Map(
+      (valueOf(this.lists()) ?? []).map((list) => [list.id, list]),
+    );
     return {
       kind: 'runs' as const,
       runs: runs.value.map((summary) => ({
         ...summary,
+        source: sources.get(summary.run.sourceListId ?? ''),
         text: progressText(summary),
         percent:
           summary.total === 0

@@ -26,6 +26,17 @@
   }
 }
 
+// An avatar and the title link side by side; the link still covers the whole row.
+.head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+lister-list-avatar {
+  --lister-avatar-size: 28px;
+}
+
 .title {
   font: var(--mat-sys-body-large);
   color: inherit;

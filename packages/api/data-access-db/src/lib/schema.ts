@@ -8,6 +8,7 @@ import {
   text,
   uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
+import type { ListColour, ListIconName } from '@lister/shared/domain';
 
 /**
  * Instance-wide key/value settings (e.g. markers for one-off startup work).
@@ -159,6 +160,8 @@ export const lists = sqliteTable(
     ...syncColumns,
     title: text('title').notNull(),
     description: text('description').notNull().default(''),
+    colour: text('colour').$type<ListColour>(),
+    icon: text('icon').$type<ListIconName>(),
   },
   (table) => [index('lists_space_version').on(table.spaceId, table.version)],
 );

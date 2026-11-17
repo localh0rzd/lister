@@ -179,13 +179,17 @@ describe('socket messages', () => {
       timeline: 'tl',
       snapshot: false,
       futureFlag: true,
-      rows: { lists: [{ ...list(), icon: 'hiking' }], items: [], trips: [] },
+      rows: {
+        lists: [{ ...list(), futureField: 'hiking' }],
+        items: [],
+        trips: [],
+      },
     });
 
     expect(result.success).toBe(true);
     expect(result.data).not.toHaveProperty('futureFlag');
     expect(result.data?.rows).not.toHaveProperty('trips');
-    expect(result.data?.rows.lists[0]).not.toHaveProperty('icon');
+    expect(result.data?.rows.lists[0]).not.toHaveProperty('futureField');
     expect(
       welcomeSchema.safeParse({ userId: newId(), spaces: [], isAdmin: true })
         .success,

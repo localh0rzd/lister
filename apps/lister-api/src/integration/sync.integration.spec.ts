@@ -267,6 +267,71 @@ describe('sync gateway', () => {
       expect(await pokeToA).toEqual(poke);
     });
 
+    it('syncs a list colour and icon to the others, a pull returns them, and null clears them (D26)', async () => {
+      const a = await helloed();
+      const b = await helloed('ben');
+      const id = newId();
+      const created = next(b.client, 'poke');
+      a.client.emit('push', {
+        mutations: [mutation('list.create', { id, title: 'Camping' })],
+      });
+      expect((await created).rows.lists[0]).toMatchObject({
+        colour: null,
+        icon: null,
+      });
+
+      const set = next(b.client, 'poke');
+      a.client.emit('push', {
+        mutations: [
+          mutation('list.update', {
+            id,
+            patch: { colour: 'teal', icon: 'camping' },
+          }),
+        ],
+      });
+      expect((await set).rows.lists).toEqual([
+        expect.objectContaining({ id, colour: 'teal', icon: 'camping' }),
+      ]);
+
+      const rows = next(b.client, 'rows');
+      b.client.emit('pull', { spaceId, since: 0, timeline: '' });
+      expect((await rows).rows.lists).toEqual([
+        expect.objectContaining({ id, colour: 'teal', icon: 'camping' }),
+      ]);
+
+      const cleared = next(b.client, 'poke');
+      a.client.emit('push', {
+        mutations: [mutation('list.update', { id, patch: { colour: null } })],
+      });
+      expect((await cleared).rows.lists).toEqual([
+        expect.objectContaining({ id, colour: null, icon: 'camping' }),
+      ]);
+    });
+
+    it('rejects a colour or icon outside the fixed sets, changing nothing', async () => {
+      const { client } = await helloed();
+      const rejects = collect(client, 'reject');
+      const id = newId();
+      const ack = next(client, 'ack');
+      client.emit('push', {
+        mutations: [mutation('list.create', { id, title: 'Camping' })],
+      });
+      await ack;
+
+      const bad = mutation('list.update', {
+        id,
+        // Not in the palette: only a misbehaving client sends it.
+        patch: { colour: 'beige' as 'red' },
+      });
+      client.emit('push', { mutations: [bad] });
+
+      await vi.waitFor(() => expect(rejects).toHaveLength(1));
+      expect(rejects[0].mutationId).toBe(bad.mutationId);
+      const rows = next(client, 'rows');
+      client.emit('pull', { spaceId, since: 0, timeline: '' });
+      expect((await rows).rows.lists[0]).toMatchObject({ colour: null });
+    });
+
     it('creates a list with its items as one change, in order, poked to the others', async () => {
       const a = await helloed();
       const b = await helloed('ben');

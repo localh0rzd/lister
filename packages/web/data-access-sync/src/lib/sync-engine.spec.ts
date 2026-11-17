@@ -2287,14 +2287,14 @@ describe('SyncEngine', () => {
         spaceId: SPACE,
         version: 2,
         rows: {
-          lists: [{ ...row, version: 2, icon: 'tent' }],
+          lists: [{ ...row, version: 2, futureField: 'tent' }],
           items: [],
           includes: [],
         },
       });
       await settle();
 
-      expect(await serverList(id)).not.toHaveProperty('icon');
+      expect(await serverList(id)).not.toHaveProperty('futureField');
       expect(await visibleList(id)).toMatchObject({ version: 2 });
     });
 

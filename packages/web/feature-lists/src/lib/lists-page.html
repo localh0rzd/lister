@@ -32,9 +32,11 @@
   <ul class="lists" aria-label="Lists">
     @for (entry of v.lists; track entry.list.id) {
       <li class="row">
-        <span class="avatar" aria-hidden="true">{{
-          initial(entry.list.title)
-        }}</span>
+        <lister-list-avatar
+          [title]="entry.list.title"
+          [colour]="entry.list.colour"
+          [icon]="entry.list.icon"
+        />
         <div class="text">
           <a
             class="title"
@@ -60,6 +62,14 @@
           <button mat-menu-item type="button" (click)="rename(entry.list)">
             <mat-icon>edit</mat-icon>
             <span>Rename</span>
+          </button>
+          <button
+            mat-menu-item
+            type="button"
+            (click)="editAppearance(entry.list)"
+          >
+            <mat-icon>palette</mat-icon>
+            <span>Colour and icon</span>
           </button>
           <button mat-menu-item type="button" (click)="duplicate(entry.list)">
             <mat-icon>content_copy</mat-icon>

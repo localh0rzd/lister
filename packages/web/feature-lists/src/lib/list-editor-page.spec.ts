@@ -38,6 +38,8 @@ const camping: List = {
   id: newId(),
   title: 'Camping',
   description: '',
+  colour: null,
+  icon: null,
 };
 const item = (
   title: string,
@@ -796,6 +798,8 @@ describe('ListEditorPage — included lists', () => {
     id: newId(),
     title,
     description: '',
+    colour: null,
+    icon: null,
     ...extra,
   });
   const include = (
@@ -851,6 +855,55 @@ describe('ListEditorPage — included lists', () => {
       ),
     ].map((el) => el.textContent?.trim());
     expect(nested).toEqual(['Soap', 'Kitchen', 'Stove']);
+  });
+
+  it("shows the list's colour and icon in its header and on an included list's section (D26)", async () => {
+    const toiletries = list('Toiletries', { colour: 'pink', icon: 'cake' });
+    await db.lists.bulkPut([
+      { ...camping, colour: 'teal', icon: 'camping' },
+      toiletries,
+    ]);
+    await db.includes.put(include(camping.id, toiletries.id, 'a1'));
+    const page = await render();
+
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(page.element.querySelectorAll('lister-list-avatar')).toHaveLength(
+        2,
+      );
+    });
+    const [header, section] = [
+      ...page.element.querySelectorAll('lister-list-avatar'),
+    ];
+    expect(header.closest('.header')).not.toBeNull();
+    expect(header.getAttribute('data-colour')).toBe('teal');
+    expect(header.textContent?.trim()).toBe('camping');
+    expect(section.closest('.section-header')).not.toBeNull();
+    expect(section.getAttribute('data-colour')).toBe('pink');
+    expect(section.textContent?.trim()).toBe('cake');
+  });
+
+  it('sets the colour and icon from the list menu', async () => {
+    await db.lists.put(camping);
+    const page = await render();
+    dialogAnswer = { colour: 'blue', icon: 'beach_access' };
+    const menu = await page.loader.getHarness(
+      MatMenuHarness.with({ selector: '[aria-label="More for this list"]' }),
+    );
+
+    await menu.clickItem({ text: /Colour and icon/ });
+
+    await vi.waitFor(() =>
+      expect(requests).toEqual([
+        expect.objectContaining({
+          name: 'list.update',
+          args: {
+            id: camping.id,
+            patch: { colour: 'blue', icon: 'beach_access' },
+          },
+        }),
+      ]),
+    );
   });
 
   it('does not suggest the items of an included list, which this list shows already', async () => {

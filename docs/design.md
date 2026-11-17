@@ -447,12 +447,24 @@ clients only get the display names of the members of their spaces.
 | `passkeys`              | user, credential id, public key, sign counter, transports, name, created at, last used at                                    |
 | `sessions`              | user, expiry                                                                                                                 |
 | `spaces`, `memberships` | space name, current version; role                                                                                            |
-| `lists`                 | title, description (colour and icon: T-061, D26)                                                                             |
+| `lists`                 | title, description, colour and icon (both optional, D26)                                                                     |
 | `items`                 | list, title, quantity, note, position                                                                                        |
 | `includes`              | parent list, child list, position                                                                                            |
 | `runs`                  | source list (none for ad-hoc), title, finished at                                                                            |
 | `run_items`             | run, title, quantity, note, position, sources (the lists it came from; the first decides its section), state, changed by, at |
 | `processed_mutations`   | mutation id, client id, result (fast path for retries)                                                                       |
+
+**List colour and icon (D26, T-061):** `lists.colour` is one of the 12 names in `LIST_COLOURS` and
+`lists.icon` one of the Material Symbols in `LIST_ICONS` (both in `shared/domain`), each `null` when
+not set. `list.update` patches them per field (`null` clears one), and schemas refuse anything
+outside the sets. The web app draws the colour as a light/dark pair of OKLCH tones (about 9:1 and
+7:1 contrast) behind the icon. A **run does not copy them**: it keeps only `source_list`, and its
+avatar (Runs page, run header) looks the source list up live, like the source link itself, so a
+recoloured list recolours its runs, and a run whose list is deleted or was ad-hoc shows none.
+`list.duplicate` copies colour and icon with the other fields; `list.create` and "save run as
+list" start without. The JSON export carries both (`colour`, `icon`, still format version 1: the
+fields are optional, older files import without them, and a value this version doesn't know is
+dropped); an older app ignores them.
 
 **Ordering:** lists are shown by title (ignoring case and accents, numbers by value: "List 9"
 before "List 10"; ties by id), so they have no position and no

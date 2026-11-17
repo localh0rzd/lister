@@ -35,8 +35,17 @@ const camping: List = {
   id: newId(),
   title: 'Camping',
   description: '',
+  colour: null,
+  icon: null,
 };
-const basics: List = { ...meta, id: newId(), title: 'Basics', description: '' };
+const basics: List = {
+  ...meta,
+  id: newId(),
+  title: 'Basics',
+  description: '',
+  colour: null,
+  icon: null,
+};
 const alps: Run = {
   ...meta,
   id: newId(),
@@ -269,6 +278,17 @@ describe('RunPage', () => {
     );
     await menu.clickItem({ text: /Print/ });
     expect(print).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the source list's colour and icon beside the title (D26)", async () => {
+    await db.lists.put({ ...camping, colour: 'teal', icon: 'camping' });
+    const page = await render();
+
+    await page.settle(() => {
+      const avatar = page.element.querySelector('.header lister-list-avatar');
+      expect(avatar?.getAttribute('data-colour')).toBe('teal');
+      expect(avatar?.textContent?.trim()).toBe('camping');
+    });
   });
 
   it('shows who checked or skipped an item and when', async () => {

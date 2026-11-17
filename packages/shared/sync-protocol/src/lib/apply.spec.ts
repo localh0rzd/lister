@@ -62,6 +62,8 @@ describe('applyMutation (shared by server and client)', () => {
       updatedAt: 1000,
       title: 'Camping',
       description: '',
+      colour: null,
+      icon: null,
     });
   });
 
@@ -153,6 +155,39 @@ describe('applyMutation (shared by server and client)', () => {
       createdAt: 1000,
       updatedAt: 2000,
     });
+  });
+
+  it('sets, changes and clears a list colour and icon, each on its own (D26)', () => {
+    const { store, listId } = withList();
+
+    apply(store, 'list.update', { id: listId, patch: { colour: 'teal' } }, 2);
+    apply(store, 'list.update', { id: listId, patch: { icon: 'camping' } }, 3);
+    expect(store.getList(listId)).toMatchObject({
+      colour: 'teal',
+      icon: 'camping',
+      version: 3,
+    });
+
+    // Another device changes only the colour: the icon stays (per field, D5).
+    apply(store, 'list.update', { id: listId, patch: { colour: 'red' } }, 4);
+    expect(store.getList(listId)).toMatchObject({
+      colour: 'red',
+      icon: 'camping',
+    });
+
+    apply(store, 'list.update', { id: listId, patch: { colour: null } }, 5);
+    apply(store, 'list.update', { id: listId, patch: { icon: null } }, 6);
+    expect(store.getList(listId)).toMatchObject({ colour: null, icon: null });
+  });
+
+  it('ignores a colour for a deleted list (delete wins)', () => {
+    const { store, listId } = withList();
+    apply(store, 'list.delete', { id: listId }, 2);
+
+    expect(
+      apply(store, 'list.update', { id: listId, patch: { colour: 'red' } }, 3),
+    ).toEqual({ kind: 'unchanged' });
+    expect(store.getList(listId)?.colour).toBeNull();
   });
 
   it('ignores changes to a deleted list and to its items; restores bring it back', () => {
@@ -447,6 +482,10 @@ describe('list.duplicate', () => {
       title: 'Camping',
       description: 'Summer',
     });
+    apply(store, 'list.update', {
+      id: listId,
+      patch: { colour: 'green', icon: 'hiking' },
+    });
     apply(store, 'list.create', { id: childId, title: 'Toiletries' });
     const tent = newId();
     const stove = newId();
@@ -515,6 +554,8 @@ describe('list.duplicate', () => {
     expect(s.store.getList(copy)).toMatchObject({
       title: 'Copy of Camping',
       description: 'Summer',
+      colour: 'green',
+      icon: 'hiking',
       version: 5,
       deletedAt: null,
     });
@@ -1531,6 +1572,8 @@ describe('list.import', () => {
           id: trip,
           title: 'Trip',
           description: 'Summer',
+          colour: 'blue',
+          icon: 'luggage',
           entries: [
             { id: tent, title: 'Tent', quantity: '1', note: 'big' },
             { id: include, listId: toiletries },
@@ -1555,6 +1598,8 @@ describe('list.import', () => {
     expect(store.getList(trip)).toMatchObject({
       title: 'Trip',
       description: 'Summer',
+      colour: 'blue',
+      icon: 'luggage',
       spaceId: SPACE,
     });
     expect(store.getItem(tent)).toMatchObject({

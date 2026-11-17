@@ -90,6 +90,8 @@ describe('SpacePage', () => {
         ...meta,
         id: newId(),
         description: '',
+        colour: null,
+        icon: null,
         ...list,
       })),
     );

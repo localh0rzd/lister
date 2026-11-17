@@ -29,6 +29,8 @@ export class FakeSpace implements CompositionSource {
       id,
       title,
       description,
+      colour: null,
+      icon: null,
       deletedAt: deleted ? 1 : null,
     });
     return id;

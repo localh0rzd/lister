@@ -1,0 +1,49 @@
+// The 12 tones of D26 as OKLCH hues. Each has a light-theme pair (pale fill, dark mark) and a
+// dark-theme pair (deep fill, pale mark); `color-scheme` (global styles) picks one through
+// light-dark(). Lightness alone fixes the contrast (about 9:1 and 7:1), whatever the hue.
+$hues: (
+  'red': 25,
+  'orange': 55,
+  'amber': 85,
+  'lime': 125,
+  'green': 150,
+  'teal': 185,
+  'cyan': 215,
+  'blue': 255,
+  'indigo': 275,
+  'purple': 305,
+  'pink': 350,
+);
+
+:host {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  box-sizing: border-box;
+  width: var(--lister-avatar-size, 40px);
+  height: var(--lister-avatar-size, 40px);
+  border-radius: 50%;
+  background: var(--mat-sys-primary-container);
+  color: var(--mat-sys-on-primary-container);
+  font: var(--mat-sys-title-medium);
+  // The icon is two thirds of the circle.
+  --mat-icon-size: calc(var(--lister-avatar-size, 40px) * 0.6);
+}
+
+mat-icon {
+  width: var(--mat-icon-size);
+  height: var(--mat-icon-size);
+  font-size: var(--mat-icon-size);
+}
+
+@each $name, $hue in $hues {
+  :host([data-colour='#{$name}']) {
+    background: light-dark(oklch(0.92 0.06 $hue), oklch(0.38 0.08 $hue));
+    color: light-dark(oklch(0.35 0.1 $hue), oklch(0.9 0.06 $hue));
+  }
+}
+
+:host([data-colour='grey']) {
+  background: light-dark(oklch(0.92 0.01 250), oklch(0.38 0.015 250));
+  color: light-dark(oklch(0.35 0.02 250), oklch(0.9 0.01 250));
+}

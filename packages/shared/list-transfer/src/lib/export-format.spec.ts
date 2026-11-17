@@ -42,6 +42,8 @@ describe('buildListExport', () => {
       id: camping,
       title: 'Camping',
       description: 'Summer',
+      colour: null,
+      icon: null,
       entries: [
         { title: 'Tent', quantity: '1', note: '' },
         { include: toiletries },
@@ -49,6 +51,25 @@ describe('buildListExport', () => {
         { title: 'Stove', quantity: '', note: '' },
       ],
     });
+  });
+
+  it('carries the colour and icon of each list into the file and back into an import', () => {
+    const { space, camping, toiletries } = trip();
+    const row = space.lists.get(camping);
+    if (!row) throw new Error('missing list');
+    space.lists.set(camping, { ...row, colour: 'teal', icon: 'camping' });
+
+    const out = buildListExport([camping], space);
+    expect(out.lists[0]).toMatchObject({ colour: 'teal', icon: 'camping' });
+    expect(out.lists.find((l) => l.id === toiletries)).toMatchObject({
+      colour: null,
+      icon: null,
+    });
+
+    const parsed = parseListExport(JSON.stringify(out));
+    if (!parsed.ok) throw new Error('should parse');
+    const [copy] = importArgs(parsed.file).lists;
+    expect(copy).toMatchObject({ colour: 'teal', icon: 'camping' });
   });
 
   it('lists a list asked for twice, or reached twice, once', () => {
@@ -182,10 +203,32 @@ describe('parseListExport', () => {
             id: valid.lists[0].id,
             title: 'A',
             description: '',
+            colour: null,
+            icon: null,
             entries: [{ title: 'x', quantity: '', note: '' }],
           },
         ],
       },
+    });
+  });
+
+  it('reads a file from before colours and icons, and drops values it does not know', () => {
+    const list = { id: newId(), title: 'A', entries: [] };
+    const read = (fields: object) =>
+      parseListExport(
+        JSON.stringify({ ...valid, lists: [{ ...list, ...fields }] }),
+      );
+    expect(read({})).toMatchObject({
+      ok: true,
+      file: { lists: [{ colour: null, icon: null }] },
+    });
+    expect(read({ colour: 'ultraviolet', icon: 'rocket' })).toMatchObject({
+      ok: true,
+      file: { lists: [{ colour: null, icon: null }] },
+    });
+    expect(read({ colour: 'red', icon: 'star' })).toMatchObject({
+      ok: true,
+      file: { lists: [{ colour: 'red', icon: 'star' }] },
     });
   });
 

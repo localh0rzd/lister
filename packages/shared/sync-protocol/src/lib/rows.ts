@@ -8,7 +8,9 @@ import {
   type RunItem,
 } from '@lister/shared/domain';
 import {
+  colourSchema,
   descriptionSchema,
+  iconSchema,
   idSchema,
   noteSchema,
   positionSchema,
@@ -37,6 +39,8 @@ export const listRowSchema = z.object({
   ...syncMetadata,
   title: z.string().check(z.maxLength(LIMITS.title)),
   description: descriptionSchema,
+  colour: z._default(z.nullable(colourSchema), null),
+  icon: z._default(z.nullable(iconSchema), null),
 }) satisfies z.ZodMiniType<List>;
 
 export const itemRowSchema = z.object({

@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-061 — A colour and icon per list
 
 - Milestone: M9 Data and finding things
@@ -41,6 +39,31 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
     that forces a snapshot (design §2.5); clients without the field ignore it.
   - Tests: unit tests for the mutation, an integration test for the new field over sync, a
     Playwright happy path that sets a colour and icon and sees them on the Lists page.
+
+## Backlog
+
+### T-062 — Print without blank pages
+
+- Milestone: M9 Data and finding things
+- Area: web
+- Priority: high
+- Depends on: T-059
+- Decisions: D24
+- Done when:
+  - Printing a list or a run (T-059's Print action) gives exactly the pages its items need: no
+    blank page before or after the list, in Chromium and Firefox, on A4 and Letter, on phone and
+    wide layouts, in light and dark theme.
+  - The printed sheet starts at the top of the first page; nothing of the app shell (nav bar or
+    rail, top bar, search, snackbars, the FAB, dialogs' backdrops) takes up space on paper.
+  - A long list (more than one page) breaks between items, never through one, and keeps a group
+    heading with its first item.
+  - Tests: a Playwright check that renders the print media of a list and of a run as a PDF
+    (`page.pdf()`, Chromium) and asserts the page count for a short list is 1 and its text is on
+    page 1; a long list's count matches its length.
+- Notes: Reported by the user: one empty page before and one after the printed list. Likely the
+  print styles in `apps/lister-web/src/styles.scss` and the shell hide the app with `visibility`
+  or leave fixed/100vh/min-height containers in the flow; fix the `@media print` styling at its
+  root rather than adding page-break hacks.
 
 ## Done
 

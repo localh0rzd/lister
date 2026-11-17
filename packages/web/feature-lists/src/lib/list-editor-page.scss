@@ -34,6 +34,10 @@ h1 {
   }
 }
 
+.section-toggle lister-list-avatar {
+  --lister-avatar-size: 32px;
+}
+
 .hint,
 .note {
   font: var(--mat-sys-body-medium);

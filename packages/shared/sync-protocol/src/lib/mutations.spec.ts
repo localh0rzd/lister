@@ -294,6 +294,44 @@ describe('parseMutation', () => {
   });
 });
 
+describe('list colour and icon (D26)', () => {
+  const update = (patch: object) =>
+    mutationSchema.safeParse({
+      ...envelope(),
+      name: 'list.update',
+      args: { id: newId(), patch },
+    });
+
+  it.each([
+    ['a colour', { colour: 'teal' }],
+    ['an icon', { icon: 'camping' }],
+    ['both', { colour: 'pink', icon: 'luggage' }],
+    ['clearing both', { colour: null, icon: null }],
+  ])('accepts %s', (_, patch) => {
+    expect(update(patch).success).toBe(true);
+  });
+
+  it.each([
+    ['a colour outside the palette', { colour: 'ultraviolet' }],
+    ['an icon outside the set', { icon: 'rocket_launch' }],
+    ['an empty string', { colour: '' }],
+    ['an empty patch', {}],
+  ])('refuses %s', (_, patch) => {
+    expect(update(patch).success).toBe(false);
+  });
+
+  it('defaults to none on list.import, so older clients still work', () => {
+    const parsed = mutationSchema.safeParse({
+      ...envelope(),
+      name: 'list.import',
+      args: { lists: [{ id: newId(), title: 'A', entries: [] }] },
+    });
+    expect(parsed.success && parsed.data.args).toMatchObject({
+      lists: [{ colour: null, icon: null }],
+    });
+  });
+});
+
 describe('list.create with items', () => {
   const create = (args: object) =>
     mutationSchema.safeParse({

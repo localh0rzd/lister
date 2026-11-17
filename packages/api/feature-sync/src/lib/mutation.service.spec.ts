@@ -111,6 +111,8 @@ describe('MutationService', () => {
         updatedAt: now,
         title: 'Camping',
         description: 'Summer',
+        colour: null,
+        icon: null,
       });
       expect(applied.spaceId).toBe(SPACE);
       expect(applied.rows.lists).toEqual([listRow(id)]);
@@ -155,6 +157,18 @@ describe('MutationService', () => {
         createdAt: now - 1000,
         version: 2,
       });
+    });
+
+    it('stores a list colour and icon, and null clears them (D26)', () => {
+      const id = newId();
+      push('list.create', { id, title: 'Camping' });
+      expect(listRow(id)).toMatchObject({ colour: null, icon: null });
+
+      push('list.update', { id, patch: { colour: 'teal', icon: 'camping' } });
+      expect(listRow(id)).toMatchObject({ colour: 'teal', icon: 'camping' });
+
+      push('list.update', { id, patch: { icon: null } });
+      expect(listRow(id)).toMatchObject({ colour: 'teal', icon: null });
     });
 
     it('updates, moves and keeps the other item fields', () => {

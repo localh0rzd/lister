@@ -30,6 +30,8 @@ const list = (title: string, extra: Partial<List> = {}): List => ({
   id: newId(),
   title,
   description: '',
+  colour: null,
+  icon: null,
   ...extra,
 });
 const item = (
@@ -78,8 +80,8 @@ const titles = (state: QueryState<{ title: string }[]>) =>
   valueOf(state)?.map((r) => r.title);
 
 describe('LocalDb', () => {
-  it('has the tables of schema version 7', () => {
-    expect(db.verno).toBe(7);
+  it('has the tables of schema version 8', () => {
+    expect(db.verno).toBe(8);
     expect(db.tables.map((t) => t.name).sort()).toEqual([
       'includes',
       'items',

@@ -1,6 +1,11 @@
 import * as z from 'zod/mini';
 import { en } from 'zod/locales';
-import { LIMITS, isPositionKey } from '@lister/shared/domain';
+import {
+  LIMITS,
+  LIST_COLOURS,
+  LIST_ICON_NAMES,
+  isPositionKey,
+} from '@lister/shared/domain';
 
 /**
  * `zod/mini` loads no messages, so every issue without its own would read "Invalid input".
@@ -34,6 +39,9 @@ export const titleSchema = text(LIMITS.title).check(
   z.regex(/[\p{L}\p{N}\p{P}\p{S}]/u, 'A title is required'),
 );
 export const descriptionSchema = text(LIMITS.description);
+/** A list's colour and icon from the fixed sets (D26); `null` clears them. */
+export const colourSchema = z.enum(LIST_COLOURS);
+export const iconSchema = z.enum(LIST_ICON_NAMES);
 export const quantitySchema = text(LIMITS.quantity);
 export const noteSchema = text(LIMITS.note);
 export const positionSchema = z

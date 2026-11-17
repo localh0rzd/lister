@@ -14,6 +14,7 @@ import { CurrentSpace, Repositories } from '@lister/web/data-access-local-db';
 import {
   TitleDialog,
   type TitleDialogData,
+  ListAvatar,
   LoadingHint,
   NewListDialog,
   type NewListResult,
@@ -24,6 +25,7 @@ import { RunStarter } from '@lister/web/feature-runs';
 import { ImportButton, Transfers } from '@lister/web/feature-transfer';
 import { NOTICE_DURATION_MS, Notifier } from '@lister/web/util-notify';
 import { firstValueFrom } from 'rxjs';
+import { ListAppearanceEditor } from './list-appearance-editor';
 
 /** What a list holds: its own items, all items with included lists, and those lists. */
 export interface ListCounts {
@@ -40,6 +42,7 @@ export interface ListCounts {
   selector: 'lister-lists-page',
   imports: [
     ImportButton,
+    ListAvatar,
     LoadingHint,
     MatFabButton,
     MatIcon,
@@ -57,6 +60,7 @@ export class ListsPage {
   private readonly space = inject(CurrentSpace);
   private readonly repositories = inject(Repositories);
   private readonly changes = inject(SpaceChanges);
+  private readonly appearance = inject(ListAppearanceEditor);
   private readonly dialog = inject(MatDialog);
   private readonly notifier = inject(Notifier);
   private readonly router = inject(Router);
@@ -211,8 +215,8 @@ export class ListsPage {
     return `${items(count.own)} · ${count.total} in total · ${lists} included`;
   }
 
-  protected initial(title: string): string {
-    return [...title.trim()][0]?.toLocaleUpperCase() ?? '';
+  protected editAppearance(list: List): Promise<void> {
+    return this.appearance.edit(list);
   }
 
   private async askTitle(data: TitleDialogData): Promise<string | undefined> {

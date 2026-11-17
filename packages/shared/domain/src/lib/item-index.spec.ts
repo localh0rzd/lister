@@ -15,6 +15,8 @@ const list = (id: string, title: string): List => ({
   id,
   title,
   description: '',
+  colour: null,
+  icon: null,
 });
 const item = (
   id: string,

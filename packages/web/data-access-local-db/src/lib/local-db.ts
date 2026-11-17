@@ -153,6 +153,10 @@ export class LocalDb extends Dexie {
     this.version(7)
       .stores({})
       .upgrade((tx) => tx.table('syncState').clear());
+    // Server migration 0011: lists' `colour` and `icon` (new synced fields: snapshot).
+    this.version(8)
+      .stores({})
+      .upgrade((tx) => tx.table('syncState').clear());
   }
 
   /** Empties every table: everything this device holds of the signed-in user, pending changes included. */

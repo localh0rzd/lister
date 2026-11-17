@@ -24,6 +24,8 @@ const list = (title: string): List => ({
   id: newId(),
   title,
   description: '',
+  colour: null,
+  icon: null,
 });
 const item = (listId: string, title: string, position = 'a'): Item => ({
   ...meta,

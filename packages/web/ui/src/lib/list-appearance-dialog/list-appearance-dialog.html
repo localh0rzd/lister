@@ -1,0 +1,40 @@
+<h2 mat-dialog-title>Colour and icon</h2>
+<mat-dialog-content>
+  <lister-list-avatar
+    class="preview"
+    [title]="data.title"
+    [colour]="colour()"
+    [icon]="icon()"
+  />
+  <p class="hint">Choose the selected one again to clear it.</p>
+  <div class="group" role="group" aria-label="Colour">
+    @for (name of colours; track name) {
+      <button
+        type="button"
+        class="choice"
+        [attr.aria-label]="name"
+        [attr.aria-pressed]="colour() === name"
+        (click)="pickColour(name)"
+      >
+        <lister-list-avatar [colour]="name" />
+      </button>
+    }
+  </div>
+  <div class="group" role="group" aria-label="Icon">
+    @for (entry of icons; track entry.icon) {
+      <button
+        type="button"
+        class="choice"
+        [attr.aria-label]="entry.label"
+        [attr.aria-pressed]="icon() === entry.icon"
+        (click)="pickIcon(entry.icon)"
+      >
+        <lister-list-avatar [colour]="colour()" [icon]="entry.icon" />
+      </button>
+    }
+  </div>
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button matButton type="button" mat-dialog-close>Cancel</button>
+  <button matButton="filled" type="button" (click)="save()">Save</button>
+</mat-dialog-actions>

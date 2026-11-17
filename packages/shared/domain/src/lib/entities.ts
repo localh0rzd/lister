@@ -1,3 +1,5 @@
+import type { ListColour, ListIconName } from './list-appearance';
+
 /** A UUIDv7 string, generated on the client so rows can be created offline (`newId()`). */
 export type Id = string;
 
@@ -31,6 +33,9 @@ export interface Space {
 export interface List extends SyncMetadata {
   readonly title: string;
   readonly description: string;
+  /** Optional colour and icon (D26); `null` when not set. */
+  readonly colour: ListColour | null;
+  readonly icon: ListIconName | null;
 }
 
 /** An item belongs to exactly one list. */

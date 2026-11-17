@@ -23,6 +23,8 @@ const list = (title: string, extra: Partial<List> = {}): List => ({
   id: newId(),
   title,
   description: '',
+  colour: null,
+  icon: null,
   ...extra,
 });
 const item = (

@@ -18,6 +18,13 @@
   </p>
 } @else {
   <div class="header">
+    @if (v.source; as source) {
+      <lister-list-avatar
+        [title]="source.title"
+        [colour]="source.colour"
+        [icon]="source.icon"
+      />
+    }
     <h1>{{ v.run.title }}</h1>
     <button
       matIconButton

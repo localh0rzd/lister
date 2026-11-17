@@ -1,7 +1,12 @@
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
-import { type Run, type RunItem, newId } from '@lister/shared/domain';
+import {
+  type List,
+  type Run,
+  type RunItem,
+  newId,
+} from '@lister/shared/domain';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { type MutationRequest, SyncEngine } from '@lister/web/data-access-sync';
 import { Notifier } from '@lister/web/util-notify';
@@ -141,6 +146,41 @@ describe('RunsPage', () => {
     expect(page.element.textContent).toContain('1 of 2 done');
     expect(page.element.textContent).toContain('No items yet');
     expect(page.element.textContent).not.toContain('Finished');
+  });
+
+  it("shows the source list's colour and icon as they are now, and nothing for an ad-hoc run (D26)", async () => {
+    await withSpace();
+    const camping: List = {
+      ...meta,
+      id: newId(),
+      title: 'Camping',
+      description: '',
+      colour: 'teal',
+      icon: 'camping',
+    };
+    await db.lists.put(camping);
+    await db.runs.bulkPut([
+      run('Alps', { createdAt: 1, sourceListId: camping.id }),
+      run('Groceries', { createdAt: 2 }),
+    ]);
+    const page = await render();
+    await page.settle(() =>
+      expect(page.element.querySelectorAll('lister-list-avatar')).toHaveLength(
+        1,
+      ),
+    );
+    const avatar = page.element.querySelector('lister-list-avatar');
+    expect(avatar?.getAttribute('data-colour')).toBe('teal');
+    expect(avatar?.textContent?.trim()).toBe('camping');
+
+    await db.lists.put({ ...camping, colour: 'red', icon: null });
+    await page.settle(() =>
+      expect(
+        page.element
+          .querySelector('lister-list-avatar')
+          ?.getAttribute('data-colour'),
+      ).toBe('red'),
+    );
   });
 
   it('starts an empty ad-hoc run from New run and opens it', async () => {

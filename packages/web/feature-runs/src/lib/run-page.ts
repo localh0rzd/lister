@@ -30,7 +30,11 @@ import {
   sortByTitle,
 } from '@lister/shared/domain';
 import { titleSchema } from '@lister/shared/sync-protocol';
-import { CurrentSpace, Repositories } from '@lister/web/data-access-local-db';
+import {
+  CurrentSpace,
+  Repositories,
+  valueOf,
+} from '@lister/web/data-access-local-db';
 import { type SpaceChange, SpaceChanges } from '@lister/web/data-access-sync';
 import {
   type PrintGroup,
@@ -44,6 +48,7 @@ import {
   attribution,
   type ItemDialogData,
   type ItemFields,
+  ListAvatar,
   ListPickerDialog,
   type ListPickerData,
   LoadingHint,
@@ -78,6 +83,7 @@ interface SentState {
     AddItemField,
     AddOrderToggle,
     FormField,
+    ListAvatar,
     LoadingHint,
     PrintSheet,
     MatButton,
@@ -180,6 +186,10 @@ export class RunPage {
       run: run.value,
       items: items.value,
       layout,
+      /** The source list as it is now: its colour and icon (design §3, D26). */
+      source: valueOf(this.spaceLists())?.find(
+        (list) => list.id === run.value?.sourceListId,
+      ),
       progress: progressText(layout.progress),
       percent: total === 0 ? 0 : Math.round((done / total) * 100),
       /** "Add list" needs the space's lists and their items. */

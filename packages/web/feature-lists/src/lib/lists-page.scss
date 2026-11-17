@@ -10,18 +10,6 @@
   max-width: 720px;
 }
 
-.avatar {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: var(--mat-sys-primary-container);
-  color: var(--mat-sys-on-primary-container);
-  font: var(--mat-sys-title-medium);
-}
-
 .row {
   display: flex;
   align-items: center;

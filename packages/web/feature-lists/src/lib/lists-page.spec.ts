@@ -31,6 +31,8 @@ const list = (title: string): List => ({
   id: newId(),
   title,
   description: '',
+  colour: null,
+  icon: null,
 });
 const item = (listId: string): Item => ({
   ...meta,
@@ -44,7 +46,11 @@ const item = (listId: string): Item => ({
 
 let db: LocalDb;
 let mutate: ReturnType<typeof vi.fn>;
-let dialogAnswer: string | { title: string; items: string[] } | undefined;
+let dialogAnswer:
+  | string
+  | { title: string; items: string[] }
+  | Pick<List, 'colour' | 'icon'>
+  | undefined;
 let notify: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
@@ -298,6 +304,67 @@ describe('ListsPage', () => {
         spaceId: SPACE,
         name: 'list.update',
         args: { id: camping.id, patch: { title: 'Camping trip' } },
+      }),
+    );
+  });
+
+  it("shows a list's colour and icon, or its first letter when it has none (D26)", async () => {
+    await db.lists.bulkPut([
+      { ...list('Camping'), colour: 'teal', icon: 'camping' },
+      list('Beach'),
+    ]);
+    const { element } = await render();
+
+    const [beach, camping] = [
+      ...element.querySelectorAll('lister-list-avatar'),
+    ] as HTMLElement[];
+    expect(camping.getAttribute('data-colour')).toBe('teal');
+    expect(camping.textContent?.trim()).toBe('camping');
+    expect(beach.hasAttribute('data-colour')).toBe(false);
+    expect(beach.textContent?.trim()).toBe('B');
+  });
+
+  it('sets only the colour and icon that changed, from the list menu', async () => {
+    const camping = { ...list('Camping'), colour: 'teal' as const };
+    await db.lists.put(camping);
+    const { loader } = await render();
+    dialogAnswer = { colour: 'teal', icon: 'camping' };
+
+    const menu = await loader.getHarness(
+      MatMenuHarness.with({ selector: '[aria-label="More for Camping"]' }),
+    );
+    await menu.clickItem({ text: /Colour and icon/ });
+
+    await vi.waitFor(() =>
+      expect(mutate).toHaveBeenCalledWith({
+        spaceId: SPACE,
+        name: 'list.update',
+        args: { id: camping.id, patch: { icon: 'camping' } },
+      }),
+    );
+  });
+
+  it('clears the colour with null, and sends nothing when the dialog is cancelled or unchanged', async () => {
+    const camping = { ...list('Camping'), colour: 'teal' as const };
+    await db.lists.put(camping);
+    const { loader } = await render();
+    const menu = await loader.getHarness(
+      MatMenuHarness.with({ selector: '[aria-label="More for Camping"]' }),
+    );
+
+    dialogAnswer = undefined;
+    await menu.clickItem({ text: /Colour and icon/ });
+    dialogAnswer = { colour: 'teal', icon: null };
+    await menu.clickItem({ text: /Colour and icon/ });
+    expect(mutate).not.toHaveBeenCalled();
+
+    dialogAnswer = { colour: null, icon: null };
+    await menu.clickItem({ text: /Colour and icon/ });
+    await vi.waitFor(() =>
+      expect(mutate).toHaveBeenCalledWith({
+        spaceId: SPACE,
+        name: 'list.update',
+        args: { id: camping.id, patch: { colour: null } },
       }),
     );
   });

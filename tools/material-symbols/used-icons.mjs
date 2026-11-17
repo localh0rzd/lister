@@ -12,7 +12,12 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-const SOURCE_ROOTS = ['apps/lister-web/src', 'packages/web'];
+const SOURCE_ROOTS = [
+  'apps/lister-web/src',
+  'packages/web',
+  // The list icons of D26 are named there.
+  'packages/shared/domain/src/lib',
+];
 const SKIPPED_DIRECTORIES = new Set(['node_modules', 'dist', 'public']);
 
 const QUOTED = /'([^']*)'|"([^"]*)"/g;

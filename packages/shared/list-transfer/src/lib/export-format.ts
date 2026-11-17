@@ -9,7 +9,9 @@ import {
 } from '@lister/shared/domain';
 import {
   type MutationArgs,
+  colourSchema,
   descriptionSchema,
+  iconSchema,
   idSchema,
   noteSchema,
   quantitySchema,
@@ -37,6 +39,10 @@ export const listExportSchema = z.object({
         id: idSchema,
         title: titleSchema,
         description: z._default(descriptionSchema, ''),
+        /** Optional (D26): files from before colours and icons have neither, and a value this
+         * version doesn't know is dropped rather than refusing the file. */
+        colour: z._default(z.catch(z.nullable(colourSchema), null), null),
+        icon: z._default(z.catch(z.nullable(iconSchema), null), null),
         /** Items and includes in the list's order. */
         entries: z.array(exportedEntry),
       }),
@@ -81,6 +87,8 @@ export function buildListExport(
       id,
       title: list.title,
       description: list.description,
+      colour: list.colour,
+      icon: list.icon,
       entries: rows.map((row) =>
         'childListId' in row
           ? { include: row.childListId }
@@ -122,6 +130,8 @@ export function importArgs(
         id: ids.get(list.id) as Id,
         title: list.title,
         description: list.description,
+        colour: list.colour,
+        icon: list.icon,
         entries,
       };
     }),

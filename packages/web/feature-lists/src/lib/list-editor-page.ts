@@ -52,6 +52,7 @@ import {
   attribution,
   type ItemDialogData,
   type ItemFields,
+  ListAvatar,
   ListPickerDialog,
   type ListPickerData,
   LoadingHint,
@@ -64,6 +65,7 @@ import {
 import { SpaceChanges } from '@lister/web/data-access-sync';
 import { AddItemOrderPreference, RunStarter } from '@lister/web/feature-runs';
 import { firstValueFrom } from 'rxjs';
+import { ListAppearanceEditor } from './list-appearance-editor';
 
 /** A row of the list itself: one of its own items, or an included list (a section). */
 export type EditorRow =
@@ -116,6 +118,7 @@ function reachableFrom(space: SpaceComposition, root: string): Set<string> {
   imports: [
     AddItemField,
     AddOrderToggle,
+    ListAvatar,
     LoadingHint,
     PrintSheet,
     CdkDrag,
@@ -142,6 +145,7 @@ export class ListEditorPage {
   private readonly transfers = inject(Transfers);
   private readonly changes = inject(SpaceChanges);
   private readonly dialog = inject(MatDialog);
+  private readonly appearance = inject(ListAppearanceEditor);
   private readonly currentSpace = inject(CurrentSpace);
   private readonly starter = inject(RunStarter);
   protected readonly addOrder = inject(AddItemOrderPreference);
@@ -366,6 +370,10 @@ export class ListEditorPage {
     if (view.kind === 'ready') {
       this.transfers.exportList(view.list, format, view.space);
     }
+  }
+
+  protected editAppearance(list: List): Promise<void> {
+    return this.appearance.edit(list);
   }
 
   protected print(): void {

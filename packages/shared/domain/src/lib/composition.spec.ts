@@ -34,6 +34,8 @@ function space(spec: {
         id,
         title: id,
         description: '',
+        colour: null,
+        icon: null,
         deletedAt: spec.deletedLists?.includes(id) ? 1 : null,
       },
     ]),

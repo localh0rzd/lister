@@ -375,6 +375,8 @@ export function applyMutation(
         id: args.id,
         title: args.title,
         description: args.description,
+        colour: null,
+        icon: null,
       });
       const positions = positionsFromStart(args.items.length);
       args.items.forEach(({ id, title }, i) =>
@@ -412,6 +414,8 @@ export function applyMutation(
         id: args.id,
         title: args.title,
         description: source.description,
+        colour: source.colour,
+        icon: source.icon,
       });
       // Rows deleted or moved away since the client looked are skipped: the copy is of the
       // source as the server has it now.
@@ -466,6 +470,8 @@ export function applyMutation(
           id: list.id,
           title: list.title,
           description: list.description,
+          colour: list.colour,
+          icon: list.icon,
         });
         const positions = positionsFromStart(list.entries.length);
         list.entries.forEach((entry, i) => {
@@ -696,6 +702,8 @@ export function applyMutation(
         id: args.listId,
         title: args.title,
         description: '',
+        colour: null,
+        icon: null,
       });
       const items: string[] = [];
       const copied = new Set<string>();

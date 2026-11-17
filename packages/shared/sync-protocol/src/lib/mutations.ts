@@ -1,6 +1,8 @@
 import * as z from 'zod/mini';
 import {
+  colourSchema,
   descriptionSchema,
+  iconSchema,
   idSchema,
   noteSchema,
   positionSchema,
@@ -89,7 +91,12 @@ export const mutationArgs = {
   }),
   'list.update': z.strictObject({
     id: idSchema,
-    patch: patch({ title: titleSchema, description: descriptionSchema }),
+    patch: patch({
+      title: titleSchema,
+      description: descriptionSchema,
+      colour: z.nullable(colourSchema),
+      icon: z.nullable(iconSchema),
+    }),
   }),
   'list.delete': byId,
   'list.restore': byId,
@@ -117,6 +124,8 @@ export const mutationArgs = {
           id: idSchema,
           title: titleSchema,
           description: z._default(descriptionSchema, ''),
+          colour: z._default(z.nullable(colourSchema), null),
+          icon: z._default(z.nullable(iconSchema), null),
           entries: z.array(importEntry).check(z.maxLength(MAX_DUPLICATE_ROWS)),
         }),
       )

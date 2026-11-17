@@ -21,6 +21,13 @@
   <p class="hint">This list was deleted.</p>
 } @else {
   <div class="header">
+    @if (v.list.colour || v.list.icon) {
+      <lister-list-avatar
+        [title]="v.list.title"
+        [colour]="v.list.colour"
+        [icon]="v.list.icon"
+      />
+    }
     <h1>{{ v.list.title }}</h1>
     <button matButton type="button" (click)="sort(v.list.id)">
       <mat-icon>sort_by_alpha</mat-icon>
@@ -39,6 +46,10 @@
       <mat-icon>more_vert</mat-icon>
     </button>
     <mat-menu #listMenu="matMenu">
+      <button mat-menu-item type="button" (click)="editAppearance(v.list)">
+        <mat-icon>palette</mat-icon>
+        <span>Colour and icon</span>
+      </button>
       <button mat-menu-item type="button" (click)="exportList('markdown')">
         <mat-icon>description</mat-icon>
         <span>Export as Markdown</span>
@@ -147,6 +158,13 @@
                 <mat-icon aria-hidden="true">{{
                   open ? 'expand_less' : 'expand_more'
                 }}</mat-icon>
+                @if (row.list) {
+                  <lister-list-avatar
+                    [title]="row.list.title"
+                    [colour]="row.list.colour"
+                    [icon]="row.list.icon"
+                  />
+                }
                 <span class="section-text">
                   <span class="section-title">{{ title }}</span>
                   @if (row.otherUsers > 0) {
