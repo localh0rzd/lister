@@ -17,6 +17,7 @@ import type { MutationRequest } from '@lister/web/data-access-sync';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { SyncEngine } from '@lister/web/data-access-sync';
 import { Notifier } from '@lister/web/util-notify';
+import { MatAutocompleteHarness } from '@angular/material/autocomplete/testing';
 import { of } from 'rxjs';
 import type { ItemDialogData } from '@lister/web/ui';
 import { ListEditorPage } from './list-editor-page';
@@ -51,6 +52,18 @@ const item = (
   position,
   ...extra,
 });
+
+/** The open suggestion list (it lives in the overlay, outside the fixture). */
+const suggestions = () =>
+  [...document.querySelectorAll('mat-option')].map((o) =>
+    o.textContent?.trim(),
+  );
+const chooseSuggestion = (title: string) =>
+  (
+    [...document.querySelectorAll('mat-option')].find(
+      (o) => o.textContent?.trim() === title,
+    ) as HTMLElement
+  ).click();
 
 let db: LocalDb;
 let requests: MutationRequest[];
@@ -165,6 +178,56 @@ describe('ListEditorPage', () => {
       true,
     );
     await vi.waitFor(() => expect(page.input().value).toBe(''));
+  });
+
+  it('suggests titles from every list in every space, not those already here, and adds a chosen one as its title only', async () => {
+    const otherSpace = newId();
+    const trip: List = { ...camping, id: newId(), title: 'Trip' };
+    const abroad: List = {
+      ...camping,
+      id: newId(),
+      spaceId: otherSpace,
+      title: 'Abroad',
+    };
+    await db.lists.bulkPut([trip, abroad]);
+    await db.items.bulkPut([
+      item('Tent', 'a0'),
+      item('Stove', 'a1', { listId: trip.id, quantity: '2', note: 'gas' }),
+      item('Stove top', 'a2', { listId: abroad.id, spaceId: otherSpace }),
+      item('Tent pegs', 'a3', { listId: trip.id }),
+      item('Stone', 'a4', { listId: trip.id, deletedAt: 1 }),
+    ]);
+    const page = await render();
+    const autocomplete = await page.loader.getHarness(MatAutocompleteHarness);
+
+    await autocomplete.enterText('st');
+    await vi.waitFor(() =>
+      expect(suggestions()).toEqual(['Stove', 'Stove top']),
+    );
+    chooseSuggestion('Stove');
+
+    await vi.waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0]).toMatchObject({
+      name: 'item.create',
+      args: { listId: camping.id, title: 'Stove' },
+    });
+    // The suggestion's quantity and note ('2', 'gas') are not copied (D22).
+    expect(requests[0].args).not.toHaveProperty('quantity');
+    expect(requests[0].args).not.toHaveProperty('note');
+    await vi.waitFor(() => expect(page.input().value).toBe(''));
+    await autocomplete.enterText('ten');
+    await vi.waitFor(() => expect(suggestions()).toEqual(['Tent pegs']));
+  });
+
+  it('still adds exactly what was typed on Enter, even when it matches a suggestion', async () => {
+    await db.items.put(item('Stove top', 'a0', { listId: newId() }));
+    const page = await render();
+
+    await page.type('Stove');
+    await page.submit();
+
+    await vi.waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0]).toMatchObject({ args: { title: 'Stove' } });
   });
 
   it('ignores an empty entry', async () => {

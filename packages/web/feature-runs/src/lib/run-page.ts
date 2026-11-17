@@ -11,13 +11,10 @@ import {
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { Title } from '@angular/platform-browser';
-import { FormField, form, submit } from '@angular/forms/signals';
 import { MatButton, MatIconButton } from '@angular/material/button';
 import { MatCheckbox } from '@angular/material/checkbox';
 import { MatDialog } from '@angular/material/dialog';
-import { MatFormField, MatLabel } from '@angular/material/form-field';
 import { MatIcon } from '@angular/material/icon';
-import { MatInput } from '@angular/material/input';
 import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
 import { MatProgressBar } from '@angular/material/progress-bar';
 import { MatSlideToggle } from '@angular/material/slide-toggle';
@@ -35,6 +32,7 @@ import { titleSchema } from '@lister/shared/sync-protocol';
 import { CurrentSpace, Repositories } from '@lister/web/data-access-local-db';
 import { type SpaceChange, SpaceChanges } from '@lister/web/data-access-sync';
 import {
+  AddItemField,
   AddOrderToggle,
   ItemDialog,
   attribution,
@@ -71,16 +69,13 @@ interface SentState {
 @Component({
   selector: 'lister-run-page',
   imports: [
+    AddItemField,
     AddOrderToggle,
-    FormField,
     LoadingHint,
     MatButton,
     MatCheckbox,
-    MatFormField,
     MatIcon,
     MatIconButton,
-    MatInput,
-    MatLabel,
     MatMenu,
     MatMenuItem,
     MatMenuTrigger,
@@ -163,8 +158,18 @@ export class RunPage {
     };
   });
 
-  private readonly draft = signal({ title: '' });
-  protected readonly addForm = form(this.draft);
+  protected readonly draft = signal('');
+  private readonly knownTitleState = this.repositories.itemTitles();
+  /** Titles to suggest while typing (D22): the items of every list on this device. */
+  protected readonly knownTitles = computed(() => {
+    const state = this.knownTitleState();
+    return state.status === 'ready' ? state.value : [];
+  });
+  /** This run's items: not suggested again. */
+  protected readonly heldTitles = computed(() => {
+    const items = this.items();
+    return items.status === 'ready' ? items.value.map((i) => i.title) : [];
+  });
 
   constructor() {
     const title = inject(Title);
@@ -418,11 +423,16 @@ export class RunPage {
   /** Adds the typed item (Enter or the + button); an identical item is merged (D16). */
   protected add(event: Event): void {
     event.preventDefault();
-    void submit(this.addForm, async () => {
-      const title = this.draft().title.trim();
-      if (!title) return;
-      if (await this.addTitles([title])) this.draft.set({ title: '' });
-    });
+    void this.addAndClear(this.draft().trim());
+  }
+
+  /** A suggestion was chosen (D22): its title is added, nothing else. */
+  protected addChosen(title: string): void {
+    void this.addAndClear(title);
+  }
+
+  private async addAndClear(title: string): Promise<void> {
+    if (title && (await this.addTitles([title]))) this.draft.set('');
   }
 
   /** Pasting several lines adds one item per line, all or none. */

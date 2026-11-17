@@ -158,6 +158,22 @@ export class Repositories {
     });
   }
 
+  /**
+   * The distinct titles of the items of every live list on this device, whichever space (D22),
+   * for the add-item suggestions (`suggestTitles`).
+   */
+  itemTitles(): Signal<QueryState<string[]>> {
+    return liveQuerySignal(
+      () => async () =>
+        indexItems(
+          (await this.db.lists.toArray()).filter(
+            (list) => list.deletedAt === null,
+          ),
+          await this.db.items.toArray(),
+        ).map((row) => row.title),
+    );
+  }
+
   /** One list by id, deleted or not (`undefined` if it doesn't exist here). */
   list(listId: () => string | undefined): Signal<QueryState<List | undefined>> {
     return liveQuerySignal(() => {

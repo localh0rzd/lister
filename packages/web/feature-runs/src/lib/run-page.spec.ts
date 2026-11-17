@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
+import { MatAutocompleteHarness } from '@angular/material/autocomplete/testing';
 import { MatDialog } from '@angular/material/dialog';
 import { MatMenuHarness } from '@angular/material/menu/testing';
 import {
@@ -61,6 +62,18 @@ const runItem = (
   mergedInto: null,
   ...extra,
 });
+
+/** The open suggestion list (it lives in the overlay, outside the fixture). */
+const suggestions = () =>
+  [...document.querySelectorAll('mat-option')].map((o) =>
+    o.textContent?.trim(),
+  );
+const chooseSuggestion = (title: string) =>
+  (
+    [...document.querySelectorAll('mat-option')].find(
+      (o) => o.textContent?.trim() === title,
+    ) as HTMLElement
+  ).click();
 
 let db: LocalDb;
 let requests: MutationRequest[];
@@ -152,6 +165,47 @@ async function clickAddList(page: Awaited<ReturnType<typeof render>>) {
 }
 
 describe('RunPage', () => {
+  it('suggests item titles from the lists, not those already in the run, and adds a chosen one', async () => {
+    await db.items.bulkPut([
+      {
+        ...meta,
+        id: newId(),
+        listId: camping.id,
+        title: 'Stove',
+        quantity: '2',
+        note: 'gas',
+        position: 'a0',
+      },
+      {
+        ...meta,
+        id: newId(),
+        listId: basics.id,
+        title: 'Stool',
+        quantity: '',
+        note: '',
+        position: 'a0',
+      },
+    ]);
+    await db.runItems.put(runItem('stool', 'a0'));
+    const page = await render();
+    const autocomplete = await TestbedHarnessEnvironment.loader(
+      page.fixture,
+    ).getHarness(MatAutocompleteHarness);
+
+    await autocomplete.enterText('st');
+    await vi.waitFor(() => expect(suggestions()).toEqual(['Stove']));
+    chooseSuggestion('Stove');
+
+    await page.settle(() => expect(requests).toHaveLength(1));
+    expect(requests[0]).toMatchObject({
+      name: 'run.addItems',
+      args: {
+        runId: alps.id,
+        items: [{ title: 'Stove', quantity: '', note: '' }],
+      },
+    });
+  });
+
   it('groups items by the list they came from, says where merged items also come from, and shows progress', async () => {
     await db.runItems.bulkPut([
       runItem('Tent', 'a0', { sources: [camping.id], state: 'checked' }),

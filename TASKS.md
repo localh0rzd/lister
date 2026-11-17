@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-056 — Autocomplete when adding an item
 
 - Milestone: M8 Editing conveniences
@@ -52,6 +50,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   touches no data itself).
 
 ## Done
+
+## Backlog
 
 ### T-055 — All items, A–Z, with the lists that contain them
 

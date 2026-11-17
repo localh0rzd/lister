@@ -13,3 +13,4 @@ export * from './lib/attribution/attribution';
 export * from './lib/new-list-dialog/new-list-dialog';
 export * from './lib/add-order-toggle/add-order-toggle';
 export * from './lib/loading-spinner/loading-spinner';
+export * from './lib/add-item-field/add-item-field';

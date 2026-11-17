@@ -1,0 +1,19 @@
+<mat-form-field subscriptSizing="dynamic">
+  <mat-label>Add item</mat-label>
+  <input
+    matInput
+    [value]="value()"
+    (input)="typed($event)"
+    (paste)="pasted.emit($event)"
+    [matAutocomplete]="suggestionList"
+  />
+</mat-form-field>
+<mat-autocomplete
+  #suggestionList="matAutocomplete"
+  aria-label="Suggested items"
+  (optionSelected)="choose($event)"
+>
+  @for (title of suggestions(); track title) {
+    <mat-option [value]="title">{{ title }}</mat-option>
+  }
+</mat-autocomplete>

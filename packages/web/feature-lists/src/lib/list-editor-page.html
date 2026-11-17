@@ -240,10 +240,14 @@
   </ul>
 
   <form class="add" novalidate (submit)="add($event)">
-    <mat-form-field class="add-field" subscriptSizing="dynamic">
-      <mat-label>Add item</mat-label>
-      <input matInput [formField]="addForm.title" (paste)="paste($event)" />
-    </mat-form-field>
+    <lister-add-item-field
+      class="add-field"
+      [(value)]="draft"
+      [titles]="knownTitles()"
+      [exclude]="heldTitles()"
+      (chosen)="addChosen($event)"
+      (pasted)="paste($event)"
+    />
     <button matIconButton type="submit" aria-label="Add">
       <mat-icon>add</mat-icon>
     </button>
