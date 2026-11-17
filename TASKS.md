@@ -23,30 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-054 — Finished runs in the trash, with Restore
-
-- Milestone: M8 Editing conveniences
-- Area: web, api, shared
-- Priority: normal
-- Depends on: T-017
-- Decisions: D10 (changes), D20
-- Done when:
-  - When the last item of a run is checked or skipped, the run still disappears from the active
-    runs, with Undo in the snackbar as today, and it then shows in Space › Trash next to deleted
-    lists and items, with who finished it and when, for 30 days (D15).
-  - Restore on a finished run brings it back among the active runs, with the item checked last
-    unchecked again (D20), on every device of the space (a synced mutation, not REST).
-  - A finished run older than 30 days is no longer listed and is purged as today.
-  - D10, R14, §2.1 "Finishing" and the trash rules in `docs/design.md` say that finished runs are
-    in the trash, and that nothing else lists them (not among active runs, not where runs start).
-  - Tests: a unit test for the restore rule in `sync-protocol`, an integration test for the
-    mutation, and a Playwright happy path: finish a run, find it in Trash, restore it, check it
-    is active again.
-- Notes: Finishing is derived today (§3, "a run counts as finished while every item is checked or
-  skipped"), so restoring with every check kept would finish the run again at once. D20: Restore
-  unchecks the item checked last. Whoever finished a run is the user whose check finished it (the
-  run's last change); a column may be needed (Drizzle migration plus Dexie version bump).
-
 ## Backlog
 
 ### T-055 — All items, A–Z, with the lists that contain them
@@ -103,6 +79,32 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   touches no data itself).
 
 ## Done
+
+### T-054 — Finished runs in the trash, with Restore
+
+- Completed: 2026-11-16 — `run.restore` mutation (unchecks the item checked last) and finished runs listed in Space › Trash with who finished them and when, with Restore; `shared/domain`, `shared/sync-protocol`, `web/data-access-local-db`, `web/feature-space`, design doc updated.
+- Review: Changes requested; 3 fixed (1 substantive, 2 trivial), 0 skipped, 0 disagreed; re-review rounds: 1
+- Milestone: M8 Editing conveniences
+- Area: web, api, shared
+- Priority: normal
+- Depends on: T-017
+- Decisions: D10 (changes), D20
+- Done when:
+  - When the last item of a run is checked or skipped, the run still disappears from the active
+    runs, with Undo in the snackbar as today, and it then shows in Space › Trash next to deleted
+    lists and items, with who finished it and when, for 30 days (D15).
+  - Restore on a finished run brings it back among the active runs, with the item checked last
+    unchecked again (D20), on every device of the space (a synced mutation, not REST).
+  - A finished run older than 30 days is no longer listed and is purged as today.
+  - D10, R14, §2.1 "Finishing" and the trash rules in `docs/design.md` say that finished runs are
+    in the trash, and that nothing else lists them (not among active runs, not where runs start).
+  - Tests: a unit test for the restore rule in `sync-protocol`, an integration test for the
+    mutation, and a Playwright happy path: finish a run, find it in Trash, restore it, check it
+    is active again.
+- Notes: Finishing is derived today (§3, "a run counts as finished while every item is checked or
+  skipped"), so restoring with every check kept would finish the run again at once. D20: Restore
+  unchecks the item checked last. Whoever finished a run is the user whose check finished it (the
+  run's last change); a column may be needed (Drizzle migration plus Dexie version bump).
 
 ### T-058 — Registration links handed out by admins
 

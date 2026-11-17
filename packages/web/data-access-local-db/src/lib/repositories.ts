@@ -33,7 +33,7 @@ export type TrashEntry =
   | {
       kind: 'run';
       row: Run;
-      items: number;
+      itemCount: number;
       /** Who finished it: the check (or removal) that finished it (`finishedBy()`). */
       finishedBy: string;
     };
@@ -226,7 +226,7 @@ export class Repositories {
             return {
               kind: 'run' as const,
               row,
-              items: of.filter((item) => item.deletedAt === null).length,
+              itemCount: of.filter((item) => item.deletedAt === null).length,
               finishedBy: finishedBy(row, of),
             };
           }),

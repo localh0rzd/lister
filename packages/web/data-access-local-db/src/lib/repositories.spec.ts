@@ -433,7 +433,7 @@ describe('Repositories.trashOfSpace', () => {
         'run Alps',
         'list Camping',
       ]);
-      expect(entries[0]).toMatchObject({ items: 2 });
+      expect(entries[0]).toMatchObject({ itemCount: 2 });
       expect(trashedAt(entries[0])).toBe(NOW - DAY);
       expect(trashedBy(entries[0])).toBe('u-7');
     });

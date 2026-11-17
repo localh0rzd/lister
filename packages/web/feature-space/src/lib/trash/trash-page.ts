@@ -112,7 +112,7 @@ export class TrashPage {
     const by = this.who(trashedBy(entry));
     switch (entry.kind) {
       case 'run':
-        return `Finished run · ${items(entry.items)} · finished by ${by}, ${at}`;
+        return `Finished run · ${items(entry.itemCount)} · finished by ${by}, ${at}`;
       case 'item':
         return `Item in ${entry.listTitle} · deleted by ${by}, ${at}`;
       case 'list': {
