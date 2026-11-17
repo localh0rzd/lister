@@ -23,33 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-055 — All items, A–Z, with the lists that contain them
-
-- Milestone: M8 Editing conveniences
-- Area: web
-- Priority: normal
-- Depends on: T-016, T-049
-- Decisions: D21
-- Done when:
-  - An "All items" view, opened from the Lists page, lists every item of the current space's lists
-    (D21), in alphabetical order (the existing list-title collator, `sortByTitle()` in
-    `shared/domain`).
-  - Identical items (D16 rule: titles match ignoring case and surrounding spaces) are one row; next
-    to each row are the lists that contain it, each a link that opens that list.
-  - Items and lists in the trash are left out; an item reached only through an include is listed
-    under the list it belongs to, not under the lists that include it.
-  - The view updates live as lists and items change on any device (local database signals, no
-    REST), and works offline.
-  - It fits a 320 px wide phone (long titles and many lists wrap, nothing is cut off) and has an
-    empty state.
-  - Tests: unit tests for the grouping and sorting (in `shared/domain` or the repository), and a
-    Playwright happy path: two lists sharing an item, the view shows it once with both lists, and
-    a list link opens that list.
-- Notes: A read-only view over existing data: no mutation, no schema change. Add a repository
-  query in `data-access-local-db` rather than reading Dexie from the feature. It probably belongs
-  in `feature-lists` as a route; if it grows beyond one page, give it its own library
-  (`module-boundaries`).
-
 ## Backlog
 
 ### T-056 — Autocomplete when adding an item
@@ -79,6 +52,36 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   touches no data itself).
 
 ## Done
+
+### T-055 — All items, A–Z, with the lists that contain them
+
+- Completed: 2026-11-17 — Read-only "All items" page (`/lists/items`) linked from Lists: `indexItems()` in `shared/domain`, `Repositories.itemIndexOfSpace()`, `AllItemsPage` in `feature-lists`.
+- Review: Changes requested; 3 fixed (2 substantive, 1 trivial), 0 skipped, 0 disagreed; re-review rounds: 1
+
+- Milestone: M8 Editing conveniences
+- Area: web
+- Priority: normal
+- Depends on: T-016, T-049
+- Decisions: D21
+- Done when:
+  - An "All items" view, opened from the Lists page, lists every item of the current space's lists
+    (D21), in alphabetical order (the existing list-title collator, `sortByTitle()` in
+    `shared/domain`).
+  - Identical items (D16 rule: titles match ignoring case and surrounding spaces) are one row; next
+    to each row are the lists that contain it, each a link that opens that list.
+  - Items and lists in the trash are left out; an item reached only through an include is listed
+    under the list it belongs to, not under the lists that include it.
+  - The view updates live as lists and items change on any device (local database signals, no
+    REST), and works offline.
+  - It fits a 320 px wide phone (long titles and many lists wrap, nothing is cut off) and has an
+    empty state.
+  - Tests: unit tests for the grouping and sorting (in `shared/domain` or the repository), and a
+    Playwright happy path: two lists sharing an item, the view shows it once with both lists, and
+    a list link opens that list.
+- Notes: A read-only view over existing data: no mutation, no schema change. Add a repository
+  query in `data-access-local-db` rather than reading Dexie from the feature. It probably belongs
+  in `feature-lists` as a route; if it grows beyond one page, give it its own library
+  (`module-boundaries`).
 
 ### T-054 — Finished runs in the trash, with Restore
 

@@ -1,12 +1,11 @@
 <h1 class="page-title">Lists</h1>
-@if (view().kind === 'lists') {
+@let v = view();
+@if (v.kind === 'lists' && v.lists.length > 0) {
   <a class="all-items" routerLink="items">
     <mat-icon aria-hidden="true">format_list_bulleted</mat-icon>
     All items
   </a>
 }
-
-@let v = view();
 @if (v.kind === 'loading') {
   <lister-loading-hint />
 } @else if (v.kind === 'error') {

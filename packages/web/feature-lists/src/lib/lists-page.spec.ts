@@ -120,6 +120,7 @@ describe('ListsPage', () => {
     expect(element.textContent).toContain('No lists yet');
     expect(element.querySelector('ul')).toBeNull();
     expect(newListButton(element)).toBeTruthy();
+    expect(element.querySelector('a.all-items')).toBeNull();
   });
 
   it('shows the lists by title with their item counts, and follows changes', async () => {
@@ -127,6 +128,9 @@ describe('ListsPage', () => {
     await db.lists.bulkPut([list('beach'), camping]);
     await db.items.bulkPut([item(camping.id), item(camping.id)]);
     const { element, fixture } = await render();
+    expect(element.querySelector('a.all-items')?.textContent).toContain(
+      'All items',
+    );
 
     await vi.waitFor(async () => {
       await fixture.whenStable();
