@@ -51,6 +51,39 @@ describe('listToMarkdown', () => {
     expect(markdown).not.toContain('Ghost');
   });
 
+  it('keeps items that follow an include with their own list, at every depth', () => {
+    const space = new FakeSpace();
+    const trip = space.addList('Trip');
+    const basics = space.addList('Basics');
+    const papers = space.addList('Papers');
+    space.addItem(trip, 'Tent');
+    space.addInclude(trip, basics);
+    space.addItem(trip, 'Stove');
+    space.addItem(basics, 'Towel');
+    space.addInclude(basics, papers);
+    space.addItem(basics, 'Soap');
+    space.addItem(papers, 'Passport');
+
+    expect(listToMarkdown(trip, space)).toBe(
+      [
+        '# Trip',
+        '',
+        '- Tent',
+        '- Stove',
+        '',
+        '## Basics',
+        '',
+        '- Towel',
+        '- Soap',
+        '',
+        '### Papers',
+        '',
+        '- Passport',
+        '',
+      ].join('\n'),
+    );
+  });
+
   it('writes just the title for an empty list', () => {
     const space = new FakeSpace();
     expect(listToMarkdown(space.addList('Empty'), space)).toBe('# Empty\n');

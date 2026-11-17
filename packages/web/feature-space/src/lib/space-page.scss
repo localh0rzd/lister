@@ -32,3 +32,7 @@ button.row-link {
   text-align: left;
   cursor: pointer;
 }
+button.row-link:disabled {
+  cursor: default;
+  background: none;
+}

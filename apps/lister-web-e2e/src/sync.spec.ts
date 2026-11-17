@@ -120,7 +120,8 @@ test.describe('an item deleted while someone edits it', () => {
 
     await expect(dialog).toBeHidden();
     await expect(lamp(b)).toBeVisible();
-    await expect(b.getByText('spare batteries')).toBeVisible();
+    // Exact: the (hidden) print sheet shows the note as "— spare batteries" too.
+    await expect(b.getByText('spare batteries', { exact: true })).toBeVisible();
     await b.context().close();
   });
 });

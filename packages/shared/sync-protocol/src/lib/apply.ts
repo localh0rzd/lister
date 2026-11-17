@@ -500,31 +500,31 @@ export function applyMutation(
           return reject('This item already exists');
         ids.add(row.id);
       }
-      const includesOf = (parentId: string) =>
-        rows.includes.filter((row) => row.parentListId === parentId);
+      // Each include is checked against the ones accepted before it, so a loop is found at the
+      // include that closes it, in time linear in the import for each include.
+      const accepted = new Map<string, Include[]>();
       for (const include of rows.includes) {
         const parent = titles.get(include.parentListId) as string;
         const child = titles.get(include.childListId);
         if (child === undefined) return reject(LIST_MISSING);
         if (include.parentListId === include.childListId)
           return reject("A list can't include itself");
-        if (
-          includesOf(include.parentListId).some(
-            (other) =>
-              other !== include && other.childListId === include.childListId,
-          )
-        ) {
+        const siblings = accepted.get(include.parentListId) ?? [];
+        if (siblings.some((other) => other.childListId === include.childListId))
           return reject(`“${child}” is already included`);
-        }
         if (
-          wouldCreateCycle(include.parentListId, include.childListId, (id) =>
-            includesOf(id).filter((other) => other !== include),
+          wouldCreateCycle(
+            include.parentListId,
+            include.childListId,
+            (id) => accepted.get(id) ?? [],
           )
         ) {
           return reject(
             `That would make a loop: “${child}” already contains “${parent}”`,
           );
         }
+        siblings.push(include);
+        accepted.set(include.parentListId, siblings);
       }
       for (const row of rows.lists) store.putList(row);
       for (const row of rows.items) store.putItem(row);

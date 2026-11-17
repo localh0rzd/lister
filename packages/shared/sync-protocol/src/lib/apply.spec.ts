@@ -5,7 +5,7 @@ import {
   newId,
 } from '@lister/shared/domain';
 import { MemoryRowStore, applyMutation } from './apply';
-import { type Mutation, mutationSchema } from './mutations';
+import { MAX_IMPORT_LISTS, type Mutation, mutationSchema } from './mutations';
 
 const SPACE = newId();
 const USER = newId();
@@ -1573,6 +1573,44 @@ describe('list.import', () => {
         store.getInclude(include) as Include,
       ),
     ).toBeLessThan(0);
+  });
+
+  it('checks a large loop-free import quickly (no include check over every pair)', () => {
+    // 200 lists, each including the next 25: about as many includes as an import may hold.
+    const ids = Array.from({ length: MAX_IMPORT_LISTS }, () => newId());
+    const lists = ids.map((id, i) => ({
+      id,
+      title: `List ${i}`,
+      entries: ids
+        .slice(i + 1, i + 26)
+        .map((listId) => ({ id: newId(), listId })),
+    }));
+    const store = new MemoryRowStore();
+
+    const started = performance.now();
+    const outcome = apply(store, 'list.import', { lists });
+    const elapsed = performance.now() - started;
+
+    expect(outcome).toMatchObject({ kind: 'changed' });
+    expect(store.includes.size).toBeGreaterThan(4500);
+    // The pairwise check took over 6 s here; the linear one takes well under 100 ms.
+    expect(elapsed).toBeLessThan(2000);
+  });
+
+  it('refuses a loop closed by the last include of a long chain', () => {
+    const ids = Array.from({ length: 50 }, () => newId());
+    const lists = ids.map((id, i) => ({
+      id,
+      title: `List ${i}`,
+      entries: [{ id: newId(), listId: ids[(i + 1) % ids.length] }],
+    }));
+
+    const outcome = apply(new MemoryRowStore(), 'list.import', { lists });
+
+    expect(outcome).toMatchObject({
+      kind: 'rejected',
+      reason: expect.stringContaining('That would make a loop'),
+    });
   });
 
   it('is harmless when retried', () => {

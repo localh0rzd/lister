@@ -106,10 +106,13 @@ describe('SpacePage', () => {
       b.textContent?.includes('Export all lists (JSON)'),
     ) as HTMLButtonElement;
 
+    // Disabled until the local rows are read, so a click never lands on "not ready".
     await vi.waitFor(() => {
-      button.click();
-      expect(exportAll).toHaveBeenCalled();
+      fixture.detectChanges();
+      expect(button.disabled).toBe(false);
     });
+    button.click();
+    expect(exportAll).toHaveBeenCalledTimes(1);
 
     expect(exportAll.mock.calls[0][0].map((l) => l.title)).toEqual(['Camping']);
   });

@@ -32,6 +32,12 @@ export class SpacePage {
     () => this.current.all().status !== 'loading',
   );
 
+  /** The local rows are read, so "Export all lists" can build its file (disabled until then). */
+  protected readonly exportReady = computed(
+    () =>
+      this.lists().status === 'ready' && this.composition().status === 'ready',
+  );
+
   /** "Export all lists (JSON)": every live list of the space, built from the local rows. */
   protected exportAll(): void {
     const lists = this.lists();
