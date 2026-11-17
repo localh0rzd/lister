@@ -13,20 +13,20 @@ design behind the tasks is `docs/design.md`.
 ## Roles (agreed with the user, 2026-11-12)
 
 The main session is the **coordinator**. It runs at **medium** effort, and it doesn't write task
-code itself. For every task, it starts three sessions with `mcp__ccd_session__start_session`
+code itself. For every task, it starts two sessions with `mcp__ccd_session__start_session`
 (`initiation: "user_asked"`, `context: "fresh"`, `use_worktree: false`, `wake_when_done: true`,
-with the model and effort given below), one after the other:
+with the model and effort given below), one after the other. Every session starts with about
+75k tokens of fixed context, so don't start more than these two per task (the user asked for
+this, 2026-11-17).
 
 1. **Task worker**, `model: "claude-sonnet-5-5"`, `effort: "medium"`, `name: "task-t-nnn"`: picks up the task and implements it
-   following "Doing it" below, through to the verified `T-NNN: <title>` commit. It doesn't start
-   the review. Its brief names the task, the base commit, and these skills: this one,
-   `best-practices`, `testing`, `module-boundaries` and `verify`.
-2. **Simplifier**, `model: "claude-sonnet-5-5"`, `effort: "medium"`, `name: "simplify-t-nnn"`
-   (added at the user's request, 2026-11-16): starts once the task commit exists and follows
-   "Simplifying it" below. It only cleans up the task's own code, without changing behaviour, and
-   commits `T-NNN: simplify`.
-3. **Review worker**, `model: "claude-opus-5-5"`, `effort: "medium"`, `name: "review-t-nnn"`: starts once the
-   simplifier is done, reviews the whole range (task commit plus simplify commit) and follows
+   following "Doing it" below, through to the verified `T-NNN: <title>` commit, then simplifies
+   its own diff (step 9, the `T-NNN: simplify` commit; added 2026-11-16, moved into the task
+   worker 2026-11-17). It doesn't start the review. Its brief names the task, the base commit,
+   and these skills: this one, `best-practices`, `testing`, `module-boundaries`, `simplify` and
+   `verify`.
+2. **Review worker**, `model: "claude-opus-5-5"`, `effort: "medium"`, `name: "review-t-nnn"`: starts once the
+   task worker is done, reviews the whole range (task commit plus simplify commit) and follows
    "Reviewing it" below. It writes the report with each finding marked
    **trivial** or **substantive** (`task-review` skill), then fixes the substantive ones
    itself.
@@ -57,7 +57,7 @@ model and effort with `mcp__ccd_session_mgmt__get_session`, and if either is wro
 - **Branch:** work happens on `work/v1`, cut from `master`. If it doesn't exist yet, run
   `git switch -c work/v1 master`; otherwise `git switch work/v1`. Never push, merge or rebase
   unless the user asks.
-- **Commits:** each task gets its own commit, `T-NNN: <title>`, followed by the simplifier's
+- **Commits:** each task gets its own commit, `T-NNN: <title>`, followed by the task worker's
   `T-NNN: simplify` (none when it finds nothing worth changing). Its substantive review fixes
   get a second one, `T-NNN: address review` (by the review worker), and its trivial fixes and
   the closing of the task a third, `T-NNN: trivial review fixes` (by the task worker). That way
@@ -99,32 +99,24 @@ model and effort with `mcp__ccd_session_mgmt__get_session`, and if either is wro
 8. Commit. Check `git status` for stray files, then commit everything with the message
    `T-NNN: <title>`. The body says what changed; end it with the Co-Authored-By trailer. The task
    stays **In progress** until its review is resolved.
+9. Simplify (see "Simplifying it" below), then end with both commit hashes (or "no changes" for
+   the simplify step) and any bugs you noticed while simplifying.
 
-## Simplifying it (after the task commit, before the review)
+## Simplifying it (task worker, after the task commit, before the review)
 
-1. **Start the simplifier session** with `mcp__ccd_session__start_session`: `initiation:
-"user_asked"`, `context: "fresh"`, `use_worktree: false`, `wake_when_done: true`,
-   `name: "simplify-t-nnn"`, `title: "Simplify T-NNN: <title>"`, `model: "claude-sonnet-5-5"`,
-   `effort: "medium"`; check model and effort with `get_session` afterwards.
-   - `prompt`:
-     > Simplify the code of task T-NNN ("<title>") in this repository: the commit(s)
-     > `<base>..<head>` on branch `work/v1`. Run the `simplify` skill on exactly that diff, and
-     > follow `best-practices` and `module-boundaries`. Only reuse, simplification, efficiency and
-     > clarity cleanups of code this task added or changed: behaviour, public APIs, tests' intent,
-     > `TASKS.md` and `docs/design.md` stay as they are, and nothing outside the task's diff
-     > changes. Don't look for bugs; if you notice one, list it in your final message instead
-     > of fixing it. Run `verify`. If anything changed, commit it as `T-NNN: simplify`, with a
-     > body listing each change and why, and the trailer
-     > `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`; if nothing was worth
-     > changing, commit nothing and say so. Don't switch branches, stash or install anything.
-     > End your final message with the commit hash, or "no changes".
-   - `background`: the same project summary as the review's, saying that a task worker
-     implemented the task, a review worker reviews it after you, and the coordinator checks your
-     diff.
-2. **Wait** (one line to the user with a link to the session, then end your turn).
-3. **Check** the simplify diff quickly: behaviour-preserving, inside the task's diff, `verify`
-   green. If a change alters behaviour or goes beyond the task, send it back (SendMessage) or
-   revert that part. Pass any bugs it listed to the review as notes in its prompt.
+1. Run the `simplify` skill on exactly the task's diff (`<base>..HEAD`), following
+   `best-practices` and `module-boundaries`. Do it inline: don't start review agents or sessions
+   for it.
+2. Only reuse, simplification, efficiency and clarity cleanups of code this task added or
+   changed: behaviour, public APIs, tests' intent, `TASKS.md` and `docs/design.md` stay as they
+   are, and nothing outside the task's diff changes. Don't look for bugs here; list any you
+   notice in your final message instead of fixing them.
+3. Run `verify`. If anything changed, commit it as `T-NNN: simplify`, with a body listing each
+   change and why; if nothing was worth changing, commit nothing and say so.
+4. **Coordinator:** check the simplify diff quickly (behaviour-preserving, inside the task's
+   diff, `verify` green). If a change alters behaviour or goes beyond the task, send it back
+   (SendMessage) or revert that part. Pass any bugs the worker listed to the review as notes in
+   its prompt.
 
 ## Reviewing it (after every task)
 

@@ -65,6 +65,9 @@ export class ListCard {
 
 ## Data access
 
+- **Dev proxy:** `apps/lister-web/proxy.conf.json` forwards `/api` and `/socket.io` (WebSockets)
+  to the API on `:3000`.
+
 - **Synced data** (lists, items, includes, runs):
   - Read it from the local database through the repositories in `data-access-local-db`: Dexie
     `liveQuery` exposed as signals.
@@ -109,6 +112,13 @@ export class ListCard {
 - **Navigation:** Material has no navigation bar or rail; ours live in `packages/web/ui`.
 - **Fonts and icons** are self-hosted: Roboto and Material Symbols from npm. Never add Google
   Fonts `<link>`s; they break offline use.
+- **Icon subset:** the icon font holds only the icons in use. After adding one
+  (`<mat-icon>name</mat-icon>`, or a quoted name assigned to a TypeScript property or variable
+  named `…icon`), run `npx nx run lister-web:subset-icons` and commit the result (also after
+  upgrading `material-symbols`); `npm run lint:workspace` fails otherwise.
+- **PWA:** the service worker runs only in production builds (`providePwa()` in
+  `@lister/web/util-pwa`, config in `apps/lister-web/ngsw-config.json`). Try it locally with
+  `npm run start:prod`; app icons come from `npm run icons`.
 - **Phone first:**
   - Below 600 px: a top app bar, the bottom navigation bar, and a FAB for the main action.
   - From 600 px: the navigation rail, with list and detail side by side where that helps.

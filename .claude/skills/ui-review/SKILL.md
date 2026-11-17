@@ -34,8 +34,9 @@ catch this kind of thing before they do:
   user's dev server is running, the e2e servers: `npx nx run lister-api:serve-e2e` serves on
   port 3000 too, so don't run both; never stop a server you didn't start. For PWA and offline,
   `npm run start:prod` (port 3100).
-- **The browser:** the built-in browser pane (`mcp__Claude_Browser__*`), or a Playwright
-  script under `tmp/` for things the pane can't do (throttling, frame-by-frame screenshots).
+- **The browser:** a Playwright script under `tmp/reviews/<task-id>-ui/` (run with `node`),
+  which also covers throttling, offline and frame-by-frame screenshots. The built-in browser
+  pane is turned off for this project (`.claude/settings.local.json`) to keep sessions small.
 - **Sizes and themes:** phone 375 × 812 and desktop 1280 × 800, in light and in dark.
 - **Two devices** for anything synced: a second tab or browser context on the same list.
 - Create your own data with unique titles; don't change lists you didn't create.

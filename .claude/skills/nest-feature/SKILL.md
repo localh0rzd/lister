@@ -135,6 +135,9 @@ Rules:
 - **Tests:** use a fresh, migrated in-memory database: `createTestDatabase()` from
   `@lister/api/data-access-db`.
 - **No other stack:** don't introduce another database or ORM.
+- **`better-sqlite3`'s install script** is approved in `package.json > allowScripts` (npm 11
+  blocks unapproved ones); re-approve after upgrading it
+  (`npm install-scripts approve better-sqlite3`).
 
 ## Tests
 
@@ -153,3 +156,5 @@ What's required is in the `testing` skill. For the API:
   - They run in `nx test lister-api`.
 - **Smoke:** `npx nx e2e lister-api-e2e` (Vitest with axios) starts the built server and checks
   what needs the real process: startup, migrations, health, static hosting, and the origin check.
+- **New Nest apps:** `@nx/nest:application` can only generate Jest e2e projects, so generate with
+  `--e2eTestRunner=none` (the default here) and copy `apps/lister-api-e2e`'s Vitest setup.

@@ -79,6 +79,8 @@ migrated in-memory SQLite database.
 
 - **One spec per feature:** `apps/lister-web-e2e/src/<feature>.spec.ts`.
   `npx nx e2e lister-web-e2e` starts the API and the web app itself.
+- **Signed in:** sync needs a session, so `apps/lister-web-e2e/src/support/global-setup.ts` signs
+  the suites in (the e2e servers fix the setup token with `LISTER_SETUP_TOKEN`).
 - **Walk the main flow the way a user does:** role, label and text locators, web-first
   assertions, and no `waitForTimeout`.
 - **Independent tests:** each test creates its own data (unique names), so tests run in parallel

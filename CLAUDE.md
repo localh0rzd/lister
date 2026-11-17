@@ -6,165 +6,69 @@ Nx monorepo: **Angular** web app + **NestJS** API, sharing TypeScript libraries.
 - **Design and decisions:** [docs/design.md](docs/design.md). Read the relevant sections before touching data, sync, composition or checklists. If a change would contradict it, update the doc first and tell the user.
 - **Open decisions:** listed near the top of `docs/design.md`, each naming the first task that needs it. Before starting such a task, check whether it has been answered; if not, ask the user once and propose the default. Record answers in the doc's Decisions table.
 - **Work items:** [TASKS.md](TASKS.md) — use the `tasks` skill to pick one up.
-- **How every change is made:** follow the `best-practices`, `testing` and `module-boundaries` skills for every implementation, every time. Tasks are committed one at a time on the `work/v1` branch, and each one gets a critical review in a separate session before the next starts (`tasks` and `task-review` skills).
+- **How every change is made:** follow the `best-practices`, `testing` and `module-boundaries` skills for every implementation, every time, plus `angular-feature`, `nest-feature` or `fullstack-feature` for the area. Tasks are committed one at a time on the `work/v1` branch, and each one gets a critical review in a separate session before the next starts (`tasks` and `task-review` skills).
 
 ## Stack (installed versions — check `package.json` before assuming APIs)
 
-- Nx 24 (integrated layout: `project.json` + `tsconfig.base.json` paths, one root `package.json`)
-- Angular 22: standalone, zoneless, signals, esbuild (`@angular/build`), Vitest via `@angular/build:unit-test` (libraries: Vitest with the Analog Angular plugin); Angular Material 22 + CDK, Roboto and Material Symbols from npm, `@angular/service-worker`
-- NestJS 11 on Express 5, bundled with webpack (`@nx/webpack`)
+- Nx 24 (integrated: `project.json` + `tsconfig.base.json` paths, one root `package.json`); targets are mostly _inferred_ by plugins, so use `npx nx show project <name>`
+- Angular 22: standalone, zoneless, signals, esbuild, Angular Material 22 + CDK, `@angular/service-worker`
+- NestJS 11 on Express 5, bundled with webpack
 - **Vitest for every unit, integration and API e2e test** (no Jest anywhere), Playwright for web e2e
-- TypeScript 6, ESLint 9 flat config, Prettier
-- Node from `.nvmrc` (managed with fnm), npm as package manager. `.npmrc` sets `legacy-peer-deps=false` and `strict-peer-deps=true`: installs fail on peer conflicts
-- Planned, each added by its task (don't swap in alternatives; reasons in docs/design.md §4): Dexie 4, Socket.IO 4 (`@nestjs/platform-socket.io` 11.x), Drizzle 0.45 + `better-sqlite3` 13, Zod 4, `fractional-indexing`, `uuid` (v7), `@simplewebauthn/server` + `@simplewebauthn/browser` 14
+- TypeScript 6, ESLint 9 flat config, Prettier; Node from `.nvmrc` (fnm), npm
+- Data and sync (don't swap in alternatives; reasons in docs/design.md §4): Dexie 4, Socket.IO 4, Drizzle 0.45 + `better-sqlite3`, Zod 4, `fractional-indexing`, `uuid` (v7), `@simplewebauthn/*` 14
 
 ## Layout
 
-```
-apps/
-  lister-web/          Angular SPA            (scope:web,  type:app)  :4200
-  lister-web-e2e/      Playwright e2e         (scope:web,  type:e2e)
-  lister-api/          NestJS API, /api/*     (scope:api,  type:app)  :3000
-  lister-api-e2e/      Vitest + axios e2e     (scope:api,  type:e2e)
-packages/
-  shared/api-contracts/  DTO types + route helpers, @lister/shared/api-contracts (scope:shared, type:util)
-  shared/domain/         entities, ids, positions, domain rules, @lister/shared/domain (scope:shared, type:util)
-  shared/sync-protocol/  Zod schemas: mutations, socket messages, rows, @lister/shared/sync-protocol (scope:shared, type:util)
-  api/feature-auth/      accounts, sessions, sign-in, setup token, registration tokens, reset command, auth guard, @lister/api/feature-auth (scope:api, type:feature)
-  api/feature-spaces/    spaces and memberships over REST, @lister/api/feature-spaces (scope:api, type:feature)
-  api/data-access-db/    SQLite + Drizzle, migrations, test database, @lister/api/data-access-db (scope:api, type:data-access)
-  api/feature-maintenance/ nightly backups, daily purge, @lister/api/feature-maintenance (scope:api, type:feature)
-  web/feature-lists/     Lists destination, @lister/web/feature-lists (scope:web, type:feature)
-  web/feature-runs/      Runs destination, @lister/web/feature-runs (scope:web, type:feature)
-  web/feature-auth/      sign-in, first-run setup, registration, forced password change, profile, @lister/web/feature-auth (scope:web, type:feature)
-  web/feature-admin/     user administration and registration links (admins only), @lister/web/feature-admin (scope:web, type:feature)
-  web/feature-space/     Space destination: space switcher, spaces and members, Trash, @lister/web/feature-space (scope:web, type:feature)
-  web/feature-settings/  Settings destination: account links, appearance, sync status, app, about, sign out, @lister/web/feature-settings (scope:web, type:feature)
-  web/data-access-auth/  AuthSession (who is signed in, sign-in/out, remembered offline), route guards, @lister/web/data-access-auth (scope:web, type:data-access)
-  web/data-access-sync/  sync engine: mutate(), outbox, socket, status; SpaceChanges (changes to the current space, with refusal notices and Undo), @lister/web/data-access-sync (scope:web, type:data-access)
-  web/data-access-local-db/ Dexie database, liveQuery signals, repositories, @lister/web/data-access-local-db (scope:web, type:data-access)
-  web/ui/                nav bar and rail, theme picker, @lister/web/ui (scope:web, type:ui)
-  web/util-theme/        theme preference + theme-color, @lister/web/util-theme (scope:web, type:util)
-  web/util-notify/       Notifier: the snackbar queue, @lister/web/util-notify (scope:web, type:util)
-  web/util-pwa/          service worker + update prompt, @lister/web/util-pwa (scope:web, type:util)
-```
+`apps/`: `lister-web` (Angular SPA, :4200), `lister-web-e2e` (Playwright), `lister-api` (NestJS, `/api/*`, :3000), `lister-api-e2e` (Vitest + axios smoke).
 
-New libraries go in `packages/<scope>/<name>`, where scope is `web`, `api` or `shared`, with import path `@lister/<scope>/<name>`.
-Apps stay thin: they wire routes, modules and config. **Every bigger feature gets its own library from its first line of code.** The `module-boundaries` skill says what counts as bigger and how to create the library.
-The planned libraries and their tags are in docs/design.md §5; create each one when its task comes up, and add any new library to §5.
+`packages/<scope>/<name>`, project `<scope>-<name>`, import path `@lister/<scope>/<name>`:
+
+- **shared:** `api-contracts` (HTTP DTO types, `apiPath()`), `domain` (entities, ids, positions, flattening, cycle check), `sync-protocol` (Zod schemas for mutations and socket messages, `applyMutation()`)
+- **api:** `data-access-db` (SQLite + Drizzle, migrations), `feature-auth`, `feature-spaces`, `feature-sync`, `feature-maintenance` (backups, purge)
+- **web:** `data-access-local-db` (Dexie, liveQuery signals, repositories), `data-access-sync` (sync engine, outbox, socket; `SpaceChanges`), `data-access-auth`, `feature-lists`, `feature-runs`, `feature-auth`, `feature-admin`, `feature-space`, `feature-settings`, `ui` (nav bar and rail), `util-theme`, `util-notify` (`Notifier`), `util-pwa`
+
+Apps stay thin: they wire routes, modules and config. **Every bigger feature gets its own library from its first line of code** (`module-boundaries` skill). Planned libraries and their tags are in docs/design.md §5; add any new one there.
 
 ## Domain and architecture (summary of docs/design.md)
 
-- **List**: reusable, composable, no check state. **Item**: belongs to exactly one list. **Include**: list A contains list B, any depth, never a cycle; a list reached twice appears once. A live reference: editing a list changes every list that includes it (D2).
-- **Run**: a one-off checklist, started from a list (its items are copied in when it starts, D2) or empty (ad-hoc); identical items are merged into one (D16). Holds checked/skipped state; when every item is checked or skipped it finishes and is never listed again (D10). The UI says "run" too (destination "Runs").
-- **Users and spaces**: admins create and manage all accounts (no self-registration); sign-in with username and password, or with passkeys. A **space** owns lists and runs, and all its members can edit them (D14: a personal space per user, plus shared spaces whose owner adds members).
-- **Sync is authenticated:** the Socket.IO handshake needs a live session cookie, the welcome lists the user's spaces, and every pull and push checks membership in the database (`feature-sync`; `feature-spaces` tells it when memberships change). The web e2e suites are signed in by `apps/lister-web-e2e/src/support/global-setup.ts` (the e2e servers fix the setup token with `LISTER_SETUP_TOKEN`).
-- **Local-first:** the web app reads synced data from IndexedDB (Dexie) and changes it only through **mutations** via the sync engine. The server applies each mutation in a SQLite transaction and pokes the changed rows to the space over Socket.IO. REST is only for sign-in, passkeys, user administration, spaces, bootstrap, export and health.
-- **Production:** one Docker container behind Traefik, which terminates HTTPS. The app speaks plain HTTP and takes its public URL from `PUBLIC_URL` (used for the WebSocket `Origin` check, `Secure` cookies and passkeys).
-- **Conflicts:** per field, the change that reaches the server last wins; deletes win (rows become tombstones); a mutation that breaks a rule (cycle, permission, validation) is rejected and rolled back on the client.
-- Synced features follow Path A of the `fullstack-feature` skill (lists and items are the worked example). Never build synced data on REST CRUD.
+- **List**: reusable, composable, no check state. **Item**: belongs to exactly one list. **Include**: list A contains list B, any depth, never a cycle; a list reached twice appears once; a live reference (D2).
+- **Run**: a one-off checklist, started from a list (items copied in, D2) or empty; identical items merged (D16). Holds checked/skipped state; when every item is checked or skipped it finishes and goes to the trash (D10, D20). The UI says "run" too.
+- **Users and spaces**: admins manage accounts (no self-registration; registration links, D23); sign-in with password or passkeys. A **space** owns lists and runs; all its members can edit them (D14).
+- **Local-first:** the web app reads synced data from IndexedDB (Dexie) and changes it only through **mutations** via the sync engine. The server applies each mutation in one SQLite transaction and pokes the changed rows to the space over Socket.IO, which is authenticated by the session cookie and checks membership on every pull and push. REST is only for sign-in, passkeys, user administration, spaces, bootstrap, export and health. **Never build synced data on REST CRUD** (Path A of `fullstack-feature`).
+- **Conflicts:** per field, last write to reach the server wins; deletes win (tombstones); a mutation that breaks a rule is rejected and rolled back on the client.
+- **Production:** one Docker container behind Traefik (HTTPS there); the app speaks HTTP and takes its public URL from `PUBLIC_URL`.
 - UI text is English only.
 
 ## Commands
 
 Always run through Nx, from the repo root (`npx nx …`). Never call `ng`, `vitest` or `webpack` directly.
 
-| What                                       | Command                                                                                      |
-| ------------------------------------------ | -------------------------------------------------------------------------------------------- |
-| Dev (API + web, proxied)                   | `npm start` → http://localhost:4200, API at `/api`                                           |
-| One project                                | `npx nx serve lister-api` / `npx nx serve lister-web`                                        |
-| Test / lint / build one project            | `npx nx test lister-web`, `npx nx lint lister-api`, `npx nx build lister-web`                |
-| Everything touched by your change          | `npx nx affected -t lint typecheck test build`                                               |
-| Workspace rules (tags, placement, aliases) | `npm run lint:workspace`                                                                     |
-| E2E                                        | `npx nx e2e lister-web-e2e`, `npx nx e2e lister-api-e2e` (they start the servers themselves) |
-| Format                                     | `npx nx format:write` (CI runs `format:check`)                                               |
-| What exists                                | `npx nx show projects`, `npx nx show project <name>`, `npx nx graph`                         |
+| What                                       | Command                                                                       |
+| ------------------------------------------ | ----------------------------------------------------------------------------- |
+| Dev (API + web, proxied)                   | `npm start` → http://localhost:4200, API at `/api`                            |
+| Production build locally (PWA, offline)    | `npm run start:prod` → http://localhost:3100                                  |
+| Test / lint / build one project            | `npx nx test lister-web`, `npx nx lint lister-api`, `npx nx build lister-web` |
+| Everything touched by your change          | `npx nx affected -t lint typecheck test build`                                |
+| Workspace rules (tags, placement, aliases) | `npm run lint:workspace`                                                      |
+| E2E (they start the servers themselves)    | `npx nx e2e lister-web-e2e`, `npx nx e2e lister-api-e2e`                      |
+| Format                                     | `npx nx format:write` (CI runs `format:check`)                                |
 
-Tests run once and exit (`testMode: run`), so they're safe to run non-interactively.
-Use `NX_TUI=false` or `--outputStyle=static` when you need plain, readable output.
-Targets are mostly _inferred_ by plugins in `nx.json` — `project.json` may not list them; use `nx show project`.
+Tests run once and exit. Use `NX_TUI=false` or `--outputStyle=static` for plain output.
 
 ## Generating code
 
-Use Nx generators; don't hand-write project scaffolding (`project.json`, tsconfigs, eslint/vitest configs).
-Defaults live in `nx.json > generators`: scss, the `lister` prefix, vitest-angular for Angular apps, vitest-analog for Angular libraries (see `module-boundaries`), and vitest for Nest and TS libraries. OnPush is Angular 22's default, so generated components don't set it. Always `--dry-run` first.
-Library names follow `packages/<scope>/<name>`, project `<scope>-<name>`, import path `@lister/<scope>/<name>`.
-Every project gets a `typecheck` target (`tsc --noEmit` on each of its `tsconfig.*.json`) from the local plugin `tools/typecheck-plugin.mjs`. Nest and TS library generators write `"module": "commonjs"`, under which `vitest.config.mts` fails with TS1343: set `"module": "esnext"` in the new library's `tsconfig.spec.json`.
-
-```bash
-npx nx g @nx/angular:library packages/web/feature-lists --name=web-feature-lists --importPath=@lister/web/feature-lists --tags=scope:web,type:feature --dry-run
-npx nx g @nx/angular:component packages/web/feature-lists/src/lib/list-page/list-page --dry-run
-npx nx g @nx/nest:library packages/api/feature-sync --name=api-feature-sync --importPath=@lister/api/feature-sync --tags=scope:api,type:feature --dry-run
-npx nx g @nx/nest:resource packages/api/feature-auth/src/lib/users/users --dry-run   # REST only for non-synced data
-npx nx g @nx/js:library packages/shared/<name> --name=shared-<name> --importPath=@lister/shared/<name> --tags=scope:shared,type:util --dry-run
-```
+Use Nx generators (`--dry-run` first); don't hand-write `project.json`, tsconfigs or eslint/vitest configs. Defaults are in `nx.json > generators`; the exact library commands are in `module-boundaries`. Every project gets a `typecheck` target from `tools/typecheck-plugin.mjs`.
 
 ## Dependencies
 
-- All `nx` and `@nx/*` packages must be the **same exact version** (no `^`), since Nx plugins peer-depend on each other's exact version. Upgrade them together with `npx nx migrate latest`, never one by one.
-- Peer conflicts are errors (`.npmrc`). Fix them; never use `--legacy-peer-deps` or `--force`. A conflict that only upstream can fix goes in `package.json > overrides`, scoped to the offending package, with a note in this section.
-- Current override: `@oxc-parser/binding-wasm32-wasi` (optional dependency of `@angular/build`, only used on WebAssembly platforms) pins `@emnapi/*@2.0.0-alpha.6`, which its own `@napi-rs/wasm-runtime` peer range rejects. It's forced to `2.0.0-beta.3`. Remove the override once `@angular/build` ships a fixed binding.
-- Jest is not used. Don't add `jest`, `ts-jest` or `@nx/jest`. (`@nx/eslint` pulls `@nx/jest` in transitively; that's Nx-internal.)
-- Nest e2e: `@nx/nest:application` can only generate Jest e2e projects, so generate with `--e2eTestRunner=none` (the default here) and copy `apps/lister-api-e2e`'s Vitest setup.
+- All `nx` and `@nx/*` packages are the **same exact version** (no `^`); upgrade them together with `npx nx migrate latest`.
+- Peer conflicts are errors (`.npmrc`: `strict-peer-deps=true`). Fix them; never `--legacy-peer-deps` or `--force`. A conflict only upstream can fix goes in `package.json > overrides`, scoped to the offending package, with a note here.
+- Current override: `@oxc-parser/binding-wasm32-wasi` (optional dependency of `@angular/build`) forces `@emnapi/*` to `2.0.0-beta.3`, because its pinned `2.0.0-alpha.6` fails its own `@napi-rs/wasm-runtime` peer range. Remove it once `@angular/build` ships a fixed binding.
+- No Jest: don't add `jest`, `ts-jest` or `@nx/jest` (`@nx/eslint` pulls `@nx/jest` in transitively; that's Nx-internal).
 
-## Module boundaries (strict: `@nx/enforce-module-boundaries` in lint, plus `npm run lint:workspace`)
+## Module boundaries (strict, lint-enforced)
 
-Every project needs exactly one `scope:*` tag and one `type:*` tag. The details, and how to fix a violation, are in the `module-boundaries` skill.
-
-- **Scopes:** `scope:web` → web + shared; `scope:api` → api + shared; `scope:shared` → shared only. **Web code never imports api code, and vice versa.** That includes npm packages:
-  - web code can't import server packages (`@nestjs/*`, `drizzle-orm`, `better-sqlite3`, …);
-  - api code can't import browser packages (`@angular/*`, `dexie`, …);
-  - shared code can import neither.
-- **Types:**
-  - `type:app` and `feature` → feature/ui/data-access/util;
-  - `ui` → ui/util, with no HTTP, Dexie or sockets;
-  - `data-access` → data-access/util; `util` → util; `e2e` → util.
-  - Web features reach Dexie and the socket only through data-access libraries.
-- **Dependencies:** every imported npm package must be a direct dependency in `package.json`, and projects have no circular dependencies.
-- **Imports:** import a library only through its `@lister/<scope>/<name>` alias, which points at its `src/index.ts`. Never use a relative path across project roots or reach into a library's internals.
-- **No workarounds:** never disable or loosen these rules, add `allow` entries, or change tags to get green; move the code instead. Changing a rule is a design change, so ask the user first.
-
-## Conventions
-
-### Shared libraries (`packages/shared/*`)
-
-- `api-contracts`: every request/response shape that crosses HTTP, as TypeScript interfaces. Both sides import it, so a contract change breaks both at compile time. Route paths are built with `apiPath(...)`.
-- `domain`: entity types, ids, positions, flattening, cycle check — pure functions used by client and server alike.
-- `sync-protocol`: Zod schemas for mutations and socket messages, the protocol version, and `applyMutation()`: the mutation rules both the server (authoritative) and the client (prediction) run.
-- Allowed: plain TypeScript and Zod (plus `fractional-indexing` and `uuid`). Not allowed: Angular, NestJS, `class-validator`, Node built-ins or browser globals. Lint enforces it: shared libraries spread `sharedPlatformRules`, and `lint:workspace` checks that they do.
-- Sync protocol: strict about what clients send, tolerant (`z.object`) about what the server sends, so additive changes don't break cached old clients.
-
-### Angular (`lister-web`)
-
-- Standalone components with OnPush, which are both Angular 22 defaults: never write `standalone: true` or `changeDetection`. Selector prefix `lister-`. No NgModules, no `zone.js`.
-- State: `signal`, `computed`, `linkedSignal`, `input()`, `output()`, `model()`. Avoid `@Input`/`@Output` decorators and manual subscriptions.
-- DI via `inject()`, not constructor params. New singleton services use `@Service()` (Angular 22), not `@Injectable({ providedIn: 'root' })`.
-- Lint enforces the modern APIs through `angularBestPractices` in the root `eslint.config.mjs`. Every Angular project's lint config spreads it.
-- Templates: built-in control flow (`@if`, `@for` with `track`, `@switch`, `@defer`). No `*ngIf`/`*ngFor`.
-- Synced data (lists, items, includes, runs): read through the local-database repositories (signals), change through sync-engine mutations. Never `HttpClient` or `httpResource()` for it.
-- Other HTTP (sign-in, passkeys, user administration, spaces, export, health): `httpResource()` for reads, `HttpClient` in a data-access service for writes, URLs via `apiPath()`. The dev proxy (`apps/lister-web/proxy.conf.json`) forwards `/api` and `/socket.io` (WebSockets) to `:3000`.
-- UI: Angular Material 3 components and `--mat-sys-*` tokens. The navigation bar and rail are our own components in `packages/web/ui` (Material has none). Fonts and icons are self-hosted — never add Google Fonts links. The icon font is a subset of the icons in use: after adding an icon (`<mat-icon>name</mat-icon>`, or quoted names assigned to a TypeScript property or variable named `…icon`), run `npx nx run lister-web:subset-icons` and commit the result (also after upgrading `material-symbols`); `npm run lint:workspace` fails otherwise.
-- Drag and drop (CDK) always has a keyboard alternative ("Move up / down"). Destructive actions offer Undo in a snackbar.
-- Snackbars only through `Notifier` (`@lister/web/util-notify`), never `MatSnackBar` directly: it queues them, so an Undo never wipes out another notice.
-- Keep the initial bundle small: code that isn't needed for the first paint (sync engine, update prompt) is loaded with a dynamic import or `@defer`.
-- PWA: the service worker only runs in production builds (`providePwa()` in `@lister/web/util-pwa`, config in `apps/lister-web/ngsw-config.json`). Offline and PWA e2e specs are named `*.pwa.spec.ts` and run against the production setup: the API serving the production web build on one origin (`lister-api:serve-prod-e2e`, port 3100). Locally: `npm run start:prod`. App icons are generated with `npm run icons`.
-- Forms: Signal Forms (`@angular/forms/signals`) for new forms.
-- Routes are lazy (`loadComponent` / `loadChildren`). Router inputs are bound to component inputs (`withComponentInputBinding`).
-- Tests: Vitest + `TestBed`; mock HTTP with `provideHttpClientTesting()` + `HttpTestingController`.
-
-### NestJS (`lister-api`)
-
-- One Nest module per feature (`<feature>.module.ts`, `.controller.ts`, `.service.ts`), imported into `AppModule`.
-- Global prefix `api` (from `API_PREFIX`). A global `ValidationPipe` with `whitelist` + `transform` is on: request bodies are DTO **classes** with `class-validator` decorators that `implements` the shared interface.
-- HTTP writes (anything but GET, HEAD, OPTIONS) must send a JSON body or none, from the app's origin: `SameOriginGuard` answers anything else with 403/415. File uploads would need a design change first.
-- Controllers stay thin; logic lives in services. Throw Nest HTTP exceptions (`NotFoundException`, …), don't build error responses by hand.
-- Synced data has no REST CRUD endpoints. It changes only through `MutationService.apply()` in `feature-sync`: authorize (space membership) → replay → validate (Zod schema from `sync-protocol`) → `applyMutation()` (the rules shared with the client) → bump the space version, all inside one synchronous SQLite transaction — never `await` inside it. A new mutation is a schema and a `case` in `sync-protocol`, not a server handler. Mutations set values; they never toggle or increment.
-- Database: SQLite via Drizzle + `better-sqlite3` in `@lister/api/data-access-db` (inject `DatabaseConnection`, query `connection.db`). Schema in `src/lib/schema.ts`; generate migrations with `npx nx run api-data-access-db:db-generate --name=<change>` and commit them; they apply on startup. Every schema change is a Drizzle migration **and** a matching Dexie version bump on the client, in the same change. `better-sqlite3`'s install script is approved in `package.json > allowScripts` (npm 11 blocks unapproved ones); re-approve after upgrading it (`npm install-scripts approve better-sqlite3`).
-- Config comes from env vars (`PORT`, …). No secrets in the repo.
-- Tests:
-  - Units: Vitest + `@nestjs/testing`. Decorator metadata works out of the box; no SWC plugin is needed.
-  - Integration: every route and socket event, tested through the real app in `apps/lister-api/src/integration/` with `createTestApp()` (`apps/lister-api/src/testing/`).
-  - Smoke: `apps/lister-api-e2e` (Vitest + axios) tests the built server.
+Every project has exactly one `scope:*` and one `type:*` tag. Web code never imports api code or server packages, api code never imports browser packages, shared code imports neither; import libraries only through their `@lister/…` alias. **Never disable or loosen these rules, add `allow` entries or change tags to get green**: move the code instead, and ask the user before changing a rule. Details and fixes: `module-boundaries`.
 
 ## Definition of done
 
@@ -175,45 +79,4 @@ Every project needs exactly one `scope:*` tag and one `type:*` tag. The details,
 5. If the work came from `TASKS.md`, the task is updated there, committed on `work/v1`, and reviewed by a separate review session (the `tasks` skill).
 6. If the change departs from `docs/design.md`, the doc is updated in the same change.
 
-Use the `verify` skill to run the checks.
-
-## Project skills (`.claude/skills/`)
-
-- `best-practices` — current best practices and the newest stable features for the installed versions; for every change
-- `testing` — the tests every change needs: unit, integration for every backend call, and e2e happy paths
-- `module-boundaries` — every bigger feature in its own library; the strict boundary rules
-- `tasks` — pick up, implement, review and close items from `TASKS.md`: one commit per task on `work/v1`, then a review session
-- `task-review` — the critical review that a separate session runs after every task
-- `review-fixes` — fixing a review's findings, with a fix report (review worker: substantive; task worker: trivial)
-- `fix-re-review` — the coordinator's check of a review worker's fix commit
-- `ui-review` — hands-on UI/UX review of the real screens (flicker, fit, feedback, information, keyboard); part of `task-review` for UI tasks
-- `fullstack-feature` — feature across API and web: synced data via mutations, or plain HTTP
-- `angular-feature` — Angular components, routes, libraries, data access
-- `nest-feature` — Nest modules, controllers, DTOs, validation
-- `verify` — the definition-of-done checks
-
-The Nx plugin (`.claude/settings.json`) adds the Nx MCP server and the `nx-workspace`, `nx-generate`, `nx-run-tasks` and related skills.
-
-<!-- nx configuration start-->
-<!-- Leave the start & end comments to automatically receive updates. -->
-
-## General Guidelines for working with Nx
-
-- For navigating/exploring the workspace, invoke the `nx-workspace` skill first - it has patterns for querying projects, targets, and dependencies
-- When running tasks (for example build, lint, test, e2e, etc.), always prefer running the task through `nx` (i.e. `nx run`, `nx run-many`, `nx affected`) instead of using the underlying tooling directly
-- Prefix nx commands with the workspace's package manager (e.g., `pnpm nx build`, `npm exec nx test`) - avoids using globally installed CLI
-- You have access to the Nx MCP server and its tools, use them to help the user
-- For Nx plugin best practices, check `node_modules/@nx/<plugin>/PLUGIN.md`. Not all plugins have this file - proceed without it if unavailable.
-- NEVER guess CLI flags - always check nx_docs or `--help` first when unsure
-
-## Scaffolding & Generators
-
-- For scaffolding tasks (creating apps, libs, project structure, setup), ALWAYS invoke the `nx-generate` skill FIRST before exploring or calling MCP tools
-
-## When to use nx_docs
-
-- USE for: advanced config options, unfamiliar flags, migration guides, plugin configuration, edge cases
-- DON'T USE for: basic generator syntax (`nx g @nx/react:app`), standard commands, things you already know
-- The `nx-generate` skill handles generator discovery internally - don't call nx_docs just to look up generator syntax
-
-<!-- nx configuration end-->
+Use the `verify` skill to run the checks. For Nx questions use the `nx-workspace` and `nx-generate` skills; never guess CLI flags.
