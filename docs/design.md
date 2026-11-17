@@ -686,6 +686,7 @@ packages/
     feature-space          space switcher, spaces and members, Trash                    scope:web type:feature
     feature-transfer       export, import and print of lists and runs (D24)             scope:web type:feature
     feature-settings       Settings: account links, appearance, sync status, app, about, sign out  scope:web type:feature
+    feature-search         search field in the app bar: lists, items and runs of the space (D25) scope:web type:feature
     ui                     nav bar/rail, item row, section header, sync status, dialogs scope:web type:ui
     util-pwa               SW updates, install hint, storage persistence, online signal scope:web type:util
     util-notify            Notifier: the snackbar queue (Undo, rejections, prompts)     scope:web type:util

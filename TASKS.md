@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-060 — Search
 
 - Milestone: M9 Data and finding things
@@ -42,6 +40,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
     and opens its list.
 - Notes: Query in `data-access-local-db`, matching in `shared/domain` (reuse T-056's matching where
   it fits).
+
+## Backlog
 
 ### T-061 — A colour and icon per list
 

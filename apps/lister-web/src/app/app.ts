@@ -10,6 +10,7 @@ import { BreakpointObserver } from '@angular/cdk/layout';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { MatToolbar } from '@angular/material/toolbar';
 import { isBarePath } from '@lister/web/data-access-auth';
+import { SearchField } from '@lister/web/feature-search';
 import { NavigationBar, NavigationRail } from '@lister/web/ui';
 import { filter, map } from 'rxjs';
 import { DESTINATIONS } from './destinations';
@@ -18,6 +19,8 @@ import { SyncIndicator } from './sync-indicator';
 /** From this width the navigation rail replaces the top app bar and bottom navigation bar. */
 export const WIDE_LAYOUT = '(min-width: 600px)';
 
+const SEARCH_PATHS = ['/lists', '/runs'];
+
 @Component({
   selector: 'lister-root',
   imports: [
@@ -25,6 +28,7 @@ export const WIDE_LAYOUT = '(min-width: 600px)';
     MatToolbar,
     NavigationBar,
     NavigationRail,
+    SearchField,
     SyncIndicator,
   ],
   templateUrl: './app.html',
@@ -63,6 +67,12 @@ export class App {
       DESTINATIONS.find((d) => this.url()?.startsWith(d.path))?.label ??
       'Lister',
   );
+
+  /** Lists and Runs (and their pages) have the search field in the app bar (D25). */
+  protected readonly searchable = computed(() => {
+    const url = this.url();
+    return !!url && SEARCH_PATHS.some((path) => url.startsWith(path));
+  });
 
   // Focus on a nav link is lost when the layout switches at 600 px (one navigation replaces the
   // other). Accepted: it only happens while resizing or rotating.

@@ -7,11 +7,25 @@
         <lister-sync-indicator [compact]="true" />
       }
     </lister-navigation-rail>
+    @if (searchable()) {
+      <!-- Not a <header>: there is no page banner on wide screens. -->
+      <div class="top-bar">
+        @defer (on idle) {
+          <lister-search-field />
+        }
+      </div>
+    }
   } @else {
     <header class="top-bar">
       <mat-toolbar>
         <span class="brand">{{ title() }}</span>
-        <span class="spacer"></span>
+        @if (searchable()) {
+          @defer (on idle) {
+            <lister-search-field class="search" />
+          }
+        } @else {
+          <span class="spacer"></span>
+        }
         @defer (on idle) {
           <lister-sync-indicator />
         }

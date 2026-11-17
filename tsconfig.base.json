@@ -64,6 +64,9 @@
       ],
       "@lister/web/feature-transfer": [
         "./packages/web/feature-transfer/src/index.ts"
+      ],
+      "@lister/web/feature-search": [
+        "./packages/web/feature-search/src/index.ts"
       ]
     }
   },

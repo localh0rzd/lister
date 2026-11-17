@@ -17,6 +17,7 @@ function setup(wide: boolean, canActivate: (() => Promise<boolean>)[] = []) {
     providers: [
       provideRouter([
         { path: 'lists', component: Page, canActivate },
+        { path: 'lists/:id', component: Page },
         { path: 'runs', component: Page },
         { path: 'space', component: Page },
         { path: 'settings', component: Page },
@@ -58,8 +59,40 @@ describe('App shell', () => {
 
     expect(el.querySelector('lister-navigation-rail')).not.toBeNull();
     expect(el.querySelector('lister-navigation-bar')).toBeNull();
-    expect(el.querySelector('header')).toBeNull();
+    expect(el.querySelector('mat-toolbar')).toBeNull();
   });
+
+  // The search field itself is deferred (it needs the local database), so these look at its
+  // place: the app bar.
+  it.each([
+    ['/lists', true],
+    ['/lists/abc', true],
+    ['/runs', true],
+    ['/space', false],
+    ['/settings', false],
+  ])(
+    'on %s the wide layout has an app bar for search: %s',
+    async (url, shown) => {
+      setup(true);
+      const el = await render(url);
+
+      expect(el.querySelector('.top-bar') !== null).toBe(shown);
+    },
+  );
+
+  it.each([
+    ['/lists', true],
+    ['/runs', true],
+    ['/space', false],
+  ])(
+    'on %s the phone app bar makes room for search: %s',
+    async (url, shown) => {
+      setup(false);
+      const el = await render(url);
+
+      expect(el.querySelector('header .spacer') === null).toBe(shown);
+    },
+  );
 
   it('starts every destination at the top', async () => {
     setup(true);

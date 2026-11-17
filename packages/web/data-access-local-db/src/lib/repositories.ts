@@ -8,6 +8,7 @@ import {
   type Run,
   type RunItem,
   type IndexedItem,
+  type SearchData,
   finishedBy,
   indexItems,
   sortByPosition,
@@ -155,6 +156,32 @@ export class Repositories {
           ),
           await this.db.items.where('spaceId').equals(id).toArray(),
         );
+    });
+  }
+
+  /**
+   * What search looks through (D25), kept current: the space's live lists, the live items of
+   * those lists and the active runs. Trash and finished runs are left out.
+   */
+  searchDataOfSpace(
+    spaceId: () => string | undefined,
+  ): Signal<QueryState<SearchData>> {
+    return liveQuerySignal(() => {
+      const id = spaceId();
+      if (!id) return undefined;
+      return async () => {
+        const lists = (
+          await this.db.lists.where('spaceId').equals(id).toArray()
+        ).filter((list) => list.deletedAt === null);
+        const listIds = new Set(lists.map((list) => list.id));
+        const items = (
+          await this.db.items.where('spaceId').equals(id).toArray()
+        ).filter((item) => item.deletedAt === null && listIds.has(item.listId));
+        const runs = (
+          await this.db.runs.where('spaceId').equals(id).toArray()
+        ).filter((run) => run.deletedAt === null && run.finishedAt === null);
+        return { lists, items, runs };
+      };
     });
   }
 

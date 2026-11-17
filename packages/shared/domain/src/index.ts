@@ -9,3 +9,4 @@ export * from './lib/item-lines';
 export * from './lib/sorting';
 export * from './lib/item-index';
 export * from './lib/title-suggestions';
+export * from './lib/search';

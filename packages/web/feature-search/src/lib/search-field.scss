@@ -1,0 +1,22 @@
+:host {
+  display: block;
+  min-width: 0;
+  flex: 1 1 0;
+  max-width: 28rem;
+}
+
+mat-form-field {
+  width: 100%;
+}
+
+.title,
+.context {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.context {
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-on-surface-variant);
+}

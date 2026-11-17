@@ -314,6 +314,48 @@ describe('Repositories.itemIndexOfSpace', () => {
   });
 });
 
+describe('Repositories.searchDataOfSpace', () => {
+  it("holds the space's live lists, their live items and active runs, and follows changes", async () => {
+    const camping = list('Camping');
+    const trashed = list('Old', { deletedAt: 5 });
+    const elsewhere = list('Elsewhere', { spaceId: OTHER_SPACE });
+    const active = run('Weekend');
+    await db.lists.bulkPut([camping, trashed, elsewhere]);
+    await db.items.bulkPut([
+      item(camping.id, 'Tent', 'a0'),
+      item(camping.id, 'Gone', 'a1', { deletedAt: 3 }),
+      item(trashed.id, 'Old thing', 'a0'),
+      item(elsewhere.id, 'Other space', 'a0', { spaceId: OTHER_SPACE }),
+    ]);
+    await db.runs.bulkPut([
+      active,
+      run('Finished', { finishedAt: 9 }),
+      run('Deleted', { deletedAt: 4 }),
+      run('Elsewhere run', { spaceId: OTHER_SPACE }),
+    ]);
+    const data = TestBed.runInInjectionContext(() =>
+      repositories.searchDataOfSpace(() => SPACE),
+    );
+    const shown = () => {
+      const state = data();
+      if (state.status !== 'ready') return undefined;
+      return [
+        state.value.lists.map((l) => l.title),
+        state.value.items.map((i) => i.title),
+        state.value.runs.map((r) => r.title),
+      ];
+    };
+    await vi.waitFor(() => {
+      TestBed.tick();
+      expect(shown()).toEqual([['Camping'], ['Tent'], ['Weekend']]);
+    });
+
+    await db.items.put(item(camping.id, 'Axe', 'a2'));
+
+    await vi.waitFor(() => expect(shown()?.[1]).toEqual(['Tent', 'Axe']));
+  });
+});
+
 describe('Repositories.itemTitles', () => {
   it('lists the distinct titles of live lists in every space, without trashed items, and follows changes', async () => {
     const camping = list('Camping');

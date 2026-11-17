@@ -4,7 +4,7 @@
   grid-template:
     'top' auto
     'content' 1fr
-    'nav' auto / 1fr;
+    'nav' auto / minmax(0, 1fr);
 }
 
 .shell.bare {
@@ -12,7 +12,15 @@
 }
 
 .shell.wide {
-  grid-template: 'nav content' 1fr / auto 1fr;
+  grid-template:
+    'nav top' auto
+    'nav content' 1fr / auto minmax(0, 1fr);
+}
+
+.shell.wide .top-bar {
+  display: flex;
+  padding: 8px 24px 0;
+  padding-right: max(24px, env(safe-area-inset-right));
 }
 
 .top-bar {
@@ -28,6 +36,10 @@
 
 .brand {
   font: var(--mat-sys-title-large);
+}
+
+.search {
+  margin: 0 8px 0 12px;
 }
 
 .spacer {
