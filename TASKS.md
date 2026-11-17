@@ -205,8 +205,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   `sortByTitle()` treat a slot equal to an `others` key as tied and give it a fresh key on the
   correct side.
 
-## Backlog
-
 ### T-050 — Settings destination with sign-out
 
 - Completed: 2026-11-16 — Settings destination (`packages/web/feature-settings`): account links, appearance, sync, app, about and sign out moved off Space and the profile page; Profile and Users at `/settings/…` with redirects; fourth navigation destination
