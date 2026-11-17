@@ -20,6 +20,7 @@ import {
   MatListItem,
   MatListItemTitle,
 } from '@angular/material/list';
+import { searchKey } from '@lister/shared/domain';
 import { TruncatedTooltip } from '../truncated-tooltip/truncated-tooltip';
 
 export interface ListChoice {
@@ -31,10 +32,6 @@ export interface ListPickerData {
   /** The lists that may be chosen, in display order (the caller leaves out the others). */
   lists: readonly ListChoice[];
 }
-
-/** Lower case without accents, so "cafe" finds "Café". */
-const fold = (text: string) =>
-  text.normalize('NFD').replace(/\p{M}/gu, '').toLocaleLowerCase('en');
 
 /** Picks one list, with a search field. Closes with the list's id, or `undefined` if cancelled. */
 @Component({
@@ -65,9 +62,9 @@ export class ListPickerDialog {
 
   protected readonly query = signal('');
   protected readonly matches = computed(() => {
-    const query = fold(this.query().trim());
+    const query = searchKey(this.query());
     return query
-      ? this.data.lists.filter((list) => fold(list.title).includes(query))
+      ? this.data.lists.filter((list) => searchKey(list.title).includes(query))
       : this.data.lists;
   });
 

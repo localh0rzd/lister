@@ -1,8 +1,10 @@
 import {
   Component,
   type ElementRef,
+  afterNextRender,
   afterRenderEffect,
   computed,
+  Injector,
   inject,
   signal,
   viewChild,
@@ -45,9 +47,10 @@ import {
   ],
   templateUrl: './search-field.html',
   styleUrl: './search-field.scss',
-  host: { '(document:keydown)': 'focusOnSlash($event)' },
+  host: { role: 'search', '(document:keydown)': 'focusOnSlash($event)' },
 })
 export class SearchField {
+  private readonly injector = inject(Injector);
   private readonly router = inject(Router);
   private readonly space = inject(CurrentSpace);
   private readonly text = signal('');
@@ -99,6 +102,11 @@ export class SearchField {
   protected open(event: MatAutocompleteSelectedEvent): void {
     const link: string[] = event.option.value;
     this.text.set('');
+    // Leave the keyboard of a phone behind: the chosen page is what the user wants to see.
+    // Material puts the focus back on the input right after this event, so let go afterwards.
+    afterNextRender(() => this.field().nativeElement.blur(), {
+      injector: this.injector,
+    });
     void this.router.navigate(link);
   }
 

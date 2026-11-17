@@ -136,8 +136,8 @@ describe('SearchField (D25)', () => {
     await until(() => expect(panel()).toEqual(['No matches']));
   });
 
-  it('opens the page of the chosen result and clears the field', async () => {
-    const { harness } = await show();
+  it('opens the page of the chosen result, clears the field and lets go of the focus', async () => {
+    const { fixture, harness } = await show();
     const navigate = vi
       .spyOn(TestBed.inject(Router), 'navigate')
       .mockResolvedValue(true);
@@ -149,9 +149,12 @@ describe('SearchField (D25)', () => {
 
     await harness.enterText('stove');
     await until(() => expect(options()).toHaveLength(1));
+    expect(document.activeElement).toBe(inputOf(fixture.nativeElement));
     options()[0].click();
+    await fixture.whenStable();
     expect(navigate).toHaveBeenLastCalledWith(['/lists', camping.id]);
     expect(await harness.getValue()).toBe('');
+    expect(document.activeElement).not.toBe(inputOf(fixture.nativeElement));
 
     await harness.enterText('weekend');
     await until(() => expect(options()).toHaveLength(1));
@@ -192,6 +195,13 @@ describe('SearchField (D25)', () => {
     await db.lists.put(list('Work stuff', { spaceId: other }));
     await harness.enterText('stuff');
     await until(() => expect(panel()).toEqual(['Lists', 'Home stuff']));
+  });
+
+  it('is a search landmark', async () => {
+    const { fixture } = await show();
+    expect((fixture.nativeElement as HTMLElement).getAttribute('role')).toBe(
+      'search',
+    );
   });
 
   it('focuses the field on "/" except while typing in another field', async () => {

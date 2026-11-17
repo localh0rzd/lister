@@ -23,24 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-060 — Search
-
-- Milestone: M9 Data and finding things
-- Area: web
-- Priority: normal
-- Depends on: T-055
-- Decisions: D25
-- Done when:
-  - A search field finds lists, items and runs as D25 decides, from the local database (works
-    offline, updates live as data changes), ignoring case and accents.
-  - Results are grouped and each opens the page it belongs to; an item result names its list.
-  - Keyboard (`/` focuses search, arrows and Enter pick a result, Escape clears), accessible, fits
-    a 320 px phone.
-  - Tests: unit tests for matching and ranking; a Playwright happy path that searches for an item
-    and opens its list.
-- Notes: Query in `data-access-local-db`, matching in `shared/domain` (reuse T-056's matching where
-  it fits).
-
 ## Backlog
 
 ### T-061 — A colour and icon per list
@@ -61,6 +43,27 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
     Playwright happy path that sets a colour and icon and sees them on the Lists page.
 
 ## Done
+
+### T-060 — Search
+
+- Completed: 2026-11-17 — search field in the app bar on Lists and Runs (D25): `search()` in `shared/domain`, `Repositories.searchDataOfSpace()`, new `web/feature-search` library, shell wiring
+- Review: Changes requested; 9 fixed (5 substantive, 4 trivial), 0 skipped, 0 disagreed; re-review rounds: 1
+
+- Milestone: M9 Data and finding things
+- Area: web
+- Priority: normal
+- Depends on: T-055
+- Decisions: D25
+- Done when:
+  - A search field finds lists, items and runs as D25 decides, from the local database (works
+    offline, updates live as data changes), ignoring case and accents.
+  - Results are grouped and each opens the page it belongs to; an item result names its list.
+  - Keyboard (`/` focuses search, arrows and Enter pick a result, Escape clears), accessible, fits
+    a 320 px phone.
+  - Tests: unit tests for matching and ranking; a Playwright happy path that searches for an item
+    and opens its list.
+- Notes: Query in `data-access-local-db`, matching in `shared/domain` (reuse T-056's matching where
+  it fits).
 
 ### T-059 — Export, import and print lists
 
