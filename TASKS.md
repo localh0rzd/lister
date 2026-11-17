@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-055 — All items, A–Z, with the lists that contain them
 
 - Milestone: M8 Editing conveniences
@@ -51,6 +49,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   query in `data-access-local-db` rather than reading Dexie from the feature. It probably belongs
   in `feature-lists` as a route; if it grows beyond one page, give it its own library
   (`module-boundaries`).
+
+## Backlog
 
 ### T-056 — Autocomplete when adding an item
 

@@ -1,4 +1,10 @@
 <h1 class="page-title">Lists</h1>
+@if (view().kind === 'lists') {
+  <a class="all-items" routerLink="items">
+    <mat-icon aria-hidden="true">format_list_bulleted</mat-icon>
+    All items
+  </a>
+}
 
 @let v = view();
 @if (v.kind === 'loading') {

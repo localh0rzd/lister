@@ -7,7 +7,9 @@ import {
   type List,
   type Run,
   type RunItem,
+  type IndexedItem,
   finishedBy,
+  indexItems,
   sortByPosition,
 } from '@lister/shared/domain';
 import { LOCAL_DB } from './local-db';
@@ -133,6 +135,26 @@ export class Repositories {
             (a, b) =>
               byTitle.compare(a.title, b.title) || (a.id < b.id ? -1 : 1),
           );
+    });
+  }
+
+  /**
+   * Every item of the space's live lists as one row per distinct title, A–Z, with the lists that
+   * hold it (D21; `indexItems`).
+   */
+  itemIndexOfSpace(
+    spaceId: () => string | undefined,
+  ): Signal<QueryState<IndexedItem[]>> {
+    return liveQuerySignal(() => {
+      const id = spaceId();
+      if (!id) return undefined;
+      return async () =>
+        indexItems(
+          (await this.db.lists.where('spaceId').equals(id).toArray()).filter(
+            (list) => list.deletedAt === null,
+          ),
+          await this.db.items.where('spaceId').equals(id).toArray(),
+        );
     });
   }
 

@@ -274,6 +274,46 @@ describe('Repositories.itemsOfList', () => {
   });
 });
 
+describe('Repositories.itemIndexOfSpace', () => {
+  it('groups identical items of live lists A–Z and follows changes', async () => {
+    const camping = list('Camping');
+    const beach = list('Beach');
+    const trashed = list('Old', { deletedAt: 5 });
+    const elsewhere = list('Elsewhere', { spaceId: OTHER_SPACE });
+    await db.lists.bulkPut([camping, beach, trashed, elsewhere]);
+    await db.items.bulkPut([
+      item(camping.id, 'tent', 'a0'),
+      item(beach.id, 'Tent ', 'a0'),
+      item(beach.id, 'Towel', 'a1'),
+      item(beach.id, 'Gone', 'a2', { deletedAt: 3 }),
+      item(trashed.id, 'Old thing', 'a0'),
+      item(elsewhere.id, 'Other space', 'a0', { spaceId: OTHER_SPACE }),
+    ]);
+    const index = TestBed.runInInjectionContext(() =>
+      repositories.itemIndexOfSpace(() => SPACE),
+    );
+    const shown = () => {
+      const state = index();
+      if (state.status !== 'ready') return undefined;
+      return state.value.map((row) => [
+        row.title,
+        row.lists.map((l) => l.title),
+      ]);
+    };
+    await vi.waitFor(() => {
+      TestBed.tick();
+      expect(shown()).toEqual([
+        ['tent', ['Beach', 'Camping']],
+        ['Towel', ['Beach']],
+      ]);
+    });
+
+    await db.items.put(item(camping.id, 'Axe', 'a1'));
+
+    await vi.waitFor(() => expect(shown()?.[0]).toEqual(['Axe', ['Camping']]));
+  });
+});
+
 describe('Repositories.list', () => {
   it('finds one list, also when deleted, and follows changes', async () => {
     const camping = list('Camping');

@@ -1,0 +1,42 @@
+<a class="back" routerLink="..">
+  <mat-icon aria-hidden="true">arrow_back</mat-icon>
+  Lists
+</a>
+<h1 class="page-title">All items</h1>
+
+@let v = view();
+@if (v.kind === 'loading') {
+  <lister-loading-hint />
+} @else if (v.kind === 'error') {
+  <p class="hint" role="alert">
+    Lister can't open its storage on this device. Check that the browser allows
+    site data, then reload.
+  </p>
+} @else if (v.kind === 'no-space') {
+  <p class="hint">
+    Your items appear here once Lister has connected to the server.
+  </p>
+} @else if (v.rows.length === 0) {
+  <div class="empty">
+    <mat-icon class="empty-icon" aria-hidden="true">checklist</mat-icon>
+    <p class="empty-title">No items yet</p>
+    <p class="hint">Items you add to your lists show up here.</p>
+  </div>
+} @else {
+  <ul class="items" aria-label="All items">
+    @for (row of v.rows; track row.title.toLowerCase()) {
+      <li class="row">
+        <span class="title">{{ row.title }}</span>
+        <ul class="lists" aria-label="Lists with this item">
+          @for (list of row.lists; track list.id) {
+            <li>
+              <a class="chip" [routerLink]="['..', list.id]">{{
+                list.title
+              }}</a>
+            </li>
+          }
+        </ul>
+      </li>
+    }
+  </ul>
+}
