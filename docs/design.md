@@ -33,6 +33,8 @@
 | D22 | Item autocomplete        | Adding an item (T-056) suggests the titles of items from every space the user belongs to, since all of it is on the device. A suggestion copies the title only, not the quantity or note. (Answers O16, 2026-11-16.)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | D23 | Registration tokens      | Admins create one-time registration tokens under Settings › Users: 12 characters A–Z and 0–9, entered ignoring case, shared as a link `<PUBLIC_URL>/register?token=…` with a copy button. Registering works like first-run setup (username, display name, password) but makes a regular user, signed in at once with a personal space. A token is single use, expires after 7 days, is listed for admins until used, expired or removed, and is then deleted. (2026-11-16, T-058.)                                                                                                                                                                                                                                                   |
 | D24 | Export, import, print    | Export is built in the browser from the local database, so it works offline and needs no endpoint: one list as Markdown (included lists as sub-headings) or JSON, and every list of the space as JSON from the Space page. A JSON export holds the chosen lists plus every list they include. Import takes a Markdown or plain-text file (one item per line, bullets and checkboxes stripped, like a paste, D18) as a new list, or a Lister JSON export, which creates new copies of all its lists in the current space with new ids and its includes remapped among them; existing lists are never changed. Runs are not exported. Lists and runs can be printed (a run with its check state). (Answers T-059 scoping, 2026-11-17.) |
+| D25 | Search                   | One search field (app bar on Lists and Runs) over the current space: list titles, item titles and notes, and active runs' titles, ignoring case and accents; results grouped (Lists, Items with the list they are in, Runs), each opening its page; the trash is not searched. (Answers O17, 2026-11-17.)                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| D26 | List colour and icon     | Both optional: a colour from a fixed palette of 12 Material 3 tones that work in light and dark, and an icon from a curated set of about 40 Material Symbols. Shown on the Lists page, in the list header and where the list is included; runs started from a list show its colour and icon too. (Answers O18, 2026-11-17.)                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 ### Glossary
 
@@ -54,17 +56,8 @@
 
 ## Open decisions
 
-O1–O16 are answered and recorded in the Decisions table.
-
-- **O17 — Search scope (first needed by T-060).** What does search cover, and from where is it
-  opened? Default: one search field (app bar on Lists and Runs) over the current space, matching
-  list titles, item titles and notes, and active runs' titles, ignoring case and accents; results
-  grouped (Lists, Items with the list they are in, Runs), each opening its page. Trash not included.
-- **O18 — List colour and icon (first needed by T-061).** Colour, icon or both, and from what set?
-  Default: both, optional; a colour from a fixed palette of 12 Material 3 tones that work in light
-  and dark, and an icon from a curated set of about 40 Material Symbols (bag, tent, beach, car,
-  baby, …). Shown on the Lists page, in the list's header and where it is included; runs started
-  from a list show its colour and icon too.
+None right now: all open decisions so far (O1–O18) are answered and recorded in the Decisions
+table.
 
 New ones get the next number. Each names the first task that needs it and has a default; if it's
 still open when that task starts, Claude asks once and proposes the default. Answer in chat or
@@ -454,7 +447,7 @@ clients only get the display names of the members of their spaces.
 | `passkeys`              | user, credential id, public key, sign counter, transports, name, created at, last used at                                    |
 | `sessions`              | user, expiry                                                                                                                 |
 | `spaces`, `memberships` | space name, current version; role                                                                                            |
-| `lists`                 | title, description (colour and icon: T-061, O18)                                                                             |
+| `lists`                 | title, description (colour and icon: T-061, D26)                                                                             |
 | `items`                 | list, title, quantity, note, position                                                                                        |
 | `includes`              | parent list, child list, position                                                                                            |
 | `runs`                  | source list (none for ad-hoc), title, finished at                                                                            |

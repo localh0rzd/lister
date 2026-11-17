@@ -66,9 +66,9 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 - Area: web
 - Priority: normal
 - Depends on: T-055
-- Decisions: O17
+- Decisions: D25
 - Done when:
-  - A search field finds lists, items and runs as O17 decides, from the local database (works
+  - A search field finds lists, items and runs as D25 decides, from the local database (works
     offline, updates live as data changes), ignoring case and accents.
   - Results are grouped and each opens the page it belongs to; an item result names its list.
   - Keyboard (`/` focuses search, arrows and Enter pick a result, Escape clears), accessible, fits
@@ -84,9 +84,9 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 - Area: web, api, shared
 - Priority: low
 - Depends on: T-016
-- Decisions: O18
+- Decisions: D26
 - Done when:
-  - In a list's menu, **Colour and icon** lets members pick (or clear) them as O18 decides; the
+  - In a list's menu, **Colour and icon** lets members pick (or clear) them as D26 decides; the
     choice syncs to other devices like any field (per-field last write wins, D5).
   - The Lists page, the list header and included-list sections show them; both themes keep
     sufficient contrast (axe passes).
