@@ -25,7 +25,8 @@ jobs:
           cache: npm
 
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      # Firefox only for printing (print.firefox.spec.ts), the browser where blank pages showed.
+      - run: npx playwright install --with-deps chromium firefox
 
       # Sets NX_BASE / NX_HEAD so `nx affected` compares against the last green master
       - uses: nrwl/nx-set-shas@3e9ad7370203c1e93d109be57f3b72eb0eb511b1 # v4.4.0

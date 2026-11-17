@@ -92,6 +92,10 @@ migrated in-memory SQLite database.
   spec `*.pwa.spec.ts`. It then runs in the `pwa` Playwright project against the
   production setup (`lister-api:serve-prod-e2e`: the API serving the production web build on one
   origin, port 3100, service worker active), which Playwright starts.
+- **Printing through a real print dialog** runs in Firefox: name the spec `*.firefox.spec.ts`
+  (`firefox-print` project, silent Save to PDF, `support/print.ts`). Chromium's `page.pdf()`
+  doesn't show some layout bugs that a browser's own print does (T-062). Keep it to one test,
+  because every worker's Firefox writes to the same file.
 
 ## Quality bar
 

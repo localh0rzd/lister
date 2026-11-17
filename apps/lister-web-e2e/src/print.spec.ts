@@ -8,14 +8,22 @@ import {
   pasteItems,
   unique,
 } from './support/app';
+import { pdfPageCount, printLayout } from './support/print';
 
 /** Pages of the PDF Chromium prints from the page's print media. */
 async function printedPages(page: Page, format: 'A4' | 'Letter' = 'A4') {
   await page.emulateMedia({ media: 'print' });
   const pdf = await page.pdf({ format, preferCSSPageSize: false });
   await page.emulateMedia({ media: 'screen' });
-  // Chromium writes one uncompressed `/Type /Page` object per page.
-  return pdf.toString('latin1').match(/\/Type\s*\/Page(?![s\w])/g)?.length ?? 0;
+  return pdfPageCount(pdf);
+}
+
+/** The sheet is first in the print layout and nothing after it takes space. */
+async function expectSheetAlone(page: Page) {
+  const { sheetTop, spaceAfter } = await printLayout(page);
+  expect(sheetTop).toBe(0);
+  // Below a pixel: scrollHeight is rounded to whole pixels.
+  expect(spaceAfter).toBeLessThan(1);
 }
 
 const layouts = [
@@ -51,7 +59,8 @@ test.describe('printing without blank pages', () => {
       expect(shell.padding).toBe('0px');
       await page.emulateMedia({ media: 'screen' });
 
-      // A short list: one page, so its text is on page 1.
+      // A short list: one page, and the sheet is all there is on it.
+      await expectSheetAlone(page);
       expect(await printedPages(page)).toBe(1);
       expect(await printedPages(page, 'Letter')).toBe(1);
 
@@ -60,6 +69,7 @@ test.describe('printing without blank pages', () => {
       await expect(
         page.getByRole('button', { name: 'More for this run' }),
       ).toBeVisible();
+      await expectSheetAlone(page);
       expect(await printedPages(page)).toBe(1);
 
       // A long list: the page count follows from the sheet's height, 15 mm margins on A4.
@@ -70,18 +80,31 @@ test.describe('printing without blank pages', () => {
         Array.from({ length: 60 }, (_, i) => `Item ${i + 1}`),
       );
       await expect(itemTitles(page)).toHaveCount(62, { timeout: 60_000 });
-      await page.emulateMedia({ media: 'print' });
-      const sheetHeight = await page
-        .locator('lister-print-sheet')
-        .evaluate((sheet) => sheet.getBoundingClientRect().height);
-      await page.emulateMedia({ media: 'screen' });
+      await expectSheetAlone(page);
+      const { sheetHeight } = await printLayout(page);
       const pageHeight = ((297 - 30) / 25.4) * 96;
       const pages = await printedPages(page);
-      expect(pages).toBeGreaterThanOrEqual(Math.ceil(sheetHeight / pageHeight));
-      expect(pages).toBeLessThanOrEqual(
-        Math.ceil(sheetHeight / pageHeight) + 1,
-      );
+      expect(pages).toBe(Math.ceil(sheetHeight / pageHeight));
       expect(pages).toBeGreaterThan(1);
     });
   }
+
+  test('a theme picked in Settings still prints on a light page', async ({
+    page,
+  }) => {
+    await createList(page, unique('Print dark'));
+    await page.evaluate(() => localStorage.setItem('lister.theme', 'dark'));
+    await page.reload();
+    const scheme = () =>
+      page.evaluate(
+        () => getComputedStyle(document.documentElement).colorScheme,
+      );
+    expect(await scheme()).toBe('dark');
+    // The chosen theme is an inline style on <html>; on paper it must not paint a dark page.
+    await page.emulateMedia({ media: 'print' });
+    expect(await scheme()).toBe('light');
+    await page.emulateMedia({ media: 'screen' });
+    expect(await scheme()).toBe('dark');
+    await page.evaluate(() => localStorage.removeItem('lister.theme'));
+  });
 });

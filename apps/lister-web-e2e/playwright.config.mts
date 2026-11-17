@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 import { nxE2EPreset } from '@nx/playwright/preset';
 import { getReadyUrl, workspaceRoot } from '@nx/devkit';
 import { storageStatePath } from './src/support/global-setup';
+import { firefoxPrintPrefs } from './src/support/print';
 
 // For CI, you may want to set BASE_URL to the deployed application.
 // getReadyUrl moves the address to the port the dev server task reported.
@@ -55,7 +56,18 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
         storageState: storageStatePath('chromium'),
       },
-      testIgnore: /\.pwa\.spec\.ts$/,
+      testIgnore: /\.(pwa|firefox)\.spec\.ts$/,
+    },
+    {
+      // *.firefox.spec.ts: printing through Firefox's real print path, silently to a PDF. One
+      // test only, since every worker's browser writes to the same file.
+      name: 'firefox-print',
+      use: {
+        ...devices['Desktop Firefox'],
+        storageState: storageStatePath('chromium'),
+        launchOptions: { firefoxUserPrefs: firefoxPrintPrefs },
+      },
+      testMatch: /\.firefox\.spec\.ts$/,
     },
     {
       // *.pwa.spec.ts run against the production build (service worker active).

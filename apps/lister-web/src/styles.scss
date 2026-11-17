@@ -68,9 +68,11 @@ body {
 }
 
 @media print {
-  // The paper is white and black in both themes (the sheet sets its own colours).
+  // The paper is white and black in both themes (the sheet sets its own colours). Important:
+  // a theme picked in Settings is an inline `color-scheme` on <html>, which would otherwise win
+  // and print a dark page around the sheet when backgrounds are printed.
   html {
-    color-scheme: light;
+    color-scheme: light !important;
   }
 
   body {
