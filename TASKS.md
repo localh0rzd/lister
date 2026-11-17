@@ -25,6 +25,51 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## Backlog
 
+### T-063 — Diagnostic log for connection problems, exportable from Settings → App
+
+- Milestone: M9 Data and finding things
+- Area: web
+- Priority: high
+- Depends on: T-062
+- Decisions: none
+- Done when:
+  - The web app keeps a verbose diagnostic log on the device, always on, persisted in IndexedDB so
+    it survives reloads and browser restarts, bounded (e.g. the newest 5,000 entries or 7 days,
+    whichever is smaller), and written without slowing the app down.
+  - Every step that decides whether the app is online is logged with a timestamp, the tab/window
+    id and whether this tab leads sync: browser `online`/`offline` events and `navigator.onLine`;
+    `visibilitychange`, `pagehide`/`pageshow` (persisted or not), freeze/resume; the sync engine's
+    state changes (each `online`/`syncing` change and why); the Web Lock (`lister-sync`) requested,
+    acquired, released, stolen, aborted; every Socket.IO attempt: connect, `connect_error` (message,
+    `type`, `description`, transport), disconnect reason, reconnect attempt/backoff, transport
+    upgrade, handshake/hello/welcome, pull and push (counts, versions, acks, rejects with reason);
+    every REST call the app makes (bootstrap, health, auth/session: method, path, status, duration,
+    network error); the session/auth state as the app sees it; the service worker (registration,
+    version, update found/activated, controller change, whether a response came from the cache).
+    Whatever drives the "offline / API unavailable" status shown to the user is logged with the
+    exact condition that set it.
+  - Nothing private is logged: no list or item text, no passwords, cookies, tokens or passkey
+    material; ids, counts, status codes and reasons only (same rule as the API's debug log, §2.9).
+  - Settings → App has "Export diagnostic log": it downloads (or on mobile shares via the Web
+    Share API when available, with download as fallback) one file named with the date. The file
+    starts with a header: app version and build, service worker version/state, user agent,
+    platform, standalone (installed PWA) or browser tab, `navigator.onLine`, storage persisted,
+    the current sync state, and the server time offset if known. It works while the app is
+    offline. "Clear diagnostic log" is next to it. Both are usable on a phone.
+  - Entries carry the socket id (and anything else the API logs with `LOG_LEVEL=debug`), so the
+    export can be matched line by line against the server's debug log.
+  - Tests: unit tests for the log store (bounding, persistence, redaction) and for the sync
+    engine/auth/PWA events writing entries; a Playwright happy path that goes offline and back,
+    exports the log from Settings → App and finds the connect, disconnect and reconnect entries in
+    the downloaded file.
+- Notes: Reported by the user: on mobile the connection randomly stops working and stays in the
+  "offline, API unavailable" state; switching networks or restarting the browser doesn't help.
+  Earlier related work: T-052 (stuck offline after sign-in rounds; Web Lock and bfcache fixes). The
+  goal of this task is evidence, not a fix: once the user sends an export, a follow-up task pins
+  down the cause. Put the logger in its own web library (e.g. `web/util-diagnostics`, `module-boundaries`
+  skill) so sync, auth and PWA code can write to it; add it to docs/design.md §5 and describe the
+  log in §2.9/§4.4.
+
 ## Done
 
 ### T-062 — Print without blank pages
