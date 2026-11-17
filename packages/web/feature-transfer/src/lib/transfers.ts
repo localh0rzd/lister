@@ -123,7 +123,10 @@ export class Transfers {
     if (outcome === 'action') await this.router.navigate(['/lists', id]);
   }
 
-  /** Prints the current page; the print stylesheet (styles.scss) leaves out the chrome. */
+  /**
+   * Prints the current page; the print styles (styles.scss, and the shell's in app.scss) leave
+   * out the chrome.
+   */
   print(): void {
     this.document.defaultView?.print();
   }

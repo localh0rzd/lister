@@ -19,7 +19,8 @@ export interface PrintGroup {
 
 /**
  * What is printed of a list or a run (D24): the title and every item, grouped by list. It is
- * hidden on screen; the print stylesheet (styles.scss) shows it and hides the rest of the page.
+ * hidden on screen; it shows itself in print, and the print styles (styles.scss, app.scss) hide
+ * the rest of the page.
  */
 @Component({
   selector: 'lister-print-sheet',

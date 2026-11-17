@@ -23,7 +23,14 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
+## Backlog
+
+## Done
+
 ### T-062 — Print without blank pages
+
+- Completed: 2026-11-18 — the shell's print overrides moved into app.scss (they lost to its component styles), so the shell flows over the pages; print colour scheme forced light over a theme picked in Settings; Chromium `page.pdf()` and Firefox `window.print()` e2e checks
+- Review: Changes requested; 4 fixed (3 substantive, 1 trivial), 0 skipped, 0 disagreed; re-review rounds: 1
 
 - Milestone: M9 Data and finding things
 - Area: web
@@ -45,10 +52,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   print styles in `apps/lister-web/src/styles.scss` and the shell hide the app with `visibility`
   or leave fixed/100vh/min-height containers in the flow; fix the `@media print` styling at its
   root rather than adding page-break hacks.
-
-## Backlog
-
-## Done
 
 ### T-061 — A colour and icon per list
 
