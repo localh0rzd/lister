@@ -242,7 +242,7 @@
   <form class="add" novalidate (submit)="add($event)">
     <lister-add-item-field
       class="add-field"
-      [(value)]="draft"
+      [formField]="addForm.title"
       [titles]="knownTitles()"
       [exclude]="heldTitles()"
       (chosen)="addChosen($event)"

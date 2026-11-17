@@ -2,7 +2,7 @@
   <mat-label>Add item</mat-label>
   <input
     matInput
-    [value]="value()"
+    #field
     (input)="typed($event)"
     (paste)="pasted.emit($event)"
     [matAutocomplete]="suggestionList"

@@ -327,6 +327,22 @@ describe('RunPage', () => {
     );
   });
 
+  it('adds a typed item once when Enter is pressed again while it is being added', async () => {
+    const page = await render();
+    const input = page.element.querySelector(
+      'input:not([type])',
+    ) as HTMLInputElement;
+    input.value = 'Milk';
+    input.dispatchEvent(new Event('input'));
+    await page.fixture.whenStable();
+    const form = page.element.querySelector('form') as HTMLFormElement;
+    form.dispatchEvent(new Event('submit'));
+    form.dispatchEvent(new Event('submit'));
+
+    await page.settle(() => expect(input.value).toBe(''));
+    expect(requests).toHaveLength(1);
+  });
+
   it('adds typed and pasted items to this run only, as one change each', async () => {
     const page = await render();
     const input = page.element.querySelector(

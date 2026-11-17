@@ -230,12 +230,24 @@ describe('ListEditorPage', () => {
     expect(requests[0]).toMatchObject({ args: { title: 'Stove' } });
   });
 
+  it('adds the item once when Enter is pressed again while it is being added', async () => {
+    const page = await render();
+
+    await page.type('Stove');
+    const form = page.element.querySelector('form') as HTMLFormElement;
+    form.dispatchEvent(new Event('submit'));
+    form.dispatchEvent(new Event('submit'));
+
+    await vi.waitFor(() => expect(page.input().value).toBe(''));
+    await page.fixture.whenStable();
+    expect(requests).toHaveLength(1);
+  });
+
   it('ignores an empty entry', async () => {
     const page = await render();
 
     await page.type('   ');
     await page.submit();
-    await new Promise((resolve) => setTimeout(resolve));
 
     expect(mutate).not.toHaveBeenCalled();
   });
@@ -640,7 +652,6 @@ describe('ListEditorPage', () => {
     });
 
     page.input().dispatchEvent(paste);
-    await new Promise((resolve) => setTimeout(resolve));
 
     expect(mutate).not.toHaveBeenCalled();
     expect(notify).toHaveBeenCalledWith(
@@ -839,6 +850,23 @@ describe('ListEditorPage — included lists', () => {
       ),
     ].map((el) => el.textContent?.trim());
     expect(nested).toEqual(['Soap', 'Kitchen', 'Stove']);
+  });
+
+  it('does not suggest the items of an included list, which this list shows already', async () => {
+    const toiletries = list('Toiletries');
+    const other = list('Other');
+    await db.lists.bulkPut([toiletries, other]);
+    await db.items.bulkPut([
+      itemOf(toiletries.id, 'Soap', 'a0'),
+      itemOf(other.id, 'Soap dish', 'a0'),
+    ]);
+    await db.includes.put(include(camping.id, toiletries.id, 'a1'));
+    const page = await render();
+    const autocomplete = await page.loader.getHarness(MatAutocompleteHarness);
+
+    await autocomplete.enterText('soap');
+
+    await vi.waitFor(() => expect(suggestions()).toEqual(['Soap dish']));
   });
 
   it('tells an open edit dialog when the included list was deleted, but not when this one was', async () => {

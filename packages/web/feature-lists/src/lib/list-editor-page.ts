@@ -17,6 +17,7 @@ import {
   CdkDragHandle,
   CdkDropList,
 } from '@angular/cdk/drag-drop';
+import { FormField, form, submit } from '@angular/forms/signals';
 import { MatButton, MatIconButton } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
@@ -114,6 +115,7 @@ function reachableFrom(space: SpaceComposition, root: string): Set<string> {
     CdkDrag,
     CdkDragHandle,
     CdkDropList,
+    FormField,
     MatButton,
     MatIcon,
     MatIconButton,
@@ -211,17 +213,22 @@ export class ListEditorPage {
     };
   });
 
-  protected readonly draft = signal('');
+  private readonly draft = signal({ title: '' });
+  protected readonly addForm = form(this.draft);
   private readonly knownTitleState = this.repositories.itemTitles();
   /** Titles to suggest while typing (D22): the items of every list on this device. */
   protected readonly knownTitles = computed(() => {
     const state = this.knownTitleState();
     return state.status === 'ready' ? state.value : [];
   });
-  /** This list's own items: not suggested again. */
+  /** The items this list shows, its own and those of included lists: not suggested again. */
   protected readonly heldTitles = computed(() =>
     this.currentRows().flatMap((row) =>
-      row.kind === 'item' ? [row.item.title] : [],
+      row.kind === 'item'
+        ? [row.item.title]
+        : row.entries.flatMap((entry) =>
+            entry.kind === 'item' ? [entry.item.title] : [],
+          ),
     ),
   );
 
@@ -296,16 +303,23 @@ export class ListEditorPage {
   /** Adds the typed item (Enter or the + button). */
   protected add(event: Event): void {
     event.preventDefault();
-    void this.addAndClear(this.draft().trim());
+    this.addAndClear(() => this.draft().title.trim());
   }
 
   /** A suggestion was chosen (D22): its title is added, nothing else. */
   protected addChosen(title: string): void {
-    void this.addAndClear(title);
+    this.addAndClear(() => title);
   }
 
-  private async addAndClear(title: string): Promise<void> {
-    if (title && (await this.addItems([title]))) this.draft.set('');
+  /**
+   * Adds one title and empties the field. `submit()` ignores a submit while one is running, so a
+   * quick second Enter (also right after choosing a suggestion) doesn't add the item twice.
+   */
+  private addAndClear(title: () => string): void {
+    void submit(this.addForm, async () => {
+      const text = title();
+      if (text && (await this.addItems([text]))) this.draft.set({ title: '' });
+    });
   }
 
   /** Pasting several lines adds one item per line, all or none. */

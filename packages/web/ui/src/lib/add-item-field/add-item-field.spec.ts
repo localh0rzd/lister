@@ -68,6 +68,26 @@ describe('AddItemField', () => {
     expect(chosen).toEqual(['Stove']);
   });
 
+  it('suggests again after the field was emptied, also for the title just chosen', async () => {
+    const { autocomplete, fixture, options } = await setup(['Stove', 'Tent']);
+    await autocomplete.enterText('sto');
+    (
+      [...document.querySelectorAll('mat-option')].find(
+        (o) => o.textContent?.trim() === 'Stove',
+      ) as HTMLElement
+    ).click();
+    fixture.componentInstance.value.set(''); // the page empties the field after adding
+    await fixture.whenStable();
+
+    // Pasting or autofilling the same title at once (one input event).
+    const input = fixture.nativeElement.querySelector('input');
+    expect(input.value).toBe('');
+    input.value = 'Stove';
+    input.dispatchEvent(new Event('input'));
+
+    expect(await options()).toEqual(['Stove']);
+  });
+
   it('is labelled "Add item"', async () => {
     const { fixture } = await setup([]);
 
