@@ -69,10 +69,14 @@ for (const [name, viewport] of layouts) {
       await test.step('adding a member shares the space with them', async () => {
         await annaPage.getByRole('button', { name: 'Add member' }).click();
         const dialog = annaPage.getByRole('dialog', { name: 'Add a member' });
-        await dialog.getByLabel('Username').fill('nobody-by-that-name');
+        await dialog
+          .getByRole('combobox', { name: 'Username' })
+          .fill('nobody-by-that-name');
         await dialog.getByRole('button', { name: 'Add' }).click();
         await expect(dialog.getByRole('alert')).toBeVisible(); // stays open and explains
-        await dialog.getByLabel('Username').fill(ben.username);
+        await dialog
+          .getByRole('combobox', { name: 'Username' })
+          .fill(ben.username);
         await dialog.getByRole('button', { name: 'Add' }).click();
         await expect(dialog).toBeHidden();
         await expect(
@@ -124,7 +128,9 @@ for (const [name, viewport] of layouts) {
       await test.step('a member can leave', async () => {
         await annaPage.getByRole('button', { name: 'Add member' }).click();
         const dialog = annaPage.getByRole('dialog', { name: 'Add a member' });
-        await dialog.getByLabel('Username').fill(ben.username);
+        await dialog
+          .getByRole('combobox', { name: 'Username' })
+          .fill(ben.username);
         await dialog.getByRole('button', { name: 'Add' }).click();
         await expect(dialog).toBeHidden();
         await benPage.reload();

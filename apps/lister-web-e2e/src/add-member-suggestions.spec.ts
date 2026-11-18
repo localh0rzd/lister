@@ -46,7 +46,9 @@ test('a user who is visible is suggested when another user adds a member', async
       .click();
     await annaPage.getByRole('button', { name: 'Add member' }).click();
     const dialog = annaPage.getByRole('dialog', { name: 'Add a member' });
-    await dialog.getByLabel('Username').fill(ben.username.slice(0, 5));
+    await dialog
+      .getByRole('combobox', { name: 'Username' })
+      .fill(ben.username.slice(0, 5));
     const option = annaPage.getByRole('option', {
       name: new RegExp(ben.username),
     });
@@ -54,7 +56,9 @@ test('a user who is visible is suggested when another user adds a member', async
     await expect(option).toContainText(ben.displayName);
     await expectAccessible(annaPage);
     await option.click();
-    await expect(dialog.getByLabel('Username')).toHaveValue(ben.username);
+    await expect(
+      dialog.getByRole('combobox', { name: 'Username' }),
+    ).toHaveValue(ben.username);
     await dialog.getByRole('button', { name: 'Add' }).click();
     await expect(dialog).toBeHidden();
     await expect(annaPage.getByRole('list', { name: 'Members' })).toContainText(

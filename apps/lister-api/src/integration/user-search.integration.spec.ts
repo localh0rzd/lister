@@ -22,14 +22,18 @@ describe('finding users to add to a space (D27)', () => {
       body: { visibleToOthers: visible },
     });
 
-  const search = async (q: string, extra = '') => {
+  const search = async (q: string, extra = '', cookie = annaCookie) => {
     const response = await send(
       api,
       'GET',
       `/user-search?q=${encodeURIComponent(q)}${extra}`,
-      { cookie: annaCookie },
+      { cookie },
     );
-    return { status: response.status, body: (await response.json()) as never };
+    return {
+      status: response.status,
+      headers: response.headers,
+      body: (await response.json()) as never,
+    };
   };
 
   it('is off by default and the profile switch turns it on and off', async () => {
@@ -93,6 +97,28 @@ describe('finding users to add to a space (D27)', () => {
     ]);
   });
 
+  it("answers 404 for someone else's space, so a non-member can't tell who is in it", async () => {
+    await createAccount(api, 'ben');
+    await createAccount(api, 'carl');
+    await makeVisible('ben');
+    const space = (await (
+      await send(api, 'POST', '/spaces', {
+        cookie: annaCookie,
+        body: { name: 'Family' },
+      })
+    ).json()) as SpaceSummary;
+    await send(api, 'POST', `/spaces/${space.id}/members`, {
+      cookie: annaCookie,
+      body: { username: 'ben' },
+    });
+
+    const carl = await signIn(api, 'carl');
+    const { status, body } = await search('ben', `&spaceId=${space.id}`, carl);
+
+    expect(status).toBe(404);
+    expect(JSON.stringify(body)).not.toContain('ben');
+  });
+
   it('still lets a hidden user be added by exact username', async () => {
     await createAccount(api, 'ben');
     const space = (await (
@@ -119,6 +145,8 @@ describe('finding users to add to a space (D27)', () => {
 
   it('answers 429 after 60 searches in a minute', async () => {
     for (let i = 0; i < 60; i++) await search('zz');
-    expect((await search('zz')).status).toBe(429);
+    const limited = await search('zz');
+    expect(limited.status).toBe(429);
+    expect(Number(limited.headers.get('retry-after'))).toBeGreaterThan(0);
   });
 });
