@@ -427,14 +427,23 @@ describe('ListsPage', () => {
       deletedAt: 3,
     };
     await db.items.bulkPut([tent, stove, gone]);
-    await db.includes.put(
-      makeInclude({
-        spaceId: SPACE,
-        parentListId: camping.id,
-        childListId: toiletries.id,
-        position: 'a5',
-      }),
-    );
+    const include = makeInclude({
+      spaceId: SPACE,
+      parentListId: camping.id,
+      childListId: toiletries.id,
+      position: 'a5',
+    });
+    await db.includes.put(include);
+    const leftOut = makeIncludeException({
+      spaceId: SPACE,
+      includeId: include.id,
+    });
+    const restored = makeIncludeException({
+      spaceId: SPACE,
+      includeId: include.id,
+      deletedAt: 4,
+    });
+    await db.includeExceptions.bulkPut([leftOut, restored]);
     const { loader, element, fixture } = await render();
     // The copy is made from the loaded composition: wait until the counts show it.
     await vi.waitFor(async () => {
@@ -463,7 +472,8 @@ describe('ListsPage', () => {
           { from: tent.id, id: expect.any(String) },
           { from: stove.id, id: expect.any(String) },
         ]),
-        includes: [{ from: expect.any(String), id: expect.any(String) }],
+        includes: [{ from: include.id, id: expect.any(String) }],
+        exceptions: [{ from: leftOut.id, id: expect.any(String) }], // not the restored one
       },
     });
     expect(request.args.items).toHaveLength(2); // not the deleted one
@@ -471,8 +481,9 @@ describe('ListsPage', () => {
       copyId,
       ...request.args.items.map((r: { id: string }) => r.id),
       ...request.args.includes.map((r: { id: string }) => r.id),
+      ...request.args.exceptions.map((r: { id: string }) => r.id),
     ];
-    expect(new Set(newIds).size).toBe(4);
+    expect(new Set(newIds).size).toBe(5);
     expect(newIds).not.toContain(tent.id);
     await vi.waitFor(() =>
       expect(notify).toHaveBeenCalledWith(

@@ -32,4 +32,24 @@ describe('groupsOfList', () => {
       { listId: papers, title: 'Papers', depth: 2, items: ['Passport'] },
     ]);
   });
+
+  it('leaves out what an exception leaves out, and a whole left-out list', () => {
+    const space = new FakeSpace();
+    const trip = space.addList('Trip');
+    const basics = space.addList('Basics');
+    const papers = space.addList('Papers');
+    const include = space.addInclude(trip, basics);
+    const papersInclude = space.addInclude(trip, papers);
+    space.addItem(basics, 'Towel');
+    const soap = space.addItem(basics, 'Soap');
+    space.addItem(papers, 'Passport');
+    space.addException(include, 'item', soap);
+    space.addException(papersInclude, 'list', papers);
+
+    expect(
+      groupsOfList(trip, space).map((group) =>
+        group.items.map((item) => item.title),
+      ),
+    ).toEqual([[], ['Towel']]);
+  });
 });

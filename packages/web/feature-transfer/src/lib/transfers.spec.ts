@@ -5,7 +5,12 @@ import {
   type Item,
   type List,
 } from '@lister/shared/domain';
-import { makeItem, makeList } from '@lister/shared/testing';
+import {
+  makeInclude,
+  makeIncludeException,
+  makeItem,
+  makeList,
+} from '@lister/shared/testing';
 import { SpaceChanges } from '@lister/web/data-access-sync';
 import { Notifier } from '@lister/web/util-notify';
 import { Transfers } from './transfers';
@@ -91,6 +96,39 @@ describe('Transfers', () => {
       version: 1,
       lists: [{ id: camping.id, entries: [{ title: 'Tent', quantity: '2' }] }],
     });
+  });
+
+  it('exports the exceptions of an include in the JSON file', async () => {
+    const tent = item(camping.id, 'Tent');
+    const trip = list('Trip');
+    const include = makeInclude({
+      parentListId: trip.id,
+      childListId: camping.id,
+    });
+    const exception = makeIncludeException({
+      includeId: include.id,
+      targetKind: 'item',
+      targetId: tent.id,
+    });
+    const withExceptions: CompositionSource = {
+      list: (id) => [camping, trip].find((l) => l.id === id),
+      itemsOf: (id) => (id === camping.id ? [tent] : []),
+      includesOf: (id) => (id === trip.id ? [include] : []),
+      exceptionsOf: (id) => (id === include.id ? [exception] : []),
+    };
+
+    TestBed.inject(Transfers).exportList(trip, 'json', withExceptions);
+
+    const exported = JSON.parse(await blobText(downloads[0].blob));
+    const entries = exported.lists.find(
+      (l: { id: string }) => l.id === trip.id,
+    ).entries;
+    expect(entries).toEqual([
+      {
+        include: camping.id,
+        exceptions: [{ targetKind: 'item', targetId: tent.id }],
+      },
+    ]);
   });
 
   it('downloads every given list as one JSON file', async () => {

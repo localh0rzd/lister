@@ -180,6 +180,15 @@ export class ListsPage {
     const source = composition.value;
     const id = newId();
     const title = copyTitle(list.title);
+    const includes = source
+      .includesOf(list.id)
+      .filter((row) => row.deletedAt === null);
+    // Exceptions (D28) of the copied includes go with them; the server copies the live ones.
+    const exceptions = includes.flatMap((row) =>
+      (source.exceptionsOf?.(row.id) ?? [])
+        .filter((exception) => exception.deletedAt === null)
+        .map((exception) => ({ from: exception.id, id: newId() })),
+    );
     const created = await this.changes.apply({
       name: 'list.duplicate',
       args: {
@@ -190,10 +199,8 @@ export class ListsPage {
           .itemsOf(list.id)
           .filter((item) => item.deletedAt === null)
           .map((item) => ({ from: item.id, id: newId() })),
-        includes: source
-          .includesOf(list.id)
-          .filter((row) => row.deletedAt === null)
-          .map((row) => ({ from: row.id, id: newId() })),
+        includes: includes.map((row) => ({ from: row.id, id: newId() })),
+        exceptions,
       },
     });
     if (!created) return;
