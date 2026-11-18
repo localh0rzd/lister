@@ -2,6 +2,7 @@ import {
   Component,
   ElementRef,
   type Signal,
+  type WritableSignal,
   afterRenderEffect,
   computed,
   effect,
@@ -88,6 +89,15 @@ export type EditorRow =
 
 /** An entry an exception leaves out (D28). */
 export type LeftOutEntry = Extract<FlatEntry, { kind: 'leftOut' }>;
+
+/** Adds `id` to the set held by `state`, or removes it when it is there. */
+function toggleIn(state: WritableSignal<ReadonlySet<string>>, id: string) {
+  state.update((set) => {
+    const next = new Set(set);
+    if (!next.delete(id)) next.add(id);
+    return next;
+  });
+}
 
 /**
  * How many lists use `listId` other than `root` and the lists that only reach it through
@@ -655,19 +665,11 @@ export class ListEditorPage {
   protected readonly leftOutOpen = signal<ReadonlySet<string>>(new Set());
 
   protected toggleLeftOut(includeId: string): void {
-    this.leftOutOpen.update((set) => {
-      const next = new Set(set);
-      if (!next.delete(includeId)) next.add(includeId);
-      return next;
-    });
+    toggleIn(this.leftOutOpen, includeId);
   }
 
   protected toggle(includeId: string): void {
-    this.collapsed.update((set) => {
-      const next = new Set(set);
-      if (!next.delete(includeId)) next.add(includeId);
-      return next;
-    });
+    toggleIn(this.collapsed, includeId);
   }
 
   /** What a section shows under its title, if anything. */
