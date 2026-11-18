@@ -79,6 +79,7 @@ describe('SetupPage', () => {
       displayName: 'Anna A',
       isAdmin: true,
       mustChangePassword: false,
+      visibleToOthers: false,
     } satisfies CurrentUser);
 
     await vi.waitFor(() => expect(load).toHaveBeenCalledWith('/'));

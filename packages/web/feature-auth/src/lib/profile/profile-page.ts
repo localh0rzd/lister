@@ -11,6 +11,10 @@ import { MatButton } from '@angular/material/button';
 import { MatError, MatFormField, MatLabel } from '@angular/material/form-field';
 import { MatIcon } from '@angular/material/icon';
 import { MatInput } from '@angular/material/input';
+import {
+  MatSlideToggle,
+  type MatSlideToggleChange,
+} from '@angular/material/slide-toggle';
 import { RouterLink } from '@angular/router';
 import { AUTH_LIMITS } from '@lister/shared/api-contracts';
 import { AuthSession, describeAuthError } from '@lister/web/data-access-auth';
@@ -29,6 +33,7 @@ import { PasskeysSection } from '../passkeys/passkeys-section';
     MatIcon,
     MatInput,
     MatLabel,
+    MatSlideToggle,
     PasskeysSection,
     PasswordForm,
     RouterLink,
@@ -54,6 +59,8 @@ export class ProfilePage {
     });
   });
   protected readonly busy = signal(false);
+  protected readonly visibilityBusy = signal(false);
+  protected readonly visibilityError = signal('');
   protected readonly error = signal('');
   protected readonly unchanged = computed(
     () => this.model().displayName.trim() === this.user()?.displayName,
@@ -88,6 +95,25 @@ export class ProfilePage {
         this.busy.set(false);
       }
     });
+  }
+
+  /** Online only, like the other profile fields: an attempt that fails puts the switch back. */
+  protected async setVisible({
+    checked: visibleToOthers,
+    source,
+  }: MatSlideToggleChange): Promise<void> {
+    this.visibilityError.set('');
+    this.visibilityBusy.set(true);
+    try {
+      await this.session.updateProfile({ visibleToOthers });
+    } catch (error) {
+      source.checked = !visibleToOthers;
+      this.visibilityError.set(
+        describeAuthError(error, 'The setting was not saved. Try again.'),
+      );
+    } finally {
+      this.visibilityBusy.set(false);
+    }
   }
 
   protected passwordChanged(): void {

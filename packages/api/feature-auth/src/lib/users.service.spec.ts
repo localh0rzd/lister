@@ -77,6 +77,20 @@ describe('UsersService', () => {
     expect(users.list().map((u) => u.username)).toEqual(['Anna', 'bob']);
   });
 
+  describe('visibleToOthers', () => {
+    it('is off for new users and a profile update turns it on', async () => {
+      const anna = await add('anna');
+      expect(anna.visibleToOthers).toBe(false);
+
+      const updated = users.update(anna.id, { visibleToOthers: true });
+
+      expect(updated).toMatchObject({
+        displayName: 'anna',
+        visibleToOthers: true,
+      });
+    });
+  });
+
   describe('update', () => {
     it('tells the members of their spaces when the display name changes, and only then', async () => {
       const anna = await add('anna');

@@ -85,6 +85,13 @@
       "when": 1794929536253,
       "tag": "0011_list_colour_icon",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1795004927859,
+      "tag": "0012_user_visible_to_others",
+      "breakpoints": true
     }
   ]
 }

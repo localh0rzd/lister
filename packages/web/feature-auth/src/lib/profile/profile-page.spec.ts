@@ -16,13 +16,14 @@ const user = {
   displayName: 'Anna',
   isAdmin: false,
   mustChangePassword: false,
+  visibleToOthers: false,
 };
 
 function setup() {
   const current = signal(user);
   const session = {
     user: current,
-    updateProfile: vi.fn(async (r: { displayName: string }) => {
+    updateProfile: vi.fn(async (r: Partial<typeof user>) => {
       current.update((u) => ({ ...u, ...r }));
       return current();
     }),
@@ -116,5 +117,35 @@ describe('ProfilePage', () => {
 
     expect(session.updateProfile).not.toHaveBeenCalled();
     expect(element.textContent).toContain('Enter your name');
+  });
+
+  it('turns "Visible to other users" on, and puts it back when saving fails', async () => {
+    const { session } = setup();
+    const { fixture, element } = await render();
+    const toggle = () =>
+      element.querySelector<HTMLButtonElement>('button[role="switch"]');
+    expect(element.textContent).toContain(
+      'Others can find you when they add members to a space',
+    );
+    expect(toggle()?.getAttribute('aria-checked')).toBe('false');
+
+    toggle()?.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(session.updateProfile).toHaveBeenCalledWith({
+      visibleToOthers: true,
+    });
+    expect(toggle()?.getAttribute('aria-checked')).toBe('true');
+
+    session.updateProfile.mockRejectedValueOnce(new Error('offline'));
+    toggle()?.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(element.querySelector('[role="alert"]')?.textContent).toContain(
+      'not saved',
+    );
+    expect(toggle()?.getAttribute('aria-checked')).toBe('true');
   });
 });

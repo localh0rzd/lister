@@ -31,6 +31,10 @@ export const users = sqliteTable(
     mustChangePassword: integer('must_change_password', { mode: 'boolean' })
       .notNull()
       .default(false),
+    /** Suggested to others who add members to a space (D27); off until the user opts in. */
+    visibleToOthers: integer('visible_to_others', { mode: 'boolean' })
+      .notNull()
+      .default(false),
     createdAt: integer('created_at').notNull(),
   },
   (table) => [uniqueIndex('users_username').on(sql`lower(${table.username})`)],

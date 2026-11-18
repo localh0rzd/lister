@@ -1,5 +1,12 @@
 import { Transform } from 'class-transformer';
-import { IsString, Length, Matches, MaxLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsOptional,
+  IsString,
+  Length,
+  Matches,
+  MaxLength,
+} from 'class-validator';
 import {
   AUTH_LIMITS,
   USERNAME_PATTERN,
@@ -60,8 +67,13 @@ export class ChangePasswordDto implements ChangePasswordRequest {
 }
 
 export class UpdateProfileDto implements UpdateProfileRequest {
+  @IsOptional()
   @Transform(trim)
   @IsString()
   @Length(1, AUTH_LIMITS.displayNameMax)
-  displayName!: string;
+  displayName?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  visibleToOthers?: boolean;
 }

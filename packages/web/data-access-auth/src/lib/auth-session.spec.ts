@@ -22,6 +22,7 @@ const anna: CurrentUser = {
   displayName: 'Anna',
   isAdmin: false,
   mustChangePassword: false,
+  visibleToOthers: false,
 };
 
 const {

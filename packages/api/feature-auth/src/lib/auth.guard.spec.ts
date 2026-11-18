@@ -33,6 +33,7 @@ const user = (overrides: Partial<CurrentUser> = {}): CurrentUser => ({
   displayName: 'Anna',
   isAdmin: false,
   mustChangePassword: false,
+  visibleToOthers: false,
   ...overrides,
 });
 

@@ -18,6 +18,10 @@ import {
 } from '@lister/web/ui';
 import { NOTICE_DURATION_MS, Notifier } from '@lister/web/util-notify';
 import {
+  AddMemberDialog,
+  type AddMemberDialogData,
+} from '../add-member-dialog/add-member-dialog';
+import {
   FieldDialog,
   type FieldDialogData,
 } from '../field-dialog/field-dialog';
@@ -112,18 +116,16 @@ export class SpacesSection {
   }
 
   protected addMember(space: SpaceSummary): void {
-    this.openField(
-      {
-        heading: 'Add a member',
-        label: 'Username',
-        confirm: 'Add',
-        maxLength: 64,
-        hint: 'They can then edit everything in this space',
-        submit: async (username) =>
-          void (await this.api.addMember(space.id, { username })),
-      },
-      'Member added',
-    );
+    this.dialog
+      .open<AddMemberDialog, AddMemberDialogData, true>(AddMemberDialog, {
+        data: { spaceId: space.id },
+      })
+      .afterClosed()
+      .subscribe((added) => {
+        if (!added) return;
+        this.summaries.reload();
+        this.say('Member added');
+      });
   }
 
   protected removeMember(space: SpaceSummary, member: SpaceMember): void {

@@ -6,6 +6,8 @@ export interface CurrentUser {
   isAdmin: boolean;
   /** Until the password is changed, every other endpoint answers 403 (design D9). */
   mustChangePassword: boolean;
+  /** Others can find the user when adding members to a space (D27). */
+  visibleToOthers: boolean;
 }
 
 /** Body of `POST /api/auth/login`. The username is matched ignoring case (see `USERNAME_PATTERN`). */
@@ -23,9 +25,10 @@ export interface SetupRequest {
   password: string;
 }
 
-/** Body of `PATCH /api/auth/me`: the signed-in user edits their own display name. */
+/** Body of `PATCH /api/auth/me`: the signed-in user edits their own profile. Omitted fields stay. */
 export interface UpdateProfileRequest {
-  displayName: string;
+  displayName?: string;
+  visibleToOthers?: boolean;
 }
 
 /** Body of `POST /api/auth/password`. */

@@ -11,6 +11,8 @@ import { PasskeysService } from './passkeys.service';
 import { RegistrationTokensController } from './registration-tokens.controller';
 import { RegistrationTokensService } from './registration-tokens.service';
 import { SetupTokenService } from './setup-token.service';
+import { UserSearchController } from './user-search.controller';
+import { UserSearchService } from './user-search.service';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 
@@ -24,6 +26,7 @@ import { UsersService } from './users.service';
     UsersController,
     PasskeysController,
     RegistrationTokensController,
+    UserSearchController,
   ],
   providers: [
     AccountEvents,
@@ -33,6 +36,7 @@ import { UsersService } from './users.service';
     SetupTokenService,
     RegistrationTokensService,
     AttemptLimits,
+    UserSearchService,
     AuthGuard,
     { provide: APP_GUARD, useExisting: AuthGuard },
     { provide: AUTH_CLOCK, useValue: (() => Date.now()) satisfies Clock },

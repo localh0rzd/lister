@@ -81,6 +81,7 @@ describe('RegisterPage', () => {
       displayName: 'Anna A',
       isAdmin: false,
       mustChangePassword: false,
+      visibleToOthers: false,
     } satisfies CurrentUser);
 
     await vi.waitFor(() => expect(load).toHaveBeenCalledWith('/'));

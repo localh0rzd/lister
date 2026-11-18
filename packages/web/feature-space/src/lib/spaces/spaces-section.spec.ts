@@ -164,7 +164,7 @@ describe('SpacesSection', () => {
     );
   });
 
-  it('renames a space and adds a member through the field dialog', async () => {
+  it('renames a space through the field dialog', async () => {
     const trip = summary('Trip');
     const { button } = await render([trip]);
 
@@ -178,15 +178,19 @@ describe('SpacesSection', () => {
     patch.flush({ ...trip, name: 'Holiday' });
     await renamed;
     await vi.waitFor(() => http.expectOne('/api/spaces').flush([trip]));
+  });
+
+  it('opens the add-member dialog for the space, then refreshes and says so', async () => {
+    const trip = summary('Trip');
+    const { button } = await render([trip]);
 
     button('Add member')?.click();
-    const add = open.mock.calls[1][1].data as FieldDialogData;
-    const added = add.submit('carl');
-    const post = http.expectOne(`/api/spaces/${trip.id}/members`);
-    expect(post.request.body).toEqual({ username: 'carl' });
-    post.flush(trip);
-    await added;
+
+    expect(open.mock.calls[0][1].data).toEqual({ spaceId: trip.id });
     await vi.waitFor(() => http.expectOne('/api/spaces').flush([trip]));
+    expect(notify).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'Member added' }),
+    );
   });
 
   it('removes a member after confirming', async () => {

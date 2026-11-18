@@ -6,6 +6,7 @@ import {
   type CreateSpaceRequest,
   type RenameSpaceRequest,
   type SpaceSummary,
+  type UserSuggestion,
   apiPath,
 } from '@lister/shared/api-contracts';
 
@@ -33,6 +34,15 @@ export class SpacesApi {
   addMember(id: string, request: AddMemberRequest): Promise<SpaceSummary> {
     return firstValueFrom(
       this.http.post<SpaceSummary>(apiPath('spaces', id, 'members'), request),
+    );
+  }
+
+  /** Visible users matching `text`, without the members of the space (D27). */
+  searchUsers(text: string, spaceId: string): Promise<UserSuggestion[]> {
+    return firstValueFrom(
+      this.http.get<UserSuggestion[]>(apiPath('user-search'), {
+        params: { q: text, spaceId },
+      }),
     );
   }
 

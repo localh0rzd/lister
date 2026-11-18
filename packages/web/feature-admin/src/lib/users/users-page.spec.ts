@@ -25,6 +25,7 @@ const user = (
   displayName: username.toUpperCase(),
   isAdmin: false,
   mustChangePassword: false,
+  visibleToOthers: false,
   ...changes,
 });
 const boss = user('1', 'boss', { isAdmin: true });

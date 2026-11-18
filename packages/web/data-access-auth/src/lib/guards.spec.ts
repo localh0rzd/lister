@@ -16,6 +16,7 @@ const user = (changes: Partial<CurrentUser> = {}): CurrentUser => ({
   displayName: 'Anna',
   isAdmin: false,
   mustChangePassword: false,
+  visibleToOthers: false,
   ...changes,
 });
 

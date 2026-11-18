@@ -127,13 +127,16 @@ export class AuthController {
     return user;
   }
 
-  /** Users edit their own display name; the username and admin flag stay with the admins. */
+  /** Users edit their own profile; the username and admin flag stay with the admins. */
   @Patch('me')
   updateProfile(
     @Body() body: UpdateProfileDto,
     @SignedInUser() user: CurrentUser,
   ): CurrentUser {
-    return this.users.update(user.id, { displayName: body.displayName });
+    return this.users.update(user.id, {
+      displayName: body.displayName,
+      visibleToOthers: body.visibleToOthers,
+    });
   }
 
   @AllowMustChangePassword()

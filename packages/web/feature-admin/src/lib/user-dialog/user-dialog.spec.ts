@@ -14,6 +14,7 @@ const saved: CurrentUser = {
   displayName: 'Anna',
   isAdmin: false,
   mustChangePassword: true,
+  visibleToOthers: false,
 };
 
 async function render(data: UserDialogData) {

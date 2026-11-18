@@ -50,6 +50,7 @@ export function toCurrentUser(row: UserRow): CurrentUser {
     displayName: row.displayName,
     isAdmin: row.isAdmin,
     mustChangePassword: row.mustChangePassword,
+    visibleToOthers: row.visibleToOthers,
   };
 }
 

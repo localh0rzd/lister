@@ -11,6 +11,7 @@ import {
 } from '@lister/api/data-access-db';
 import type {
   CurrentUser,
+  UpdateProfileRequest,
   UpdateUserRequest,
 } from '@lister/shared/api-contracts';
 import { AccountEvents } from './account-events';
@@ -54,7 +55,10 @@ export class UsersService {
    * Edits a user. Demoting the last admin is a 409, checked in the same synchronous transaction
    * as the write, so two concurrent requests can't both demote the last two admins.
    */
-  update(id: string, changes: UpdateUserRequest): CurrentUser {
+  update(
+    id: string,
+    changes: UpdateUserRequest & UpdateProfileRequest,
+  ): CurrentUser {
     const updated = this.database.sqlite.transaction(() => {
       const row = this.find(id);
       if (changes.isAdmin === false && row.isAdmin) this.assertOtherAdmin(id);
@@ -70,6 +74,8 @@ export class UsersService {
       if (changes.displayName !== undefined)
         values.displayName = changes.displayName.trim();
       if (changes.isAdmin !== undefined) values.isAdmin = changes.isAdmin;
+      if (changes.visibleToOthers !== undefined)
+        values.visibleToOthers = changes.visibleToOthers;
       if (Object.keys(values).length === 0) return toCurrentUser(row);
       return toCurrentUser(
         this.database.db

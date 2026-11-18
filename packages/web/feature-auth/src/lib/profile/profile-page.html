@@ -40,6 +40,21 @@
   </form>
 </section>
 
+<section aria-labelledby="visibility-heading">
+  <h2 id="visibility-heading">Visibility</h2>
+  <mat-slide-toggle
+    [checked]="user()?.visibleToOthers ?? false"
+    [disabled]="visibilityBusy()"
+    (change)="setVisible($event)"
+  >
+    Visible to other users
+  </mat-slide-toggle>
+  <p class="hint">Others can find you when they add members to a space.</p>
+  @if (visibilityError()) {
+    <p class="error" role="alert">{{ visibilityError() }}</p>
+  }
+</section>
+
 <section aria-labelledby="password-heading">
   <h2 id="password-heading">Password</h2>
   <lister-password-form (changed)="passwordChanged()" />

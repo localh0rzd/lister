@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-064 — Suggest users when adding a member to a space
 
 - Milestone: M5 Accounts and spaces
@@ -42,8 +40,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   - A user who isn't visible can still be added by typing their exact username, as today; the
     dialog never reveals whether a hidden username exists before Add is pressed.
   - The search endpoint needs a signed-in user, returns only visible users (username, display name,
-    id), is rate-limited like other auth endpoints, and validates its query with Zod
-    (`api-contracts`).
+    id), is rate-limited like other auth endpoints, and validates its query (a DTO; `api-contracts` holds
+    the types and limits).
   - Suggestions don't flicker while typing (debounced; previous results kept until new ones arrive)
     and the field works with keyboard and screen readers (Material autocomplete).
   - Tests: API unit + integration tests for the visibility flag and the search (hidden users never
@@ -51,7 +49,11 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
     happy path where one user turns visibility on and another finds and adds them.
 - Notes: Requested by the user 2026-11-18. Today `addMember` uses the generic field dialog in
   `packages/web/feature-space/src/lib/spaces/spaces-section.ts`; it likely needs its own dialog.
-  Design §2.5 and §4.1 already mention D27.
+  Design §2.5 and §4.1 already mention D27. Zod was dropped for the query: importing it in
+  `api-contracts` put it in the web app's main bundle (over budget), and the other REST DTOs use
+  class-validator.
+
+## Backlog
 
 ## Done
 
