@@ -8,7 +8,7 @@ Nx monorepo: **Angular** web app + **NestJS** API, sharing TypeScript libraries.
 - **Work items:** [TASKS.md](TASKS.md) (finished ones in `TASKS-done.md`) — use the `tasks` skill to pick one up.
 - **How every change is made:** follow the `best-practices` and `testing` skills for every implementation, plus `angular-feature`, `nest-feature` or `fullstack-feature` for the area, and `module-boundaries` when creating a library or adding a cross-project import. Tasks are committed one at a time on the `work/v1` branch, and each one gets a critical review in a separate session before the next starts (`tasks` and `task-review` skills).
 
-- **Keep context small:** every call resends the whole session. Find code with `grep -n` and read ~80 lines around it; never `cat`/`sed` a whole file over 300 lines or read a file twice; pipe long output (tests, e2e, `git log`) through `tail`/`grep`.
+- **Keep context small:** every call resends the whole session. Find code with `grep -n` and read ~60 lines around it; never `cat`/`sed` a whole file over 300 lines or read a file twice. Never print raw Nx, Vitest or Playwright output: filter it (`2>&1 | grep -E 'error TS|FAIL|✘|×|failed|Failed|Successfully ran' | tail -30`) and look closer only at what failed. Typecheck the touched projects before running tests or builds. Run jobs over ~2 minutes (full `affected`, e2e) in the background and wait with Monitor.
 
 ## Stack (installed versions — check `package.json` before assuming APIs)
 

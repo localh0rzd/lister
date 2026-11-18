@@ -67,7 +67,9 @@ export class LoginDto implements LoginRequest {
 ```
 
 - **Where the types live:** DTO classes live in the API, because they use decorators. The
-  interface they implement lives in the shared contracts library.
+  interface they implement lives in the shared contracts library. `api-contracts` holds types
+  and `apiPath()` only: no Zod or other runtime validation there, because the web app's main
+  bundle imports it and goes over budget (T-064). Validate query params with class-validator too.
 - **Update DTOs:** use `PartialType` from `@nestjs/mapped-types`.
 - **Path params:** `@Param('id', ParseUUIDPipe)`, or the right `Parse*Pipe`.
 - **HTTP writes:** anything but GET, HEAD or OPTIONS must send a JSON body or none, from the app's origin: `SameOriginGuard` answers anything else with 403/415. File uploads would need a design change first.

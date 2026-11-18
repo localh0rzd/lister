@@ -40,7 +40,8 @@ before writing Path A code; for a new table, every step applies.
 
 ## Path B — request/response over HTTP
 
-1. **Contract** (`packages/shared/api-contracts`): interfaces for the request and the response.
+1. **Contract** (`packages/shared/api-contracts`): interfaces for the request and the response,
+   types only (no Zod: it lands in the web main bundle, over budget).
    URLs are built with `apiPath(...)`, and dates are ISO strings.
 2. **API:**
    - A Nest controller and service in the api feature library.

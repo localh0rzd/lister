@@ -5,11 +5,25 @@ description: Run Lister's definition-of-done checks (workspace rules, format, li
 
 # Verify a change
 
-Run these from the repo root, with static output so the results are readable:
+Output is expensive: every line you print is resent with every later call. **Never print raw
+Nx, Vitest or Playwright output.** Pipe every command below through the filter
 
 ```bash
-npm run lint:workspace
-NX_TUI=false npx nx format:check
+2>&1 | grep -E 'error TS|error  |FAIL|✘|×|failed|Failed|Successfully ran|Ran target' | tail -30
+```
+
+and look closer (`--skip-nx-cache`, `tail -60` of one project) only at what failed.
+
+Run the checks cheapest first, so one mistake doesn't cost several full runs:
+
+1. **Typecheck only the projects you touched** (`npx nx run-many -t typecheck -p <a>,<b>`). If
+   you added a required field to a shared type, first `grep -rln` the specs that build literals
+   of that type and fix them all in one go.
+2. Workspace rules and format: `npm run lint:workspace`, `NX_TUI=false npx nx format:check`.
+3. Everything affected, **in the background** (it takes minutes); wait with Monitor, not
+   foreground runs that hit the 2-minute timeout:
+
+```bash
 NX_TUI=false npx nx affected -t lint typecheck test build --outputStyle=static
 ```
 
@@ -25,7 +39,9 @@ NX_TUI=false npx nx run-many -t lint typecheck test build --outputStyle=static
 API integration tests run as part of `test`, in `lister-api`.
 
 When user-facing behaviour, an HTTP route, a socket event or the server setup changed, also run
-the e2e suites. They start the servers themselves:
+the e2e suites, in the background and filtered the same way. They start the servers themselves.
+While iterating, run only the specs you changed (`-- <spec-file>`); run the full suites once, at the
+end:
 
 ```bash
 NX_TUI=false npx nx e2e lister-web-e2e --outputStyle=static

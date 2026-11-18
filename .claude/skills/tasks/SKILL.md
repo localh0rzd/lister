@@ -24,7 +24,8 @@ context budget and milestone stops. Workers don't need it.
 - **Branch:** work happens on `work/v1`, cut from `master`. If it doesn't exist yet, run
   `git switch -c work/v1 master`; otherwise `git switch work/v1`. Never push, merge or rebase
   unless the user asks.
-- **Commits:** each task gets its own commit, `T-NNN: <title>`, followed by the task worker's
+- **Commits:** each task gets its own commit, `T-NNN: <title>` (a full-stack task gets two,
+  `T-NNN: <title> (API)` and `T-NNN: <title> (web)`, from two workers; see coordinator.md), followed by the task worker's
   `T-NNN: simplify` (none when it finds nothing worth changing). Its substantive review fixes
   get a second one, `T-NNN: address review`, and its trivial fixes and the closing of the task
   a third, `T-NNN: trivial review fixes` (both by the review worker). That way

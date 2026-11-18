@@ -22,6 +22,27 @@ this, 2026-11-17).
    **trivial** or **substantive** (`task-review` skill), then fixes all of them itself: the
    substantive ones first, then the trivial ones, and closes the task.
 
+### Keeping worker sessions small (2026-11-18, from the T-064 worker's own analysis)
+
+T-064's single full-stack worker reached 120k tokens (75% of the window) before it committed.
+So:
+
+- **Split full-stack tasks into two task workers**, one after the other: `task-t-nnn-api`
+  (shared contracts, migration, API, API tests; commit `T-NNN: <title> (API)`) and then
+  `task-t-nnn-web` (web, unit tests, Playwright; commit `T-NNN: <title> (web)`). Each simplifies
+  and verifies only its own diff and ends. The API worker moves the task to In progress; the
+  web worker's brief names the API commit and the contract types it should use. One review
+  worker still reviews the whole range. Single-area tasks keep one worker.
+- **Pre-decide in the brief** what you already know, so the worker doesn't discover it by
+  failing builds: which library each piece goes in, the existing files to change (paths), the
+  validation approach (REST: class-validator DTOs, `api-contracts` types only, no Zod), test
+  helpers to reuse, and any `TASKS.md` wording that the skills override.
+- **Every brief ends with**: "Keep context small (CLAUDE.md): filter all Nx, Vitest and
+  Playwright output; typecheck touched projects first; run full `affected` and e2e once, in the
+  background with Monitor; grep, then read ~60 lines."
+- Workers don't need the browser, Chrome, scheduled-task, sidebar or window tools; those are
+  denied in `.claude/settings.local.json`, so they aren't in any session's tool list.
+
 The review loop (agreed with the user, 2026-11-12):
 
 1. **Substantive findings: the review worker fixes them** (`review-fixes`) and commits
@@ -77,7 +98,9 @@ The coordinator runs for many tasks, and every call resends its whole context. K
      > the `review-fixes` skill (one commit `T-NNN: address review`, a fix report with one
      > status per finding), then the trivial findings the same way (commit
      > `T-NNN: trivial review fixes`, which also closes the task in TASKS.md). Don't switch branches,
-     > stash or install anything, and don't stop a server you didn't start. End your wrap-up
+     > stash or install anything, and don't stop a server you didn't start. Keep context small
+     > (CLAUDE.md): filter all Nx, Vitest and Playwright output, run the full e2e suites once in the
+     > background, and read diffs per file with `git diff --stat` first. End your wrap-up
      > recap and your final message with the verdict line plus the fix commit, for example
      > `Verdict: Changes requested — 1 blocker, 2 major, 0 minor, 1 nit (3 substantive, 1 trivial) — tmp/reviews/T-NNN.md — fixed in abc1234`.
    - `background`:
