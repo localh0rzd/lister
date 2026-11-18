@@ -23,29 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-068 — Leave out in the list editor
-
-- Milestone: M10 Leaving out
-- Area: web
-- Priority: normal
-- Depends on: T-067
-- Decisions: D28
-- Done when:
-  - In the list editor, items and nested-list rows that come from an included list have a menu
-    (Edit for items, plus **Leave out of <list>**); the list's own items don't get the action.
-    Choosing it hides the entry and shows the notice "“<title>” left out of <list>" with Undo.
-  - Each section with left-out entries says "N left out" in its header and ends with a
-    collapsed "N left out" row; expanded, it lists them struck through, a left-out list with its
-    item count, each with **Put back** (notice with Undo) or, when inherited, "Left out in
-    <list>" linking to that list.
-  - The included (source) list itself shows nothing about exceptions; item counts on the Lists
-    page follow the flattened view.
-  - Keyboard and screen-reader use work (menu, expanded state, labels); axe passes in both themes.
-  - Tests: component unit tests for the menu, the left-out row and the inherited case; a
-    Playwright happy path that leaves out an item, sees it gone, starts a run without it, and
-    puts it back.
-- Notes: mockup in `tmp/mockups/leave-out.html` (local, not committed).
-
 ## Backlog
 
 ### T-069 — Keep exceptions when duplicating, exporting and importing

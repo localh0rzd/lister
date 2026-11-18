@@ -3,6 +3,31 @@
 Tasks closed from [TASKS.md](TASKS.md), newest first. Moved out of TASKS.md on 2026-11-18 so
 the backlog stays short to read.
 
+### T-068 — Leave out in the list editor
+
+- Completed: 2026-11-18 — "Leave out of <list>" in the entry menus and the "N left out" rows (per section and for the list's own includes) with Put back, Undo and focus handling, in `web-feature-lists` (list editor); icon subset updated
+- Review: Changes requested; 9 fixed (4 substantive, 5 trivial), 0 skipped, 0 disagreed; re-review rounds: 0 (coordinator re-review pending)
+- Milestone: M10 Leaving out
+- Area: web
+- Priority: normal
+- Depends on: T-067
+- Decisions: D28
+- Done when:
+  - In the list editor, items and nested-list rows that come from an included list have a menu
+    (Edit for items, plus **Leave out of <list>**); the list's own items don't get the action.
+    Choosing it hides the entry and shows the notice "“<title>” left out of <list>" with Undo.
+  - Each section with left-out entries says "N left out" in its header and ends with a
+    collapsed "N left out" row; expanded, it lists them struck through, a left-out list with its
+    item count, each with **Put back** (notice with Undo) or, when inherited, "Left out in
+    <list>" linking to that list.
+  - The included (source) list itself shows nothing about exceptions; item counts on the Lists
+    page follow the flattened view.
+  - Keyboard and screen-reader use work (menu, expanded state, labels); axe passes in both themes.
+  - Tests: component unit tests for the menu, the left-out row and the inherited case; a
+    Playwright happy path that leaves out an item, sees it gone, starts a run without it, and
+    puts it back.
+- Notes: mockup in `tmp/mockups/leave-out.html` (local, not committed).
+
 ### T-067 — Leave out: synced exceptions and flattening
 
 - Completed: 2026-11-18 — synced `include_exceptions` table (Drizzle migration 0013, Dexie version 9), `include.addException` / `include.removeException` in the shared `applyMutation()`, `flatten()` / `flattenEntries()` skip left-out entries (reported as `leftOut`), runs don't copy them, purge removes them; shared-domain, sync-protocol, api data-access-db / feature-sync / feature-maintenance, web data-access-local-db / data-access-sync

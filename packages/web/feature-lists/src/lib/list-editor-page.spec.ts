@@ -1371,11 +1371,11 @@ describe('ListEditorPage — leaving out (D28)', () => {
       await page.fixture.whenStable();
       expect(page.element.textContent).toContain('Stove');
     });
-    const own = await menuFor(page, 'More for Tent');
-    await own.open();
-    expect((await own.getItems()).length).toBe(4); // Edit, Move up, Move down, Delete
+    const tentMenu = await menuFor(page, 'More for Tent');
+    await tentMenu.open();
+    expect((await tentMenu.getItems()).length).toBe(4); // Edit, Move up, Move down, Delete
     expect(page.element.textContent).not.toContain('Leave out');
-    await own.close();
+    await tentMenu.close();
     await (
       await menuFor(page, 'More for list Kitchen')
     ).clickItem({ text: /Leave out of Camping/ });
@@ -1383,7 +1383,7 @@ describe('ListEditorPage — leaving out (D28)', () => {
       expect(requests[0]).toMatchObject({
         name: 'include.addException',
         args: {
-          includeId: expect.any(String),
+          includeId: own.id,
           targetKind: 'list',
           targetId: kitchen.id,
         },

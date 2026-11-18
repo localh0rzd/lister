@@ -32,6 +32,7 @@ test.describe('leaving out', () => {
         .getByRole('menuitem', { name: `Leave out of ${trip}` })
         .click();
       await expect(page.getByText('“Chair” left out of')).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Undo' })).toBeVisible();
       await expect(campingSection).not.toContainText('Chair');
       await expect(campingSection).toContainText('1 left out');
       await expectAccessible();

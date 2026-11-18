@@ -175,6 +175,10 @@ h1 {
   color: var(--mat-sys-on-surface-variant);
 }
 
+.nested-section .title {
+  flex: 1;
+}
+
 .add-list {
   margin-top: 8px;
 }
