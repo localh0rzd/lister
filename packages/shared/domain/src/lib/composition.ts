@@ -63,33 +63,66 @@ export type FlatEntry =
 const byPosition = <T extends { position: string; id: Id }>(rows: T[]) =>
   rows.sort((a, b) => comparePositions(a, b));
 
+/** The live includes of the list whose child is a live list, in position order. */
+const liveIncludesOf = (id: Id, source: CompositionSource) =>
+  byPosition(
+    source
+      .includesOf(id)
+      .filter(
+        (row) =>
+          row.deletedAt === null &&
+          source.list(row.childListId)?.deletedAt === null,
+      ),
+  );
+
 /**
  * The live exceptions of every live include reachable from the list (through live includes of
- * live lists), by target id. When several name the same target, the one nearest to the list
- * wins (breadth first, in position order), for the editor to say where it was left out.
+ * live lists) whose target is still below that include, by target id; any other exception does
+ * nothing (design §2.2, "Targets that go away"). When several name the same target, the one
+ * nearest to the list wins (breadth first, in position order), for the editor to say where it
+ * was left out.
  */
 function collectExceptions(
   listId: Id,
   source: CompositionSource,
 ): Map<Id, { exception: IncludeException; ownerListId: Id }> {
   const found = new Map<Id, { exception: IncludeException; ownerListId: Id }>();
-  if (!source.exceptionsOf) return found;
+  const exceptionsOf = source.exceptionsOf;
+  if (!exceptionsOf) return found;
+  // The lists and items below each child list (the child included), worked out once per child.
+  const below = new Map<Id, { lists: Set<Id>; items: Set<Id> }>();
+  const belowOf = (childId: Id) => {
+    let rows = below.get(childId);
+    if (!rows) {
+      rows = { lists: new Set([childId]), items: new Set() };
+      for (const id of rows.lists) {
+        for (const item of source.itemsOf(id)) rows.items.add(item.id);
+        for (const include of liveIncludesOf(id, source)) {
+          rows.lists.add(include.childListId);
+        }
+      }
+      below.set(childId, rows);
+    }
+    return rows;
+  };
   const seen = new Set<Id>([listId]);
   const queue = [listId];
   for (const id of queue) {
-    const includes = byPosition(
-      source.includesOf(id).filter((row) => row.deletedAt === null),
-    );
-    for (const include of includes) {
-      for (const exception of source.exceptionsOf(include.id)) {
-        if (exception.deletedAt === null && !found.has(exception.targetId)) {
+    for (const include of liveIncludesOf(id, source)) {
+      for (const exception of exceptionsOf(include.id)) {
+        if (exception.deletedAt !== null || found.has(exception.targetId)) {
+          continue;
+        }
+        const rows = belowOf(include.childListId);
+        const targets =
+          exception.targetKind === 'item' ? rows.items : rows.lists;
+        if (targets.has(exception.targetId)) {
           found.set(exception.targetId, { exception, ownerListId: id });
         }
       }
-      const child = source.list(include.childListId);
-      if (child?.deletedAt === null && !seen.has(child.id)) {
-        seen.add(child.id);
-        queue.push(child.id);
+      if (!seen.has(include.childListId)) {
+        seen.add(include.childListId);
+        queue.push(include.childListId);
       }
     }
   }

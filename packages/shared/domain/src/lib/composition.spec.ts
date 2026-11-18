@@ -395,6 +395,72 @@ describe('leaving out (D28)', () => {
     ).toEqual(['Trip:Passport']);
   });
 
+  it('does nothing while the include leads to a list in the trash, even on another path', () => {
+    const rows = {
+      lists: ['Weekend', 'Camping', 'Beach', 'Toiletries'],
+      items: ['Toiletries:Brush@a0'],
+      includes: [
+        'Weekend>Camping@a1',
+        'Weekend>Beach@a2',
+        'Camping>Toiletries@a0',
+        'Beach>Toiletries@a0',
+      ],
+      exceptions: ['Weekend>Camping:list:Toiletries'],
+    };
+    expect(flat('Weekend', space(rows))).toEqual([]);
+    expect(
+      flat('Weekend', space({ ...rows, deletedLists: ['Camping'] })),
+    ).toEqual(['Toiletries:Brush']);
+  });
+
+  it('does nothing once the target is no longer below the include, and applies again when it is', () => {
+    const rows = {
+      lists: ['Weekend', 'Camping', 'Beach', 'Toiletries'],
+      items: ['Toiletries:Brush@a0'],
+      includes: [
+        'Weekend>Camping@a1',
+        'Weekend>Beach@a2',
+        'Camping>Toiletries@a0',
+        'Beach>Toiletries@a0',
+      ],
+      exceptions: ['Weekend>Camping:item:Toiletries-Brush'],
+    };
+    const moved = space({ ...rows, deletedRows: ['Camping>Toiletries'] });
+    expect(flat('Weekend', moved)).toEqual(['Toiletries:Brush']);
+    expect(
+      flattenEntries('Weekend', moved).some((e) => e.kind === 'leftOut'),
+    ).toBe(false);
+    expect(flat('Weekend', space(rows))).toEqual([]);
+  });
+
+  it("never hides the viewed list's own items through a re-wired include", () => {
+    // A > B once led to R, and the exception left out R's item; now R includes A instead.
+    const source = space({
+      lists: ['R', 'A', 'B'],
+      items: ['R:Own@a0', 'B:Other@a0'],
+      includes: ['R>A@a1', 'A>B@a0'],
+      exceptions: ['A>B:item:R-Own'],
+    });
+    expect(flat('R', source)).toEqual(['R:Own', 'B:Other']);
+  });
+
+  it('takes the nearest exception whose target is below its include', () => {
+    // Trip > Camping names Sleep but no longer leads to it; Beach > Sleep still does.
+    const source = space({
+      ...camping,
+      includes: ['Trip>Camping@a1', 'Trip>Beach@a2', 'Beach>Sleep@a1'],
+      exceptions: ['Trip>Camping:list:Sleep', 'Beach>Sleep:item:Sleep-Bag'],
+    });
+    expect(flattenEntries('Trip', source)).toContainEqual(
+      expect.objectContaining({
+        kind: 'leftOut',
+        ownerListId: 'Beach',
+        exception: expect.objectContaining({ includeId: 'Beach>Sleep' }),
+      }),
+    );
+    expect(flat('Trip', source)).not.toContain('Sleep:Bag');
+  });
+
   it('applies again when a deleted include comes back (restored include)', () => {
     const rows = {
       ...camping,

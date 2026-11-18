@@ -532,7 +532,8 @@ included lists and to copy a list into a run:
 3. Include → recurse into the child list unless it was already visited (this removes diamonds and
    also guards against cycles).
 4. Left out (D28) → before the walk, collect the live exceptions of every live include reachable
-   from the list; an item or list they name is skipped wherever it is met (leaving out wins). The
+   from the list whose target is still below that include (others do nothing, §2.2); an item or
+   list they name is skipped wherever it is met (leaving out wins). The
    walk reports each skipped entry with the section it would have been in and the list that owns
    the exception, for the editor's "N left out" row.
 
