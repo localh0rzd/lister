@@ -671,15 +671,13 @@ export class SyncEngine {
       socket.io.engine?.close();
     };
     const goOnline = () => {
+      const skip = socket.connected || this.connection.updateRequired;
       this.log('browser-online', {
         socketConnected: socket.connected,
         updateRequired: this.connection.updateRequired,
-        action:
-          socket.connected || this.connection.updateRequired
-            ? 'none'
-            : 'reconnect-now',
+        action: skip ? 'none' : 'reconnect-now',
       });
-      if (socket.connected || this.connection.updateRequired) return;
+      if (skip) return;
       // While Socket.IO waits between reconnect attempts, connect() does nothing; restarting
       // the connection skips the remaining backoff now that the network is back.
       socket.disconnect();

@@ -1,7 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { MatButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
-import { DiagnosticsExport, Diagnostics } from '@lister/web/util-diagnostics';
+import { Diagnostics, DiagnosticsExport } from '@lister/web/util-diagnostics';
 import {
   IOS_INSTALL_STEPS,
   InstallPrompt,
