@@ -6,7 +6,7 @@ description: Conventions and steps for Angular 22 work in lister-web — compone
 # Angular feature work (Angular 22, zoneless, standalone)
 
 Always load `best-practices` (and read `node_modules/@angular/core/resources/best-practices.md`),
-`testing` and `module-boundaries` too.
+`testing` too, and `module-boundaries` when you create a library or add an import from another project.
 
 ## Where code goes
 
@@ -46,22 +46,27 @@ export class ListCard {
 
 - **Defaults:** standalone and OnPush are Angular's defaults. Don't write `standalone: true` or
   `changeDetection`, and never use `Eager`. No NgModules.
-- **State:** signals: `signal`, `computed`, `linkedSignal`. Use `effect` only for side effects
-  that leave Angular (DOM APIs, storage, logging).
+- **State:** signals: `signal`, `computed`, `linkedSignal`, changed with `set` or `update`, never
+  mutated in place. Use `effect` only for side effects that leave Angular (storage, logging);
+  `afterRenderEffect()` when it touches the DOM. `toSignal()` bridges an observable.
 - **Component API:** `input()`, `input.required()`, `output()` and `model()`; signal queries
   (`viewChild()` and the rest). Not `@Input`, `@Output` or `@ViewChild`.
 - **DI:** `inject()` instead of constructor injection. New singleton services use `@Service()`,
-  not `@Injectable({ providedIn: 'root' })`.
+  not `@Injectable({ providedIn: 'root' })`; `@Service({ autoProvided: false })` when a route or
+  component provides it.
 - **Templates:**
   - Control flow: `@if`, `@for (x of xs; track x.id)` with `@empty`, `@switch`, `@let`,
     `@defer`.
   - Bind `[class.x]` and `[style.x]` instead of `ngClass` and `ngStyle`.
-  - Every `<button>` has a `type`.
+  - Every `<button>` has a `type`. No `$any`.
+  - Import only what the template uses (no `CommonModule`).
 - **Zoneless:** UI updates come from signals, the `async` pipe, or events. Don't use
   `setTimeout` or `NgZone` to "make change detection run".
 - **Host bindings** go in the `host: {}` metadata, not `@HostBinding` or `@HostListener`.
 - **Images:** `NgOptimizedImage`.
-- **Accessibility:** semantic elements, labels on inputs, keyboard support, and clean axe checks.
+- **Accessibility:** WCAG AA and clean axe checks: semantic elements, labels on inputs, focus
+  management, contrast in light and dark, a keyboard path for everything pointer-driven; CDK for
+  overlays and a11y (`LiveAnnouncer`, focus trap).
 
 ## Data access
 
@@ -80,7 +85,8 @@ export class ListCard {
 - **Sync state:** show it where it matters: pending ("not synced yet"), offline, and rejected
   changes (a snackbar with the reason, and Undo where it makes sense).
 - **Other HTTP** (sign-in, passkeys, user administration, spaces, health):
-  - Reads: `httpResource<T>(() => apiPath(...))`, with `.value()`, `.isLoading()`, `.error()`,
+  - Reads: `httpResource<T>(() => apiPath(...))` (`resource()`/`rxResource()` for other async
+    reads), with `.value()`, `.isLoading()`, `.error()`,
     `.hasValue()` and `.reload()`.
   - Writes: a `@Service()` class using `HttpClient`, typed with `@lister/shared/api-contracts`.
 - **Imports:** never import from `apps/lister-api` or `packages/api/*`; lint rejects it. Shared
@@ -93,7 +99,8 @@ export class ListCard {
   needs.
 - Route params arrive as component inputs (`withComponentInputBinding` is on):
   `readonly id = input.required<string>()`.
-- Guards and resolvers are functions (`CanActivateFn`, `ResolveFn`) that use `inject()`.
+- Guards, resolvers and interceptors are functions (`CanActivateFn`, `ResolveFn`,
+  `withInterceptors`) that use `inject()`.
 
 ## Forms
 
@@ -105,7 +112,7 @@ export class ListCard {
 
 ## Styling and Material
 
-- **Theme:** Angular Material 3 (from T-001), generated from the deep teal seed `#00796B` (D11).
+- **Theme:** Angular Material 3 (`mat.theme()` mixin), generated from the deep teal seed `#00796B` (D11).
   - Use Material components first.
   - Style custom ones with the M3 system tokens (`--mat-sys-*`), not hard-coded colours, so
     light and dark both work.

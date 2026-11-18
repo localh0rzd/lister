@@ -133,7 +133,7 @@ Range: <base>..<head> · <date>
 
 - **trivial:** a mechanical, local fix that the finding spells out exactly (a wording, a
   missing test case for existing behaviour, a rename, a style tweak), with no design choice and
-  nothing depending on it. The task worker fixes it from the report alone, with no re-review.
+  nothing depending on it. You fix it after the substantive ones, with no re-review.
 - **substantive:** everything else, and always every blocker and major. You fix it, and the
   coordinator re-reviews your fix diff.
 

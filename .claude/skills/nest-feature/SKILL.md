@@ -5,7 +5,7 @@ description: Conventions and steps for NestJS work in lister-api — feature mod
 
 # NestJS feature work (lister-api)
 
-Always load `best-practices`, `testing` and `module-boundaries` too.
+Always load `best-practices` and `testing` too, and `module-boundaries` when you create a library or add an import from another project.
 
 ## Where code goes
 
@@ -116,6 +116,8 @@ Rules:
   there are more than a couple. Defaults are for local development only.
 - **Secrets:** no secrets, tokens or connection strings are committed. Document every new env
   var in `README.md`.
+- **Shutdown:** `app.enableShutdownHooks()`, so the database closes cleanly when Docker stops the
+  container.
 - **Logging:** in production, structured logs (`new ConsoleLogger({ json: true })`) with no
   secrets in them.
 

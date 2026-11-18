@@ -97,6 +97,27 @@ migrated in-memory SQLite database.
   doesn't show some layout bugs that a browser's own print does (T-062). Keep it to one test,
   because every worker's Firefox writes to the same file.
 
+## How to write them
+
+- **Vitest 4:**
+  - `it.each` for tables of cases.
+  - `vi.useFakeTimers()` and `vi.setSystemTime()` for time.
+  - `expect.poll()` and `vi.waitFor()` for conditions that become true eventually.
+  - `vi.mocked()` for typed mocks, `onTestFinished()` for cleanup, `test.extend()` for fixtures.
+  - Snapshots only for small, stable output.
+- **Angular TestBed (zoneless):**
+  - `fixture.componentRef.setInput()`, then `await fixture.whenStable()`.
+  - `TestBed.tick()` to flush effects (`flushEffects()` is deprecated).
+  - Material component harnesses (`TestbedHarnessEnvironment`) instead of CSS selectors into
+    Material's internals.
+  - `RouterTestingHarness` for routed components.
+- **Playwright 1.65:**
+  - Role, label and text locators (`getByRole`, `getByLabel`).
+  - Web-first assertions (`await expect(locator).toBeVisible()`).
+  - No `waitForTimeout`.
+  - `test.step()` for long flows, and fixtures for setup.
+  - `context.setOffline()`, `page.clock` and `toMatchAriaSnapshot()` where they fit.
+
 ## Quality bar
 
 - A test must fail when the behaviour it covers breaks. If you're not sure it would, break the

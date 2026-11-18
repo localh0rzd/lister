@@ -3,10 +3,12 @@
 Reusable, composable checklists (packing lists first), edited together in real time, usable offline as a PWA.
 Nx monorepo: **Angular** web app + **NestJS** API, sharing TypeScript libraries.
 
-- **Design and decisions:** [docs/design.md](docs/design.md). Read the relevant sections before touching data, sync, composition or checklists. If a change would contradict it, update the doc first and tell the user.
+- **Design and decisions:** [docs/design.md](docs/design.md). Read the relevant sections (find them with `grep -n '^#'`; it's long) before touching data, sync, composition or checklists. If a change would contradict it, update the doc first and tell the user.
 - **Open decisions:** listed near the top of `docs/design.md`, each naming the first task that needs it. Before starting such a task, check whether it has been answered; if not, ask the user once and propose the default. Record answers in the doc's Decisions table.
-- **Work items:** [TASKS.md](TASKS.md) — use the `tasks` skill to pick one up.
-- **How every change is made:** follow the `best-practices`, `testing` and `module-boundaries` skills for every implementation, every time, plus `angular-feature`, `nest-feature` or `fullstack-feature` for the area. Tasks are committed one at a time on the `work/v1` branch, and each one gets a critical review in a separate session before the next starts (`tasks` and `task-review` skills).
+- **Work items:** [TASKS.md](TASKS.md) (finished ones in `TASKS-done.md`) — use the `tasks` skill to pick one up.
+- **How every change is made:** follow the `best-practices` and `testing` skills for every implementation, plus `angular-feature`, `nest-feature` or `fullstack-feature` for the area, and `module-boundaries` when creating a library or adding a cross-project import. Tasks are committed one at a time on the `work/v1` branch, and each one gets a critical review in a separate session before the next starts (`tasks` and `task-review` skills).
+
+- **Keep context small:** every call resends the whole session. Find code with `grep -n` and read ~80 lines around it; never `cat`/`sed` a whole file over 300 lines or read a file twice; pipe long output (tests, e2e, `git log`) through `tail`/`grep`.
 
 ## Stack (installed versions — check `package.json` before assuming APIs)
 

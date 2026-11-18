@@ -38,6 +38,11 @@ catch this kind of thing before they do:
   which also covers throttling, offline and frame-by-frame screenshots. The built-in browser
   pane is turned off for this project (`.claude/settings.local.json`) to keep sessions small.
 - **Sizes and themes:** phone 375 × 812 and desktop 1280 × 800, in light and in dark.
+- **Looking at screenshots costs context** (about 1.5k tokens each, resent on every later call).
+  Take viewport screenshots, not `fullPage`. Have the script print what it checks (text,
+  bounding boxes, overlaps, colours) and open an image only where the printed result looks wrong
+  or the judgement is visual (layout, contrast, Material look); one image per screen and size
+  is usually enough.
 - **Two devices** for anything synced: a second tab or browser context on the same list.
 - Create your own data with unique titles; don't change lists you didn't create.
 

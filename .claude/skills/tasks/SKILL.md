@@ -6,51 +6,18 @@ description: Pick up, implement, review and close work items from TASKS.md, the 
 # Working the TASKS.md backlog
 
 `TASKS.md` at the repo root is the single backlog. It has three sections: **In progress**,
-**Backlog** (ordered by priority) and **Done**. Each task is a `### T-NNN — Title` heading with
+**Backlog** (ordered by priority) and **Done**, whose tasks live in `TASKS-done.md` (newest
+first) so `TASKS.md` stays short. Each task is a `### T-NNN — Title` heading with
 bullets (`Milestone`, `Area`, `Priority`, `Depends on`, `Decisions`, `Done when`, `Notes`). The
 design behind the tasks is `docs/design.md`.
 
-## Roles (agreed with the user, 2026-11-12)
+## Who does what
 
-The main session is the **coordinator**. It runs at **medium** effort, and it doesn't write task
-code itself. For every task, it starts two sessions with `mcp__ccd_session__start_session`
-(`initiation: "user_asked"`, `context: "fresh"`, `use_worktree: false`, `wake_when_done: true`,
-with the model and effort given below), one after the other. Every session starts with about
-75k tokens of fixed context, so don't start more than these two per task (the user asked for
-this, 2026-11-17).
-
-1. **Task worker**, `model: "claude-sonnet-5-5"`, `effort: "medium"`, `name: "task-t-nnn"`: picks up the task and implements it
-   following "Doing it" below, through to the verified `T-NNN: <title>` commit, then simplifies
-   its own diff (step 9, the `T-NNN: simplify` commit; added 2026-11-16, moved into the task
-   worker 2026-11-17). It doesn't start the review. Its brief names the task, the base commit,
-   and these skills: this one, `best-practices`, `testing`, `module-boundaries`, `simplify` and
-   `verify`.
-2. **Review worker**, `model: "claude-opus-5-5"`, `effort: "medium"`, `name: "review-t-nnn"`: starts once the
-   task worker is done, reviews the whole range (task commit plus simplify commit) and follows
-   "Reviewing it" below. It writes the report with each finding marked
-   **trivial** or **substantive** (`task-review` skill), then fixes the substantive ones
-   itself.
-
-The review loop (agreed with the user, 2026-11-12):
-
-1. **Substantive findings: the review worker fixes them** (`review-fixes`) and commits
-   `T-NNN: address review`.
-2. **The coordinator re-reviews only that fix diff** (`fix-re-review`). The review worker graded
-   its own work, so this check and the test gate both stay. Two rounds at most, then ask the
-   user.
-3. **Trivial findings: the task worker fixes them** (`review-fixes`), with no re-review;
-   `verify` is the gate. It closes the task and commits `T-NNN: trivial review fixes`.
-4. Every fixer writes a fix report with one status per finding; the coordinator treats a
-   missing finding as not done.
-5. The coordinator reports to the user (see Reviewing it, step 6), then goes on to the next
-   task, stopping at the end of each milestone.
-
-If there are no substantive findings, skip steps 1–2. If there are no trivial ones, the task
-worker only closes the task.
-
-The coordinator's own effort caps the effort of the sessions it starts. After each start, check
-model and effort with `mcp__ccd_session_mgmt__get_session`, and if either is wrong, fix it with
-`mcp__ccd_session_mgmt__set_session_model` / `mcp__ccd_session_mgmt__set_session_effort`.
+The main session is the **coordinator**: it doesn't write task code, it starts a **task worker**
+session (implements, verifies, commits, simplifies, then ends) and a **review worker** session
+(reviews, fixes all findings, closes the task) per task. **Coordinator: also read
+[coordinator.md](coordinator.md)** — roles, models, the review loop, review prompts, your
+context budget and milestone stops. Workers don't need it.
 
 ## Standing agreements with the user (2026-11-12)
 
@@ -59,19 +26,20 @@ model and effort with `mcp__ccd_session_mgmt__get_session`, and if either is wro
   unless the user asks.
 - **Commits:** each task gets its own commit, `T-NNN: <title>`, followed by the task worker's
   `T-NNN: simplify` (none when it finds nothing worth changing). Its substantive review fixes
-  get a second one, `T-NNN: address review` (by the review worker), and its trivial fixes and
-  the closing of the task a third, `T-NNN: trivial review fixes` (by the task worker). That way
+  get a second one, `T-NNN: address review`, and its trivial fixes and the closing of the task
+  a third, `T-NNN: trivial review fixes` (both by the review worker). That way
   each review sees exactly one task, and each re-review exactly one fix diff.
 - **Review:** after every task, a **separate review session** reviews it critically (see
-  Reviewing it). Don't start the next task until that review is resolved.
+  coordinator.md). Don't start the next task until that review is resolved.
 - **Pace:** keep going task by task. **Stop at the end of each milestone** (M1, M2, …) with a
   summary. Stop earlier when a decision, a failure you can't fix, or a question needs the user.
 
 ## Picking a task
 
-1. Read `TASKS.md`.
+1. Find the task in `TASKS.md` with `grep -n '^## \|^### ' TASKS.md`, then read only the
+   sections you need (`Read` with `offset`/`limit`). Finished tasks are in `TASKS-done.md`.
 2. If the user named an ID, take that task. Otherwise take the **first task in Backlog whose
-   `Depends on` tasks are all in Done**.
+   `Depends on` tasks are all done** (`grep -n '^### T-0xx' TASKS-done.md`).
 3. If something is already **In progress**, finish it (including its review) before starting
    another, unless the user says otherwise.
 4. If the task is ambiguous (an unclear "done when", a conflict with existing code, or a product
@@ -91,16 +59,18 @@ model and effort with `mcp__ccd_session_mgmt__get_session`, and if either is wro
 4. Move the task block to **In progress**: cut and paste the whole block and keep its ID.
 5. Plan:
    - Restate the "done when" criteria as your plan.
-   - Load `best-practices`, `testing` and `module-boundaries` every time.
-   - Then load `fullstack-feature` if the task touches more than one area; otherwise
-     `angular-feature` or `nest-feature`.
+   - Load `best-practices` and `testing`, and the area skill: `fullstack-feature` if the task
+     touches more than one area, otherwise `angular-feature` or `nest-feature`.
+   - Load `module-boundaries` when you create a library, move code between projects or add
+     an import from another project (lint enforces the rest).
 6. Implement, with the tests the `testing` skill requires for every "done when" bullet.
 7. Run the `verify` skill. Don't commit while it fails.
 8. Commit. Check `git status` for stray files, then commit everything with the message
    `T-NNN: <title>`. The body says what changed; end it with the Co-Authored-By trailer. The task
    stays **In progress** until its review is resolved.
 9. Simplify (see "Simplifying it" below), then end with both commit hashes (or "no changes" for
-   the simplify step) and any bugs you noticed while simplifying.
+   the simplify step) and any bugs you noticed while simplifying. Your session ends here: the
+   review worker fixes the review's findings and closes the task.
 
 ## Simplifying it (task worker, after the task commit, before the review)
 
@@ -118,55 +88,9 @@ model and effort with `mcp__ccd_session_mgmt__get_session`, and if either is wro
    (SendMessage) or revert that part. Pass any bugs the worker listed to the review as notes in
    its prompt.
 
-## Reviewing it (after every task)
-
-1. **Start the review session** with `mcp__ccd_session__start_session`. If its schema isn't
-   loaded, load it first with ToolSearch (`select:mcp__ccd_session__start_session`). Arguments:
-   - `initiation: "user_asked"`. The user asked for a review session after every task.
-   - `context: "fresh"` and `use_worktree: false`: it reads this checkout and changes nothing.
-   - `name: "review-t-nnn"`, `title: "Review T-NNN: <title>"`, `wake_when_done: true`.
-   - `model: "claude-opus-5-5"`, `effort: "medium"`. Then check the effort with `get_session`,
-     since it's capped at the coordinator's own (see Roles).
-   - `<head>` is the last commit of the task, its `T-NNN: simplify` commit if there is one.
-   - `prompt`:
-     > Review task T-NNN ("<title>") in this repository: the commits `<base>..<head>` on branch
-     > `work/v1`. Follow the project's `task-review` skill exactly, including its `ui-review`
-     > step when the task changes the web UI. Mark every finding trivial or substantive. Stay
-     > read-only until the report `tmp/reviews/T-NNN.md` (screenshots under
-     > `tmp/reviews/T-NNN-ui/`) is written. Then fix the substantive findings yourself with
-     > the `review-fixes` skill (one commit `T-NNN: address review`, a fix report with one
-     > status per finding). Leave the trivial findings to the task worker. Don't switch branches,
-     > stash or install anything, and don't stop a server you didn't start. End your wrap-up
-     > recap and your final message with the verdict line plus the fix commit, for example
-     > `Verdict: Changes requested — 1 blocker, 2 major, 0 minor, 1 nit (3 substantive, 1 trivial) — tmp/reviews/T-NNN.md — fixed in abc1234`.
-   - `background`:
-     > Lister is an Nx monorepo (Angular 22 web app, NestJS 11 API, shared TypeScript
-     > libraries) that another Claude session builds one TASKS.md task at a time. The user
-     > asked for a critical, independent review after every task. You fix the substantive
-     > findings yourself; a task worker (Sonnet) fixes the trivial ones from your report
-     > alone, so each trivial finding must say exactly what to change. The coordinator
-     > re-reviews your fix diff. Precise file and line evidence and concrete failure scenarios
-     > matter more than volume.
-2. **Wait.** Write a bold title line and one sentence before the call. Afterwards, tell the user
-   in one line that the review is running, with a link to the session, and end your turn. Edit
-   nothing while it runs, because it reads this checkout. The app continues you when the review
-   finishes.
-3. **Check the substantive fixes** with the `fix-re-review` skill.
-4. **Hand the trivial findings to the task worker** (SendMessage to its `local_…` id): the
-   report path, the trivial finding numbers, and "follow the `review-fixes` skill". It fixes
-   them all, nits included, and closes the task. When it asks you and you can't decide, ask the
-   user (`AskUserQuestion`).
-5. **Check** its fix report for completeness; `verify` is the gate, with no re-review.
-6. **Report** to the user: a short summary of every finding that wasn't fixed (skipped or
-   disagree, in either fix report), each with its reason, plus any question still open.
-7. Continue with the next task, unless the milestone is complete (see End of a milestone).
-
-If the review session can't be started, or it fails, tell the user, and don't start the next
-task until they decide how to proceed.
-
 ## Closing it
 
-Move the block to the **top of Done** and add these lines under the title:
+Move the block from `TASKS.md` to the **top of `TASKS-done.md`** (under its intro) and add these lines under the title:
 
 ```
 - Completed: YYYY-MM-DD — <one line: what changed, main files/projects>
@@ -179,17 +103,6 @@ If you stopped short, leave the task in **In progress**, or move it back to Back
 If you found follow-up work, add it as a new Backlog task with the next free ID and mention it.
 Don't silently expand the current task.
 
-## End of a milestone
-
-When the last task of a milestone is closed, stop and report to the user:
-
-- what was built: each task with one line;
-- how to try it: commands and URLs;
-- the review outcomes: what was fixed and what was deferred;
-- new backlog tasks, and anything that needs their decision.
-
-Offer to merge `work/v1` into `master` or push it. Do neither without a yes.
-
 ## Adding tasks for the user
 
 When asked to add a task:
@@ -198,4 +111,4 @@ When asked to add a task:
 - follow the format at the top of `TASKS.md`, and place the task in Backlog by priority;
 - keep the "done when" bullets user-observable and testable.
 
-Never delete tasks from Done; never renumber IDs.
+Never delete tasks from `TASKS-done.md`; never renumber IDs.
