@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-068 — Leave out in the list editor
 
 - Milestone: M10 Leaving out
@@ -47,6 +45,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
     Playwright happy path that leaves out an item, sees it gone, starts a run without it, and
     puts it back.
 - Notes: mockup in `tmp/mockups/leave-out.html` (local, not committed).
+
+## Backlog
 
 ### T-069 — Keep exceptions when duplicating, exporting and importing
 

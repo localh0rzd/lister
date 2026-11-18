@@ -173,6 +173,9 @@
                       {{ row.otherUsers === 1 ? 'list' : 'lists' }}</span
                     >
                   }
+                  @if (row.leftOut.length > 0) {
+                    <span class="note">{{ row.leftOut.length }} left out</span>
+                  }
                 </span>
               </button>
             } @else {
@@ -258,23 +261,140 @@
                     <button
                       matIconButton
                       type="button"
-                      [attr.aria-label]="'Edit ' + entry.item.title"
-                      (click)="edit(entry.item)"
+                      [matMenuTriggerFor]="entryMenu"
+                      [attr.aria-label]="'More for ' + entry.item.title"
                     >
-                      <mat-icon>edit</mat-icon>
+                      <mat-icon>more_vert</mat-icon>
                     </button>
+                    <mat-menu #entryMenu="matMenu">
+                      <button
+                        mat-menu-item
+                        type="button"
+                        (click)="edit(entry.item)"
+                      >
+                        <mat-icon>edit</mat-icon>
+                        <span>Edit</span>
+                      </button>
+                      <button
+                        mat-menu-item
+                        type="button"
+                        (click)="
+                          leaveOut(row, {
+                            kind: 'item',
+                            id: entry.item.id,
+                            title: entry.item.title,
+                          })
+                        "
+                      >
+                        <mat-icon>visibility_off</mat-icon>
+                        <span>Leave out of {{ v.list.title }}</span>
+                      </button>
+                    </mat-menu>
                   </li>
                 } @else if (entry.kind === 'section') {
                   <li
                     class="nested nested-section"
                     [style.--depth]="entry.depth"
                   >
-                    {{ nestedTitle(entry) }}
+                    <span class="title">{{ nestedTitle(entry) }}</span>
+                    @if (entry.state === 'live') {
+                      <button
+                        matIconButton
+                        type="button"
+                        [matMenuTriggerFor]="nestedMenu"
+                        [attr.aria-label]="
+                          'More for list ' + nestedTitle(entry)
+                        "
+                      >
+                        <mat-icon>more_vert</mat-icon>
+                      </button>
+                      <mat-menu #nestedMenu="matMenu">
+                        <button
+                          mat-menu-item
+                          type="button"
+                          (click)="
+                            leaveOut(row, {
+                              kind: 'list',
+                              id: entry.include.childListId,
+                              title: nestedTitle(entry),
+                            })
+                          "
+                        >
+                          <mat-icon>visibility_off</mat-icon>
+                          <span>Leave out of {{ v.list.title }}</span>
+                        </button>
+                      </mat-menu>
+                    }
                   </li>
                 }
               } @empty {
-                <li class="nested hint" [style.--depth]="1">
-                  No items in this list yet.
+                @if (row.leftOut.length === 0) {
+                  <li class="nested hint" [style.--depth]="1">
+                    No items in this list yet.
+                  </li>
+                }
+              }
+              @if (row.leftOut.length > 0) {
+                @let showLeftOut = leftOutOpen().has(row.id);
+                <li class="left-out">
+                  <button
+                    class="left-out-toggle"
+                    type="button"
+                    [attr.aria-expanded]="showLeftOut"
+                    [attr.aria-controls]="'left-out-' + row.id"
+                    (click)="toggleLeftOut(row.id)"
+                  >
+                    <mat-icon aria-hidden="true">{{
+                      showLeftOut ? 'expand_less' : 'expand_more'
+                    }}</mat-icon>
+                    {{ row.leftOut.length }} left out
+                  </button>
+                  @if (showLeftOut) {
+                    <ul
+                      [id]="'left-out-' + row.id"
+                      [attr.aria-label]="'Left out of ' + title"
+                    >
+                      @for (entry of row.leftOut; track entry.exception.id) {
+                        @let inherited = inheritedFrom(entry);
+                        <li
+                          class="nested left-out-entry"
+                          [style.--depth]="entry.depth"
+                        >
+                          <div class="text">
+                            <span class="title struck">{{
+                              leftOutTitle(entry)
+                            }}</span>
+                            @if (leftOutCount(entry) !== undefined) {
+                              <span class="note"
+                                >{{ leftOutCount(entry) }}
+                                {{
+                                  leftOutCount(entry) === 1 ? 'item' : 'items'
+                                }}</span
+                              >
+                            }
+                          </div>
+                          @if (inherited) {
+                            <a
+                              class="inherited"
+                              [routerLink]="['/lists', inherited.id]"
+                              >Left out in {{ inherited.title }}</a
+                            >
+                          } @else {
+                            <button
+                              matButton
+                              type="button"
+                              [attr.aria-label]="
+                                'Put back ' + leftOutTitle(entry)
+                              "
+                              (click)="putBack(entry)"
+                            >
+                              Put back
+                            </button>
+                          }
+                        </li>
+                      }
+                    </ul>
+                  }
                 </li>
               }
             </ul>

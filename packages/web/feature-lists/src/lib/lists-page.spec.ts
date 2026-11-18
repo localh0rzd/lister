@@ -11,6 +11,7 @@ import {
 } from '@lister/shared/domain';
 import {
   makeInclude,
+  makeIncludeException,
   makeItem,
   makeList,
   makeLocalSpace,
@@ -173,6 +174,38 @@ describe('ListsPage', () => {
         'Camping · 2 items · 3 in total · 1 list included',
         'Toiletries · 1 item',
         'Trip · 1 item · 4 in total · 2 lists included',
+      ]);
+    });
+  });
+
+  it('counts a list without what it leaves out (D28)', async () => {
+    const trip = list('Trip');
+    const camping = list('Camping');
+    await db.lists.bulkPut([trip, camping]);
+    const chair = item(camping.id);
+    await db.items.bulkPut([chair, item(camping.id)]);
+    const included = makeInclude({
+      spaceId: SPACE,
+      parentListId: trip.id,
+      childListId: camping.id,
+      position: 'a1',
+    });
+    await db.includes.put(included);
+    await db.includeExceptions.put(
+      makeIncludeException({
+        spaceId: SPACE,
+        includeId: included.id,
+        targetKind: 'item',
+        targetId: chair.id,
+      }),
+    );
+    const { element, fixture } = await render();
+
+    await vi.waitFor(async () => {
+      await fixture.whenStable();
+      expect(rows(element)).toEqual([
+        'Camping · 2 items',
+        'Trip · 0 items · 1 in total · 1 list included',
       ]);
     });
   });

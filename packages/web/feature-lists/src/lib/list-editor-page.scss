@@ -197,3 +197,35 @@ h1 {
   display: block;
   margin-top: 8px;
 }
+
+.left-out {
+  list-style: none;
+
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+.left-out-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 48px;
+  padding: 0 16px;
+  border: 0;
+  background: none;
+  color: var(--mat-sys-on-surface-variant);
+  font: inherit;
+  cursor: pointer;
+}
+
+.struck {
+  text-decoration: line-through;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.inherited {
+  color: var(--mat-sys-primary);
+}

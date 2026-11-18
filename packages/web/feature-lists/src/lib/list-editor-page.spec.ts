@@ -15,6 +15,7 @@ import {
 } from '@lister/shared/domain';
 import {
   makeInclude,
+  makeIncludeException,
   makeItem,
   makeList,
   makeLocalSpace,
@@ -831,9 +832,7 @@ describe('ListEditorPage — included lists', () => {
     );
     expect(rows).toEqual(['item', 'section', 'item']);
     const nested = [
-      ...page.element.querySelectorAll(
-        '.section-entries .title, .section-entries .nested-section',
-      ),
+      ...page.element.querySelectorAll('.section-entries .title'),
     ].map((el) => el.textContent?.trim());
     expect(nested).toEqual(['Soap', 'Kitchen', 'Stove']);
   });
@@ -913,12 +912,14 @@ describe('ListEditorPage — included lists', () => {
     await vi.waitFor(async () => {
       await page.fixture.whenStable();
       expect(
-        page.element.querySelector('[aria-label="Edit Soap"]'),
+        page.element.querySelector('[aria-label="More for Soap"]'),
       ).not.toBeNull();
     });
-    (
-      page.element.querySelector('[aria-label="Edit Soap"]') as HTMLElement
-    ).click();
+    await (
+      await page.loader.getHarness(
+        MatMenuHarness.with({ selector: '[aria-label="More for Soap"]' }),
+      )
+    ).clickItem({ text: /Edit/ });
     const data = openDialog().mock.calls[0][1]?.data as ItemDialogData;
 
     await db.lists.put({ ...camping, deletedAt: 5 });
@@ -1239,11 +1240,11 @@ describe('ListEditorPage — included lists', () => {
     });
     dialogAnswer = { title: 'Olive soap' };
 
-    (
-      page.element.querySelector(
-        '[aria-label="Edit Soap"]',
-      ) as HTMLButtonElement
-    ).click();
+    await (
+      await page.loader.getHarness(
+        MatMenuHarness.with({ selector: '[aria-label="More for Soap"]' }),
+      )
+    ).clickItem({ text: /Edit/ });
 
     await vi.waitFor(() => expect(requests).toHaveLength(1));
     expect(openDialog().mock.calls[0][1]).toMatchObject({
@@ -1275,5 +1276,229 @@ describe('ListEditorPage — included lists', () => {
     expect((requests[0].args as { position: string }).position > 'a5').toBe(
       true,
     );
+  });
+});
+
+describe('ListEditorPage — leaving out (D28)', () => {
+  const toiletries = makeList({ spaceId: SPACE, title: 'Toiletries' });
+  const kitchen = makeList({ spaceId: SPACE, title: 'Kitchen' });
+  const soap = makeItem({
+    spaceId: SPACE,
+    listId: toiletries.id,
+    title: 'Soap',
+    position: 'a0',
+  });
+  const towel = makeItem({
+    spaceId: SPACE,
+    listId: toiletries.id,
+    title: 'Towel',
+    position: 'a1',
+  });
+  const stove = makeItem({
+    spaceId: SPACE,
+    listId: kitchen.id,
+    title: 'Stove',
+    position: 'a0',
+  });
+  const own = makeInclude({
+    spaceId: SPACE,
+    parentListId: camping.id,
+    childListId: toiletries.id,
+    position: 'a1',
+  });
+  const nested = makeInclude({
+    spaceId: SPACE,
+    parentListId: toiletries.id,
+    childListId: kitchen.id,
+    position: 'a2',
+  });
+
+  beforeEach(async () => {
+    await db.lists.bulkPut([toiletries, kitchen]);
+    await db.items.bulkPut([soap, towel, stove]);
+    await db.includes.bulkPut([own, nested]);
+  });
+
+  const menuFor = async (
+    page: Awaited<ReturnType<typeof render>>,
+    label: string,
+  ) =>
+    page.loader.getHarness(
+      MatMenuHarness.with({ selector: `[aria-label="${label}"]` }),
+    );
+
+  it('leaves an entry of an included list out, with a notice and Undo', async () => {
+    const page = await render();
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(page.element.textContent).toContain('Soap');
+    });
+    notify.mockResolvedValueOnce('action');
+    await (
+      await menuFor(page, 'More for Soap')
+    ).clickItem({ text: /Leave out of Camping/ });
+
+    await vi.waitFor(() =>
+      expect(requests.map((r) => r.name)).toEqual([
+        'include.addException',
+        'include.removeException',
+      ]),
+    );
+    expect(requests[0].args).toMatchObject({
+      includeId: own.id,
+      targetKind: 'item',
+      targetId: soap.id,
+    });
+    expect(requests[1].args).toEqual({ includeId: own.id, targetId: soap.id });
+    expect(notify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: '“Soap” left out of Camping',
+        action: 'Undo',
+      }),
+    );
+  });
+
+  it('leaves a nested list out; the list own items have no such action', async () => {
+    const tent = makeItem({
+      spaceId: SPACE,
+      listId: camping.id,
+      title: 'Tent',
+      position: 'a0',
+    });
+    await db.items.put(tent);
+    const page = await render();
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(page.element.textContent).toContain('Stove');
+    });
+    const own = await menuFor(page, 'More for Tent');
+    await own.open();
+    expect((await own.getItems()).length).toBe(4); // Edit, Move up, Move down, Delete
+    expect(page.element.textContent).not.toContain('Leave out');
+    await own.close();
+    await (
+      await menuFor(page, 'More for list Kitchen')
+    ).clickItem({ text: /Leave out of Camping/ });
+    await vi.waitFor(() =>
+      expect(requests[0]).toMatchObject({
+        name: 'include.addException',
+        args: {
+          includeId: expect.any(String),
+          targetKind: 'list',
+          targetId: kitchen.id,
+        },
+      }),
+    );
+  });
+
+  it('hides left-out entries, counts them and lists them struck through with Put back', async () => {
+    await db.includeExceptions.bulkPut([
+      makeIncludeException({
+        spaceId: SPACE,
+        includeId: own.id,
+        targetKind: 'item',
+        targetId: soap.id,
+      }),
+      makeIncludeException({
+        spaceId: SPACE,
+        includeId: own.id,
+        targetKind: 'list',
+        targetId: kitchen.id,
+      }),
+    ]);
+    const page = await render();
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(
+        page.element.querySelector('.section-text')?.textContent,
+      ).toContain('2 left out');
+    });
+    const entries = () =>
+      [
+        ...page.element.querySelectorAll(
+          '.section-entries > li:not(.left-out) .title',
+        ),
+      ].map((t) => t.textContent?.trim());
+    expect(entries()).toEqual(['Towel']);
+    const toggle = page.element.querySelector(
+      '.left-out-toggle',
+    ) as HTMLButtonElement;
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    toggle.click();
+    await page.fixture.whenStable();
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(
+      [...page.element.querySelectorAll('.struck')].map((t) =>
+        t.textContent?.trim(),
+      ),
+    ).toEqual(['Soap', 'Kitchen']);
+    expect(
+      page.element.querySelector('.left-out-entry .note')?.textContent,
+    ).toContain('1 item'); // Kitchen's Stove — Soap has none
+  });
+
+  it('puts an entry back, with Undo', async () => {
+    await db.includeExceptions.put(
+      makeIncludeException({
+        spaceId: SPACE,
+        includeId: own.id,
+        targetKind: 'item',
+        targetId: soap.id,
+      }),
+    );
+    const page = await render();
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(page.element.querySelector('.left-out-toggle')).not.toBeNull();
+    });
+    (
+      page.element.querySelector('.left-out-toggle') as HTMLButtonElement
+    ).click();
+    await page.fixture.whenStable();
+    notify.mockResolvedValueOnce('action');
+    (
+      page.element.querySelector(
+        '[aria-label="Put back Soap"]',
+      ) as HTMLButtonElement
+    ).click();
+    await vi.waitFor(() =>
+      expect(requests.map((r) => r.name)).toEqual([
+        'include.removeException',
+        'include.addException',
+      ]),
+    );
+    expect(notify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: '“Soap” put back in Camping',
+        action: 'Undo',
+      }),
+    );
+  });
+
+  it('shows an exception of a list further down as "Left out in <list>" without Put back', async () => {
+    // Toiletries leaves Kitchen out itself; Camping only shows that.
+    await db.includeExceptions.put(
+      makeIncludeException({
+        spaceId: SPACE,
+        includeId: nested.id,
+        targetKind: 'item',
+        targetId: stove.id,
+      }),
+    );
+    const page = await render();
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(page.element.querySelector('.left-out-toggle')).not.toBeNull();
+    });
+    (
+      page.element.querySelector('.left-out-toggle') as HTMLButtonElement
+    ).click();
+    await page.fixture.whenStable();
+    const link = page.element.querySelector('.inherited') as HTMLAnchorElement;
+    expect(link.textContent).toContain('Left out in Toiletries');
+    expect(link.getAttribute('href')).toBe(`/lists/${toiletries.id}`);
+    expect(
+      page.element.querySelector('[aria-label="Put back Stove"]'),
+    ).toBeNull();
   });
 });

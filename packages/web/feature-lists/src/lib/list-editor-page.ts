@@ -30,6 +30,7 @@ import {
   type List,
   type Positioned,
   type Titled,
+  flatten,
   flattenEntries,
   moveTo,
   newId,
@@ -81,7 +82,12 @@ export type EditorRow =
       otherUsers: number;
       /** The included list's entries, nested includes among them. */
       entries: FlatEntry[];
+      /** What this include leaves out of the section, own and inherited exceptions (D28). */
+      leftOut: LeftOutEntry[];
     };
+
+/** An entry an exception leaves out (D28). */
+export type LeftOutEntry = Extract<FlatEntry, { kind: 'leftOut' }>;
 
 /**
  * How many lists use `listId` other than `root` and the lists that only reach it through
@@ -205,10 +211,13 @@ export class ListEditorPage {
     const root = list.value.id;
     const rows: EditorRow[] = [];
     for (const entry of flattenEntries(root, space.value)) {
-      if (entry.kind === 'leftOut') continue; // shown by the web task for D28
       if (entry.depth > 0) {
         const section = rows.at(-1);
-        if (section?.kind === 'section') section.entries.push(entry);
+        if (section?.kind !== 'section') continue;
+        if (entry.kind === 'leftOut') section.leftOut.push(entry);
+        else section.entries.push(entry);
+      } else if (entry.kind === 'leftOut') {
+        continue; // exceptions only reach below an include
       } else if (entry.kind === 'item') {
         const { item } = entry;
         rows.push({ kind: 'item', id: item.id, position: item.position, item });
@@ -223,6 +232,7 @@ export class ListEditorPage {
           state,
           otherUsers: otherUsers(space.value, include.childListId, root),
           entries: [],
+          leftOut: [],
         });
       }
     }
@@ -562,6 +572,94 @@ export class ListEditorPage {
       `Removed “${this.sectionTitle(row)}” from this list`,
       { name: 'include.restore', args: { id: row.include.id } },
     );
+  }
+
+  private viewedTitle(): string {
+    const list = this.list();
+    return (list.status === 'ready' && list.value?.title) || 'this list';
+  }
+
+  /** "Leave out of <this list>" from an entry's menu: the exception goes on the section's include. */
+  protected leaveOut(
+    row: Extract<EditorRow, { kind: 'section' }>,
+    target: { kind: 'item' | 'list'; id: string; title: string },
+  ) {
+    const args = {
+      includeId: row.include.id,
+      targetId: target.id,
+    };
+    return this.changes.withUndo(
+      {
+        name: 'include.addException',
+        args: { id: newId(), targetKind: target.kind, ...args },
+      },
+      `“${target.title}” left out of ${this.viewedTitle()}`,
+      { name: 'include.removeException', args },
+    );
+  }
+
+  /** "Put back": removes the exception again; Undo leaves it out again. */
+  protected putBack(entry: LeftOutEntry) {
+    const includeId = entry.exception.includeId;
+    const targetId = this.leftOutId(entry);
+    const title = this.leftOutTitle(entry);
+    return this.changes.withUndo(
+      {
+        name: 'include.removeException',
+        args: { includeId, targetId },
+      },
+      `“${title}” put back in ${this.viewedTitle()}`,
+      {
+        name: 'include.addException',
+        args: {
+          id: newId(),
+          includeId,
+          targetKind: entry.target.kind,
+          targetId,
+        },
+      },
+    );
+  }
+
+  protected leftOutId(entry: LeftOutEntry): string {
+    return entry.target.kind === 'item'
+      ? entry.target.item.id
+      : entry.target.include.childListId;
+  }
+
+  protected leftOutTitle(entry: LeftOutEntry): string {
+    const { target } = entry;
+    return target.kind === 'item'
+      ? target.item.title
+      : (target.list?.title ?? 'Deleted list');
+  }
+
+  /** How many items a left-out list would have shown. */
+  protected leftOutCount(entry: LeftOutEntry): number | undefined {
+    const view = this.view();
+    if (view.kind !== 'ready' || entry.target.kind !== 'list') return undefined;
+    return flatten(entry.target.include.childListId, view.space).length;
+  }
+
+  /** Inherited: the exception belongs to a list further down, not to the viewed one. */
+  protected inheritedFrom(entry: LeftOutEntry) {
+    const view = this.view();
+    if (view.kind !== 'ready' || entry.ownerListId === view.list.id) {
+      return undefined;
+    }
+    const list = view.space.list(entry.ownerListId);
+    return { id: entry.ownerListId, title: list?.title ?? 'another list' };
+  }
+
+  /** Left-out lists the user opened (by include id); they start folded. */
+  protected readonly leftOutOpen = signal<ReadonlySet<string>>(new Set());
+
+  protected toggleLeftOut(includeId: string): void {
+    this.leftOutOpen.update((set) => {
+      const next = new Set(set);
+      if (!next.delete(includeId)) next.add(includeId);
+      return next;
+    });
   }
 
   protected toggle(includeId: string): void {

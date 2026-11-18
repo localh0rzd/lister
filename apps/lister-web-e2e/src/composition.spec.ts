@@ -59,7 +59,10 @@ for (const [device, viewport] of [
         await expect(campingSection).toContainText(toiletries);
         await expect(campingSection).toContainText('Soap');
 
-        await campingSection.getByRole('button', { name: 'Edit Soap' }).click();
+        await campingSection
+          .getByRole('button', { name: 'More for Soap' })
+          .click();
+        await page.getByRole('menuitem', { name: /Edit/ }).click();
         const dialog = page.getByRole('dialog', { name: 'Edit item' });
         await expect(dialog).toContainText(
           `Changes “${toiletries}”, also used in 1 other list`,
