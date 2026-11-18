@@ -22,10 +22,9 @@ const LAST_PURGE_KEY = 'purge.lastDay';
 /**
  * The daily purge (D15): deletes tombstones and finished runs older than 30 days for good, with
  * the rows that only exist for them (the items and includes of a purged list, the exceptions of
- * a purged include, item or list, the items of a
- * purged run). A space that lost rows moves one version on, and that version is its purge point
- * (`spaces.purgedVersion`): every client of the space is then behind it and gets a full snapshot
- * on its next pull. Up-to-date clients need one too: they still hold the purged tombstones, and
+ * a purged include, item or list, the items of a purged run). A space that lost rows moves one
+ * version on, and that version is its purge point (`spaces.purgedVersion`): every client of the
+ * space is then behind it and gets a full snapshot on its next pull. Up-to-date clients need one too: they still hold the purged tombstones, and
  * the live rows that went with a purged list or run, which no change ever told them about.
  * Expired registration tokens (D23) go with it. Nothing is poked: an empty poke at the next
  * version would move a client past the purge point without a snapshot. Connected clients see the

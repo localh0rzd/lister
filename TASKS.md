@@ -23,32 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-067 — Leave out: synced exceptions and flattening
-
-- Milestone: M10 Leaving out
-- Area: shared, api, web
-- Priority: normal
-- Depends on: —
-- Decisions: D28
-- Done when:
-  - A new synced table `include_exceptions` (include, target kind `item` | `list`, target id, plus
-    the usual synced columns) exists on the server (Drizzle migration) and on the client (Dexie
-    version bump that forces a snapshot, design §2.5).
-  - `include.addException` and `include.removeException` behave as design §3 "Leaving out"
-    says: validated against the space (include and target exist, kind matches), adding is a
-    no-op while a live exception for the pair exists, removing tombstones every live row for the
-    pair; applied by the shared `applyMutation()` on both sides.
-  - `flatten()` and `flattenEntries()` skip left-out items and lists below any reachable include
-    (leaving out wins across paths, carried through further includes), and `flattenEntries()`
-    reports each skipped entry with its section and the list that owns the exception.
-  - Starting a run, or adding a list to a run, doesn't copy left-out entries.
-  - Purge removes exceptions whose include or target is purged, and old tombstoned exceptions.
-  - Tests: unit tests for the mutations and the flattening rules (direct, nested list, inherited,
-    diamond where paths disagree, inert target, restored include); integration tests for both
-    mutations over Socket.IO (including rejection for a target in another space) and for purge.
-- Notes: no UI yet; T-068 builds it. Two commits (API, web data access), per the coordinator
-  workflow.
-
 ## Backlog
 
 ### T-068 — Leave out in the list editor

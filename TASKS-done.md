@@ -3,6 +3,34 @@
 Tasks closed from [TASKS.md](TASKS.md), newest first. Moved out of TASKS.md on 2026-11-18 so
 the backlog stays short to read.
 
+### T-067 — Leave out: synced exceptions and flattening
+
+- Completed: 2026-11-18 — synced `include_exceptions` table (Drizzle migration 0013, Dexie version 9), `include.addException` / `include.removeException` in the shared `applyMutation()`, `flatten()` / `flattenEntries()` skip left-out entries (reported as `leftOut`), runs don't copy them, purge removes them; shared-domain, sync-protocol, api data-access-db / feature-sync / feature-maintenance, web data-access-local-db / data-access-sync
+- Review: Changes requested; 2 fixed (1 substantive, 1 trivial), 0 skipped, 0 disagreed; re-review rounds: 0 (coordinator re-review of the substantive fix pending)
+- Milestone: M10 Leaving out
+- Area: shared, api, web
+- Priority: normal
+- Depends on: —
+- Decisions: D28
+- Done when:
+  - A new synced table `include_exceptions` (include, target kind `item` | `list`, target id, plus
+    the usual synced columns) exists on the server (Drizzle migration) and on the client (Dexie
+    version bump that forces a snapshot, design §2.5).
+  - `include.addException` and `include.removeException` behave as design §3 "Leaving out"
+    says: validated against the space (include and target exist, kind matches), adding is a
+    no-op while a live exception for the pair exists, removing tombstones every live row for the
+    pair; applied by the shared `applyMutation()` on both sides.
+  - `flatten()` and `flattenEntries()` skip left-out items and lists below any reachable include
+    (leaving out wins across paths, carried through further includes), and `flattenEntries()`
+    reports each skipped entry with its section and the list that owns the exception.
+  - Starting a run, or adding a list to a run, doesn't copy left-out entries.
+  - Purge removes exceptions whose include or target is purged, and old tombstoned exceptions.
+  - Tests: unit tests for the mutations and the flattening rules (direct, nested list, inherited,
+    diamond where paths disagree, inert target, restored include); integration tests for both
+    mutations over Socket.IO (including rejection for a target in another space) and for purge.
+- Notes: no UI yet; T-068 builds it. Two commits (API, web data access), per the coordinator
+  workflow.
+
 ### T-066 — Test factory for local space rows
 
 - Completed: 2026-11-18 — `makeLocalSpace` (web `LocalSpace` row, typed structurally) added to `@lister/shared/testing` and used by 12 web specs instead of hand-written space literals; listed in the `testing` skill

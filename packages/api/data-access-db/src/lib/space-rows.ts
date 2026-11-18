@@ -37,8 +37,8 @@ export function insertSpace(
 }
 
 /**
- * Deletes a space for good: its lists, items, includes, exceptions, runs and run items (tombstones too), its
- * mutation answers and its memberships. Synchronous, so call it inside a transaction.
+ * Deletes a space for good: its lists, items, includes, exceptions, runs and run items
+ * (tombstones too), its mutation answers and its memberships. Synchronous, so call it inside a transaction.
  */
 export function deleteSpace(db: Tx, spaceId: string): void {
   // Children first: the content tables have foreign keys to their parents and to the space.

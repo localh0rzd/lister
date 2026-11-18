@@ -82,18 +82,21 @@ export interface MetaEntry {
 /**
  * The local database (IndexedDB via Dexie), design §2.5 and §4.2:
  *
- * - `serverLists` / `serverItems` / `serverIncludes` / `serverIncludeExceptions`: rows exactly as the server last sent them.
- * - `lists` / `items` / `includes`: what the UI shows, i.e. the server rows with the pending outbox mutations
- *   re-applied on top. The sync engine rebuilds affected rows from the server copy whenever
- *   server rows arrive or a mutation is rejected (rebase and rollback).
+ * - `serverLists` / `serverItems` / `serverIncludes` / `serverIncludeExceptions` / `serverRuns` /
+ *   `serverRunItems`: rows exactly as the server last sent them.
+ * - `lists` / `items` / `includes` / `includeExceptions` / `runs` / `runItems`: what the UI shows,
+ *   i.e. the server rows with the pending outbox mutations re-applied on top. The sync engine
+ *   rebuilds affected rows from the server copy whenever server rows arrive or a mutation is
+ *   rejected (rebase and rollback).
  * - `outbox`: pending mutations in order; `syncState`: synced version per space; `meta`.
  *
  * Every server schema change (a Drizzle migration) comes with a new `this.version(n)` here, in
  * the same change (CLAUDE.md). Version 1 matches server migrations 0000–0001; version 2 adds the
  * client-only `rejections` table; version 3 indexes spaces by name; version 4 matches migration
  * 0002 (includes), version 5 migration 0003 (runs) and version 6 migration 0004
- * (`mergedInto`), version 9 migration 0013 (include exceptions); each forces a snapshot. Tombstones are
- * stored like other rows; queries leave them out (`deletedAt` can't be indexed while it's null).
+ * (`mergedInto`), version 9 migration 0013 (include exceptions); each forces a snapshot.
+ * Tombstones are stored like other rows; queries leave them out (`deletedAt` can't be indexed
+ * while it's null).
  */
 export class LocalDb extends Dexie {
   spaces!: EntityTable<LocalSpace, 'id'>;
