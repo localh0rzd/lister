@@ -7,8 +7,10 @@
   color: var(--mat-sys-error);
   font: var(--mat-sys-body-medium);
 }
-.name {
-  margin-inline-end: 0.5rem;
+.name,
+.username {
+  display: block;
+  overflow-wrap: anywhere;
 }
 .username {
   color: var(--mat-sys-on-surface-variant);

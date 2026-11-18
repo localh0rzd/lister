@@ -45,11 +45,14 @@
   <mat-slide-toggle
     [checked]="user()?.visibleToOthers ?? false"
     [disabled]="visibilityBusy()"
+    aria-describedby="visibility-hint"
     (change)="setVisible($event)"
   >
     Visible to other users
   </mat-slide-toggle>
-  <p class="hint">Others can find you when they add members to a space.</p>
+  <p class="hint" id="visibility-hint">
+    Others can find you when they add members to a space.
+  </p>
   @if (visibilityError()) {
     <p class="error" role="alert">{{ visibilityError() }}</p>
   }

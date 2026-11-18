@@ -20,7 +20,6 @@ import {
   EMPTY,
   catchError,
   debounceTime,
-  distinctUntilChanged,
   from,
   map,
   of,
@@ -80,13 +79,13 @@ export class AddMemberDialog {
   /**
    * Suggestions for the text. A new search keeps the previous results until its own arrive, so
    * the list doesn't flicker while typing; they go when the text is too short. A failed search
-   * (offline, rate-limited) keeps what is shown: typing the username still works.
+   * (offline, rate-limited) keeps what is shown: typing the username still works, and the next
+   * keystroke asks again, even when it leaves the same text.
    */
   protected readonly suggestions = toSignal(
     toObservable(this.text).pipe(
       map((text) => text.trim()),
       debounceTime(SUGGEST_DEBOUNCE_MS),
-      distinctUntilChanged(),
       switchMap((text) =>
         text.length < USER_SEARCH.minLength
           ? of<UserSuggestion[]>([])
@@ -104,6 +103,7 @@ export class AddMemberDialog {
 
   protected async save(event: Event): Promise<void> {
     event.preventDefault();
+    if (this.busy()) return;
     this.touched.set(true);
     const username = this.text().trim();
     if (!username) return;

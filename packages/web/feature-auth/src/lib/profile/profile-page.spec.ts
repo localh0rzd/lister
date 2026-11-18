@@ -128,6 +128,10 @@ describe('ProfilePage', () => {
       'Others can find you when they add members to a space',
     );
     expect(toggle()?.getAttribute('aria-checked')).toBe('false');
+    const hintId = toggle()?.getAttribute('aria-describedby') ?? '';
+    expect(element.querySelector(`#${hintId}`)?.textContent).toContain(
+      'Others can find you',
+    );
 
     toggle()?.click();
     await fixture.whenStable();

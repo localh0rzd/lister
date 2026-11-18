@@ -35,22 +35,34 @@ async function render() {
   return { fixture, element, input, type, submit, api, close };
 }
 
+/**
+ * Fakes only the clock the debounce runs on (rxjs schedules with `setInterval`), so Angular's
+ * scheduler keeps real timers. Call before `render`: rxjs reuses an interval it already started.
+ */
+function useDebounceClock() {
+  vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
+}
+
 afterEach(() => {
+  vi.useRealTimers();
   TestBed.resetTestingModule();
 });
 
 describe('AddMemberDialog', () => {
   it('asks for suggestions once typing pauses, from 2 characters', async () => {
+    useDebounceClock();
     const dialog = await render();
 
     await dialog.type('b');
-    await new Promise((done) => setTimeout(done, SUGGEST_DEBOUNCE_MS + 50));
+    await vi.advanceTimersByTimeAsync(SUGGEST_DEBOUNCE_MS + 50);
     expect(dialog.api.searchUsers).not.toHaveBeenCalled();
 
     await dialog.type('be');
     await dialog.type('ben');
+    await vi.advanceTimersByTimeAsync(SUGGEST_DEBOUNCE_MS - 1);
+    expect(dialog.api.searchUsers).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
 
-    await vi.waitFor(() => expect(dialog.api.searchUsers).toHaveBeenCalled());
     expect(dialog.api.searchUsers).toHaveBeenCalledTimes(1);
     expect(dialog.api.searchUsers).toHaveBeenCalledWith('ben', 's1');
   });
@@ -75,6 +87,37 @@ describe('AddMemberDialog', () => {
 
     await dialog.type('b');
     await vi.waitFor(() => expect(suggestions()).toEqual([]));
+  });
+
+  it('asks again for the same text after a failed search', async () => {
+    useDebounceClock();
+    const dialog = await render();
+    dialog.api.searchUsers.mockRejectedValueOnce(new Error('offline'));
+
+    await dialog.type('be');
+    await vi.advanceTimersByTimeAsync(SUGGEST_DEBOUNCE_MS);
+    await dialog.type('b');
+    await dialog.type('be');
+    await vi.advanceTimersByTimeAsync(SUGGEST_DEBOUNCE_MS);
+
+    expect(dialog.api.searchUsers).toHaveBeenCalledTimes(2);
+    expect(dialog.api.searchUsers).toHaveBeenLastCalledWith('be', 's1');
+  });
+
+  it('adds only once when submitted again while adding', async () => {
+    const dialog = await render();
+    let finish = (): void => undefined;
+    dialog.api.addMember.mockImplementationOnce(
+      () => new Promise((done) => (finish = () => done({}))),
+    );
+
+    await dialog.type('ben');
+    dialog.element.querySelector('form')?.dispatchEvent(new Event('submit'));
+    dialog.element.querySelector('form')?.dispatchEvent(new Event('submit'));
+    finish();
+    await vi.waitFor(() => expect(dialog.close).toHaveBeenCalledWith(true));
+
+    expect(dialog.api.addMember).toHaveBeenCalledTimes(1);
   });
 
   it('adds whatever username is typed, trimmed, then closes', async () => {

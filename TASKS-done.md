@@ -3,6 +3,38 @@
 Tasks closed from [TASKS.md](TASKS.md), newest first. Moved out of TASKS.md on 2026-11-18 so
 the backlog stays short to read.
 
+### T-064 — Suggest users when adding a member to a space
+
+- Completed: 2026-11-18 — opt-in "Visible to other users" profile switch (migration 0012) and a rate-limited, member-checked `GET /api/user-search` (`api/feature-auth`), with Material autocomplete suggestions in the new Add member dialog (`web/feature-space`)
+- Review: Changes requested; 8 fixed (3 substantive, 5 trivial), 0 skipped, 0 disagreed; re-review rounds: 0
+- Milestone: M5 Accounts and spaces
+- Area: shared, api, web
+- Priority: normal
+- Depends on: none
+- Decisions: D27
+- Done when:
+  - Profile (Settings › Account) has a "Visible to other users" switch, off by default and off for
+    existing accounts (migration), explained as "Others can find you when they add members to a
+    space". It works only online, like the other profile fields.
+  - In "Add a member", typing 2+ characters suggests visible users whose username or display name
+    contains the text (ignoring case and accents), at most 10, showing display name and username;
+    picking one fills the username. Users already in the space and the caller are not suggested.
+  - A user who isn't visible can still be added by typing their exact username, as today; the
+    dialog never reveals whether a hidden username exists before Add is pressed.
+  - The search endpoint needs a signed-in user, returns only visible users (username, display name,
+    id), is rate-limited like other auth endpoints, and validates its query (a DTO; `api-contracts` holds
+    the types and limits).
+  - Suggestions don't flicker while typing (debounced; previous results kept until new ones arrive)
+    and the field works with keyboard and screen readers (Material autocomplete).
+  - Tests: API unit + integration tests for the visibility flag and the search (hidden users never
+    returned, limit, matching); web unit tests for the profile switch and the dialog; a Playwright
+    happy path where one user turns visibility on and another finds and adds them.
+- Notes: Requested by the user 2026-11-18. Today `addMember` uses the generic field dialog in
+  `packages/web/feature-space/src/lib/spaces/spaces-section.ts`; it likely needs its own dialog.
+  Design §2.5 and §4.1 already mention D27. Zod was dropped for the query: importing it in
+  `api-contracts` put it in the web app's main bundle (over budget), and the other REST DTOs use
+  class-validator.
+
 ### T-063 — Diagnostic log for connection problems, exportable from Settings → App
 
 - Completed: 2026-11-18 — always-on, bounded, batched IndexedDB diagnostic log (`web/util-diagnostics`) of everything that decides online/offline, with Settings → App export (Web Share or download) and clear (with Undo)
