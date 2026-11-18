@@ -717,6 +717,7 @@ packages/
     sync-protocol          mutation schemas and rules, messages, protocol version       scope:shared type:util
     api-contracts          REST types (exists)                                          scope:shared type:util
     list-transfer          export format (Zod), Markdown export, import parsers (D24)   scope:shared type:util
+    testing                test-only factories (makeUser, makeList, ...) for specs      scope:shared type:util
   api/
     data-access-db         Drizzle schema, migrations, DB provider                      scope:api type:data-access
     feature-auth           sessions, sign-in, passkeys, user admin, registration tokens, guards scope:api type:feature

@@ -5,6 +5,7 @@ import {
   schema,
 } from '@lister/api/data-access-db';
 import { newId } from '@lister/shared/domain';
+import { makeList } from '@lister/shared/testing';
 import type { MutationInput } from '@lister/shared/sync-protocol';
 import { MutationService } from './mutation.service';
 
@@ -100,20 +101,18 @@ describe('MutationService', () => {
 
       expect(applied.result).toMatchObject({ status: 'ack', version: 1 });
       expect(spaceVersion()).toBe(1);
-      expect(listRow(id)).toEqual({
-        id,
-        spaceId: SPACE,
-        version: 1,
-        deletedAt: null,
-        createdBy: ALICE,
-        updatedBy: ALICE,
-        createdAt: now,
-        updatedAt: now,
-        title: 'Camping',
-        description: 'Summer',
-        colour: null,
-        icon: null,
-      });
+      expect(listRow(id)).toEqual(
+        makeList({
+          id,
+          spaceId: SPACE,
+          createdBy: ALICE,
+          updatedBy: ALICE,
+          createdAt: now,
+          updatedAt: now,
+          title: 'Camping',
+          description: 'Summer',
+        }),
+      );
       expect(applied.spaceId).toBe(SPACE);
       expect(applied.rows.lists).toEqual([listRow(id)]);
       expect(applied.rows.items).toEqual([]);

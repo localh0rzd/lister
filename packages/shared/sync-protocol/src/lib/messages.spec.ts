@@ -1,4 +1,5 @@
 import { newId } from '@lister/shared/domain';
+import { makeItem, makeList } from '@lister/shared/testing';
 import { PROTOCOL_VERSION } from './common';
 import {
   MAX_PUSH_MUTATIONS,
@@ -13,27 +14,9 @@ import {
   welcomeSchema,
 } from './messages';
 
-const syncMetadata = () => ({
-  id: newId(),
-  spaceId: newId(),
-  version: 3,
-  deletedAt: null,
-  createdBy: newId(),
-  updatedBy: newId(),
-  createdAt: 1_700_000_000_000,
-  updatedAt: 1_700_000_000_000,
-});
+const list = () => makeList({ version: 3 });
 
-const list = () => ({ ...syncMetadata(), title: 'Camping', description: '' });
-
-const item = (listId: string) => ({
-  ...syncMetadata(),
-  listId,
-  title: 'Tent',
-  quantity: '',
-  note: '',
-  position: 'a0',
-});
+const item = (listId: string) => makeItem({ listId, version: 3 });
 
 const deleteMutation = () => ({
   mutationId: newId(),

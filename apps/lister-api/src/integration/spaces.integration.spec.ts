@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { schema } from '@lister/api/data-access-db';
 import type { CurrentUser, SpaceSummary } from '@lister/shared/api-contracts';
+import { makeSpaceMember, makeSpaceSummary } from '@lister/shared/testing';
 import { createAccount, send, signIn } from '../testing/auth-client';
 import { type TestApp, createTestApp } from '../testing/create-test-app';
 
@@ -37,15 +38,14 @@ describe('spaces and memberships', () => {
       const spaces = await list(annaCookie);
 
       expect(spaces).toEqual([
-        {
+        makeSpaceSummary({
           id: expect.any(String),
           name: 'anna display',
           personal: true,
-          role: 'owner',
           members: [
-            { userId: anna.id, displayName: 'anna display', role: 'owner' },
+            makeSpaceMember({ userId: anna.id, displayName: 'anna display' }),
           ],
-        },
+        }),
       ]);
     });
 

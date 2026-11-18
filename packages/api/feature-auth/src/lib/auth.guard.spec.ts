@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { CurrentUser } from '@lister/shared/api-contracts';
+import { makeUser } from '@lister/shared/testing';
 import { AuthGuard } from './auth.guard';
 import type { AuthService } from './auth.service';
 import { AdminOnly, AllowMustChangePassword, Public } from './decorators';
@@ -27,15 +28,8 @@ class Routes {
   }
 }
 
-const user = (overrides: Partial<CurrentUser> = {}): CurrentUser => ({
-  id: 'u1',
-  username: 'anna',
-  displayName: 'Anna',
-  isAdmin: false,
-  mustChangePassword: false,
-  visibleToOthers: false,
-  ...overrides,
-});
+const user = (overrides: Partial<CurrentUser> = {}): CurrentUser =>
+  makeUser({ id: 'u1', ...overrides });
 
 describe('AuthGuard', () => {
   const cookie = vi.fn();

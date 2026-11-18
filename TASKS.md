@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-065 — Shared test factories for users, spaces and synced rows
 
 - Milestone: M9 Data and finding things
@@ -44,6 +42,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
     unchanged; `verify` passes.
 - Notes: Suggested by the T-064 task worker's context analysis (2026-11-18). Pure refactor of
   tests; no production code changes.
+
+## Backlog
 
 ## Done
 

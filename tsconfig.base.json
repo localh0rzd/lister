@@ -70,7 +70,8 @@
       ],
       "@lister/web/util-diagnostics": [
         "./packages/web/util-diagnostics/src/index.ts"
-      ]
+      ],
+      "@lister/shared/testing": ["./packages/shared/testing/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

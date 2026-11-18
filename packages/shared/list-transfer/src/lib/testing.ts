@@ -5,16 +5,7 @@ import {
   type List,
   newId,
 } from '@lister/shared/domain';
-
-const meta = {
-  spaceId: 's',
-  version: 1,
-  deletedAt: null,
-  createdBy: 'u',
-  updatedBy: 'u',
-  createdAt: 0,
-  updatedAt: 0,
-};
+import { makeInclude, makeItem, makeList } from '@lister/shared/testing';
 
 /** A small in-memory space for the export specs. Positions are the order given. */
 export class FakeSpace implements CompositionSource {
@@ -24,38 +15,33 @@ export class FakeSpace implements CompositionSource {
 
   addList(title: string, description = '', deleted = false): string {
     const id = newId();
-    this.lists.set(id, {
-      ...meta,
+    this.lists.set(
       id,
-      title,
-      description,
-      colour: null,
-      icon: null,
-      deletedAt: deleted ? 1 : null,
-    });
+      makeList({ id, title, description, deletedAt: deleted ? 1 : null }),
+    );
     return id;
   }
 
   addItem(listId: string, title: string, quantity = '', note = ''): void {
-    this.items.push({
-      ...meta,
-      id: newId(),
-      listId,
-      title,
-      quantity,
-      note,
-      position: this.nextPosition(listId),
-    });
+    this.items.push(
+      makeItem({
+        listId,
+        title,
+        quantity,
+        note,
+        position: this.nextPosition(listId),
+      }),
+    );
   }
 
   addInclude(parentListId: string, childListId: string): void {
-    this.includes.push({
-      ...meta,
-      id: newId(),
-      parentListId,
-      childListId,
-      position: this.nextPosition(parentListId),
-    });
+    this.includes.push(
+      makeInclude({
+        parentListId,
+        childListId,
+        position: this.nextPosition(parentListId),
+      }),
+    );
   }
 
   /** Moves the item with this title to the trash. */

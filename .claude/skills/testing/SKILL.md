@@ -97,6 +97,23 @@ migrated in-memory SQLite database.
   doesn't show some layout bugs that a browser's own print does (T-062). Keep it to one test,
   because every worker's Firefox writes to the same file.
 
+## Test data factories
+
+`@lister/shared/testing` (`packages/shared/testing`, tags `scope:shared,type:util`) builds complete,
+valid objects with sensible defaults and a partial override. Only spec files and test helpers import it.
+
+- `makeUser` (`CurrentUser`), `makeSpaceMember`, `makeSpaceSummary` (members default to one owner
+  matching `role`), `makeList`, `makeItem`, `makeInclude`, `makeRun`, `makeRunItem`.
+- Ids are fresh UUIDv7s per call, positions are `'a0'`; synced rows share `TEST_SPACE_ID` and
+  `TEST_USER_ID`. Pass an override (`makeItem({ listId, position: 'a1' })`) for anything a test
+  depends on, and keep the test's own ids when they must be readable (`'l1'`).
+- **Adding a required field to one of these types:** give it a default in the factory, not in each
+  spec. Specs that build a full object literal of these types use a factory instead.
+- Not covered: Drizzle insert rows (they take DB defaults) and request bodies; write those inline.
+- The library imports only types from `shared/domain` and `shared/api-contracts`, which forms a
+  cycle for those two projects' own specs: they keep local helpers.
+- A new factory for another shared type goes in `factories.ts` with a case in `factories.spec.ts`.
+
 ## How to write them
 
 - **Vitest 4:**
