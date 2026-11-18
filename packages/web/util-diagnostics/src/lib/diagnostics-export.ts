@@ -14,14 +14,19 @@ export class DiagnosticsExport {
   private readonly diagnostics = inject(Diagnostics);
   private readonly document = inject(DOCUMENT);
 
-  /** Builds the file and shares or downloads it. */
-  async export(): Promise<ExportOutcome> {
-    const win = this.document.defaultView;
+  /** The log as one text file, named with the date. */
+  async build(): Promise<File> {
     const entries = await this.diagnostics.entries();
     const text = formatReport(await this.diagnostics.header(), entries);
-    const name = reportFilename(new Date());
-    const file = new File([text], name, { type: 'text/plain' });
+    return new File([text], reportFilename(new Date()), { type: 'text/plain' });
+  }
 
+  /**
+   * Shares or downloads a built file. The share sheet may never answer (the promise of
+   * `navigator.share` doesn't settle on some phones), so callers don't wait on it to unlock.
+   */
+  async deliver(file: File): Promise<ExportOutcome> {
+    const win = this.document.defaultView;
     const nav = win?.navigator;
     // Desktop browsers that can share still do better with a plain download.
     const phone = win?.matchMedia?.('(pointer: coarse)').matches === true;

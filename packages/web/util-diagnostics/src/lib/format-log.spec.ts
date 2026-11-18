@@ -41,6 +41,18 @@ describe('formatReport', () => {
     expect(lines).toContain('# onLine: true');
     expect(lines.at(-2)).toBe('2026-11-18T10:00:00.123Z [t] net.online');
   });
+
+  it('keeps a value over several lines inside the header', () => {
+    const text = formatReport(
+      { serviceWorkerState: 'NGSW Debug Info:\n\nDriver state: NORMAL' },
+      [],
+    );
+    expect(text.split('\n').slice(1, 4)).toEqual([
+      '# serviceWorkerState: NGSW Debug Info:',
+      '#   ',
+      '#   Driver state: NORMAL',
+    ]);
+  });
 });
 
 it('names the file with the date', () => {

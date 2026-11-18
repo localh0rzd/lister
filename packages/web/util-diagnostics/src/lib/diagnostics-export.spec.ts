@@ -41,7 +41,7 @@ afterEach(() => {
 describe('DiagnosticsExport', () => {
   it('downloads a dated file with the header and entries', async () => {
     const exporter = await setup();
-    expect(await exporter.export()).toBe('downloaded');
+    expect(await exporter.deliver(await exporter.build())).toBe('downloaded');
     expect(clicked[0]?.download).toMatch(
       /^lister-diagnostic-\d{4}-\d{2}-\d{2}\.log$/,
     );
@@ -60,7 +60,7 @@ describe('DiagnosticsExport', () => {
     const exporter = await setup();
     const share = vi.fn(() => Promise.resolve());
     phone(share);
-    expect(await exporter.export()).toBe('shared');
+    expect(await exporter.deliver(await exporter.build())).toBe('shared');
     expect(share).toHaveBeenCalledTimes(1);
     expect(clicked).toHaveLength(0);
   });
@@ -68,19 +68,19 @@ describe('DiagnosticsExport', () => {
   it('does nothing more when the share sheet is dismissed', async () => {
     const exporter = await setup();
     phone(() => Promise.reject(new DOMException('x', 'AbortError')));
-    expect(await exporter.export()).toBe('cancelled');
+    expect(await exporter.deliver(await exporter.build())).toBe('cancelled');
     expect(clicked).toHaveLength(0);
   });
 
   it('downloads when sharing is refused', async () => {
     const exporter = await setup();
     phone(() => Promise.reject(new DOMException('x', 'NotAllowedError')));
-    expect(await exporter.export()).toBe('downloaded');
+    expect(await exporter.deliver(await exporter.build())).toBe('downloaded');
   });
 
   it('downloads when files cannot be shared', async () => {
     const exporter = await setup();
     phone(vi.fn(), false);
-    expect(await exporter.export()).toBe('downloaded');
+    expect(await exporter.deliver(await exporter.build())).toBe('downloaded');
   });
 });

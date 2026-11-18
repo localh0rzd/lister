@@ -15,7 +15,7 @@ import {
 } from '@lister/shared/sync-protocol';
 import { USER_STORAGE_KEY } from '@lister/web/data-access-auth';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
-import { Diagnostics } from '@lister/web/util-diagnostics';
+import { Diagnostics, REPEAT_EVERY } from '@lister/web/util-diagnostics';
 import { ERROR_LOG_SIZE, LOCK_CHECK_MS, SyncEngine } from './sync-engine';
 import {
   SYNC_CLOCK,
@@ -2466,8 +2466,10 @@ describe('SyncEngine', () => {
     function watchLog() {
       const diagnostics = TestBed.inject(Diagnostics);
       const log = vi.spyOn(diagnostics, 'log');
+      const probe = vi.spyOn(diagnostics, 'probe').mockResolvedValue();
       return {
         diagnostics,
+        probe,
         entries: (area: string, event: string) =>
           log.mock.calls
             .filter(([a, e]) => a === area && e === event)
@@ -2633,6 +2635,156 @@ describe('SyncEngine', () => {
           description: 'boom',
         }),
       ]);
+    });
+
+    it('collapses a connection that keeps failing, and probes the API over HTTP', async () => {
+      setup();
+      const { entries, probe } = watchLog();
+      engine.start();
+      await settle();
+      server.drop();
+      const fail = () =>
+        server.fire('connect_error', new Error('websocket error'));
+      for (let i = 0; i < REPEAT_EVERY; i++) fail();
+
+      // The first three and the 20th: a loop of hours can't push its start out of the log.
+      expect(
+        entries('socket', 'connect_error').map((data) => data?.['repeat']),
+      ).toEqual([undefined, 2, 3, REPEAT_EVERY]);
+      expect(probe).toHaveBeenCalledTimes(2);
+
+      // Connected again: the next failure is news, logged in full and probed.
+      server.connected = true;
+      server.fire('connect');
+      server.connected = false;
+      fail();
+      expect(
+        entries('socket', 'connect_error').map((data) => data?.['repeat']),
+      ).toEqual([undefined, 2, 3, REPEAT_EVERY, undefined]);
+      expect(probe).toHaveBeenCalledTimes(3);
+    });
+
+    it('logs a failure that changes in full again', async () => {
+      setup();
+      const { entries } = watchLog();
+      engine.start();
+      await settle();
+      server.drop();
+      for (let i = 0; i < 5; i++)
+        server.fire('connect_error', new Error('websocket error'));
+      server.fire('connect_error', new Error('timeout'));
+      expect(
+        entries('socket', 'connect_error').map((data) => data?.['message']),
+      ).toEqual([
+        'websocket error',
+        'websocket error',
+        'websocket error',
+        'timeout',
+      ]);
+    });
+
+    it('leaves out the manager errors and attempts that only repeat the connect error', async () => {
+      setup();
+      const { entries } = watchLog();
+      engine.start();
+      await settle();
+      server.drop();
+      server.fire('io:error', new Error('websocket error'));
+      server.fire('io:reconnect_error', new Error('websocket error'));
+      for (const attempt of [1, 4, 19, REPEAT_EVERY])
+        server.fire('io:reconnect_attempt', attempt);
+
+      expect(entries('socket', 'manager-error')).toEqual([]);
+      expect(entries('socket', 'reconnect_error')).toEqual([]);
+      expect(
+        entries('socket', 'reconnect_attempt').map((data) => data?.['attempt']),
+      ).toEqual([1, REPEAT_EVERY]);
+
+      // Connected, an engine error is news.
+      server.connected = true;
+      server.fire('io:error', new Error('parse error'));
+      expect(entries('socket', 'manager-error')).toEqual([
+        expect.objectContaining({ message: 'parse error' }),
+      ]);
+    });
+
+    it('logs the lock being stolen, and released when the page goes', async () => {
+      const locks = new FakeLocks();
+      setup({ locks });
+      const { entries } = watchLog();
+      engine.start();
+      await settle();
+      expect(entries('lock', 'acquired')).toHaveLength(1);
+      void locks.request(
+        'lister-sync',
+        () => new Promise<void>(() => undefined),
+        {
+          steal: true,
+        },
+      );
+      await settle();
+      expect(entries('lock', 'stolen')).toEqual([
+        expect.objectContaining({ name: 'AbortError' }),
+      ]);
+
+      // Waiting behind the page that stole it, then leaving: the wait is dropped.
+      window.dispatchEvent(new Event('pagehide'));
+      await settle();
+      expect(entries('lock', 'released')).toEqual([
+        expect.objectContaining({ why: 'pagehide', held: false }),
+      ]);
+      expect(entries('lock', 'wait-aborted')).toHaveLength(1);
+    });
+
+    it('logs a held lock released when the page goes', async () => {
+      setup({ locks: new FakeLocks() });
+      const { entries } = watchLog();
+      engine.start();
+      await settle();
+      window.dispatchEvent(new Event('pagehide'));
+      await settle();
+      expect(entries('lock', 'released')).toEqual([
+        expect.objectContaining({ why: 'pagehide', held: true }),
+      ]);
+    });
+
+    it('logs the state of the lock it waits for, and a steal of a stuck one', async () => {
+      vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+      const locks = new FakeLocks();
+      locks.addGhost();
+      setup({ locks });
+      const { entries } = watchLog();
+      engine.start();
+      await vi.advanceTimersByTimeAsync(LOCK_CHECK_MS * 2);
+      expect(entries('lock', 'state')[0]).toEqual(
+        expect.objectContaining({ held: 0, pending: 1 }),
+      );
+      // The ghost and this page's own request wait; nobody holds it.
+      expect(entries('lock', 'stuck-steal')).toEqual([
+        expect.objectContaining({ held: 0, pending: 2 }),
+      ]);
+      expect(entries('lock', 'requested')).toEqual([
+        expect.objectContaining({ steal: false }),
+        expect.objectContaining({ steal: true }),
+      ]);
+    });
+
+    it('logs a lock request the browser refuses', async () => {
+      setup({
+        locks: {
+          request: () => Promise.reject(new DOMException('', 'SecurityError')),
+        },
+      });
+      const errors = vi
+        .spyOn(TestBed.inject(ErrorHandler), 'handleError')
+        .mockImplementation(() => undefined);
+      const { entries } = watchLog();
+      engine.start();
+      await settle();
+      expect(entries('lock', 'refused')).toEqual([
+        expect.objectContaining({ name: 'SecurityError' }),
+      ]);
+      expect(errors).toHaveBeenCalled();
     });
 
     it('logs the browser going offline and online', async () => {

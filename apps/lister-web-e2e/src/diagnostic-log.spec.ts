@@ -122,6 +122,19 @@ for (const [name, viewport] of [
         expect(log).toContain(' socket.disconnect ');
       });
 
+      await test.step('Undo puts a cleared log back', async () => {
+        await page
+          .getByRole('button', { name: 'Clear diagnostic log' })
+          .click();
+        await page.getByRole('button', { name: 'Undo' }).click();
+        await expect(
+          page
+            .getByRole('status')
+            .filter({ hasText: 'Diagnostic log restored' }),
+        ).toBeVisible();
+        expect(await exportLog(page)).toContain(' socket.disconnect ');
+      });
+
       await test.step('clearing empties it', async () => {
         await page
           .getByRole('button', { name: 'Clear diagnostic log' })

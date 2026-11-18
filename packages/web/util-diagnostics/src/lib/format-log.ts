@@ -10,14 +10,17 @@ export function formatEntry(entry: DiagnosticEntry): string {
   return `${new Date(entry.at).toISOString()} [${entry.tab}${lead}] ${entry.area}.${entry.event}${data}`;
 }
 
-/** The export file: a `#` header of device facts, a blank line, then one line per entry. */
+/** The export file: a `#` header of device facts (continued lines indented), a blank line, then one line per entry. */
 export function formatReport(
   header: Readonly<Record<string, string>>,
   entries: readonly DiagnosticEntry[],
 ): string {
   const lines = ['# Lister diagnostic log'];
-  for (const [key, value] of Object.entries(header))
-    lines.push(`# ${key}: ${value}`);
+  for (const [key, value] of Object.entries(header)) {
+    // A value over several lines (the service worker's report) stays inside the header.
+    const [first, ...rest] = value.split(/\r?\n/);
+    lines.push(`# ${key}: ${first}`, ...rest.map((line) => `#   ${line}`));
+  }
   lines.push(
     '# Entries: oldest first; "*" after the tab id marks the tab that led sync.',
   );

@@ -10,8 +10,10 @@ import type {
   DiagnosticData,
   DiagnosticEntry,
 } from './diagnostic-entry';
+import { apiPath } from '@lister/shared/api-contracts';
 import type { DiagnosticStore } from './diagnostic-store';
 import { scrubData } from './redact';
+import { servedBy } from './served-by';
 
 /** Opens the persisted log. A token so tests can bring their own; the real one loads Dexie lazily. */
 export const DIAGNOSTIC_STORE = new InjectionToken<
@@ -32,6 +34,18 @@ export const FLUSH_DELAY_MS = 500;
 const FLUSH_AT = 50;
 /** If IndexedDB never works, the memory buffer stays this small. */
 const MAX_BUFFER = 1000;
+/** A repeating failure is logged this many times in a row... */
+const REPEATS_IN_FULL = 3;
+/** ...then only every this many times, so a loop that retries every few seconds can't push its
+ * own beginning out of the bounded log. */
+export const REPEAT_EVERY = 20;
+/** A probe that gets no answer gives up after this long. */
+const PROBE_TIMEOUT_MS = 10_000;
+
+/** Whether the `count`-th repetition of something is logged (1 is the first). */
+export function worthLogging(count: number): boolean {
+  return count <= REPEATS_IN_FULL || count % REPEAT_EVERY === 0;
+}
 
 /**
  * The diagnostic log (T-063): a verbose, always-on record of what decides whether the app is
@@ -51,6 +65,9 @@ export class Diagnostics {
   /** Writes run one after the other, so entries keep their order. */
   private writing: Promise<unknown> = Promise.resolve();
   private readonly states = new Map<string, () => unknown>();
+  /** The failure that repeats now, and how often it has in a row. */
+  private repeating?: { signature: string; count: number };
+  private probing = false;
 
   /** Random per page load: tells the tabs and windows of one device apart in the log. */
   readonly tabId = this.window?.crypto?.randomUUID?.().slice(0, 8) ?? 'no-tab';
@@ -77,6 +94,70 @@ export class Diagnostics {
       else this.timer ??= setTimeout(() => void this.flush(), FLUSH_DELAY_MS);
     } catch {
       // Logging must never break the app.
+    }
+  }
+
+  /**
+   * Logs a failure that may repeat for hours (a reconnect attempt that fails): every change in
+   * full, then only the first few in a row and every `REPEAT_EVERY`-th, with `repeat` (the count).
+   * The first of a run and every `REPEAT_EVERY`-th also probe the API over HTTP (`probe`), which
+   * tells a refused WebSocket from a server that cannot be reached at all.
+   */
+  logRepeating(
+    area: DiagnosticArea,
+    event: string,
+    data: DiagnosticData = {},
+  ): void {
+    const signature = JSON.stringify([area, event, data]);
+    const count =
+      this.repeating?.signature === signature ? this.repeating.count + 1 : 1;
+    this.repeating = { signature, count };
+    if (worthLogging(count))
+      this.log(area, event, count > 1 ? { ...data, repeat: count } : data);
+    if (count === 1 || count % REPEAT_EVERY === 0) void this.probe(event);
+  }
+
+  /** The repeating failure is over (connected): the next one is logged in full again. */
+  endRepeating(): void {
+    this.repeating = undefined;
+  }
+
+  /**
+   * Asks the API who is signed in, outside Angular's HttpClient, and logs `net.probe` with the
+   * answer: status 0 when none came (no network, DNS, TLS, a broken service worker), 401 without
+   * a session, a proxy's 404/502/503, or 200 when HTTP works. Also records the page's origin,
+   * which the API's handshake check compares with `PUBLIC_URL`.
+   */
+  async probe(why: string): Promise<void> {
+    const win = this.window;
+    if (this.probing || !win?.fetch) return;
+    this.probing = true;
+    const path = apiPath('auth', 'me');
+    const started = win.performance.now();
+    const base = { why, path, origin: win.location.origin };
+    try {
+      const response = await win.fetch(path, {
+        cache: 'no-store',
+        credentials: 'same-origin',
+        signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+      });
+      this.log('net', 'probe', {
+        ...base,
+        status: response.status,
+        ms: Math.round(win.performance.now() - started),
+        ...servedBy(path, started),
+      });
+    } catch (error) {
+      this.log('net', 'probe', {
+        ...base,
+        status: 0,
+        ms: Math.round(win.performance.now() - started),
+        name: error instanceof Error ? error.name : typeof error,
+        message: error instanceof Error ? error.message : undefined,
+        onLine: win.navigator.onLine,
+      });
+    } finally {
+      this.probing = false;
     }
   }
 
@@ -131,11 +212,24 @@ export class Diagnostics {
     return [...stored, ...this.buffer];
   }
 
-  /** Empties the log (every tab's entries). */
-  async clear(): Promise<void> {
-    await this.flush();
+  /** Empties the log (every tab's entries); returns what it held, for `restore` (Undo). */
+  async clear(): Promise<DiagnosticEntry[]> {
+    const removed = await this.entries();
     this.buffer = [];
     await (await this.openStore()).clear();
+    return removed;
+  }
+
+  /** Puts entries that `clear` returned back (Undo). */
+  async restore(entries: readonly DiagnosticEntry[]): Promise<void> {
+    await this.flush();
+    // New ids: the store numbers entries as they come.
+    const fresh = entries.map((entry) => {
+      const copy = { ...entry };
+      delete copy.id;
+      return copy;
+    });
+    await (await this.openStore()).append(fresh);
   }
 
   /** Facts about the device and app for the top of the export. */
@@ -171,6 +265,7 @@ export class Diagnostics {
         );
       }),
       serviceWorker: await settled(() => describeWorker(nav)),
+      serviceWorkerState: await settled(() => workerState(win)),
       serverTimeOffsetMs:
         this.serverTimeOffsetMs === null
           ? 'unknown'
@@ -214,6 +309,23 @@ async function describeWorker(nav: Navigator | undefined): Promise<string> {
       `installing=${registration.installing?.state ?? 'none'}`,
     );
   return parts.join(' ');
+}
+
+/**
+ * The Angular service worker's own report (`/ngsw/state`): driver state (NORMAL,
+ * EXISTING_CLIENTS_ONLY, SAFE_MODE), the latest manifest, the last update check and its debug
+ * log. Served by the worker, so it is there offline; only asked when a worker controls the page
+ * (without one the request would go to the server).
+ */
+async function workerState(win: Window | null): Promise<string> {
+  if (!win?.navigator.serviceWorker?.controller) return 'no controlling worker';
+  const response = await win.fetch('/ngsw/state', {
+    cache: 'no-store',
+    signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+  });
+  return response.ok
+    ? (await response.text()).trim()
+    : `HTTP ${response.status}`;
 }
 
 function scriptPath(url: string): string {

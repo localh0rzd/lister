@@ -396,7 +396,12 @@ None of these change the architecture; the table says what goes into v1.
   `online`/`offline`, page lifecycle (visibility, focus, `pagehide`/`pageshow` with `persisted`,
   freeze/resume), the `lister-sync` Web Lock (requested, acquired, released, stolen, stuck steal),
   every Socket.IO step (open, `connect`, `connect_error` with message, type and description,
-  `disconnect` with its reason, reconnect attempts, close), hello, welcome, pull, rows, poke, push,
+  `disconnect` with its reason, reconnect attempts, close; a failure that repeats while Socket.IO
+  retries is logged the first three times and then every 20th, with its count, so hours of
+  retrying can't push the moment it started out of the log), an HTTP probe of `/api/auth/me` on
+  the first failed attempt and every 20th (`net.probe`: status, or 0 and the error when no answer
+  came, and the page's origin, which the handshake's Origin check compares with `PUBLIC_URL`), so
+  a refused WebSocket is told apart from an unreachable server, hello, welcome, pull, rows, poke, push,
   ack and reject, every status change of the sync engine **with the reason** (`sync.status`) and
   what this tab shows (`sync.ui-status`: the badge and the status values behind it), REST calls
   (method, path without query, status, duration, network failure, served by the service worker or
@@ -407,9 +412,10 @@ None of these change the architecture; the table says what goes into v1.
   scrubs every string (quoted text such as a title in a refusal is replaced, line breaks removed,
   200 characters at most); callers never pass list text, cookies, tokens or passwords. **Settings →
   App** has "Export diagnostic log" (a `.log` file named with the date: a `#` header with build,
-  mode, user agent, platform, `onLine`, storage, service worker, server time offset and the sync
-  state, then the entries; shared with Web Share on phones, downloaded otherwise; it reads only
-  IndexedDB, so it works offline) and "Clear diagnostic log".
+  mode, user agent, platform, `onLine`, storage, service worker (with the Angular worker's own
+  `/ngsw/state` report: driver state, versions, last update check), server time offset and the
+  sync state, then the entries; shared with Web Share on phones, downloaded otherwise; it reads only
+  IndexedDB, so it works offline) and "Clear diagnostic log" (with Undo).
 - **Backups** with SQLite's online backup (nightly `VACUUM INTO`, after 03:00 UTC, into
   `BACKUP_DIR`, default `backups` beside the database, `/data/backups` in Docker); the last 14 are
   kept (D15). Restoring: `node main.js restore-backup <file>` (refused while another connection,

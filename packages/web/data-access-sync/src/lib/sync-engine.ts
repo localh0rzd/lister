@@ -15,6 +15,7 @@ import {
   type DiagnosticArea,
   type DiagnosticData,
   Diagnostics,
+  worthLogging,
 } from '@lister/web/util-diagnostics';
 import {
   type Ack,
@@ -609,6 +610,7 @@ export class SyncEngine {
 
     socket.on('connect', () => {
       this.healthy = false;
+      this.diagnostics.endRepeating();
       this.log(
         'connect',
         {
@@ -626,17 +628,14 @@ export class SyncEngine {
     // A refused handshake is not retried by Socket.IO. Going online again, or coming back to the
     // tab (after signing in in another one), tries again.
     socket.on('connect_error', (error) => {
-      const engine = socket.io.engine;
-      this.log(
-        'connect_error',
-        {
-          ...errorData(error),
-          transport: engine?.transport.name,
-          willRetry: error.message !== SIGN_IN_REFUSAL,
-          navigatorOnLine: this.window?.navigator.onLine,
-        },
-        'socket',
-      );
+      // Socket.IO retries every few seconds for as long as it fails: repeats are collapsed, and
+      // an HTTP probe tells a refused handshake (Origin, proxy) from an unreachable server.
+      this.diagnostics.logRepeating('socket', 'connect_error', {
+        ...errorData(error),
+        transport: socket.io.engine?.transport.name,
+        willRetry: error.message !== SIGN_IN_REFUSAL,
+        navigatorOnLine: this.window?.navigator.onLine,
+      });
       if (error.message === SIGN_IN_REFUSAL) {
         this.setStatus(
           {
@@ -786,16 +785,18 @@ export class SyncEngine {
         engineId: manager.engine?.id,
       }),
     );
-    manager.on('error', (error) => log('manager-error', errorData(error)));
+    // While not connected, the socket's `connect_error` reports the same error.
+    manager.on('error', (error) => {
+      if (socket.connected) log('manager-error', errorData(error));
+    });
     manager.on('close', (reason, description) =>
       log('close', { reason, description: describe(description) }),
     );
-    manager.on('reconnect_attempt', (attempt) =>
-      log('reconnect_attempt', { attempt }),
-    );
-    manager.on('reconnect_error', (error) =>
-      log('reconnect_error', errorData(error)),
-    );
+    // A loop that retries every few seconds would push its own beginning out of the log. Its
+    // failures are `connect_error` entries (the same error as `reconnect_error`).
+    manager.on('reconnect_attempt', (attempt) => {
+      if (worthLogging(attempt)) log('reconnect_attempt', { attempt });
+    });
     manager.on('reconnect_failed', () => log('reconnect_failed'));
     manager.on('reconnect', (attempt) => log('reconnect', { attempt }));
   }

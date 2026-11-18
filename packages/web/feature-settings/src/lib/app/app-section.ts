@@ -1,7 +1,13 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { MatButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
-import { Diagnostics, DiagnosticsExport } from '@lister/web/util-diagnostics';
+import {
+  type DiagnosticEntry,
+  Diagnostics,
+  DiagnosticsExport,
+  type ExportOutcome,
+} from '@lister/web/util-diagnostics';
+import { NOTICE_DURATION_MS, Notifier } from '@lister/web/util-notify';
 import {
   IOS_INSTALL_STEPS,
   InstallPrompt,
@@ -20,6 +26,7 @@ export class AppSection {
   private readonly persistence = inject(StoragePersistence);
   private readonly diagnosticsExport = inject(DiagnosticsExport);
   private readonly diagnostics = inject(Diagnostics);
+  private readonly notifier = inject(Notifier);
   protected readonly iosSteps = IOS_INSTALL_STEPS;
   /** What the diagnostic log buttons last did, for screen readers and the user. */
   protected readonly logMessage = signal('');
@@ -39,34 +46,57 @@ export class AppSection {
   });
 
   protected async exportLog(): Promise<void> {
-    await this.runLogAction(async () => {
-      const outcome = await this.diagnosticsExport.export();
-      return outcome === 'cancelled'
+    let file: File;
+    // Busy only while the file is built: a share sheet that never answers must not lock the
+    // buttons.
+    this.logBusy.set(true);
+    try {
+      file = await this.diagnosticsExport.build();
+    } catch {
+      this.logMessage.set('The diagnostic log could not be exported');
+      return;
+    } finally {
+      this.logBusy.set(false);
+    }
+    let outcome: ExportOutcome;
+    try {
+      outcome = await this.diagnosticsExport.deliver(file);
+    } catch {
+      this.logMessage.set('The diagnostic log could not be exported');
+      return;
+    }
+    this.logMessage.set(
+      outcome === 'cancelled'
         ? 'Sharing cancelled'
         : outcome === 'shared'
           ? 'Diagnostic log shared'
-          : 'Diagnostic log downloaded';
-    }, 'The diagnostic log could not be exported');
+          : 'Diagnostic log downloaded',
+    );
   }
 
   protected async clearLog(): Promise<void> {
-    await this.runLogAction(async () => {
-      await this.diagnostics.clear();
-      return 'Diagnostic log cleared';
-    }, 'The diagnostic log could not be cleared');
-  }
-
-  private async runLogAction(
-    action: () => Promise<string>,
-    failure: string,
-  ): Promise<void> {
     this.logBusy.set(true);
+    let removed: DiagnosticEntry[];
     try {
-      this.logMessage.set(await action());
+      removed = await this.diagnostics.clear();
     } catch {
-      this.logMessage.set(failure);
+      this.logMessage.set('The diagnostic log could not be cleared');
+      return;
     } finally {
       this.logBusy.set(false);
+    }
+    this.logMessage.set('Diagnostic log cleared');
+    const outcome = await this.notifier.notify({
+      message: 'Diagnostic log cleared',
+      action: 'Undo',
+      duration: NOTICE_DURATION_MS,
+    });
+    if (outcome !== 'action') return;
+    try {
+      await this.diagnostics.restore(removed);
+      this.logMessage.set('Diagnostic log restored');
+    } catch {
+      this.logMessage.set('The diagnostic log could not be restored');
     }
   }
 }

@@ -1,6 +1,11 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { Diagnostics, DiagnosticsExport } from '@lister/web/util-diagnostics';
+import {
+  type DiagnosticEntry,
+  Diagnostics,
+  DiagnosticsExport,
+} from '@lister/web/util-diagnostics';
+import { Notifier } from '@lister/web/util-notify';
 import {
   InstallPrompt,
   type PersistenceState,
@@ -8,13 +13,21 @@ import {
 } from '@lister/web/util-pwa';
 import { AppSection } from './app-section';
 
+const FILE = new File(['log'], 'lister-diagnostic-2026-11-18.log');
+const CLEARED: DiagnosticEntry[] = [
+  { at: 1, area: 'app', event: 'start', tab: 't', leader: false },
+];
+
 function render({
   exportLog = vi.fn(() => Promise.resolve('downloaded')),
-  clearLog = vi.fn(() => Promise.resolve()),
+  clearLog = vi.fn(() => Promise.resolve(CLEARED)),
+  undo = false,
   canInstall = false,
   iosSteps = false,
   state = 'unknown' as PersistenceState,
 } = {}) {
+  const restore = vi.fn(() => Promise.resolve());
+  const notify = vi.fn(() => Promise.resolve(undo ? 'action' : 'dismissed'));
   const install = vi.fn(() => Promise.resolve());
   TestBed.configureTestingModule({
     providers: [
@@ -27,8 +40,12 @@ function render({
         },
       },
       { provide: StoragePersistence, useValue: { state: signal(state) } },
-      { provide: DiagnosticsExport, useValue: { export: exportLog } },
-      { provide: Diagnostics, useValue: { clear: clearLog } },
+      {
+        provide: DiagnosticsExport,
+        useValue: { build: () => Promise.resolve(FILE), deliver: exportLog },
+      },
+      { provide: Diagnostics, useValue: { clear: clearLog, restore } },
+      { provide: Notifier, useValue: { notify } },
     ],
   });
   const fixture = TestBed.createComponent(AppSection);
@@ -37,6 +54,8 @@ function render({
     install,
     exportLog,
     clearLog,
+    restore,
+    notify,
     fixture,
     el: fixture.nativeElement as HTMLElement,
   };
@@ -111,12 +130,39 @@ describe('AppSection', () => {
     expect(el.textContent).toContain('could not be exported');
   });
 
-  it('clears the diagnostic log', async () => {
-    const { el, clearLog, fixture } = render();
+  it('clears the diagnostic log and offers Undo', async () => {
+    const { el, clearLog, notify, restore, fixture } = render();
     button(el, 'Clear diagnostic log').click();
     await fixture.whenStable();
     fixture.detectChanges();
     expect(clearLog).toHaveBeenCalledTimes(1);
     expect(el.textContent).toContain('Diagnostic log cleared');
+    expect(notify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Diagnostic log cleared',
+        action: 'Undo',
+      }),
+    );
+    expect(restore).not.toHaveBeenCalled();
+  });
+
+  it('puts the cleared log back on Undo', async () => {
+    const { el, restore, fixture } = render({ undo: true });
+    button(el, 'Clear diagnostic log').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(restore).toHaveBeenCalledWith(CLEARED);
+    expect(el.textContent).toContain('Diagnostic log restored');
+  });
+
+  it('keeps the buttons usable while the share sheet never answers', async () => {
+    const { el, fixture, exportLog } = render({
+      exportLog: vi.fn(() => new Promise<string>(() => undefined)),
+    });
+    button(el, 'Export diagnostic log').click();
+    await vi.waitFor(() => expect(exportLog).toHaveBeenCalled());
+    fixture.detectChanges();
+    expect(button(el, 'Export diagnostic log').disabled).toBe(false);
+    expect(button(el, 'Clear diagnostic log').disabled).toBe(false);
   });
 });
