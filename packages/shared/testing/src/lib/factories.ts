@@ -22,9 +22,6 @@ export const TEST_USER_ID = '0190a0a0-0000-7000-8000-000000000002';
 /** A new valid UUIDv7 (lower case), for rows that need a distinct id. */
 const id = (): string => uuidv7();
 
-/** Overrides: any field of `T`, all optional. */
-type Overrides<T> = Partial<T>;
-
 const syncMetadata = () => ({
   id: id(),
   spaceId: TEST_SPACE_ID,
@@ -36,7 +33,7 @@ const syncMetadata = () => ({
   updatedAt: 1000,
 });
 
-export function makeUser(overrides: Overrides<CurrentUser> = {}): CurrentUser {
+export function makeUser(overrides: Partial<CurrentUser> = {}): CurrentUser {
   return {
     id: id(),
     username: 'anna',
@@ -49,7 +46,7 @@ export function makeUser(overrides: Overrides<CurrentUser> = {}): CurrentUser {
 }
 
 export function makeSpaceMember(
-  overrides: Overrides<SpaceMember> = {},
+  overrides: Partial<SpaceMember> = {},
 ): SpaceMember {
   return {
     userId: id(),
@@ -61,7 +58,7 @@ export function makeSpaceMember(
 
 /** Members default to one owner, matching `role`; pass `members` to change that. */
 export function makeSpaceSummary(
-  overrides: Overrides<SpaceSummary> = {},
+  overrides: Partial<SpaceSummary> = {},
 ): SpaceSummary {
   const role = overrides.role ?? 'owner';
   return {
@@ -74,7 +71,7 @@ export function makeSpaceSummary(
   };
 }
 
-export function makeList(overrides: Overrides<List> = {}): List {
+export function makeList(overrides: Partial<List> = {}): List {
   return {
     ...syncMetadata(),
     title: 'Camping',
@@ -85,7 +82,7 @@ export function makeList(overrides: Overrides<List> = {}): List {
   };
 }
 
-export function makeItem(overrides: Overrides<Item> = {}): Item {
+export function makeItem(overrides: Partial<Item> = {}): Item {
   return {
     ...syncMetadata(),
     listId: id(),
@@ -97,7 +94,7 @@ export function makeItem(overrides: Overrides<Item> = {}): Item {
   };
 }
 
-export function makeInclude(overrides: Overrides<Include> = {}): Include {
+export function makeInclude(overrides: Partial<Include> = {}): Include {
   return {
     ...syncMetadata(),
     parentListId: id(),
@@ -107,7 +104,7 @@ export function makeInclude(overrides: Overrides<Include> = {}): Include {
   };
 }
 
-export function makeRun(overrides: Overrides<Run> = {}): Run {
+export function makeRun(overrides: Partial<Run> = {}): Run {
   return {
     ...syncMetadata(),
     title: 'Weekend trip',
@@ -117,7 +114,7 @@ export function makeRun(overrides: Overrides<Run> = {}): Run {
   };
 }
 
-export function makeRunItem(overrides: Overrides<RunItem> = {}): RunItem {
+export function makeRunItem(overrides: Partial<RunItem> = {}): RunItem {
   return {
     ...syncMetadata(),
     runId: id(),
