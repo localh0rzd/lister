@@ -79,14 +79,21 @@ export function makeSpaceSummary(
   };
 }
 
+interface LocalSpaceMember {
+  userId: string;
+  displayName: string;
+}
+
+type LocalSpaceRow = Space & { members: LocalSpaceMember[] };
+
 /**
  * A space row as the web app stores it (`LocalSpace`: the space plus the members `welcome` sent).
  * Typed structurally because shared code can't import the web type; it is assignable to it. Members
  * default to none and carry no role, unlike `makeSpaceSummary`'s.
  */
 export function makeLocalSpace(
-  overrides: Partial<Space & { members: LocalSpaceMember[] }> = {},
-): Space & { members: LocalSpaceMember[] } {
+  overrides: Partial<LocalSpaceRow> = {},
+): LocalSpaceRow {
   return {
     id: TEST_SPACE_ID,
     name: 'Home',
@@ -94,11 +101,6 @@ export function makeLocalSpace(
     members: [],
     ...overrides,
   };
-}
-
-interface LocalSpaceMember {
-  userId: string;
-  displayName: string;
 }
 
 export function makeList(overrides: Partial<List> = {}): List {
