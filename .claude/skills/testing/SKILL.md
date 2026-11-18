@@ -100,7 +100,8 @@ migrated in-memory SQLite database.
 ## Test data factories
 
 `@lister/shared/testing` (`packages/shared/testing`, tags `scope:shared,type:util`) builds complete,
-valid objects with sensible defaults and a partial override. Only spec files and test helpers import it.
+valid objects with sensible defaults and a partial override. Only spec files and test helpers import it
+(`npm run lint:workspace` checks this).
 
 - `makeUser` (`CurrentUser`), `makeSpaceMember`, `makeSpaceSummary` (members default to one owner
   matching `role`), `makeList`, `makeItem`, `makeInclude`, `makeRun`, `makeRunItem`.

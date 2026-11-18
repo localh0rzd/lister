@@ -10,16 +10,24 @@
 // - Every icon the web code uses is in the subset icon font (apps/lister-web/src/fonts), which
 //   `npx nx run lister-web:subset-icons` regenerates.
 // - Web libraries declare `"sideEffects": false`, so unused barrel exports don't reach a bundle.
+// - Test-only libraries (@lister/shared/testing) are imported only by specs, test helpers
+//   (`testing.ts`, files under a `testing/` folder) and e2e projects, never by production code.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import devkit from '@nx/devkit';
 import { isLigature, openFont } from './material-symbols/font.mjs';
 import { findUsedIcons } from './material-symbols/used-icons.mjs';
 
-const { createProjectGraphAsync, workspaceRoot } = devkit;
+const {
+  createProjectFileMapUsingProjectGraph,
+  createProjectGraphAsync,
+  workspaceRoot,
+} = devkit;
 
 const SCOPES = ['web', 'api', 'shared'];
 const TYPES = ['app', 'e2e', 'feature', 'ui', 'data-access', 'util'];
+const TEST_ONLY_LIBRARIES = ['@lister/shared/testing'];
+const TEST_FILE = /\.(spec|test)\.ts$|(^|\/)testing(\.ts$|\/)/;
 
 const graph = await createProjectGraphAsync({ exitOnError: true });
 const { paths = {} } = JSON.parse(
@@ -105,6 +113,23 @@ for (const alias of Object.keys(paths)) {
     problems.push(
       `tsconfig.base.json: "${alias}" is not a library's public entry point (@lister/<scope>/<name>)`,
     );
+  }
+}
+
+// Test-only libraries stay out of production code; specs and test helpers may import them.
+const fileMap = await createProjectFileMapUsingProjectGraph(graph);
+for (const [name, files] of Object.entries(fileMap)) {
+  if ((graph.nodes[name]?.data.tags ?? []).includes('type:e2e')) continue;
+  for (const { file } of files) {
+    if (!file.endsWith('.ts') || TEST_FILE.test(file)) continue;
+    const source = readFileSync(join(workspaceRoot, file), 'utf8');
+    for (const library of TEST_ONLY_LIBRARIES) {
+      if (source.includes(`'${library}'`)) {
+        problems.push(
+          `${file}: imports the test-only library ${library}; only specs and test helpers (testing.ts, testing/) may`,
+        );
+      }
+    }
   }
 }
 

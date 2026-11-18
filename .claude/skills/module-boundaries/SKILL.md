@@ -36,6 +36,12 @@ Split a feature by layer rather than building one big library:
 Shared code (`packages/shared/*`) is always `type:util`: plain TypeScript and Zod, with no
 Angular, Nest, Node or browser-only APIs.
 
+**Test-only libraries** (`@lister/shared/testing`: factories for specs) are tagged like any shared
+library (`scope:shared,type:util`), so web and api specs can both use them. Only spec files, test
+helpers (`testing.ts`, files under a `testing/` folder) and e2e projects may import them;
+`npm run lint:workspace` fails on any other import. Add a new one to `TEST_ONLY_LIBRARIES` in
+`tools/check-workspace.mjs`.
+
 If a new library isn't in docs/design.md §5 yet, add it there in the same change.
 
 ## Creating a library
@@ -134,7 +140,8 @@ can't:
 - libraries live in `packages/<scope>/<name>`, with the matching scope tag and alias;
 - every project is linted, every Angular project includes `angularBestPractices`, and every
   shared project includes `sharedPlatformRules`;
-- every web library is marked `"sideEffects": false`.
+- every web library is marked `"sideEffects": false`;
+- test-only libraries are imported only by specs, test helpers and e2e projects.
 
 ## When a boundary is in your way
 
