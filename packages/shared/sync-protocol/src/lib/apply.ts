@@ -449,6 +449,7 @@ export function applyMutation(
         items.push(id);
       }
       const includes: string[] = [];
+      const copiedIncludes = new Map<string, string>();
       for (const { from, id } of args.includes) {
         const include = includeHere(from);
         if (
@@ -460,18 +461,15 @@ export function applyMutation(
         // A new list includes nothing and nothing includes it: no loop, no duplicate.
         store.putInclude({ ...include, ...created, id, parentListId: args.id });
         includes.push(id);
+        copiedIncludes.set(from, id);
       }
       // Exceptions (D28) follow their include. Their targets lie below the source's includes, in
       // other lists (never in the source: that would be a loop), so the targets stay as they are.
-      const copiedIncludes = new Map(
-        args.includes.map(({ from, id }) => [from, id]),
-      );
       const includeExceptions: string[] = [];
       for (const { from, id } of args.exceptions) {
         const row = store.getIncludeException(from);
         const includeId = row && copiedIncludes.get(row.includeId);
         if (!row || !includeId || row.deletedAt !== null) continue;
-        if (!includes.includes(includeId)) continue;
         store.putIncludeException({ ...row, ...created, id, includeId });
         includeExceptions.push(id);
       }
