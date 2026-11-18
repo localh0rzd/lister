@@ -230,6 +230,7 @@ describe('MutationService', () => {
         lists: [],
         items: [],
         includes: [],
+        includeExceptions: [],
         runs: [],
         runItems: [],
       });
@@ -342,6 +343,7 @@ describe('MutationService', () => {
         lists: [],
         items: [itemRow(id)],
         includes: [],
+        includeExceptions: [],
         runs: [],
         runItems: [],
       });
@@ -373,6 +375,7 @@ describe('MutationService', () => {
         lists: [],
         items: [],
         includes: [],
+        includeExceptions: [],
         runs: [],
         runItems: [],
       });
@@ -629,6 +632,7 @@ describe('includes', () => {
       lists: [],
       items: [],
       includes: [includeRow(id)],
+      includeExceptions: [],
       runs: [],
       runItems: [],
     });

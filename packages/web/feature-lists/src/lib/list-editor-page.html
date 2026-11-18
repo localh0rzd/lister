@@ -233,7 +233,11 @@
             >
               @for (
                 entry of row.entries;
-                track entry.kind === 'item' ? entry.item.id : entry.include.id
+                track entry.kind === 'item'
+                  ? entry.item.id
+                  : entry.kind === 'section'
+                    ? entry.include.id
+                    : entry.exception.id
               ) {
                 @if (entry.kind === 'item') {
                   <li class="nested" [style.--depth]="entry.depth">
@@ -260,7 +264,7 @@
                       <mat-icon>edit</mat-icon>
                     </button>
                   </li>
-                } @else {
+                } @else if (entry.kind === 'section') {
                   <li
                     class="nested nested-section"
                     [style.--depth]="entry.depth"

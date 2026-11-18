@@ -37,7 +37,7 @@ export function insertSpace(
 }
 
 /**
- * Deletes a space for good: its lists, items, includes, runs and run items (tombstones too), its
+ * Deletes a space for good: its lists, items, includes, exceptions, runs and run items (tombstones too), its
  * mutation answers and its memberships. Synchronous, so call it inside a transaction.
  */
 export function deleteSpace(db: Tx, spaceId: string): void {
@@ -45,6 +45,9 @@ export function deleteSpace(db: Tx, spaceId: string): void {
   db.delete(schema.runItems).where(eq(schema.runItems.spaceId, spaceId)).run();
   db.delete(schema.runs).where(eq(schema.runs.spaceId, spaceId)).run();
   db.delete(schema.items).where(eq(schema.items.spaceId, spaceId)).run();
+  db.delete(schema.includeExceptions)
+    .where(eq(schema.includeExceptions.spaceId, spaceId))
+    .run();
   db.delete(schema.includes).where(eq(schema.includes.spaceId, spaceId)).run();
   db.delete(schema.lists).where(eq(schema.lists.spaceId, spaceId)).run();
   db.delete(schema.processedMutations)

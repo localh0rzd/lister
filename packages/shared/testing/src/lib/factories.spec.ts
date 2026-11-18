@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   makeInclude,
+  makeIncludeException,
   makeItem,
   makeList,
   makeLocalSpace,
@@ -42,6 +43,7 @@ describe('factories', () => {
       makeList(),
       makeItem(),
       makeInclude(),
+      makeIncludeException(),
       makeRun(),
       makeRunItem(),
     ];
@@ -54,6 +56,7 @@ describe('factories', () => {
     expect(makeItem().listId).toMatch(UUID_V7);
     expect(makeInclude().parentListId).toMatch(UUID_V7);
     expect(makeInclude().childListId).toMatch(UUID_V7);
+    expect(makeIncludeException().includeId).toMatch(UUID_V7);
     expect(makeRunItem().runId).toMatch(UUID_V7);
     expect(makeItem().position).toBe('a0');
   });

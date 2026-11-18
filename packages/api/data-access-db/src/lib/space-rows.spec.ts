@@ -63,6 +63,14 @@ describe('space rows', () => {
         position: 'a1',
       })
       .run();
+    db.insert(schema.includeExceptions)
+      .values({
+        ...meta(`${tag}-exception`, space.id),
+        includeId: `${tag}-include`,
+        targetKind: 'item',
+        targetId: `${tag}-item`,
+      })
+      .run();
     db.insert(schema.runs)
       .values({
         ...meta(`${tag}-run`, space.id),
@@ -107,6 +115,11 @@ describe('space rows', () => {
         .select()
         .from(schema.includes)
         .where(eq(schema.includes.spaceId, spaceId))
+        .all().length,
+      includeExceptions: db
+        .select()
+        .from(schema.includeExceptions)
+        .where(eq(schema.includeExceptions.spaceId, spaceId))
         .all().length,
       runs: db
         .select()
@@ -160,6 +173,7 @@ describe('space rows', () => {
       lists: 0,
       items: 0,
       includes: 0,
+      includeExceptions: 0,
       runs: 0,
       runItems: 0,
       processedMutations: 0,
@@ -170,6 +184,7 @@ describe('space rows', () => {
       lists: 2,
       items: 1,
       includes: 1,
+      includeExceptions: 1,
       runs: 1,
       runItems: 1,
       processedMutations: 1,

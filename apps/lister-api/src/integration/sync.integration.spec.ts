@@ -1662,6 +1662,120 @@ describe('sync gateway', () => {
       expect(pokes).toHaveLength(6);
     });
 
+    it('leaves out and puts back, poking the other member and answering retries without a change (D28)', async () => {
+      const anna = await helloed();
+      const ben = await helloed('ben');
+      const pokes = collect(ben.client, 'poke');
+      const [chair, exceptionId] = [newId(), newId()];
+      const trip = mutation('list.create', { id: newId(), title: 'Trip' });
+      const camping = mutation('list.create', {
+        id: newId(),
+        title: 'Camping',
+        items: [{ id: chair, title: 'Chair' }],
+      });
+      const create = include(trip.args.id, camping.args.id);
+      const includeId = create.args.id;
+      const leaveOut = mutation('include.addException', {
+        id: exceptionId,
+        includeId,
+        targetKind: 'item',
+        targetId: chair,
+      });
+      const again = mutation('include.addException', {
+        id: newId(),
+        includeId,
+        targetKind: 'item',
+        targetId: chair,
+      });
+      const putBack = mutation('include.removeException', {
+        includeId,
+        targetId: chair,
+      });
+      const steps = [trip, camping, create, leaveOut, again, putBack, putBack];
+      const answers = steps.map((step) => answer(anna.client, step));
+      anna.client.emit('push', { mutations: steps });
+      const versions = (await Promise.all(answers)).map((a) =>
+        'version' in a ? a.version : a.reason,
+      );
+
+      // The second add and the second removal change nothing: the version stays.
+      expect(versions).toEqual([1, 2, 3, 4, 4, 5, 5]);
+      await vi.waitFor(() => expect(pokes).toHaveLength(5));
+      expect(
+        pokes
+          .flatMap((poke) => poke.rows.includeExceptions)
+          .map((row) => [row.id, row.version, row.deletedAt === null]),
+      ).toEqual([
+        [exceptionId, 4, true],
+        [exceptionId, 5, false],
+      ]);
+
+      const rows = next(ben.client, 'rows');
+      ben.client.emit('pull', { spaceId, since: 0, timeline: '' });
+      expect((await rows).rows.includeExceptions).toEqual([
+        expect.objectContaining({
+          id: exceptionId,
+          includeId,
+          targetKind: 'item',
+          targetId: chair,
+          spaceId,
+        }),
+      ]);
+    });
+
+    it('rejects leaving out what is not in the space, or of another kind', async () => {
+      const anna = await helloed();
+      const personal = anna.welcome.spaces.find((s) => s.id !== spaceId)?.id;
+      const foreign = newId();
+      const trip = mutation('list.create', { id: newId(), title: 'Trip' });
+      const camping = mutation('list.create', {
+        id: newId(),
+        title: 'Camping',
+      });
+      const create = include(trip.args.id, camping.args.id);
+      const elsewhere = {
+        ...mutation('list.create', { id: foreign, title: 'Elsewhere' }),
+        spaceId: personal as string,
+      };
+      const setup = [trip, camping, create, elsewhere];
+      const created = setup.map((step) => answer(anna.client, step));
+      anna.client.emit('push', { mutations: setup });
+      await Promise.all(created);
+
+      const attempt = (
+        targetKind: 'item' | 'list',
+        targetId: string,
+        includeId = create.args.id,
+      ) =>
+        mutation('include.addException', {
+          id: newId(),
+          includeId,
+          targetKind,
+          targetId,
+        });
+      const tries = [
+        attempt('list', foreign),
+        attempt('list', newId()),
+        attempt('item', camping.args.id),
+        attempt('list', camping.args.id, newId()),
+      ];
+      const answers = tries.map((step) => answer(anna.client, step));
+      anna.client.emit('push', { mutations: tries });
+
+      expect(await Promise.all(answers)).toEqual([
+        { mutationId: tries[0].mutationId, reason: "This list doesn't exist" },
+        { mutationId: tries[1].mutationId, reason: "This list doesn't exist" },
+        { mutationId: tries[2].mutationId, reason: "This item doesn't exist" },
+        {
+          mutationId: tries[3].mutationId,
+          reason: "This list isn't included there",
+        },
+      ]);
+      const rows = next(anna.client, 'rows');
+      anna.client.emit('pull', { spaceId, since: 0, timeline: '' });
+      expect((await rows).rows.includeExceptions).toEqual([]);
+    });
+
     it('rejects the second half of a loop two offline clients each made', async () => {
       const anna = await helloed();
       const ben = await helloed('ben');

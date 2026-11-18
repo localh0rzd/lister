@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-067 — Leave out: synced exceptions and flattening
 
 - Milestone: M10 Leaving out
@@ -50,6 +48,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
     mutations over Socket.IO (including rejection for a target in another space) and for purge.
 - Notes: no UI yet; T-068 builds it. Two commits (API, web data access), per the coordinator
   workflow.
+
+## Backlog
 
 ### T-068 — Leave out in the list editor
 

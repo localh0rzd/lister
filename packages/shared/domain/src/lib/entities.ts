@@ -60,6 +60,20 @@ export interface Include extends SyncMetadata {
   readonly position: string;
 }
 
+/** What an exception can leave out: an item, or an included list with everything below it. */
+export type ExceptionTargetKind = 'item' | 'list';
+
+/**
+ * "Include `includeId` leaves out `targetId`" (D28): an item or list anywhere below that include
+ * stays hidden wherever the include's parent list is shown or copied. It stays, doing nothing,
+ * while the include or the target is deleted or no longer below the edge.
+ */
+export interface IncludeException extends SyncMetadata {
+  readonly includeId: Id;
+  readonly targetKind: ExceptionTargetKind;
+  readonly targetId: Id;
+}
+
 /**
  * A run: one use of a list, or an ad-hoc checklist (D1, D10). It owns copies of its items, so
  * editing a list never changes it. `finishedAt` is set while every item is checked or skipped

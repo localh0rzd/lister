@@ -11,6 +11,7 @@ import { CLOCK, type Clock } from './clock';
 import { SqlRowStore } from './sql-row-store';
 
 const {
+  includeExceptions,
   includes,
   items,
   lists,
@@ -44,6 +45,7 @@ const noRows = (): RowSet => ({
   lists: [],
   items: [],
   includes: [],
+  includeExceptions: [],
   runs: [],
   runItems: [],
 });
@@ -189,6 +191,13 @@ export class MutationService {
               .select()
               .from(includes)
               .where(inArray(includes.id, outcome.includes))
+              .all()
+          : [],
+        includeExceptions: outcome.includeExceptions?.length
+          ? tx
+              .select()
+              .from(includeExceptions)
+              .where(inArray(includeExceptions.id, outcome.includeExceptions))
               .all()
           : [],
         runs: outcome.runs?.length

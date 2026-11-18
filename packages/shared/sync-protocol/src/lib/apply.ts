@@ -1,5 +1,6 @@
 import {
   type Include,
+  type IncludeException,
   type Item,
   type List,
   type Run,
@@ -29,6 +30,10 @@ export interface RowStore {
   putList(row: List): void;
   putItem(row: Item): void;
   putInclude(row: Include): void;
+  getIncludeException(id: string): IncludeException | undefined;
+  /** The exceptions of this include, in any space (tombstones included). */
+  exceptionsOf(includeId: string): readonly IncludeException[];
+  putIncludeException(row: IncludeException): void;
   getRun(id: string): Run | undefined;
   getRunItem(id: string): RunItem | undefined;
   /** The items of this run, in any space (tombstones included). */
@@ -56,6 +61,7 @@ export interface ChangedRows {
   lists: string[];
   items: string[];
   includes: string[];
+  includeExceptions: string[];
   runs: string[];
   runItems: string[];
 }
@@ -66,6 +72,7 @@ export const changed = (rows: Partial<ChangedRows>): ApplyOutcome => ({
   lists: [],
   items: [],
   includes: [],
+  includeExceptions: [],
   runs: [],
   runItems: [],
   ...rows,
@@ -178,6 +185,16 @@ export function applyMutation(
     }
     return undefined;
   };
+  /** The live exceptions of an include (D28) that name this target. */
+  const liveExceptionsFor = (includeId: string, targetId: string) =>
+    store
+      .exceptionsOf(includeId)
+      .filter(
+        (row) =>
+          row.spaceId === ctx.spaceId &&
+          row.deletedAt === null &&
+          row.targetId === targetId,
+      );
   /** An include that may be changed: it exists here, isn't deleted, nor is its parent list. */
   const liveInclude = (id: string): Include | ApplyOutcome => {
     const include = includeHere(id);
@@ -830,6 +847,45 @@ export function applyMutation(
         ? include
         : updateInclude(include, { deletedAt: ctx.now });
     }
+    case 'include.addException': {
+      const args = mutation.args;
+      const existing = store.getIncludeException(args.id);
+      if (existing) {
+        return existing.spaceId === ctx.spaceId
+          ? unchanged
+          : reject('This exception already exists');
+      }
+      const include = includeHere(args.includeId);
+      if (!include) return reject(INCLUDE_MISSING);
+      const target =
+        args.targetKind === 'item'
+          ? itemHere(args.targetId)
+          : listHere(args.targetId);
+      if (!target) {
+        return reject(args.targetKind === 'item' ? ITEM_MISSING : LIST_MISSING);
+      }
+      if (liveExceptionsFor(include.id, args.targetId).length > 0)
+        return unchanged;
+      store.putIncludeException({
+        ...created,
+        id: args.id,
+        includeId: args.includeId,
+        targetKind: args.targetKind,
+        targetId: args.targetId,
+      });
+      return changed({ includeExceptions: [args.id] });
+    }
+    case 'include.removeException': {
+      const include = includeHere(mutation.args.includeId);
+      if (!include) return reject(INCLUDE_MISSING);
+      const rows = liveExceptionsFor(include.id, mutation.args.targetId);
+      for (const row of rows) {
+        store.putIncludeException({ ...row, deletedAt: ctx.now, ...stamp });
+      }
+      return rows.length > 0
+        ? changed({ includeExceptions: rows.map((row) => row.id) })
+        : unchanged;
+    }
     case 'include.restore': {
       const include = includeHere(mutation.args.id);
       if (!include) return reject(INCLUDE_MISSING);
@@ -851,6 +907,7 @@ export class MemoryRowStore implements RowStore {
   readonly lists = new Map<string, List>();
   readonly items = new Map<string, Item>();
   readonly includes = new Map<string, Include>();
+  readonly includeExceptions = new Map<string, IncludeException>();
   readonly runs = new Map<string, Run>();
   readonly runItems = new Map<string, RunItem>();
 
@@ -860,10 +917,13 @@ export class MemoryRowStore implements RowStore {
     includes: Iterable<Include> = [],
     runs: Iterable<Run> = [],
     runItems: Iterable<RunItem> = [],
+    includeExceptions: Iterable<IncludeException> = [],
   ) {
     for (const list of lists) this.lists.set(list.id, list);
     for (const item of items) this.items.set(item.id, item);
     for (const include of includes) this.includes.set(include.id, include);
+    for (const row of includeExceptions)
+      this.includeExceptions.set(row.id, row);
     for (const run of runs) this.runs.set(run.id, run);
     for (const item of runItems) this.runItems.set(item.id, item);
   }
@@ -894,6 +954,18 @@ export class MemoryRowStore implements RowStore {
   }
   putInclude(row: Include) {
     this.includes.set(row.id, row);
+  }
+
+  getIncludeException(id: string) {
+    return this.includeExceptions.get(id);
+  }
+  exceptionsOf(includeId: string) {
+    return [...this.includeExceptions.values()].filter(
+      (row) => row.includeId === includeId,
+    );
+  }
+  putIncludeException(row: IncludeException) {
+    this.includeExceptions.set(row.id, row);
   }
 
   getList(id: string) {

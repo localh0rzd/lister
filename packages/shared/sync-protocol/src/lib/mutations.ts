@@ -255,6 +255,18 @@ export const mutationArgs = {
   'include.move': z.strictObject({ id: idSchema, position: positionSchema }),
   'include.delete': byId,
   'include.restore': byId,
+  /** Leaves an item or list out below an include (D28); the id is the client's. */
+  'include.addException': z.strictObject({
+    id: idSchema,
+    includeId: idSchema,
+    targetKind: z.enum(['item', 'list']),
+    targetId: idSchema,
+  }),
+  /** Puts back every live exception of the pair. */
+  'include.removeException': z.strictObject({
+    includeId: idSchema,
+    targetId: idSchema,
+  }),
 } as const;
 
 export type MutationName = keyof typeof mutationArgs;
@@ -296,6 +308,8 @@ export const mutationSchema = z.discriminatedUnion('name', [
   mutationOf('include.move'),
   mutationOf('include.delete'),
   mutationOf('include.restore'),
+  mutationOf('include.addException'),
+  mutationOf('include.removeException'),
 ]);
 
 /** A mutation as sent (defaults may be missing). */

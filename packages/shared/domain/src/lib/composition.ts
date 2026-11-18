@@ -1,4 +1,4 @@
-import type { Id, Include, Item, List } from './entities';
+import type { Id, Include, IncludeException, Item, List } from './entities';
 import { comparePositions } from './positions';
 
 /** Where flattening and the cycle check read a space's rows from (tombstones included). */
@@ -8,6 +8,8 @@ export interface CompositionSource {
   itemsOf(listId: Id): readonly Item[];
   /** The includes whose parent is the list. */
   includesOf(listId: Id): readonly Include[];
+  /** The exceptions (D28) of the include, tombstones included. Absent: nothing is left out. */
+  exceptionsOf?(includeId: Id): readonly IncludeException[];
 }
 
 /** One item of a flattened list, with the list it belongs to (its section). */
@@ -36,14 +38,71 @@ export type FlatEntry =
       readonly list: List | undefined;
       readonly state: 'live' | 'deleted' | 'repeated';
       readonly depth: number;
+    }
+  | {
+      /**
+       * An item or an included list that an exception (D28) leaves out. It sits in the section
+       * `listId` (the list that has the item, or the parent of the include), at `depth`, and
+       * `exception` is the one that applies (the nearest to the viewed list); its owner is the
+       * list of `exception`'s include: `ownerListId`.
+       */
+      readonly kind: 'leftOut';
+      readonly target:
+        | { readonly kind: 'item'; readonly item: Item }
+        | {
+            readonly kind: 'list';
+            readonly include: Include;
+            readonly list: List | undefined;
+          };
+      readonly listId: Id;
+      readonly depth: number;
+      readonly exception: IncludeException;
+      readonly ownerListId: Id;
     };
+
+const byPosition = <T extends { position: string; id: Id }>(rows: T[]) =>
+  rows.sort((a, b) => comparePositions(a, b));
+
+/**
+ * The live exceptions of every live include reachable from the list (through live includes of
+ * live lists), by target id. When several name the same target, the one nearest to the list
+ * wins (breadth first, in position order), for the editor to say where it was left out.
+ */
+function collectExceptions(
+  listId: Id,
+  source: CompositionSource,
+): Map<Id, { exception: IncludeException; ownerListId: Id }> {
+  const found = new Map<Id, { exception: IncludeException; ownerListId: Id }>();
+  if (!source.exceptionsOf) return found;
+  const seen = new Set<Id>([listId]);
+  const queue = [listId];
+  for (const id of queue) {
+    const includes = byPosition(
+      source.includesOf(id).filter((row) => row.deletedAt === null),
+    );
+    for (const include of includes) {
+      for (const exception of source.exceptionsOf(include.id)) {
+        if (exception.deletedAt === null && !found.has(exception.targetId)) {
+          found.set(exception.targetId, { exception, ownerListId: id });
+        }
+      }
+      const child = source.list(include.childListId);
+      if (child?.deletedAt === null && !seen.has(child.id)) {
+        seen.add(child.id);
+        queue.push(child.id);
+      }
+    }
+  }
+  return found;
+}
 
 /**
  * A list's entries with those of its included lists, in position order (design §3, Flattening):
  * walk the list's own items and includes by position; an item is emitted with its list, an
  * include emits its section and recurses into its child unless that list was already visited.
  * So a list reached twice (a diamond) appears once, and a cycle can't loop. Deleted items and
- * includes are left out; an included list in the trash is a `deleted` section.
+ * includes are left out; an included list in the trash is a `deleted` section. Items and lists
+ * that exceptions leave out (D28) are skipped wherever they are met and reported as `leftOut`.
  */
 export function flattenEntries(
   listId: Id,
@@ -51,6 +110,7 @@ export function flattenEntries(
 ): FlatEntry[] {
   const out: FlatEntry[] = [];
   const visited = new Set<Id>();
+  const leftOut = collectExceptions(listId, source);
   const visit = (id: Id, depth: number) => {
     visited.add(id);
     const entries: (
@@ -67,6 +127,25 @@ export function flattenEntries(
     ];
     entries.sort((a, b) => comparePositions(a.row, b.row));
     for (const entry of entries) {
+      const isItem = entry.kind === 'item';
+      const hit = leftOut.get(isItem ? entry.row.id : entry.row.childListId);
+      if (hit && hit.exception.targetKind === (isItem ? 'item' : 'list')) {
+        out.push({
+          kind: 'leftOut',
+          target: isItem
+            ? { kind: 'item', item: entry.row }
+            : {
+                kind: 'list',
+                include: entry.row,
+                list: source.list(entry.row.childListId),
+              },
+          listId: id,
+          depth,
+          exception: hit.exception,
+          ownerListId: hit.ownerListId,
+        });
+        continue;
+      }
       if (entry.kind === 'item') {
         out.push({ kind: 'item', item: entry.row, listId: id, depth });
         continue;

@@ -209,6 +209,24 @@ export const includes = sqliteTable(
   ],
 );
 
+/** "Include `include` leaves out the item or list `target`" (D28). */
+export const includeExceptions = sqliteTable(
+  'include_exceptions',
+  {
+    ...syncColumns,
+    includeId: text('include_id')
+      .notNull()
+      .references(() => includes.id),
+    targetKind: text('target_kind', { enum: ['item', 'list'] }).notNull(),
+    // No foreign key: it names an item or a list, and may point below the include later on.
+    targetId: text('target_id').notNull(),
+  },
+  (table) => [
+    index('include_exceptions_space_version').on(table.spaceId, table.version),
+    index('include_exceptions_include').on(table.includeId),
+  ],
+);
+
 /** A run: one use of a list, or an ad-hoc checklist (D1, D10). */
 export const runs = sqliteTable(
   'runs',

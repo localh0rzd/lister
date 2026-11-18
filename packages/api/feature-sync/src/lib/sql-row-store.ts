@@ -1,9 +1,16 @@
 import { eq } from 'drizzle-orm';
 import { type Database, schema } from '@lister/api/data-access-db';
-import type { Include, Item, List, Run, RunItem } from '@lister/shared/domain';
+import type {
+  Include,
+  IncludeException,
+  Item,
+  List,
+  Run,
+  RunItem,
+} from '@lister/shared/domain';
 import type { RowStore } from '@lister/shared/sync-protocol';
 
-const { includes, items, lists, runItems, runs } = schema;
+const { includeExceptions, includes, items, lists, runItems, runs } = schema;
 
 /** A transaction handle (same API as the database). */
 export type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
@@ -25,6 +32,22 @@ export class SqlRowStore implements RowStore {
 
   getInclude(id: string): Include | undefined {
     return this.tx.select().from(includes).where(eq(includes.id, id)).get();
+  }
+
+  getIncludeException(id: string): IncludeException | undefined {
+    return this.tx
+      .select()
+      .from(includeExceptions)
+      .where(eq(includeExceptions.id, id))
+      .get();
+  }
+
+  exceptionsOf(includeId: string): IncludeException[] {
+    return this.tx
+      .select()
+      .from(includeExceptions)
+      .where(eq(includeExceptions.includeId, includeId))
+      .all();
   }
 
   includesOf(parentListId: string): Include[] {
@@ -89,6 +112,14 @@ export class SqlRowStore implements RowStore {
       .insert(includes)
       .values(row)
       .onConflictDoUpdate({ target: includes.id, set: row })
+      .run();
+  }
+
+  putIncludeException(row: IncludeException): void {
+    this.tx
+      .insert(includeExceptions)
+      .values(row)
+      .onConflictDoUpdate({ target: includeExceptions.id, set: row })
       .run();
   }
 }

@@ -1,5 +1,6 @@
 import {
   type Include,
+  type IncludeException,
   type Item,
   comparePositions,
   newId,
@@ -48,6 +49,7 @@ describe('applyMutation (shared by server and client)', () => {
       lists: [id],
       items: [],
       includes: [],
+      includeExceptions: [],
       runs: [],
       runItems: [],
     });
@@ -87,6 +89,7 @@ describe('applyMutation (shared by server and client)', () => {
       lists: [id],
       items: [tent, stove, lamp],
       includes: [],
+      includeExceptions: [],
       runs: [],
       runItems: [],
     });
@@ -324,6 +327,7 @@ describe('includes', () => {
       lists: [],
       items: [],
       includes: [id],
+      includeExceptions: [],
       runs: [],
       runItems: [],
     });
@@ -548,6 +552,7 @@ describe('list.duplicate', () => {
       lists: [copy],
       items: [stoveCopy, tentCopy],
       includes: [includeCopy],
+      includeExceptions: [],
       runs: [],
       runItems: [],
     });
@@ -646,6 +651,7 @@ describe('list.duplicate', () => {
       lists: [copy],
       items: [],
       includes: [],
+      includeExceptions: [],
       runs: [],
       runItems: [],
     });
@@ -1188,6 +1194,7 @@ describe('run.saveAsList', () => {
       lists: [listId],
       items: [ids[0], ids[1], ids[3]],
       includes: [],
+      includeExceptions: [],
       runs: [],
       runItems: [],
     });
@@ -1592,6 +1599,7 @@ describe('list.import', () => {
       lists: [trip, toiletries],
       items: [tent, soap],
       includes: [include],
+      includeExceptions: [],
       runs: [],
       runItems: [],
     });
@@ -1794,5 +1802,200 @@ describe('list.import', () => {
     });
     expect(store.lists.size).toBe(1);
     expect(store.includes.size).toBe(0);
+  });
+});
+
+describe('include exceptions (D28)', () => {
+  function setup() {
+    const store = new MemoryRowStore();
+    const [trip, camping, includeId, chair] = [
+      newId(),
+      newId(),
+      newId(),
+      newId(),
+    ];
+    apply(store, 'list.create', { id: trip, title: 'Trip' });
+    apply(store, 'list.create', {
+      id: camping,
+      title: 'Camping',
+      items: [{ id: chair, title: 'Chair' }],
+    });
+    apply(store, 'include.create', {
+      id: includeId,
+      parentListId: trip,
+      childListId: camping,
+      position: 'a0',
+    });
+    const leaveOut = (
+      targetKind: 'item' | 'list',
+      targetId: string,
+      id = newId(),
+      version = 5,
+    ) =>
+      apply(
+        store,
+        'include.addException',
+        { id, includeId, targetKind, targetId },
+        version,
+      );
+    const putBack = (targetId: string, version = 6) =>
+      apply(store, 'include.removeException', { includeId, targetId }, version);
+    const live = () =>
+      [...store.includeExceptions.values()].filter((r) => r.deletedAt === null);
+    return { store, trip, camping, includeId, chair, leaveOut, putBack, live };
+  }
+
+  it('leaves an item out and an included list out, stamped with the context', () => {
+    const s = setup();
+    const id = newId();
+
+    expect(s.leaveOut('item', s.chair, id)).toEqual({
+      kind: 'changed',
+      lists: [],
+      items: [],
+      includes: [],
+      includeExceptions: [id],
+      runs: [],
+      runItems: [],
+    });
+    expect(s.store.getIncludeException(id)).toEqual({
+      id,
+      spaceId: SPACE,
+      version: 5,
+      deletedAt: null,
+      createdBy: USER,
+      updatedBy: USER,
+      createdAt: 5000,
+      updatedAt: 5000,
+      includeId: s.includeId,
+      targetKind: 'item',
+      targetId: s.chair,
+    });
+    expect(s.leaveOut('list', s.camping)).toMatchObject({ kind: 'changed' });
+    expect(s.live()).toHaveLength(2);
+  });
+
+  it('is idempotent by id and a no-op while a live exception for the pair exists', () => {
+    const s = setup();
+    const id = newId();
+    s.leaveOut('item', s.chair, id);
+
+    expect(s.leaveOut('item', s.chair, id)).toEqual({ kind: 'unchanged' });
+    expect(s.leaveOut('item', s.chair)).toEqual({ kind: 'unchanged' });
+    expect(s.live()).toHaveLength(1);
+  });
+
+  it('adds a new row after the pair was put back (undo of a removal)', () => {
+    const s = setup();
+    s.leaveOut('item', s.chair);
+    s.putBack(s.chair);
+    expect(s.live()).toHaveLength(0);
+
+    expect(s.leaveOut('item', s.chair)).toMatchObject({ kind: 'changed' });
+    expect(s.live()).toHaveLength(1);
+  });
+
+  it('puts back every live row of the pair, as tombstones', () => {
+    const s = setup();
+    // Two clients added it offline: both rows exist, e.g. one arrived through a restored copy.
+    const [a, b] = [newId(), newId()];
+    s.leaveOut('item', s.chair, a);
+    s.store.putIncludeException({
+      ...(s.store.getIncludeException(a) as IncludeException),
+      id: b,
+    });
+
+    const outcome = s.putBack(s.chair);
+
+    expect(outcome).toMatchObject({ kind: 'changed' });
+    expect(
+      outcome.kind === 'changed' && outcome.includeExceptions.sort(),
+    ).toEqual([a, b].sort());
+    expect(s.store.getIncludeException(a)).toMatchObject({
+      deletedAt: 6000,
+      version: 6,
+    });
+    expect(s.live()).toHaveLength(0);
+    expect(s.putBack(s.chair, 7)).toEqual({ kind: 'unchanged' });
+  });
+
+  it('rejects an unknown include, a missing target or a target of another kind', () => {
+    const s = setup();
+    const missing = (name: string, args: object) =>
+      apply(s.store, name, args, 5);
+
+    expect(
+      missing('include.addException', {
+        id: newId(),
+        includeId: newId(),
+        targetKind: 'item',
+        targetId: s.chair,
+      }),
+    ).toEqual({ kind: 'rejected', reason: "This list isn't included there" });
+    expect(s.leaveOut('item', newId())).toEqual({
+      kind: 'rejected',
+      reason: "This item doesn't exist",
+    });
+    expect(s.leaveOut('list', newId())).toEqual({
+      kind: 'rejected',
+      reason: "This list doesn't exist",
+    });
+    // An item id named as a list (and a list id as an item) matches nothing of that kind.
+    expect(s.leaveOut('list', s.chair)).toMatchObject({ kind: 'rejected' });
+    expect(s.leaveOut('item', s.camping)).toMatchObject({ kind: 'rejected' });
+    expect(
+      missing('include.removeException', {
+        includeId: newId(),
+        targetId: s.chair,
+      }),
+    ).toMatchObject({ kind: 'rejected' });
+    expect(s.live()).toHaveLength(0);
+  });
+
+  it('rejects an include or a target of another space', () => {
+    const s = setup();
+    s.store.putItem({
+      ...(s.store.getItem(s.chair) as Item),
+      spaceId: newId(),
+    });
+    expect(s.leaveOut('item', s.chair)).toMatchObject({ kind: 'rejected' });
+
+    const foreign = setup();
+    const include = foreign.store.getInclude(foreign.includeId) as Include;
+    foreign.store.putInclude({ ...include, spaceId: newId() });
+    expect(foreign.leaveOut('item', foreign.chair)).toMatchObject({
+      kind: 'rejected',
+    });
+    expect(foreign.putBack(foreign.chair)).toMatchObject({ kind: 'rejected' });
+  });
+
+  it('rejects reusing an id of another space', () => {
+    const s = setup();
+    const id = newId();
+    s.leaveOut('item', s.chair, id);
+    const row = s.store.getIncludeException(id);
+    s.store.putIncludeException({
+      ...(row as IncludeException),
+      spaceId: newId(),
+    });
+
+    expect(s.leaveOut('item', s.chair, id)).toEqual({
+      kind: 'rejected',
+      reason: 'This exception already exists',
+    });
+  });
+
+  it('leaves exceptions alone when the include or the target is deleted or restored', () => {
+    const s = setup();
+    s.leaveOut('item', s.chair);
+
+    apply(s.store, 'include.delete', { id: s.includeId }, 7);
+    apply(s.store, 'item.delete', { id: s.chair }, 8);
+    expect(s.live()).toHaveLength(1);
+    apply(s.store, 'include.restore', { id: s.includeId }, 9);
+    expect(s.live()).toHaveLength(1);
+    // Still possible on a deleted include: it applies again once the include is back.
+    apply(s.store, 'include.delete', { id: s.includeId }, 10);
+    expect(s.putBack(s.chair, 11)).toMatchObject({ kind: 'changed' });
   });
 });

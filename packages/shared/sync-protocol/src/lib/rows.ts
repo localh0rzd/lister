@@ -1,6 +1,7 @@
 import * as z from 'zod/mini';
 import {
   type Include,
+  type IncludeException,
   type Item,
   LIMITS,
   type List,
@@ -61,6 +62,13 @@ export const includeRowSchema = z.object({
   position: positionSchema,
 }) satisfies z.ZodMiniType<Include>;
 
+export const includeExceptionRowSchema = z.object({
+  ...syncMetadata,
+  includeId: idSchema,
+  targetKind: z.enum(['item', 'list']),
+  targetId: idSchema,
+}) satisfies z.ZodMiniType<IncludeException>;
+
 export const runRowSchema = z.object({
   ...syncMetadata,
   title: z.string().check(z.maxLength(LIMITS.title)),
@@ -89,6 +97,7 @@ export const rowSetSchema = z.object({
   lists: z.array(listRowSchema),
   items: z.array(itemRowSchema),
   includes: z._default(z.array(includeRowSchema), []),
+  includeExceptions: z._default(z.array(includeExceptionRowSchema), []),
   runs: z._default(z.array(runRowSchema), []),
   runItems: z._default(z.array(runItemRowSchema), []),
 });

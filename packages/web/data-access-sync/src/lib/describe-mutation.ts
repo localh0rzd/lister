@@ -104,6 +104,17 @@ export async function describeMutation(
       return include('Remove', 'from');
     case 'include.restore':
       return include('Restore', 'in');
+    case 'include.addException':
+    case 'include.removeException': {
+      const parent = await titles.include(str('includeId') ?? '');
+      const target = str('targetId') ?? '';
+      // A removal doesn't carry the kind; ids are unique across tables.
+      const title = (await titles.item(target)) ?? (await titles.list(target));
+      const where = quote(parent && (await titles.list(parent.parentListId)));
+      return mutation.name === 'include.addException'
+        ? `Leave out ${quote(title)} of ${where}`
+        : `Put back ${quote(title)} in ${where}`;
+    }
   }
 }
 

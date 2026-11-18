@@ -79,7 +79,8 @@ describe('PurgeService', () => {
       | typeof schema.lists
       | typeof schema.runs
       | typeof schema.runItems
-      | typeof schema.includes,
+      | typeof schema.includes
+      | typeof schema.includeExceptions,
   ) =>
     database.db
       .select({ id: table.id })
@@ -129,6 +130,78 @@ describe('PurgeService', () => {
     expect(ids(schema.lists)).toEqual([live]);
     expect(ids(schema.items)).toHaveLength(1);
     expect(ids(schema.includes)).toEqual([]);
+  });
+
+  describe('exceptions (D28)', () => {
+    const include = (
+      parentListId: string,
+      childListId: string,
+      deletedAt: number | null = null,
+    ) => {
+      const row = {
+        ...base(deletedAt),
+        parentListId,
+        childListId,
+        position: 'a0',
+      };
+      database.db.insert(schema.includes).values(row).run();
+      return row.id;
+    };
+    const exception = (
+      includeId: string,
+      targetKind: 'item' | 'list',
+      targetId: string,
+      deletedAt: number | null = null,
+    ) => {
+      const row = { ...base(deletedAt), includeId, targetKind, targetId };
+      database.db.insert(schema.includeExceptions).values(row).run();
+      return row.id;
+    };
+
+    it('removes the exceptions of a purged include, item or list, and old tombstones', () => {
+      const [parent, child] = [list(), list()];
+      const keptItem = item(child);
+      const keptInclude = include(parent, child);
+      const kept = exception(keptInclude, 'item', keptItem);
+      exception(keptInclude, 'item', keptItem, OLD);
+      const recent = exception(keptInclude, 'list', child, RECENT);
+      exception(keptInclude, 'item', item(child, OLD));
+      const goneList = list(OLD);
+      exception(keptInclude, 'list', goneList);
+      // An include whose child list is purged goes with its exceptions.
+      exception(include(parent, goneList), 'item', keptItem);
+      exception(include(parent, child, OLD), 'item', keptItem);
+
+      service.purge(NOW);
+
+      expect(ids(schema.includeExceptions).sort()).toEqual(
+        [kept, recent].sort(),
+      );
+      expect(ids(schema.includes)).toEqual([keptInclude]);
+    });
+
+    it('does not mistake an item id for a list id of the same value', () => {
+      const [parent, child] = [list(), list()];
+      const target = item(list(OLD));
+      const keep = exception(include(parent, child), 'list', target);
+
+      service.purge(NOW);
+
+      expect(ids(schema.includeExceptions)).toEqual([keep]);
+    });
+
+    it('moves a space that only lost exceptions on a version', () => {
+      const [parent, child] = [list(), list()];
+      exception(include(parent, child), 'item', item(child), OLD);
+      const before = space()?.version ?? 0;
+
+      expect(service.purge(NOW)).toBe(1);
+
+      expect(space()).toEqual({
+        version: before + 1,
+        purgedVersion: before + 1,
+      });
+    });
   });
 
   it('keeps a list deleted less than 30 days ago with its items', () => {

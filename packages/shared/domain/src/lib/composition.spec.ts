@@ -4,7 +4,7 @@ import {
   flattenEntries,
   wouldCreateCycle,
 } from './composition';
-import type { Include, Item, List } from './entities';
+import type { Include, IncludeException, Item, List } from './entities';
 import { runItemsFromList } from './runs';
 
 const meta = {
@@ -22,6 +22,8 @@ function space(spec: {
   lists: string[];
   items?: string[];
   includes?: string[];
+  /** `parent>child:item:<listId>-<title>` or `parent>child:list:<listId>`, on that include. */
+  exceptions?: string[];
   deletedLists?: string[];
   deletedRows?: string[];
 }): CompositionSource {
@@ -66,7 +68,22 @@ function space(spec: {
       deletedAt: deleted.has(edge) ? 1 : null,
     };
   });
+  const exceptions: IncludeException[] = (spec.exceptions ?? []).map(
+    (entry) => {
+      const [includeId, targetKind, targetId] = entry.split(':');
+      return {
+        ...meta,
+        id: entry,
+        includeId,
+        targetKind: targetKind as 'item' | 'list',
+        targetId,
+        deletedAt: deleted.has(entry) ? 1 : null,
+      };
+    },
+  );
   return {
+    exceptionsOf: (includeId) =>
+      exceptions.filter((row) => row.includeId === includeId),
     list: (id) => lists.get(id),
     itemsOf: (listId) => items.filter((row) => row.listId === listId),
     includesOf: (listId) =>
@@ -77,6 +94,15 @@ function space(spec: {
 const flat = (listId: string, source: CompositionSource) =>
   flatten(listId, source).map(
     ({ item, listId: from }) => `${from}:${item.title}`,
+  );
+
+const view = (listId: string, source: CompositionSource) =>
+  flattenEntries(listId, source).map((entry) =>
+    entry.kind === 'item'
+      ? `${'  '.repeat(entry.depth)}${entry.listId}:${entry.item.title}`
+      : entry.kind === 'section'
+        ? `${'  '.repeat(entry.depth)}[${entry.include.childListId} ${entry.state}]`
+        : `${'  '.repeat(entry.depth)}-${entry.target.kind === 'item' ? entry.target.item.title : entry.target.include.childListId} (${entry.ownerListId})`,
   );
 
 describe('flatten', () => {
@@ -189,13 +215,6 @@ describe('flatten, edge cases', () => {
 });
 
 describe('flattenEntries (the editor view)', () => {
-  const view = (listId: string, source: CompositionSource) =>
-    flattenEntries(listId, source).map((entry) =>
-      entry.kind === 'item'
-        ? `${'  '.repeat(entry.depth)}${entry.listId}:${entry.item.title}`
-        : `${'  '.repeat(entry.depth)}[${entry.include.childListId} ${entry.state}]`,
-    );
-
   it('shows each include as a section, also when the list is empty', () => {
     const source = space({
       lists: ['Trip', 'Toiletries', 'Camping'],
@@ -242,6 +261,167 @@ describe('flattenEntries (the editor view)', () => {
       ['B', 'live'],
       [undefined, 'deleted'],
     ]);
+  });
+});
+
+describe('leaving out (D28)', () => {
+  const camping = {
+    lists: ['Trip', 'Camping', 'Beach', 'Sleep'],
+    items: [
+      'Trip:Passport@a0',
+      'Camping:Chair@a0',
+      'Camping:Stove@a1',
+      'Sleep:Bag@a0',
+      'Beach:Towel@a0',
+    ],
+  };
+
+  it('leaves out an item below a direct include, and reports it', () => {
+    const source = space({
+      ...camping,
+      includes: ['Trip>Camping@a1'],
+      exceptions: ['Trip>Camping:item:Camping-Chair'],
+    });
+    expect(flat('Trip', source)).toEqual(['Trip:Passport', 'Camping:Stove']);
+    expect(flat('Camping', source)).toEqual(['Camping:Chair', 'Camping:Stove']);
+    expect(flattenEntries('Trip', source)).toContainEqual(
+      expect.objectContaining({
+        kind: 'leftOut',
+        listId: 'Camping',
+        depth: 1,
+        ownerListId: 'Trip',
+        exception: expect.objectContaining({ includeId: 'Trip>Camping' }),
+        target: expect.objectContaining({
+          kind: 'item',
+          item: expect.objectContaining({ title: 'Chair' }),
+        }),
+      }),
+    );
+  });
+
+  it('leaves out a nested list with everything below it', () => {
+    const source = space({
+      ...camping,
+      includes: ['Trip>Camping@a1', 'Camping>Sleep@a2'],
+      exceptions: ['Trip>Camping:list:Sleep'],
+    });
+    expect(view('Trip', source)).toEqual([
+      'Trip:Passport',
+      '[Camping live]',
+      '  Camping:Chair',
+      '  Camping:Stove',
+      '  -Sleep (Trip)',
+    ]);
+    expect(flat('Camping', source)).toContain('Sleep:Bag');
+  });
+
+  it('carries an exception through further includes (inherited)', () => {
+    const source = space({
+      lists: ['Holiday', ...camping.lists],
+      items: camping.items,
+      includes: ['Holiday>Trip@a0', 'Trip>Camping@a1'],
+      exceptions: ['Trip>Camping:item:Camping-Chair'],
+    });
+    expect(flat('Holiday', source)).toEqual(['Trip:Passport', 'Camping:Stove']);
+    expect(view('Holiday', source)).toContain('    -Chair (Trip)');
+  });
+
+  it('lets leaving out win when two paths disagree, whatever the order', () => {
+    const lists = ['Holiday', 'Trip', 'Beach', 'Camping'];
+    const items = ['Camping:Chair@a0', 'Camping:Stove@a1'];
+    for (const [tripPos, beachPos] of [
+      ['a0', 'a1'],
+      ['a1', 'a0'],
+    ]) {
+      const source = space({
+        lists,
+        items,
+        includes: [
+          `Holiday>Trip@${tripPos}`,
+          `Holiday>Beach@${beachPos}`,
+          'Trip>Camping@a0',
+          'Beach>Camping@a0',
+        ],
+        exceptions: ['Trip>Camping:item:Camping-Chair'],
+      });
+      expect(flat('Holiday', source)).toEqual(['Camping:Stove']);
+    }
+  });
+
+  it('prefers the exception nearest to the viewed list', () => {
+    const source = space({
+      lists: ['Holiday', 'Trip', 'Camping'],
+      items: ['Camping:Chair@a0'],
+      includes: ['Holiday>Trip@a0', 'Trip>Camping@a0'],
+      exceptions: [
+        'Trip>Camping:item:Camping-Chair',
+        'Holiday>Trip:item:Camping-Chair',
+      ],
+    });
+    expect(view('Holiday', source)).toContain('    -Chair (Holiday)');
+  });
+
+  it('ignores a target that is not below the include, or whose kind does not match', () => {
+    const source = space({
+      ...camping,
+      includes: ['Trip>Camping@a1'],
+      exceptions: [
+        'Trip>Camping:item:Beach-Towel',
+        'Trip>Camping:list:Camping-Chair',
+      ],
+    });
+    expect(flat('Trip', source)).toEqual([
+      'Trip:Passport',
+      'Camping:Chair',
+      'Camping:Stove',
+    ]);
+  });
+
+  it('ignores deleted exceptions and those of deleted includes or lists', () => {
+    const base = {
+      ...camping,
+      includes: ['Trip>Camping@a1'],
+      exceptions: ['Trip>Camping:item:Camping-Chair'],
+    };
+    const all = ['Trip:Passport', 'Camping:Chair', 'Camping:Stove'];
+    expect(
+      flat(
+        'Trip',
+        space({ ...base, deletedRows: ['Trip>Camping:item:Camping-Chair'] }),
+      ),
+    ).toEqual(all);
+    expect(
+      flat('Trip', space({ ...base, deletedRows: ['Trip>Camping'] })),
+    ).toEqual(['Trip:Passport']);
+  });
+
+  it('applies again when a deleted include comes back (restored include)', () => {
+    const rows = {
+      ...camping,
+      includes: ['Trip>Camping@a1'],
+      exceptions: ['Trip>Camping:item:Camping-Chair'],
+    };
+    const deleted = space({ ...rows, deletedRows: ['Trip>Camping'] });
+    const restored = space(rows);
+    expect(flat('Trip', deleted)).not.toContain('Camping:Stove');
+    expect(flat('Trip', restored)).toEqual(['Trip:Passport', 'Camping:Stove']);
+  });
+
+  it('does not copy left-out items into a run', () => {
+    const source = space({
+      ...camping,
+      includes: ['Trip>Camping@a1'],
+      exceptions: ['Trip>Camping:item:Camping-Chair'],
+    });
+    expect(
+      runItemsFromList('Trip', source, () => 'x').map((row) => row.title),
+    ).toEqual(['Passport', 'Stove']);
+  });
+
+  it('works with a source that has no exceptions', () => {
+    const source = space({ ...camping, includes: ['Trip>Camping@a1'] });
+    const { exceptionsOf: _unused, ...plain } = source;
+    expect(flat('Trip', plain)).toHaveLength(3);
   });
 });
 

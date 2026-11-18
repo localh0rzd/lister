@@ -3,8 +3,17 @@ import { and, asc, desc, eq, gt, inArray, sql } from 'drizzle-orm';
 import { DatabaseConnection, schema } from '@lister/api/data-access-db';
 import type { Rows, Welcome } from '@lister/shared/sync-protocol';
 
-const { includes, items, lists, memberships, runItems, runs, spaces, users } =
-  schema;
+const {
+  includeExceptions,
+  includes,
+  items,
+  lists,
+  memberships,
+  runItems,
+  runs,
+  spaces,
+  users,
+} = schema;
 
 /** One space of the welcome: the space with its members' display names. */
 export type WelcomeSpace = Welcome['spaces'][number];
@@ -105,6 +114,7 @@ export class SyncReader {
           | typeof lists
           | typeof items
           | typeof includes
+          | typeof includeExceptions
           | typeof runs
           | typeof runItems,
       ) => and(eq(table.spaceId, spaceId), gt(table.version, from));
@@ -117,6 +127,11 @@ export class SyncReader {
           lists: tx.select().from(lists).where(changed(lists)).all(),
           items: tx.select().from(items).where(changed(items)).all(),
           includes: tx.select().from(includes).where(changed(includes)).all(),
+          includeExceptions: tx
+            .select()
+            .from(includeExceptions)
+            .where(changed(includeExceptions))
+            .all(),
           runs: tx.select().from(runs).where(changed(runs)).all(),
           runItems: tx.select().from(runItems).where(changed(runItems)).all(),
         },

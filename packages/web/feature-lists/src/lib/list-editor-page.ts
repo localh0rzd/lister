@@ -205,13 +205,14 @@ export class ListEditorPage {
     const root = list.value.id;
     const rows: EditorRow[] = [];
     for (const entry of flattenEntries(root, space.value)) {
+      if (entry.kind === 'leftOut') continue; // shown by the web task for D28
       if (entry.depth > 0) {
         const section = rows.at(-1);
         if (section?.kind === 'section') section.entries.push(entry);
       } else if (entry.kind === 'item') {
         const { item } = entry;
         rows.push({ kind: 'item', id: item.id, position: item.position, item });
-      } else {
+      } else if (entry.kind === 'section') {
         const { include, list: child, state } = entry;
         rows.push({
           kind: 'section',

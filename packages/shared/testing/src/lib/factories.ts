@@ -6,6 +6,7 @@ import type {
 } from '@lister/shared/api-contracts';
 import type {
   Include,
+  IncludeException,
   Item,
   List,
   Run,
@@ -132,6 +133,18 @@ export function makeInclude(overrides: Partial<Include> = {}): Include {
     parentListId: id(),
     childListId: id(),
     position: 'a0',
+    ...overrides,
+  };
+}
+
+export function makeIncludeException(
+  overrides: Partial<IncludeException> = {},
+): IncludeException {
+  return {
+    ...syncMetadata(),
+    includeId: id(),
+    targetKind: 'item',
+    targetId: id(),
     ...overrides,
   };
 }

@@ -97,6 +97,14 @@ describe('mutationSchema', () => {
       { name: 'include.move', args: { id, position: 'a2' } },
       { name: 'include.delete', args: { id } },
       { name: 'include.restore', args: { id } },
+      {
+        name: 'include.addException',
+        args: { id, includeId: id, targetKind: 'item', targetId: id },
+      },
+      {
+        name: 'include.removeException',
+        args: { includeId: id, targetId: id },
+      },
     ];
 
     expect(valid.map((m) => m.name).sort()).toEqual([...MUTATION_NAMES].sort());
@@ -211,6 +219,34 @@ describe('mutationSchema', () => {
   ])('rejects %s', (_, mutation) => {
     expect(
       mutationSchema.safeParse({ ...envelope(), ...mutation }).success,
+    ).toBe(false);
+  });
+
+  it.each([
+    [
+      'an exception with an unknown target kind',
+      'include.addException',
+      { targetKind: 'run' },
+    ],
+    ['an exception without an id', 'include.addException', { id: undefined }],
+    [
+      'a removal naming a kind',
+      'include.removeException',
+      { targetKind: 'item' },
+    ],
+  ])('rejects %s', (_, name, bad) => {
+    const base = {
+      id: newId(),
+      includeId: newId(),
+      targetKind: 'item',
+      targetId: newId(),
+    };
+    const args =
+      name === 'include.addException'
+        ? { ...base, ...bad }
+        : { includeId: base.includeId, targetId: base.targetId, ...bad };
+    expect(
+      mutationSchema.safeParse({ ...envelope(), name, args }).success,
     ).toBe(false);
   });
 

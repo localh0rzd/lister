@@ -31,7 +31,11 @@ export function groupsOfList(
   for (const entry of flattenEntries(listId, source)) {
     if (entry.kind === 'item') {
       groups.get(entry.listId)?.items.push(entry.item);
-    } else if (entry.state === 'live' && entry.list) {
+    } else if (
+      entry.kind === 'section' &&
+      entry.state === 'live' &&
+      entry.list
+    ) {
       const { id, title } = entry.list;
       groups.set(id, { listId: id, title, depth: entry.depth + 1, items: [] });
     }

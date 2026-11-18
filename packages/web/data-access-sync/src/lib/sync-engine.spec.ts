@@ -227,6 +227,9 @@ class FakeServer {
         includes: result.includes.flatMap(
           (id) => this.store.includes.get(id) ?? [],
         ),
+        includeExceptions: result.includeExceptions.flatMap(
+          (id) => this.store.includeExceptions.get(id) ?? [],
+        ),
         runs: result.runs.flatMap((id) => this.store.runs.get(id) ?? []),
         runItems: result.runItems.flatMap(
           (id) => this.store.runItems.get(id) ?? [],
