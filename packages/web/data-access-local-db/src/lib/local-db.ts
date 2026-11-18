@@ -2,6 +2,7 @@ import { InjectionToken } from '@angular/core';
 import { Dexie, type EntityTable, type Table } from 'dexie';
 import type {
   Include,
+  IncludeException,
   Item,
   List,
   Run,
@@ -81,7 +82,7 @@ export interface MetaEntry {
 /**
  * The local database (IndexedDB via Dexie), design §2.5 and §4.2:
  *
- * - `serverLists` / `serverItems` / `serverIncludes`: rows exactly as the server last sent them.
+ * - `serverLists` / `serverItems` / `serverIncludes` / `serverIncludeExceptions`: rows exactly as the server last sent them.
  * - `lists` / `items` / `includes`: what the UI shows, i.e. the server rows with the pending outbox mutations
  *   re-applied on top. The sync engine rebuilds affected rows from the server copy whenever
  *   server rows arrive or a mutation is rejected (rebase and rollback).
@@ -91,7 +92,7 @@ export interface MetaEntry {
  * the same change (CLAUDE.md). Version 1 matches server migrations 0000–0001; version 2 adds the
  * client-only `rejections` table; version 3 indexes spaces by name; version 4 matches migration
  * 0002 (includes), version 5 migration 0003 (runs) and version 6 migration 0004
- * (`mergedInto`); each forces a snapshot. Tombstones are
+ * (`mergedInto`), version 9 migration 0013 (include exceptions); each forces a snapshot. Tombstones are
  * stored like other rows; queries leave them out (`deletedAt` can't be indexed while it's null).
  */
 export class LocalDb extends Dexie {
@@ -102,6 +103,8 @@ export class LocalDb extends Dexie {
   serverLists!: EntityTable<List, 'id'>;
   serverItems!: EntityTable<Item, 'id'>;
   serverIncludes!: EntityTable<Include, 'id'>;
+  includeExceptions!: EntityTable<IncludeException, 'id'>;
+  serverIncludeExceptions!: EntityTable<IncludeException, 'id'>;
   runs!: EntityTable<Run, 'id'>;
   runItems!: EntityTable<RunItem, 'id'>;
   serverRuns!: EntityTable<Run, 'id'>;
@@ -156,6 +159,14 @@ export class LocalDb extends Dexie {
     // Server migration 0011: lists' `colour` and `icon` (new synced fields: snapshot).
     this.version(8)
       .stores({})
+      .upgrade((tx) => tx.table('syncState').clear());
+    // Server migration 0013: include exceptions, "leaving out" (D28). A new synced table:
+    // snapshot on the next pull, since an older app dropped them from the pokes it got.
+    this.version(9)
+      .stores({
+        includeExceptions: 'id, spaceId, includeId',
+        serverIncludeExceptions: 'id, spaceId, includeId',
+      })
       .upgrade((tx) => tx.table('syncState').clear());
   }
 

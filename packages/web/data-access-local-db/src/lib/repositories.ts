@@ -3,6 +3,7 @@ import {
   TRASH_KEEP_MS,
   type CompositionSource,
   type Include,
+  type IncludeException,
   type Item,
   type List,
   type Run,
@@ -73,6 +74,7 @@ function composition(
   lists: readonly List[],
   items: readonly Item[],
   includes: readonly Include[],
+  exceptions: readonly IncludeException[],
 ): SpaceComposition {
   const listsById = new Map(lists.map((list) => [list.id, list]));
   const group = <T>(rows: readonly T[], key: (row: T) => string) => {
@@ -83,6 +85,7 @@ function composition(
   };
   const itemsByList = group(items, (item) => item.listId);
   const includesByParent = group(includes, (row) => row.parentListId);
+  const exceptionsByInclude = group(exceptions, (row) => row.includeId);
   const live = includes.filter(
     (row) =>
       row.deletedAt === null &&
@@ -111,6 +114,7 @@ function composition(
     list: (id) => listsById.get(id),
     itemsOf: (listId) => itemsByList.get(listId) ?? [],
     includesOf: (listId) => includesByParent.get(listId) ?? [],
+    exceptionsOf: (includeId) => exceptionsByInclude.get(includeId) ?? [],
     usersOf,
   };
 }
@@ -239,6 +243,7 @@ export class Repositories {
           await this.db.lists.where('spaceId').equals(id).toArray(),
           await this.db.items.where('spaceId').equals(id).toArray(),
           await this.db.includes.where('spaceId').equals(id).toArray(),
+          await this.db.includeExceptions.where('spaceId').equals(id).toArray(),
         );
     });
   }

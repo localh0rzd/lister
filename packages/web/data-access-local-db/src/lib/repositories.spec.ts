@@ -7,10 +7,12 @@ import {
   type Run,
   type RunItem,
   flatten,
+  flattenEntries,
   newId,
 } from '@lister/shared/domain';
 import {
   makeInclude,
+  makeIncludeException,
   makeItem,
   makeList,
   makeRun,
@@ -62,9 +64,10 @@ const titles = (state: QueryState<{ title: string }[]>) =>
   valueOf(state)?.map((r) => r.title);
 
 describe('LocalDb', () => {
-  it('has the tables of schema version 8', () => {
-    expect(db.verno).toBe(8);
+  it('has the tables of schema version 9', () => {
+    expect(db.verno).toBe(9);
     expect(db.tables.map((t) => t.name).sort()).toEqual([
+      'includeExceptions',
       'includes',
       'items',
       'lists',
@@ -73,6 +76,7 @@ describe('LocalDb', () => {
       'rejections',
       'runItems',
       'runs',
+      'serverIncludeExceptions',
       'serverIncludes',
       'serverItems',
       'serverLists',
@@ -451,6 +455,78 @@ describe('Repositories.compositionOfSpace', () => {
       const space = valueOf(state());
       expect(space?.includes).toHaveLength(4);
       expect(space?.usersOf(camping.id).has(bigTrip.id)).toBe(true);
+    });
+  });
+});
+
+describe('Repositories.compositionOfSpace leaving out (D28)', () => {
+  it('hides left-out items, direct and nested, from flattening, but not deleted exceptions', async () => {
+    const trip = list('Trip');
+    const camping = list('Camping');
+    const kitchen = list('Kitchen');
+    await db.lists.bulkPut([trip, camping, kitchen]);
+    const tent = item(camping.id, 'Tent', 'a0');
+    const stove = item(camping.id, 'Stove', 'a1');
+    const pan = item(kitchen.id, 'Pan', 'a0');
+    await db.items.bulkPut([tent, stove, pan]);
+    const toCamping = makeInclude({
+      spaceId: SPACE,
+      parentListId: trip.id,
+      childListId: camping.id,
+      position: 'a1',
+    });
+    const toKitchen = makeInclude({
+      spaceId: SPACE,
+      parentListId: camping.id,
+      childListId: kitchen.id,
+      position: 'a2',
+    });
+    await db.includes.bulkPut([toCamping, toKitchen]);
+    // Trip leaves out the tent (direct) and the pan (nested, below Camping's include of Kitchen).
+    await db.includeExceptions.bulkPut([
+      makeIncludeException({
+        spaceId: SPACE,
+        includeId: toCamping.id,
+        targetKind: 'item',
+        targetId: tent.id,
+      }),
+      makeIncludeException({
+        spaceId: SPACE,
+        includeId: toCamping.id,
+        targetKind: 'item',
+        targetId: pan.id,
+      }),
+      makeIncludeException({
+        spaceId: SPACE,
+        includeId: toCamping.id,
+        targetKind: 'item',
+        targetId: stove.id,
+        deletedAt: 9,
+      }),
+      makeIncludeException({
+        spaceId: OTHER_SPACE,
+        includeId: toCamping.id,
+        targetKind: 'item',
+        targetId: stove.id,
+      }),
+    ]);
+    const state = TestBed.runInInjectionContext(() =>
+      repositories.compositionOfSpace(() => SPACE),
+    );
+
+    await vi.waitFor(() => {
+      TestBed.tick();
+      const space = valueOf(state());
+      expect(space && flatten(trip.id, space).map((f) => f.item.title)).toEqual(
+        ['Stove'],
+      );
+      expect(
+        space &&
+          flattenEntries(trip.id, space)
+            .filter((entry) => entry.kind === 'leftOut')
+            .map((entry) => entry.exception.targetId)
+            .sort(),
+      ).toEqual([pan.id, tent.id].sort());
     });
   });
 });

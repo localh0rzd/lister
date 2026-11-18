@@ -99,6 +99,7 @@ interface Touched {
   lists: Set<string>;
   items: Set<string>;
   includes: Set<string>;
+  includeExceptions: Set<string>;
   runs: Set<string>;
   runItems: Set<string>;
 }
@@ -107,6 +108,7 @@ const noneTouched = (): Touched => ({
   lists: new Set(),
   items: new Set(),
   includes: new Set(),
+  includeExceptions: new Set(),
   runs: new Set(),
   runItems: new Set(),
 });
@@ -119,6 +121,9 @@ interface TouchingArgs {
   childListId?: string;
   sourceListId?: string | null;
   runId?: string;
+  includeId?: string;
+  targetKind?: 'item' | 'list';
+  targetId?: string;
   items?: { id: string; from?: string }[];
   includes?: { id: string; from: string }[];
   /** list.import: new lists, each with entries that are items or (with `listId`) includes. */
@@ -159,6 +164,19 @@ function touchedBy(
         if (a.listId) into.lists.add(a.listId);
         break;
       case 'include':
+        if (name === 'include.addException') {
+          // Reads its include and target, writes a new exception row.
+          if (a.id) into.includeExceptions.add(a.id);
+          if (a.includeId) into.includes.add(a.includeId);
+          if (a.targetId)
+            (a.targetKind === 'item' ? into.items : into.lists).add(a.targetId);
+          break;
+        }
+        if (name === 'include.removeException') {
+          // Its exception rows are found by relation in `rebuild()`.
+          if (a.includeId) into.includes.add(a.includeId);
+          break;
+        }
         if (a.id) into.includes.add(a.id);
         if (a.parentListId) into.lists.add(a.parentListId);
         if (a.childListId) into.lists.add(a.childListId);
@@ -519,6 +537,10 @@ export class SyncEngine {
             await this.db.includes.where('spaceId').equals(spaceId).toArray(),
             await this.db.runs.where('spaceId').equals(spaceId).toArray(),
             await this.db.runItems.where('spaceId').equals(spaceId).toArray(),
+            await this.db.includeExceptions
+              .where('spaceId')
+              .equals(spaceId)
+              .toArray(),
           );
           const context = await this.context(spaceId);
           const outcome = applyMutation(
@@ -903,11 +925,13 @@ export class SyncEngine {
       this.db.serverLists,
       this.db.serverItems,
       this.db.serverIncludes,
+      this.db.serverIncludeExceptions,
       this.db.serverRuns,
       this.db.serverRunItems,
       this.db.lists,
       this.db.items,
       this.db.includes,
+      this.db.includeExceptions,
       this.db.runs,
       this.db.runItems,
       this.db.outbox,
@@ -936,6 +960,7 @@ export class SyncEngine {
       lists: rows.rows.lists.length,
       items: rows.rows.items.length,
       includes: rows.rows.includes.length,
+      includeExceptions: rows.rows.includeExceptions.length,
       runs: rows.rows.runs.length,
       runItems: rows.rows.runItems.length,
     });
@@ -1112,11 +1137,13 @@ export class SyncEngine {
       this.db.serverLists,
       this.db.serverItems,
       this.db.serverIncludes,
+      this.db.serverIncludeExceptions,
       this.db.serverRuns,
       this.db.serverRunItems,
       this.db.lists,
       this.db.items,
       this.db.includes,
+      this.db.includeExceptions,
       this.db.runs,
       this.db.runItems,
       this.db.outbox,
@@ -1140,12 +1167,17 @@ export class SyncEngine {
         await this.db.serverLists.where('spaceId').equals(spaceId).delete();
         await this.db.serverItems.where('spaceId').equals(spaceId).delete();
         await this.db.serverIncludes.where('spaceId').equals(spaceId).delete();
+        await this.db.serverIncludeExceptions
+          .where('spaceId')
+          .equals(spaceId)
+          .delete();
         await this.db.serverRuns.where('spaceId').equals(spaceId).delete();
         await this.db.serverRunItems.where('spaceId').equals(spaceId).delete();
       }
       await this.db.serverLists.bulkPut(rows.lists);
       await this.db.serverItems.bulkPut(rows.items);
       await this.db.serverIncludes.bulkPut(rows.includes);
+      await this.db.serverIncludeExceptions.bulkPut(rows.includeExceptions);
       await this.db.serverRuns.bulkPut(rows.runs);
       await this.db.serverRunItems.bulkPut(rows.runItems);
       const held = (await this.db.syncState.get(spaceId))?.timeline ?? '';
@@ -1163,6 +1195,8 @@ export class SyncEngine {
       for (const row of rows.lists) touched.lists.add(row.id);
       for (const row of rows.items) touched.items.add(row.id);
       for (const row of rows.includes) touched.includes.add(row.id);
+      for (const row of rows.includeExceptions)
+        touched.includeExceptions.add(row.id);
       for (const row of rows.runs) touched.runs.add(row.id);
       for (const row of rows.runItems) touched.runItems.add(row.id);
       for (const entry of await this.db.outbox
@@ -1211,10 +1245,15 @@ export class SyncEngine {
       .where('spaceId')
       .equals(spaceId)
       .toArray();
+    const serverExceptions = await this.db.serverIncludeExceptions
+      .where('spaceId')
+      .equals(spaceId)
+      .toArray();
     let store: MemoryRowStore;
     let lists: Iterable<string>;
     let items: Iterable<string>;
     let includes: Iterable<string>;
+    let includeExceptions: Iterable<string>;
     let runs: Iterable<string>;
     let runItems: Iterable<string>;
     if (!touched) {
@@ -1224,15 +1263,18 @@ export class SyncEngine {
         serverIncludes,
         await this.db.serverRuns.where('spaceId').equals(spaceId).toArray(),
         await this.db.serverRunItems.where('spaceId').equals(spaceId).toArray(),
+        serverExceptions,
       );
       await this.db.lists.where('spaceId').equals(spaceId).delete();
       await this.db.items.where('spaceId').equals(spaceId).delete();
       await this.db.includes.where('spaceId').equals(spaceId).delete();
+      await this.db.includeExceptions.where('spaceId').equals(spaceId).delete();
       await this.db.runs.where('spaceId').equals(spaceId).delete();
       await this.db.runItems.where('spaceId').equals(spaceId).delete();
       lists = [];
       items = [];
       includes = [];
+      includeExceptions = [];
       runs = [];
       runItems = [];
     } else {
@@ -1242,6 +1284,7 @@ export class SyncEngine {
           lists: new Set(touched.lists),
           items: new Set(touched.items),
           includes: new Set(touched.includes),
+          includeExceptions: new Set(touched.includeExceptions),
           runs: new Set(touched.runs),
           runItems: new Set(touched.runItems),
         },
@@ -1256,6 +1299,10 @@ export class SyncEngine {
         if (!ids.includes.has(include.id)) continue;
         ids.lists.add(include.parentListId);
         ids.lists.add(include.childListId);
+      }
+      // An exception follows its include: removing one finds its rows by relation.
+      for (const row of serverExceptions) {
+        if (ids.includes.has(row.includeId)) ids.includeExceptions.add(row.id);
       }
       const serverLists = (
         await this.db.serverLists.bulkGet([...ids.lists])
@@ -1283,10 +1330,12 @@ export class SyncEngine {
         serverIncludes,
         serverRuns,
         serverRunItems,
+        serverExceptions,
       );
       lists = ids.lists;
       items = ids.items;
       includes = ids.includes;
+      includeExceptions = ids.includeExceptions;
       runs = ids.runs;
       runItems = ids.runItems;
     }
@@ -1302,6 +1351,9 @@ export class SyncEngine {
       await this.db.items.bulkPut([...store.items.values()].filter(inSpace));
       await this.db.includes.bulkPut(
         [...store.includes.values()].filter(inSpace),
+      );
+      await this.db.includeExceptions.bulkPut(
+        [...store.includeExceptions.values()].filter(inSpace),
       );
       await this.db.runs.bulkPut([...store.runs.values()].filter(inSpace));
       await this.db.runItems.bulkPut(
@@ -1336,6 +1388,15 @@ export class SyncEngine {
     );
     await this.db.includes.bulkPut(includeChanges.put);
     await this.db.includes.bulkDelete(includeChanges.gone);
+    const exceptionIds = [...includeExceptions];
+    const exceptionChanges = changes(
+      spaceId,
+      exceptionIds,
+      store.includeExceptions,
+      await this.db.includeExceptions.bulkGet(exceptionIds),
+    );
+    await this.db.includeExceptions.bulkPut(exceptionChanges.put);
+    await this.db.includeExceptions.bulkDelete(exceptionChanges.gone);
     const runIds = [...runs];
     const runChanges = changes(
       spaceId,

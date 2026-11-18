@@ -163,7 +163,14 @@ class FakeServer {
           version: 3,
           timeline: 'tl-other',
           snapshot: false,
-          rows: { lists: [], items: [], includes: [], runs: [], runItems: [] },
+          rows: {
+            lists: [],
+            items: [],
+            includes: [],
+            includeExceptions: [],
+            runs: [],
+            runItems: [],
+          },
         });
         return;
       }
@@ -179,6 +186,9 @@ class FakeServer {
           lists: [...this.store.lists.values()].filter((r) => r.version > from),
           items: [...this.store.items.values()].filter((r) => r.version > from),
           includes: [...this.store.includes.values()].filter(
+            (r) => r.version > from,
+          ),
+          includeExceptions: [...this.store.includeExceptions.values()].filter(
             (r) => r.version > from,
           ),
           runs: [...this.store.runs.values()].filter((r) => r.version > from),
@@ -967,6 +977,111 @@ describe('SyncEngine', () => {
           }),
         ]),
       );
+    });
+
+    describe('leaving out (D28)', () => {
+      async function tripWithTent() {
+        const trip = await createList('Trip');
+        const camping = await createList('Camping');
+        const tent = newId();
+        await engine.mutate({
+          spaceId: SPACE,
+          name: 'item.create',
+          args: { id: tent, listId: camping, title: 'Tent', position: 'a0' },
+        });
+        const link = include(trip, camping);
+        await engine.mutate(link);
+        return { link, tent };
+      }
+
+      it('leaves an item out locally, syncs it, and takes it back', async () => {
+        setup();
+        engine.start();
+        await settle();
+        const { link, tent } = await tripWithTent();
+        const id = newId();
+
+        expect(
+          await engine.mutate({
+            spaceId: SPACE,
+            name: 'include.addException',
+            args: {
+              id,
+              includeId: link.args.id,
+              targetKind: 'item',
+              targetId: tent,
+            },
+          }),
+        ).toEqual({ ok: true });
+        expect(await db.includeExceptions.get(id)).toMatchObject({
+          includeId: link.args.id,
+          targetId: tent,
+          deletedAt: null,
+        });
+        await settle();
+        expect(await db.serverIncludeExceptions.get(id)).toBeDefined();
+
+        // Taking it back finds the exception row by its include and target.
+        expect(
+          await engine.mutate({
+            spaceId: SPACE,
+            name: 'include.removeException',
+            args: { includeId: link.args.id, targetId: tent },
+          }),
+        ).toEqual({ ok: true });
+        expect(await db.includeExceptions.get(id)).toMatchObject({
+          deletedAt: expect.any(Number),
+        });
+        await settle();
+        expect(await db.serverIncludeExceptions.get(id)).toMatchObject({
+          deletedAt: expect.any(Number),
+        });
+        expect(await outbox()).toEqual([]);
+      });
+
+      it('stores an exception a poke brings and keeps a pending one on a deleted include', async () => {
+        setup();
+        engine.start();
+        await settle();
+        const { link, tent } = await tripWithTent();
+        const other = include(await createList('Other'), link.args.childListId);
+        await engine.mutate(other);
+        await settle();
+        server.autoAnswer = false;
+
+        const mine = newId();
+        await engine.mutate({
+          spaceId: SPACE,
+          name: 'include.addException',
+          args: {
+            id: mine,
+            includeId: link.args.id,
+            targetKind: 'item',
+            targetId: tent,
+          },
+        });
+        expect(await db.includeExceptions.get(mine)).toBeDefined();
+        // Ben leaves the same item out of another include, then deletes mine: the exception he
+        // added reaches me.
+        const theirs = newId();
+        server.otherClient('include.addException', {
+          id: theirs,
+          includeId: other.args.id,
+          targetKind: 'item',
+          targetId: tent,
+        });
+        server.otherClient('include.delete', { id: link.args.id });
+        await settle();
+        expect(await db.serverIncludeExceptions.get(theirs)).toBeDefined();
+        expect(await db.includeExceptions.get(theirs)).toBeDefined();
+
+        // A deleted include keeps its exceptions (they do nothing), so mine is accepted.
+        server.answerPushes();
+        await settle();
+        expect(await db.serverIncludeExceptions.get(mine)).toBeDefined();
+        expect(await db.includeExceptions.get(mine)).toBeDefined();
+        expect(await outbox()).toEqual([]);
+      });
     });
 
     it('rebuilds an include when a poke changes its list', async () => {

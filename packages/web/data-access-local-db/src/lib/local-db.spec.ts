@@ -104,6 +104,58 @@ describe('LocalDb upgrade to version 8 (list colour and icon)', () => {
   });
 });
 
+describe('LocalDb upgrade to version 9 (include exceptions)', () => {
+  it('forgets the sync position, so the next pull brings the exceptions, and keeps the outbox', async () => {
+    const name = `upgrade9-${newId()}`;
+    const spaceId = newId();
+    const mutationId = newId();
+    // The schema as version 8 of the app had it.
+    const old = new Dexie(name);
+    old.version(8).stores({
+      spaces: 'id, name',
+      lists: 'id, spaceId',
+      items: 'id, listId, spaceId',
+      serverLists: 'id, spaceId',
+      serverItems: 'id, listId, spaceId',
+      outbox: '++seq, &mutationId, spaceId',
+      syncState: 'spaceId',
+      meta: 'key',
+      rejections: 'mutationId, at',
+      includes: 'id, spaceId, parentListId, childListId',
+      serverIncludes: 'id, spaceId, parentListId, childListId',
+      runs: 'id, spaceId',
+      runItems: 'id, spaceId, runId',
+      serverRuns: 'id, spaceId',
+      serverRunItems: 'id, spaceId, runId',
+    });
+    await old.table('syncState').put({ spaceId, version: 7, timeline: 'tl' });
+    await old.table('outbox').add({
+      mutationId,
+      spaceId,
+      mutation: {
+        mutationId,
+        spaceId,
+        name: 'list.delete',
+        args: { id: newId() },
+      },
+      createdAt: 1,
+    });
+    old.close();
+
+    const db = new LocalDb(name);
+    try {
+      expect(await db.syncState.count()).toBe(0);
+      expect(await db.includeExceptions.count()).toBe(0);
+      expect(await db.serverIncludeExceptions.count()).toBe(0);
+      expect(await db.outbox.toArray()).toEqual([
+        expect.objectContaining({ mutationId }),
+      ]);
+    } finally {
+      await db.delete();
+    }
+  });
+});
+
 describe('LocalDb upgrade to version 5 (runs)', () => {
   it('forgets the sync position again and keeps the outbox', async () => {
     const name = `upgrade5-${newId()}`;
