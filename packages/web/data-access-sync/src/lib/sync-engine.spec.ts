@@ -15,6 +15,7 @@ import {
 } from '@lister/shared/sync-protocol';
 import { USER_STORAGE_KEY } from '@lister/web/data-access-auth';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
+import { Diagnostics } from '@lister/web/util-diagnostics';
 import { ERROR_LOG_SIZE, LOCK_CHECK_MS, SyncEngine } from './sync-engine';
 import {
   SYNC_CLOCK,
@@ -51,7 +52,7 @@ class FakeServer {
   holdWelcome = false;
   private readonly handlers = new Map<
     string,
-    ((payload?: unknown) => void)[]
+    ((...payload: unknown[]) => void)[]
   >();
   private readonly unanswered: MutationInput[] = [];
 
@@ -59,7 +60,19 @@ class FakeServer {
     get connected() {
       return server.connected;
     },
-    io: { engine: { close: () => server.drop('transport close') } },
+    id: 'sock-1',
+    io: {
+      engine: {
+        id: 'eng-1',
+        transport: { name: 'websocket' },
+        close: () => server.drop('transport close'),
+      },
+      on: (event: string, handler: (...payload: unknown[]) => void) =>
+        this.handlers.set(`io:${event}`, [
+          ...(this.handlers.get(`io:${event}`) ?? []),
+          handler,
+        ]),
+    },
     connect: () => {
       this.connectCalls++;
       if (this.backingOff) return;
@@ -72,7 +85,7 @@ class FakeServer {
       this.connected = false;
       this.fire('disconnect', 'io client disconnect');
     },
-    on: (event: string, handler: (payload?: unknown) => void) => {
+    on: (event: string, handler: (...payload: unknown[]) => void) => {
       this.handlers.set(event, [...(this.handlers.get(event) ?? []), handler]);
     },
     emit: (event: string, payload: unknown) => {
@@ -86,8 +99,8 @@ class FakeServer {
     this.handlers.clear();
   }
 
-  fire(event: string, payload?: unknown) {
-    for (const handler of this.handlers.get(event) ?? []) handler(payload);
+  fire(event: string, ...payload: unknown[]) {
+    for (const handler of this.handlers.get(event) ?? []) handler(...payload);
   }
 
   /** The connection drops (network); the client may reconnect by itself. */
@@ -2445,6 +2458,243 @@ describe('SyncEngine', () => {
 
       expect(server.connectCalls).toBe(0);
       await held; // the lock is released at once
+    });
+  });
+
+  describe('diagnostic log', () => {
+    /** Starts spying on the log; `entries('socket', 'connect')` are the data of those calls. */
+    function watchLog() {
+      const diagnostics = TestBed.inject(Diagnostics);
+      const log = vi.spyOn(diagnostics, 'log');
+      return {
+        diagnostics,
+        entries: (area: string, event: string) =>
+          log.mock.calls
+            .filter(([a, e]) => a === area && e === event)
+            .map(([, , data]) => data),
+      };
+    }
+
+    it('logs the connection steps with the socket id, in order', async () => {
+      setup();
+      const { entries, diagnostics } = watchLog();
+      await createList();
+      engine.start();
+      await settle();
+
+      expect(entries('lock', 'acquired')).toHaveLength(1);
+      expect(diagnostics.leader).toBe(true);
+      expect(entries('socket', 'connect')).toEqual([
+        expect.objectContaining({
+          sid: 'sock-1',
+          transport: 'websocket',
+          engineId: 'eng-1',
+        }),
+      ]);
+      expect(entries('sync', 'hello')).toEqual([
+        expect.objectContaining({
+          protocolVersion: PROTOCOL_VERSION,
+          sent: true,
+          sid: 'sock-1',
+        }),
+      ]);
+      expect(entries('sync', 'welcome')).toEqual([
+        expect.objectContaining({ userId: USER, spaces: 1, spaceIds: SPACE }),
+      ]);
+      expect(entries('sync', 'pull')).toEqual([
+        expect.objectContaining({ spaceId: SPACE, since: 0, sent: true }),
+      ]);
+      expect(entries('sync', 'push')).toEqual([
+        expect.objectContaining({
+          mutations: 1,
+          names: 'list.create',
+          sent: true,
+        }),
+      ]);
+      expect(entries('sync', 'ack')).toHaveLength(1);
+      expect(entries('sync', 'rows')).toEqual([
+        expect.objectContaining({ spaceId: SPACE, snapshot: true }),
+      ]);
+    });
+
+    it('says why the status became online and why it went offline', async () => {
+      setup();
+      const { entries } = watchLog();
+      engine.start();
+      await settle();
+      server.drop('ping timeout');
+      await settle();
+
+      const statuses = entries('sync', 'status');
+      expect(statuses).toContainEqual(
+        expect.objectContaining({
+          online: true,
+          reason: 'welcome received and every space pulled',
+        }),
+      );
+      expect(statuses).toContainEqual(
+        expect.objectContaining({
+          online: false,
+          wasOnline: true,
+          reason: 'disconnect: ping timeout',
+        }),
+      );
+      expect(entries('socket', 'disconnect')).toEqual([
+        expect.objectContaining({ reason: 'ping timeout' }),
+      ]);
+    });
+
+    it('logs what the badge shows and the condition behind it', async () => {
+      setup();
+      const { entries } = watchLog();
+      engine.start();
+      await settle();
+      await eventually(() => {
+        expect(entries('sync', 'ui-status')).toContainEqual(
+          expect.objectContaining({
+            badge: 'online',
+            statusLoaded: true,
+            thisTabLeads: true,
+          }),
+        );
+      });
+      server.drop();
+      await settle();
+      await eventually(() => {
+        expect(entries('sync', 'ui-status')).toContainEqual(
+          expect.objectContaining({
+            badge: 'offline',
+            online: false,
+            statusLoaded: true,
+          }),
+        );
+      });
+    });
+
+    it('logs a failed connection attempt with its details', async () => {
+      setup();
+      const { entries } = watchLog();
+      engine.start();
+      await settle();
+      server.connected = false;
+      const error = Object.assign(new Error('websocket error'), {
+        type: 'TransportError',
+        description: 0,
+      });
+      server.fire('connect_error', error);
+      await settle();
+
+      expect(entries('socket', 'connect_error')).toEqual([
+        expect.objectContaining({
+          message: 'websocket error',
+          type: 'TransportError',
+          description: '0',
+          transport: 'websocket',
+          willRetry: true,
+        }),
+      ]);
+    });
+
+    it('logs the refusal that asks for sign-in as the status reason', async () => {
+      setup();
+      const { entries } = watchLog();
+      engine.start();
+      await settle();
+      server.connected = false;
+      server.fire('connect_error', new Error('Sign in first'));
+      await settle();
+
+      expect(entries('sync', 'status')).toContainEqual(
+        expect.objectContaining({
+          signInRequired: true,
+          reason: expect.stringContaining('no usable session'),
+        }),
+      );
+    });
+
+    it('logs the connection manager reconnect attempts', async () => {
+      setup();
+      const { entries } = watchLog();
+      engine.start();
+      await settle();
+      server.fire('io:reconnect_attempt', 3);
+      server.fire('io:reconnect', 3);
+      server.fire('io:close', 'transport error', new Error('boom'));
+
+      expect(entries('socket', 'reconnect_attempt')).toEqual([
+        expect.objectContaining({ attempt: 3 }),
+      ]);
+      expect(entries('socket', 'reconnect')).toEqual([
+        expect.objectContaining({ attempt: 3 }),
+      ]);
+      expect(entries('socket', 'close')).toEqual([
+        expect.objectContaining({
+          reason: 'transport error',
+          description: 'boom',
+        }),
+      ]);
+    });
+
+    it('logs the browser going offline and online', async () => {
+      setup();
+      const { entries } = watchLog();
+      engine.start();
+      await settle();
+      window.dispatchEvent(new Event('offline'));
+      await settle();
+      window.dispatchEvent(new Event('online'));
+      await settle();
+
+      expect(entries('sync', 'browser-offline')).toHaveLength(1);
+      expect(entries('sync', 'browser-online')).toEqual([
+        expect.objectContaining({
+          socketConnected: false,
+          action: 'reconnect-now',
+        }),
+      ]);
+    });
+
+    it('keeps no text the user typed: titles and quoted reasons stay out', async () => {
+      setup();
+      const { diagnostics } = watchLog();
+      const title = 'Grandma-secret-recipe';
+      await createList(title);
+      engine.start();
+      await settle();
+      server.fire('reject', {
+        mutationId: newId(),
+        reason: `“${title}” is already included`,
+      });
+      await settle();
+
+      // `Diagnostics.log` scrubs quoted text before anything is stored.
+      const stored = JSON.stringify(await diagnostics.entries());
+      expect(stored).not.toContain(title);
+      expect(stored).toContain('already included');
+    });
+
+    it('stops marking the tab as the leader when it steps back', async () => {
+      setup();
+      const { diagnostics } = watchLog();
+      engine.start();
+      await settle();
+      expect(diagnostics.leader).toBe(true);
+      await engine.stop();
+      expect(diagnostics.leader).toBe(false);
+    });
+
+    it('describes the sync state for the export header', async () => {
+      setup();
+      const { diagnostics } = watchLog();
+      engine.start();
+      await settle();
+      const state = JSON.parse((await diagnostics.header())['sync'] ?? '{}');
+      expect(state).toMatchObject({
+        online: true,
+        leads: true,
+        socketId: 'sock-1',
+        socketConnected: true,
+      });
     });
   });
 });

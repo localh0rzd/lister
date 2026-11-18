@@ -2,10 +2,18 @@ import {
   type ApplicationConfig,
   provideBrowserGlobalErrorListeners,
 } from '@angular/core';
-import { provideHttpClient, withFetch } from '@angular/common/http';
+import {
+  provideHttpClient,
+  withFetch,
+  withInterceptors,
+} from '@angular/common/http';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
 import { MAT_ICON_DEFAULT_OPTIONS } from '@angular/material/icon';
 import { provideSync } from '@lister/web/data-access-sync';
+import {
+  diagnosticsInterceptor,
+  provideDiagnostics,
+} from '@lister/web/util-diagnostics';
 import { providePwa } from '@lister/web/util-pwa';
 import { provideTheme } from '@lister/web/util-theme';
 import { provideFirstUse } from './provide-first-use';
@@ -14,7 +22,8 @@ import { appRoutes } from './app.routes';
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
-    provideHttpClient(withFetch()),
+    provideDiagnostics(),
+    provideHttpClient(withFetch(), withInterceptors([diagnosticsInterceptor])),
     provideRouter(appRoutes, withComponentInputBinding()),
     provideTheme(),
     providePwa(),

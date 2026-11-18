@@ -388,6 +388,28 @@ None of these change the architecture; the table says what goes into v1.
   reason), hello/welcome, pull, push (mutation names, acks, rejects with reason), sign-in, sign-out
   and session expiry: ids, counts and reasons only, never passwords, cookies, tokens, passkey
   material or list text. The CLI commands log errors only. On a deployment: `-e LOG_LEVEL=debug`.
+- **Diagnostic log in the web app (T-063):** for connection problems that only show on a user's
+  device (stuck "Offline"), the app keeps its own always-on, verbose log in a separate IndexedDB
+  database (`lister-diagnostics`, so signing out doesn't wipe it): the newest 5,000 entries and
+  nothing older than 7 days, written in batches so it never slows the app. Entries are one line
+  each (time, tab id, `*` when the tab leads sync, `area.event`, JSON data) and cover browser
+  `online`/`offline`, page lifecycle (visibility, focus, `pagehide`/`pageshow` with `persisted`,
+  freeze/resume), the `lister-sync` Web Lock (requested, acquired, released, stolen, stuck steal),
+  every Socket.IO step (open, `connect`, `connect_error` with message, type and description,
+  `disconnect` with its reason, reconnect attempts, close), hello, welcome, pull, rows, poke, push,
+  ack and reject, every status change of the sync engine **with the reason** (`sync.status`) and
+  what this tab shows (`sync.ui-status`: the badge and the status values behind it), REST calls
+  (method, path without query, status, duration, network failure, served by the service worker or
+  cache when the browser says so), the signed-in user (ids only) and the service worker
+  (registration, controller, versions). Socket entries carry the socket id, which the API's debug
+  log names too (`Socket <id> connected`, `Hello from <id>`), so the two logs match line by line.
+  The same privacy rule as the API's: ids, counts, status codes and reasons only. `Diagnostics`
+  scrubs every string (quoted text such as a title in a refusal is replaced, line breaks removed,
+  200 characters at most); callers never pass list text, cookies, tokens or passwords. **Settings →
+  App** has "Export diagnostic log" (a `.log` file named with the date: a `#` header with build,
+  mode, user agent, platform, `onLine`, storage, service worker, server time offset and the sync
+  state, then the entries; shared with Web Share on phones, downloaded otherwise; it reads only
+  IndexedDB, so it works offline) and "Clear diagnostic log".
 - **Backups** with SQLite's online backup (nightly `VACUUM INTO`, after 03:00 UTC, into
   `BACKUP_DIR`, default `backups` beside the database, `/data/backups` in Docker); the last 14 are
   kept (D15). Restoring: `node main.js restore-backup <file>` (refused while another connection,
@@ -660,6 +682,11 @@ relational in SQLite, and implements exactly the rules in §2.4.
 
 - **Local database:** Dexie 4 on IndexedDB. Dexie `liveQuery` results become Angular signals, and
   changes from other tabs arrive automatically.
+- **Diagnostic log:** `util-diagnostics` (`Diagnostics`, §2.9) is injected by the sync engine, the
+  auth session and the browser-signal collector and, as an HTTP interceptor, sees every REST call.
+  Entries wait in memory and a lazily loaded Dexie store writes them in batches (on a timer, and
+  at once when the page is hidden, frozen or left), so the shell does not load Dexie for it.
+  Other libraries only call `Diagnostics.log(area, event, data)`.
 - **Sync engine:** a root service using `socket.io-client`. It exposes signals for `online`,
   `syncing`, `pendingCount`, `lastSyncedAt`, `errors` (refused changes not yet shown) and `errorLog` (the last 20, kept after they were shown), `updateRequired` (starts the service worker update flow via `AppUpdates`) and a `syncNow()` action (any tab can ask; the leader pulls and pushes, or reconnects at once). The Settings page shows them.
 - **Ids and order:** UUIDv7 via `uuid`; fractional positions via `fractional-indexing`.
@@ -702,6 +729,7 @@ packages/
     feature-search         search field in the app bar: lists, items and runs of the space (D25) scope:web type:feature
     ui                     nav bar/rail, item row, section header, sync status, dialogs scope:web type:ui
     util-pwa               SW updates, install hint, storage persistence, online signal scope:web type:util
+    util-diagnostics       on-device diagnostic log, REST interceptor, export (§2.9)    scope:web type:util
     util-notify            Notifier: the snackbar queue (Undo, rejections, prompts)     scope:web type:util
     util-theme             theme preference (system/light/dark), theme-color meta tags  scope:web type:util
 ```

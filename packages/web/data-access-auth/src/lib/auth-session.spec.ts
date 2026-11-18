@@ -6,6 +6,7 @@ import {
 } from '@angular/common/http/testing';
 import type { CurrentUser } from '@lister/shared/api-contracts';
 import { newId } from '@lister/shared/domain';
+import { Diagnostics } from '@lister/web/util-diagnostics';
 import type { LocalDb as LocalDbType } from '@lister/web/data-access-local-db';
 import {
   AuthSession,
@@ -526,6 +527,62 @@ describe('AuthSession', () => {
 
       expect(load).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('AuthSession diagnostic log', () => {
+  const logged = (
+    log: { mock: { calls: readonly unknown[][] } },
+    event: string,
+  ) => log.mock.calls.filter(([, e]) => e === event).map(([, , data]) => data);
+
+  it('logs who is signed in as ids, never names', async () => {
+    const log = vi.spyOn(TestBed.inject(Diagnostics), 'log');
+    const result = session.ensure();
+    flushMe(anna);
+    await result;
+
+    expect(logged(log, 'user')).toEqual([
+      { userId: anna.id, previousUserId: null, mustChangePassword: false },
+    ]);
+    expect(JSON.stringify(log.mock.calls)).not.toContain('Anna');
+  });
+
+  it('logs that the server could not be asked, and which user stays', async () => {
+    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(anna));
+    const log = vi.spyOn(TestBed.inject(Diagnostics), 'log');
+    const result = session.ensure();
+    http.expectOne('/api/auth/me').error(new ProgressEvent('error'));
+    await result;
+
+    expect(logged(log, 'me-unreachable')).toEqual([
+      { status: 0, usingCachedUserId: anna.id },
+    ]);
+  });
+
+  it('logs a 401 as "unauthorized", not as unreachable', async () => {
+    const log = vi.spyOn(TestBed.inject(Diagnostics), 'log');
+    const result = session.ensure();
+    http.expectOne('/api/auth/me').flush('no', { status: 401, statusText: '' });
+    await result;
+
+    expect(logged(log, 'me-unauthorized')).toHaveLength(1);
+    expect(logged(log, 'me-unreachable')).toHaveLength(0);
+  });
+
+  it('logs a sign-in without the password', async () => {
+    const log = vi.spyOn(TestBed.inject(Diagnostics), 'log');
+    const signingIn = session.signIn({
+      username: 'anna',
+      password: 'hunter2-secret',
+    });
+    http.expectOne('/api/auth/login').flush(anna);
+    await signingIn;
+
+    expect(logged(log, 'sign-in')).toEqual([
+      { userId: anna.id, holderUserId: undefined, wipes: false },
+    ]);
+    expect(JSON.stringify(log.mock.calls)).not.toContain('hunter2');
   });
 });
 

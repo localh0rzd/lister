@@ -30,3 +30,33 @@
     <span class="row-hint" role="status">{{ storage() }}</span>
   </span>
 </div>
+<div class="app-row diagnostic-row">
+  <mat-icon aria-hidden="true">bug_report</mat-icon>
+  <span class="row-text">
+    <span>Diagnostic log</span>
+    <span class="row-hint"
+      >Technical notes about connections, kept on this device. Share the file
+      when asked to help find a problem; it holds no list text or
+      passwords.</span
+    >
+    <span class="row-hint" role="status">{{ logMessage() }}</span>
+  </span>
+</div>
+<div class="app-row log-actions">
+  <button
+    type="button"
+    matButton="outlined"
+    [disabled]="logBusy()"
+    (click)="exportLog()"
+  >
+    Export diagnostic log
+  </button>
+  <button
+    type="button"
+    matButton="outlined"
+    [disabled]="logBusy()"
+    (click)="clearLog()"
+  >
+    Clear diagnostic log
+  </button>
+</div>

@@ -20,6 +20,7 @@ import {
   type UpdateProfileRequest,
   apiPath,
 } from '@lister/shared/api-contracts';
+import { Diagnostics } from '@lister/web/util-diagnostics';
 import { untilAborted } from './until-aborted';
 import { PageNavigator } from './page-navigator';
 import { WebAuthnClient } from './webauthn-client';
@@ -61,6 +62,7 @@ export class AuthSession {
   private readonly navigator = inject(PageNavigator);
   private readonly webAuthn = inject(WebAuthnClient);
   private readonly window = inject(DOCUMENT).defaultView;
+  private readonly diagnostics = inject(Diagnostics);
   private readonly current = signal<CurrentUser | null>(null);
   private pending?: Promise<CurrentUser | null>;
 
@@ -74,6 +76,10 @@ export class AuthSession {
     const followOtherTabs = (event: StorageEvent) => {
       if (event.key !== USER_STORAGE_KEY) return;
       const stored = parseUser(event.newValue);
+      this.diagnostics.log('auth', 'other-tab-changed-user', {
+        storedUserId: stored?.id,
+        currentUserId: this.current()?.id,
+      });
       if (!stored) {
         if (this.current()) this.navigator.load('/sign-in');
       } else if (stored.id === this.current()?.id) {
@@ -105,9 +111,15 @@ export class AuthSession {
       (user) => this.remember(user),
       (error: unknown) => {
         if (error instanceof HttpErrorResponse && error.status === 401) {
+          this.diagnostics.log('auth', 'me-unauthorized');
           return this.remember(null);
         }
         const cached = this.current() ?? this.readStored();
+        // Not "signed out": the server could not be asked, so the last known user stays.
+        this.diagnostics.log('auth', 'me-unreachable', {
+          status: error instanceof HttpErrorResponse ? error.status : undefined,
+          usingCachedUserId: cached?.id,
+        });
         this.current.set(cached);
         return cached;
       },
@@ -193,6 +205,7 @@ export class AuthSession {
    * fails while offline: a session that could not be ended must not look ended.
    */
   async signOut(): Promise<void> {
+    this.diagnostics.log('auth', 'sign-out');
     await firstValueFrom(this.http.post<void>(apiPath('auth', 'logout'), {}));
     const { db, CURRENT_SPACE_KEY } = await this.local();
     await db.clearAll();
@@ -209,6 +222,11 @@ export class AuthSession {
   private async startSession(user: CurrentUser): Promise<CurrentUser> {
     const { db, CURRENT_SPACE_KEY, DISCARDED_CHANGES_KEY } = await this.local();
     const holder = (await db.meta.get(LOCAL_USER_KEY))?.value;
+    this.diagnostics.log('auth', 'sign-in', {
+      userId: user.id,
+      holderUserId: holder,
+      wipes: holder !== undefined && holder !== user.id,
+    });
     if (holder !== undefined && holder !== user.id) {
       // The previous user's outbox must never be pushed under this session.
       const discarded = await db.outbox.count();
@@ -248,6 +266,11 @@ export class AuthSession {
   }
 
   private remember<T extends CurrentUser | null>(user: T): T {
+    this.diagnostics.log('auth', 'user', {
+      userId: user?.id ?? null,
+      previousUserId: this.current()?.id ?? null,
+      mustChangePassword: user?.mustChangePassword,
+    });
     this.current.set(user);
     // What the route guards get from `ensure()` is now this.
     this.pending = Promise.resolve(user);

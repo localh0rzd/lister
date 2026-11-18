@@ -1,5 +1,6 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { Diagnostics, DiagnosticsExport } from '@lister/web/util-diagnostics';
 import {
   InstallPrompt,
   type PersistenceState,
@@ -8,6 +9,8 @@ import {
 import { AppSection } from './app-section';
 
 function render({
+  exportLog = vi.fn(() => Promise.resolve('downloaded')),
+  clearLog = vi.fn(() => Promise.resolve()),
   canInstall = false,
   iosSteps = false,
   state = 'unknown' as PersistenceState,
@@ -24,25 +27,44 @@ function render({
         },
       },
       { provide: StoragePersistence, useValue: { state: signal(state) } },
+      { provide: DiagnosticsExport, useValue: { export: exportLog } },
+      { provide: Diagnostics, useValue: { clear: clearLog } },
     ],
   });
   const fixture = TestBed.createComponent(AppSection);
   fixture.detectChanges();
-  return { install, el: fixture.nativeElement as HTMLElement };
+  return {
+    install,
+    exportLog,
+    clearLog,
+    fixture,
+    el: fixture.nativeElement as HTMLElement,
+  };
 }
+
+const buttons = (el: HTMLElement) =>
+  [...el.querySelectorAll('button')].map((b) => b.textContent?.trim());
+const button = (el: HTMLElement, label: string) =>
+  [...el.querySelectorAll('button')].find(
+    (b) => b.textContent?.trim() === label,
+  ) as HTMLButtonElement;
 
 describe('AppSection', () => {
   it('opens the browser install prompt from "Install app"', () => {
     const { el, install } = render({ canInstall: true });
     expect(el.textContent).toContain('Install app');
-    el.querySelector<HTMLButtonElement>('button')?.click();
+    button(el, 'Install').click();
     expect(install).toHaveBeenCalledTimes(1);
   });
 
   it('explains Share → Add to Home Screen on iOS, without a button', () => {
     const { el } = render({ iosSteps: true });
     expect(el.textContent).toContain('Add to Home Screen');
-    expect(el.querySelector('button')).toBeNull();
+    expect(el.textContent).not.toContain('Install\n');
+    expect(buttons(el)).toEqual([
+      'Export diagnostic log',
+      'Clear diagnostic log',
+    ]);
   });
 
   it('shows no install row when installing is not possible', () => {
@@ -58,5 +80,43 @@ describe('AppSection', () => {
   ] as const)('shows persistent storage as %s', (state, text) => {
     const { el } = render({ state });
     expect(el.textContent).toContain(text);
+  });
+
+  it('exports the diagnostic log and says what happened', async () => {
+    const { el, exportLog, fixture } = render();
+    button(el, 'Export diagnostic log').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(exportLog).toHaveBeenCalledTimes(1);
+    expect(el.textContent).toContain('Diagnostic log downloaded');
+  });
+
+  it('says when sharing was cancelled', async () => {
+    const { el, fixture } = render({
+      exportLog: vi.fn(() => Promise.resolve('cancelled')),
+    });
+    button(el, 'Export diagnostic log').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(el.textContent).toContain('Sharing cancelled');
+  });
+
+  it('says so when the export fails', async () => {
+    const { el, fixture } = render({
+      exportLog: vi.fn(() => Promise.reject(new Error('no storage'))),
+    });
+    button(el, 'Export diagnostic log').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(el.textContent).toContain('could not be exported');
+  });
+
+  it('clears the diagnostic log', async () => {
+    const { el, clearLog, fixture } = render();
+    button(el, 'Clear diagnostic log').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(clearLog).toHaveBeenCalledTimes(1);
+    expect(el.textContent).toContain('Diagnostic log cleared');
   });
 });

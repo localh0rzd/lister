@@ -5,11 +5,17 @@ import {
   Service,
   type Signal,
   computed,
+  effect,
   inject,
 } from '@angular/core';
 import { liveQuery } from 'dexie';
 import { USER_STORAGE_KEY } from '@lister/web/data-access-auth';
 import { newId } from '@lister/shared/domain';
+import {
+  type DiagnosticArea,
+  type DiagnosticData,
+  Diagnostics,
+} from '@lister/web/util-diagnostics';
 import {
   type Ack,
   type ClientToServerEvents,
@@ -226,6 +232,7 @@ export class SyncEngine {
   private readonly errorHandler = inject(ErrorHandler);
   private readonly destroyRef = inject(DestroyRef);
   private readonly window = inject(DOCUMENT).defaultView;
+  private readonly diagnostics = inject(Diagnostics);
 
   private readonly status = liveQuerySignal(() => async () => {
     const row = await this.db.meta.get(SYNC_STATUS_KEY);
@@ -315,15 +322,57 @@ export class SyncEngine {
   /** Removes the `pagehide` and `pageshow` listeners. */
   private removePageListeners?: () => void;
 
+  constructor() {
+    // What this tab shows the user. "Offline" is `online === false` in the status the leading tab
+    // wrote (or none written yet), so this entry names the exact condition behind the badge.
+    effect(() => {
+      const loaded = valueOf(this.status()) !== undefined;
+      const { online, signInRequired, updateRequired } = this.currentStatus();
+      this.log('ui-status', {
+        badge:
+          signInRequired === true ? 'sign-in' : online ? 'online' : 'offline',
+        statusLoaded: loaded,
+        online,
+        signInRequired: signInRequired === true,
+        updateRequired,
+        pending: valueOf(this.outboxCount()) ?? 0,
+        thisTabLeads: this.diagnostics.leader,
+      });
+    });
+  }
+
+  /** Writes an entry with the socket id, which the API's debug log names too. */
+  private log(
+    event: string,
+    data: DiagnosticData = {},
+    area: DiagnosticArea = 'sync',
+  ): void {
+    this.diagnostics.log(area, event, { sid: this.socket?.id, ...data });
+  }
+
   /** Starts syncing in this tab once it holds the sync lock (one tab at a time). */
   start(): void {
     if (this.started) return;
     this.started = true;
-    this.destroyRef.onDestroy(() => void this.stop());
+    this.log('start', { locksSupported: this.locks.query !== undefined });
+    const unregister = this.diagnostics.registerState('sync', () => ({
+      ...this.connection,
+      leads: this.diagnostics.leader,
+      socketId: this.socket?.id,
+      socketConnected: this.socket?.connected === true,
+      inFlight: this.inFlight.size,
+      pending: this.pendingCount(),
+      reconnectDelayMs: this.reconnectDelay,
+    }));
+    this.destroyRef.onDestroy(() => {
+      unregister();
+      void this.stop();
+    });
     // A page that goes away (also into the back/forward cache) leaves nothing behind: a lock
     // request of a frozen page would block every later page. A restored page leads again.
-    const leave = () => this.leave();
+    const leave = () => this.leave('pagehide');
     const comeBack = (event: PageTransitionEvent) => {
+      this.log('pageshow', { persisted: event.persisted }, 'lock');
       if (event.persisted) this.requestLock();
     };
     this.window?.addEventListener('pagehide', leave);
@@ -343,6 +392,10 @@ export class SyncEngine {
     this.lockWait = { abort, check };
     this.stuckBefore = false;
     let granted: (() => void) | undefined;
+    this.log('requested', { name: LOCK_NAME, steal }, 'lock');
+    void this.locks
+      .query?.(LOCK_NAME)
+      .then((state) => this.log('state', { ...state }, 'lock'));
     this.locks
       .request(
         LOCK_NAME,
@@ -352,6 +405,7 @@ export class SyncEngine {
             this.cancelWait();
             granted = release;
             this.releaseLock = release;
+            this.log('acquired', { steal }, 'lock');
             this.lead();
           }),
         // Browsers refuse a steal with a signal; a steal is granted at once, `aborted` guards it.
@@ -361,14 +415,16 @@ export class SyncEngine {
         if (granted) {
           // Stolen: another page leads now. Step back and wait behind it.
           if (this.releaseLock !== granted) return;
+          this.log('stolen', { name: errorName(error) }, 'lock');
           this.stepBack();
           granted();
           this.requestLock();
         } else if (!abort.signal.aborted) {
           // Refused (unexpected): report it, so a page that never leads doesn't fail silently.
+          this.log('refused', errorData(error), 'lock');
           this.errorHandler.handleError(error);
           this.cancelWait();
-        }
+        } else this.log('wait-aborted', {}, 'lock');
       });
   }
 
@@ -390,13 +446,20 @@ export class SyncEngine {
     if (!state || this.lockWait !== wait) return;
     const stuck = state.held === 0 && state.pending > 0;
     if (stuck && this.stuckBefore) {
+      this.log('stuck-steal', { ...state }, 'lock');
       this.cancelWait();
       this.requestLock(true);
     } else this.stuckBefore = stuck;
   }
 
   /** The page goes away: drops the request or the lock, and closes the socket and watchers. */
-  private leave(): void {
+  private leave(why: string): void {
+    if (this.lockWait || this.releaseLock)
+      this.log(
+        'released',
+        { why, held: this.releaseLock !== undefined },
+        'lock',
+      );
     this.cancelWait();
     const release = this.releaseLock;
     this.stepBack();
@@ -405,6 +468,7 @@ export class SyncEngine {
 
   /** Stops leading: closes the socket and watchers and forgets the lock. */
   private stepBack(): void {
+    this.diagnostics.leader = false;
     this.teardown?.();
     this.teardown = undefined;
     this.releaseLock = undefined;
@@ -421,7 +485,7 @@ export class SyncEngine {
     this.stopped = true;
     this.removePageListeners?.();
     this.removePageListeners = undefined;
-    this.leave();
+    this.leave('stop');
     await this.whenIdle();
   }
 
@@ -502,10 +566,16 @@ export class SyncEngine {
    */
   async syncNow(): Promise<void> {
     // A fresh value every time, so every request is a change.
+    this.log('sync-now-requested');
     await this.db.meta.put({ key: SYNC_NOW_KEY, value: newId() });
   }
 
   private syncNowAsLeader(socket: SyncSocket): void {
+    this.log('sync-now', {
+      socketConnected: socket.connected,
+      online: this.connection.online,
+      updateRequired: this.connection.updateRequired,
+    });
     if (this.connection.updateRequired) return;
     // Connected but not welcomed yet: the welcome pulls every space it names. Pulling the spaces
     // this device knew before could ask for one the user has left, which the server answers by
@@ -532,23 +602,51 @@ export class SyncEngine {
     this.socket = socket;
     // A new leadership is a new connection: it starts without the old back-off.
     this.reconnectDelay = FIRST_RECONNECT_DELAY_MS;
-    this.setStatus(OFFLINE);
+    this.diagnostics.leader = true;
+    this.log('lead');
+    this.setStatus(OFFLINE, 'started leading: not connected yet');
+    this.logConnection(socket);
 
     socket.on('connect', () => {
       this.healthy = false;
+      this.log(
+        'connect',
+        {
+          transport: socket.io.engine?.transport.name,
+          engineId: socket.io.engine?.id,
+          recovered: socket.recovered,
+        },
+        'socket',
+      );
       this.background(() => this.hello());
     });
-    socket.on('disconnect', (reason) => this.onDisconnect(reason));
+    socket.on('disconnect', (reason, details) =>
+      this.onDisconnect(reason, details),
+    );
     // A refused handshake is not retried by Socket.IO. Going online again, or coming back to the
     // tab (after signing in in another one), tries again.
     socket.on('connect_error', (error) => {
+      const engine = socket.io.engine;
+      this.log(
+        'connect_error',
+        {
+          ...errorData(error),
+          transport: engine?.transport.name,
+          willRetry: error.message !== SIGN_IN_REFUSAL,
+          navigatorOnLine: this.window?.navigator.onLine,
+        },
+        'socket',
+      );
       if (error.message === SIGN_IN_REFUSAL) {
-        this.setStatus({
-          ...this.connection,
-          online: false,
-          syncing: false,
-          signInRequired: true,
-        });
+        this.setStatus(
+          {
+            ...this.connection,
+            online: false,
+            syncing: false,
+            signInRequired: true,
+          },
+          'connect_error: the server refused the handshake (no usable session)',
+        );
       }
     });
     this.listen('welcome', welcomeSchema, (m) => this.onWelcome(m));
@@ -557,14 +655,30 @@ export class SyncEngine {
     this.listen('ack', ackSchema, (m) => this.onAck(m));
     this.listen('reject', rejectSchema, (m) => this.onReject(m));
     socket.on('updateRequired', () =>
-      this.setStatus({ ...this.connection, updateRequired: true }),
+      this.setStatus(
+        { ...this.connection, updateRequired: true },
+        'updateRequired: the server speaks a newer protocol',
+      ),
     );
 
     // The browser knows about lost networks long before Socket.IO's ping timeout (up to 45 s).
     // Closing only the transport keeps Socket.IO's own reconnect loop running, so a false
     // `offline` (VPN adapters, flapping networks) heals by itself even if `online` never comes.
-    const goOffline = () => socket.io.engine?.close();
+    const goOffline = () => {
+      this.log('browser-offline', {
+        engineOpen: socket.io.engine !== undefined,
+      });
+      socket.io.engine?.close();
+    };
     const goOnline = () => {
+      this.log('browser-online', {
+        socketConnected: socket.connected,
+        updateRequired: this.connection.updateRequired,
+        action:
+          socket.connected || this.connection.updateRequired
+            ? 'none'
+            : 'reconnect-now',
+      });
       if (socket.connected || this.connection.updateRequired) return;
       // While Socket.IO waits between reconnect attempts, connect() does nothing; restarting
       // the connection skips the remaining backoff now that the network is back.
@@ -572,7 +686,10 @@ export class SyncEngine {
       socket.connect();
     };
     const retrySignIn = () => {
-      if (this.connection.signInRequired) goOnline();
+      if (this.connection.signInRequired) {
+        this.log('retry-sign-in');
+        goOnline();
+      }
     };
     // Signing in in another tab stores the user there; this tab may hold the sync lock.
     const retryAfterSignIn = (event: StorageEvent) => {
@@ -630,6 +747,10 @@ export class SyncEngine {
     )(event, (payload) => {
       const parsed = schema.safeParse(payload);
       if (!parsed.success) {
+        this.log('invalid-message', {
+          event,
+          issues: parsed.error.issues.length,
+        });
         this.errorHandler.handleError(
           new Error(
             `Ignored an invalid "${event}" message: ${parsed.error.message}`,
@@ -656,17 +777,59 @@ export class SyncEngine {
     return true;
   }
 
-  private onDisconnect(reason: string): void {
+  /** Logs the connection manager's own events: every attempt, its backoff and its outcome. */
+  private logConnection(socket: SyncSocket): void {
+    const manager = socket.io;
+    const log = (event: string, data?: DiagnosticData) =>
+      this.log(event, data, 'socket');
+    manager.on('open', () =>
+      log('open', {
+        transport: manager.engine?.transport.name,
+        engineId: manager.engine?.id,
+      }),
+    );
+    manager.on('error', (error) => log('manager-error', errorData(error)));
+    manager.on('close', (reason, description) =>
+      log('close', { reason, description: describe(description) }),
+    );
+    manager.on('reconnect_attempt', (attempt) =>
+      log('reconnect_attempt', { attempt }),
+    );
+    manager.on('reconnect_error', (error) =>
+      log('reconnect_error', errorData(error)),
+    );
+    manager.on('reconnect_failed', () => log('reconnect_failed'));
+    manager.on('reconnect', (attempt) => log('reconnect', { attempt }));
+  }
+
+  private onDisconnect(reason: string, description?: unknown): void {
+    this.log(
+      'disconnect',
+      {
+        reason,
+        description: describe(description),
+        inFlight: this.inFlight.size,
+        navigatorOnLine: this.window?.navigator.onLine,
+      },
+      'socket',
+    );
     this.inFlight.clear();
     this.pulling.clear();
-    this.setStatus({ ...this.connection, online: false, syncing: false });
+    this.setStatus(
+      { ...this.connection, online: false, syncing: false },
+      `disconnect: ${reason}`,
+    );
     // Socket.IO reconnects by itself unless the server closed the connection (design §4.2).
     if (reason === 'io server disconnect' && !this.connection.updateRequired) {
+      this.log('reconnect-scheduled', {
+        delayMs: this.reconnectDelay,
+        by: 'engine (server closed the connection)',
+      });
       clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = setTimeout(
-        () => this.socket?.connect(),
-        this.reconnectDelay,
-      );
+      this.reconnectTimer = setTimeout(() => {
+        this.log('reconnect-now', {}, 'socket');
+        this.socket?.connect();
+      }, this.reconnectDelay);
       // Only a connection that answered a mutation resets this, so a server that welcomes but
       // fails every push (e.g. a full disk) is retried less and less often.
       this.reconnectDelay = Math.min(
@@ -682,10 +845,19 @@ export class SyncEngine {
       clientId = newId();
       await this.db.meta.put({ key: 'clientId', value: clientId });
     }
-    this.send('hello', { protocolVersion: PROTOCOL_VERSION, clientId });
+    const sent = this.send('hello', {
+      protocolVersion: PROTOCOL_VERSION,
+      clientId,
+    });
+    this.log('hello', { protocolVersion: PROTOCOL_VERSION, clientId, sent });
   }
 
   private async onWelcome(welcome: Welcome): Promise<void> {
+    this.log('welcome', {
+      userId: welcome.userId,
+      spaces: welcome.spaces.length,
+      spaceIds: welcome.spaces.map((space) => space.id).join(','),
+    });
     const current = new Set(welcome.spaces.map((space) => space.id));
     await this.db.transaction(
       'rw',
@@ -710,7 +882,10 @@ export class SyncEngine {
     for (const space of welcome.spaces) {
       await this.pull(space.id);
     }
-    this.setStatus({ ...this.connection, online: true, signInRequired: false });
+    this.setStatus(
+      { ...this.connection, online: true, signInRequired: false },
+      'welcome received and every space pulled',
+    );
   }
 
   /**
@@ -743,11 +918,23 @@ export class SyncEngine {
     const state = await this.db.syncState.get(spaceId);
     const since = state?.version ?? 0;
     const timeline = state?.timeline ?? '';
-    if (this.send('pull', { spaceId, since, timeline }))
-      this.pulling.add(spaceId);
+    const sent = this.send('pull', { spaceId, since, timeline });
+    if (sent) this.pulling.add(spaceId);
+    this.log('pull', { spaceId, since, timeline, sent });
   }
 
   private async onRows(rows: Rows): Promise<void> {
+    this.log('rows', {
+      spaceId: rows.spaceId,
+      version: rows.version,
+      snapshot: rows.snapshot,
+      timeline: rows.timeline,
+      lists: rows.rows.lists.length,
+      items: rows.rows.items.length,
+      includes: rows.rows.includes.length,
+      runs: rows.rows.runs.length,
+      runItems: rows.rows.runItems.length,
+    });
     this.pulling.delete(rows.spaceId);
     await this.storeServerRows(
       rows.spaceId,
@@ -761,6 +948,20 @@ export class SyncEngine {
 
   private async onPoke(poke: Poke): Promise<void> {
     const synced = (await this.db.syncState.get(poke.spaceId))?.version ?? 0;
+    const action =
+      poke.version <= synced
+        ? 'already-had-it'
+        : poke.version === synced + 1
+          ? 'applied'
+          : this.pulling.has(poke.spaceId)
+            ? 'gap-pull-pending'
+            : 'gap-pull';
+    this.log('poke', {
+      spaceId: poke.spaceId,
+      version: poke.version,
+      synced,
+      action,
+    });
     if (poke.version <= synced) return; // already have it
     if (poke.version === synced + 1) {
       await this.storeServerRows(poke.spaceId, poke.rows, poke.version, false);
@@ -771,6 +972,7 @@ export class SyncEngine {
   }
 
   private async onAck(ack: Ack): Promise<void> {
+    this.log('ack', { mutationId: ack.mutationId, version: ack.version });
     this.inFlight.delete(ack.mutationId);
     this.markHealthy();
     await this.db.transaction('rw', this.syncTables(), async () => {
@@ -792,6 +994,11 @@ export class SyncEngine {
   }
 
   private async onReject(reject: Reject): Promise<void> {
+    // The reason can quote a title; `Diagnostics` scrubs quoted text.
+    this.log('reject', {
+      mutationId: reject.mutationId,
+      reason: reject.reason,
+    });
     this.inFlight.delete(reject.mutationId);
     this.markHealthy();
     await this.db.transaction(
@@ -845,9 +1052,17 @@ export class SyncEngine {
     const batch = nextPushBatch(pending);
     // The connection may have dropped while reading.
     if (batch.length > 0 && this.connection.online) {
-      if (
-        this.send('push', { mutations: batch.map((entry) => entry.mutation) })
-      ) {
+      const sent = this.send('push', {
+        mutations: batch.map((entry) => entry.mutation),
+      });
+      this.log('push', {
+        sent,
+        mutations: batch.length,
+        names: batch.map((entry) => entry.mutation.name).join(','),
+        ids: batch.map((entry) => entry.mutationId).join(','),
+        outbox: pending.length,
+      });
+      if (sent) {
         for (const entry of batch) this.inFlight.add(entry.mutationId);
       }
     }
@@ -863,11 +1078,24 @@ export class SyncEngine {
   private updateSyncing(): void {
     const syncing = this.inFlight.size > 0;
     if (syncing !== this.connection.syncing)
-      this.setStatus({ ...this.connection, syncing });
+      this.setStatus(
+        { ...this.connection, syncing },
+        `${this.inFlight.size} push(es) unanswered`,
+      );
   }
 
   /** Records the leader's connection state for every tab. */
-  private setStatus(status: SyncStatus): void {
+  private setStatus(status: SyncStatus, reason: string): void {
+    const before = this.connection;
+    this.log('status', {
+      reason,
+      online: status.online,
+      syncing: status.syncing,
+      signInRequired: status.signInRequired === true,
+      updateRequired: status.updateRequired,
+      wasOnline: before.online,
+      wasSyncing: before.syncing,
+    });
     this.connection = status;
     const value = JSON.stringify(status);
     this.background(() => this.db.meta.put({ key: SYNC_STATUS_KEY, value }));
@@ -1143,9 +1371,44 @@ export class SyncEngine {
   /** Runs database work one task at a time, in order; failures go to the ErrorHandler. */
   private enqueue<T>(task: () => Promise<T>): Promise<T> {
     const result = this.queue.then(task);
-    this.queue = result.catch((error: unknown) =>
-      this.errorHandler.handleError(error),
-    );
+    this.queue = result.catch((error: unknown) => {
+      this.log('task-failed', errorData(error));
+      this.errorHandler.handleError(error);
+    });
     return result;
   }
+}
+
+/** Name and message of anything thrown, for the log (no stacks, no payloads). */
+function errorData(error: unknown): DiagnosticData {
+  const detail = error as {
+    type?: unknown;
+    description?: unknown;
+    data?: unknown;
+  };
+  return {
+    name: errorName(error),
+    message: error instanceof Error ? error.message : undefined,
+    type: typeof detail?.type === 'string' ? detail.type : undefined,
+    description: describe(detail?.description),
+  };
+}
+
+function errorName(error: unknown): string {
+  return error instanceof Error ? error.name : typeof error;
+}
+
+/** A short text for a socket error's `description`, which may be a string, a status or an event. */
+function describe(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value === 'string' || typeof value === 'number')
+    return String(value);
+  const event = value as {
+    type?: unknown;
+    message?: unknown;
+    description?: unknown;
+  };
+  if (typeof event.message === 'string') return event.message;
+  if (event.description !== undefined) return describe(event.description);
+  return typeof event.type === 'string' ? `${event.type} event` : typeof value;
 }

@@ -1,6 +1,7 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { MatButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
+import { DiagnosticsExport, Diagnostics } from '@lister/web/util-diagnostics';
 import {
   IOS_INSTALL_STEPS,
   InstallPrompt,
@@ -17,7 +18,12 @@ import {
 export class AppSection {
   protected readonly installPrompt = inject(InstallPrompt);
   private readonly persistence = inject(StoragePersistence);
+  private readonly diagnosticsExport = inject(DiagnosticsExport);
+  private readonly diagnostics = inject(Diagnostics);
   protected readonly iosSteps = IOS_INSTALL_STEPS;
+  /** What the diagnostic log buttons last did, for screen readers and the user. */
+  protected readonly logMessage = signal('');
+  protected readonly logBusy = signal(false);
 
   protected readonly storage = computed(() => {
     switch (this.persistence.state()) {
@@ -31,4 +37,36 @@ export class AppSection {
         return 'Not requested yet: asked after your first sync';
     }
   });
+
+  protected async exportLog(): Promise<void> {
+    await this.runLogAction(async () => {
+      const outcome = await this.diagnosticsExport.export();
+      return outcome === 'cancelled'
+        ? 'Sharing cancelled'
+        : outcome === 'shared'
+          ? 'Diagnostic log shared'
+          : 'Diagnostic log downloaded';
+    }, 'The diagnostic log could not be exported');
+  }
+
+  protected async clearLog(): Promise<void> {
+    await this.runLogAction(async () => {
+      await this.diagnostics.clear();
+      return 'Diagnostic log cleared';
+    }, 'The diagnostic log could not be cleared');
+  }
+
+  private async runLogAction(
+    action: () => Promise<string>,
+    failure: string,
+  ): Promise<void> {
+    this.logBusy.set(true);
+    try {
+      this.logMessage.set(await action());
+    } catch {
+      this.logMessage.set(failure);
+    } finally {
+      this.logBusy.set(false);
+    }
+  }
 }

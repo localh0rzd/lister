@@ -67,6 +67,9 @@
       ],
       "@lister/web/feature-search": [
         "./packages/web/feature-search/src/index.ts"
+      ],
+      "@lister/web/util-diagnostics": [
+        "./packages/web/util-diagnostics/src/index.ts"
       ]
     }
   },

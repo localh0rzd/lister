@@ -25,7 +25,7 @@ Nx monorepo: **Angular** web app + **NestJS** API, sharing TypeScript libraries.
 
 - **shared:** `api-contracts` (HTTP DTO types, `apiPath()`), `domain` (entities, ids, positions, flattening, cycle check), `sync-protocol` (Zod schemas for mutations and socket messages, `applyMutation()`), `list-transfer` (export format, Markdown export, import parsers)
 - **api:** `data-access-db` (SQLite + Drizzle, migrations), `feature-auth`, `feature-spaces`, `feature-sync`, `feature-maintenance` (backups, purge)
-- **web:** `data-access-local-db` (Dexie, liveQuery signals, repositories), `data-access-sync` (sync engine, outbox, socket; `SpaceChanges`), `data-access-auth`, `feature-lists`, `feature-runs`, `feature-auth`, `feature-admin`, `feature-space`, `feature-settings`, `feature-transfer` (export, import, print), `ui` (nav bar and rail), `util-theme`, `util-notify` (`Notifier`), `util-pwa`
+- **web:** `data-access-local-db` (Dexie, liveQuery signals, repositories), `data-access-sync` (sync engine, outbox, socket; `SpaceChanges`), `data-access-auth`, `feature-lists`, `feature-runs`, `feature-auth`, `feature-admin`, `feature-space`, `feature-settings`, `feature-transfer` (export, import, print), `ui` (nav bar and rail), `util-theme`, `util-notify` (`Notifier`), `util-pwa`, `util-diagnostics` (on-device connection log)
 
 Apps stay thin: they wire routes, modules and config. **Every bigger feature gets its own library from its first line of code** (`module-boundaries` skill). Planned libraries and their tags are in docs/design.md §5; add any new one there.
 

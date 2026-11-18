@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-063 — Diagnostic log for connection problems, exportable from Settings → App
 
 - Milestone: M9 Data and finding things
@@ -69,6 +67,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   down the cause. Put the logger in its own web library (e.g. `web/util-diagnostics`, `module-boundaries`
   skill) so sync, auth and PWA code can write to it; add it to docs/design.md §5 and describe the
   log in §2.9/§4.4.
+
+## Backlog
 
 ## Done
 
