@@ -8,6 +8,7 @@ import { signal } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { newId } from '@lister/shared/domain';
+import { makeList } from '@lister/shared/testing';
 import { SpaceChanges, SyncEngine } from '@lister/web/data-access-sync';
 import { Transfers } from '@lister/web/feature-transfer';
 import { SpacePage } from './space-page';
@@ -75,26 +76,8 @@ describe('SpacePage', () => {
   /** The Space page of a space holding `lists`, with its export button once it is enabled. */
   async function withLists(lists: { title: string; deletedAt?: number }[]) {
     const spaceId = newId();
-    const meta = {
-      spaceId,
-      version: 1,
-      deletedAt: null,
-      createdBy: 'u',
-      updatedBy: 'u',
-      createdAt: 0,
-      updatedAt: 0,
-    };
     await db.spaces.put({ id: spaceId, name: 'Home', version: 1, members: [] });
-    await db.lists.bulkPut(
-      lists.map((list) => ({
-        ...meta,
-        id: newId(),
-        description: '',
-        colour: null,
-        icon: null,
-        ...list,
-      })),
-    );
+    await db.lists.bulkPut(lists.map((list) => makeList({ spaceId, ...list })));
     const exportAll = vi
       .spyOn(TestBed.inject(Transfers), 'exportAll')
       .mockImplementation(() => undefined);

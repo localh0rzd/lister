@@ -4,38 +4,15 @@ import {
   type CompositionSource,
   type Item,
   type List,
-  newId,
 } from '@lister/shared/domain';
+import { makeItem, makeList } from '@lister/shared/testing';
 import { SpaceChanges } from '@lister/web/data-access-sync';
 import { Notifier } from '@lister/web/util-notify';
 import { Transfers } from './transfers';
 
-const meta = {
-  spaceId: 's',
-  version: 1,
-  deletedAt: null,
-  createdBy: 'u',
-  updatedBy: 'u',
-  createdAt: 0,
-  updatedAt: 0,
-};
-const list = (title: string): List => ({
-  ...meta,
-  id: newId(),
-  title,
-  description: '',
-  colour: null,
-  icon: null,
-});
-const item = (listId: string, title: string, position = 'a'): Item => ({
-  ...meta,
-  id: newId(),
-  listId,
-  title,
-  quantity: '2',
-  note: '',
-  position,
-});
+const list = (title: string): List => makeList({ title });
+const item = (listId: string, title: string, position = 'a'): Item =>
+  makeItem({ listId, title, quantity: '2', position });
 
 const camping = list('Camping / 2026');
 const source: CompositionSource = {

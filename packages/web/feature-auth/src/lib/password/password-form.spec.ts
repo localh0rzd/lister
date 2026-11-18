@@ -5,6 +5,7 @@ import {
   provideHttpClientTesting,
 } from '@angular/common/http/testing';
 import { newId } from '@lister/shared/domain';
+import { makeUser } from '@lister/shared/testing';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { PasswordForm } from './password-form';
 
@@ -61,13 +62,7 @@ describe('PasswordForm', () => {
       currentPassword: 'old password',
       newPassword: 'new password',
     });
-    call.flush({
-      id: newId(),
-      username: 'anna',
-      displayName: 'Anna',
-      isAdmin: false,
-      mustChangePassword: false,
-    });
+    call.flush(makeUser());
 
     await vi.waitFor(() => expect(page.changed).toHaveBeenCalledTimes(1));
     expect(page.fields()[0].value).toBe('');

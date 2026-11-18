@@ -7,6 +7,7 @@ import {
   type RunItem,
   newId,
 } from '@lister/shared/domain';
+import { makeList, makeRun, makeRunItem } from '@lister/shared/testing';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { type MutationRequest, SyncEngine } from '@lister/web/data-access-sync';
 import { Notifier } from '@lister/web/util-notify';
@@ -14,37 +15,10 @@ import { of } from 'rxjs';
 import { RunsPage } from './runs-page';
 
 const SPACE = newId();
-const meta = {
-  spaceId: SPACE,
-  version: 1,
-  deletedAt: null,
-  createdBy: 'u',
-  updatedBy: 'u',
-  createdAt: 0,
-  updatedAt: 0,
-};
-const run = (title: string, extra: Partial<Run> = {}): Run => ({
-  ...meta,
-  id: newId(),
-  title,
-  sourceListId: null,
-  finishedAt: null,
-  ...extra,
-});
-const runItem = (runId: string, state: RunItem['state']): RunItem => ({
-  ...meta,
-  id: newId(),
-  runId,
-  title: newId(),
-  quantity: '',
-  note: '',
-  position: 'a0',
-  sources: [],
-  state,
-  stateBy: null,
-  stateAt: null,
-  mergedInto: null,
-});
+const run = (title: string, extra: Partial<Run> = {}): Run =>
+  makeRun({ spaceId: SPACE, title, ...extra });
+const runItem = (runId: string, state: RunItem['state']): RunItem =>
+  makeRunItem({ spaceId: SPACE, runId, title: newId(), state });
 
 let db: LocalDb;
 let requests: MutationRequest[];
@@ -150,14 +124,12 @@ describe('RunsPage', () => {
 
   it("shows the source list's colour and icon as they are now, and nothing for an ad-hoc run (D26)", async () => {
     await withSpace();
-    const camping: List = {
-      ...meta,
-      id: newId(),
+    const camping: List = makeList({
+      spaceId: SPACE,
       title: 'Camping',
-      description: '',
       colour: 'teal',
       icon: 'camping',
-    };
+    });
     await db.lists.put(camping);
     await db.runs.bulkPut([
       run('Alps', { createdAt: 1, sourceListId: camping.id }),
@@ -185,14 +157,7 @@ describe('RunsPage', () => {
 
   it('shows no avatar for a run whose source list has neither colour nor icon', async () => {
     await withSpace();
-    const camping: List = {
-      ...meta,
-      id: newId(),
-      title: 'Camping',
-      description: '',
-      colour: null,
-      icon: null,
-    };
+    const camping: List = makeList({ spaceId: SPACE, title: 'Camping' });
     await db.lists.put(camping);
     await db.runs.put(run('Alps', { sourceListId: camping.id }));
     const page = await render();

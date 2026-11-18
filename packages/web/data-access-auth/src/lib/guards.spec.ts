@@ -7,18 +7,12 @@ import {
   provideRouter,
 } from '@angular/router';
 import type { CurrentUser } from '@lister/shared/api-contracts';
+import { makeUser } from '@lister/shared/testing';
 import { AuthSession } from './auth-session';
 import { adminGuard, guestGuard, sessionGuard, signedInGuard } from './guards';
 
-const user = (changes: Partial<CurrentUser> = {}): CurrentUser => ({
-  id: 'u1',
-  username: 'anna',
-  displayName: 'Anna',
-  isAdmin: false,
-  mustChangePassword: false,
-  visibleToOthers: false,
-  ...changes,
-});
+const user = (changes: Partial<CurrentUser> = {}): CurrentUser =>
+  makeUser({ id: 'u1', ...changes });
 
 function setup(known: CurrentUser | null) {
   const ensure = vi.fn(() => Promise.resolve(known));

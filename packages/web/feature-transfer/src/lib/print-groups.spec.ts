@@ -4,17 +4,8 @@ import {
   type List,
   newId,
 } from '@lister/shared/domain';
+import { makeInclude, makeItem, makeList } from '@lister/shared/testing';
 import { printGroupsOfList } from './print-groups';
-
-const meta = {
-  spaceId: 's',
-  version: 1,
-  deletedAt: null as number | null,
-  createdBy: 'u',
-  updatedBy: 'u',
-  createdAt: 0,
-  updatedAt: 0,
-};
 
 function space() {
   const lists = new Map<string, List>();
@@ -25,36 +16,16 @@ function space() {
   return {
     list(title: string, deleted = false) {
       const id = newId();
-      lists.set(id, {
-        ...meta,
-        id,
-        title,
-        description: '',
-        colour: null,
-        icon: null,
-        deletedAt: deleted ? 1 : null,
-      });
+      lists.set(id, makeList({ id, title, deletedAt: deleted ? 1 : null }));
       return id;
     },
     item(listId: string, title: string) {
-      items.push({
-        ...meta,
-        id: newId(),
-        listId,
-        title,
-        quantity: '',
-        note: '',
-        position: position(),
-      });
+      items.push(makeItem({ listId, title, position: position() }));
     },
     include(parentListId: string, childListId: string) {
-      includes.push({
-        ...meta,
-        id: newId(),
-        parentListId,
-        childListId,
-        position: position(),
-      });
+      includes.push(
+        makeInclude({ parentListId, childListId, position: position() }),
+      );
     },
     source: {
       list: (id: string) => lists.get(id),

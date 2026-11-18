@@ -12,15 +12,10 @@ import { signal } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { AuthSession } from '@lister/web/data-access-auth';
 import { SyncEngine } from '@lister/web/data-access-sync';
+import { makeUser } from '@lister/shared/testing';
 import { SettingsPage } from './settings-page';
 
-const user = signal({
-  id: 'u1',
-  username: 'anna',
-  displayName: 'Anna',
-  isAdmin: false,
-  mustChangePassword: false,
-});
+const user = signal(makeUser());
 
 describe('SettingsPage', () => {
   beforeEach(() => {

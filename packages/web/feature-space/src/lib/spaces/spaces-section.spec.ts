@@ -9,6 +9,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { of } from 'rxjs';
 import type { SpaceSummary } from '@lister/shared/api-contracts';
 import { newId } from '@lister/shared/domain';
+import { makeSpaceMember, makeSpaceSummary } from '@lister/shared/testing';
 import { AuthSession } from '@lister/web/data-access-auth';
 import {
   CURRENT_SPACE_KEY,
@@ -24,17 +25,15 @@ const BEN = newId();
 const summary = (
   name: string,
   changes: Partial<SpaceSummary> = {},
-): SpaceSummary => ({
-  id: newId(),
-  name,
-  personal: false,
-  role: 'owner',
-  members: [
-    { userId: ME, displayName: 'Anna', role: 'owner' },
-    { userId: BEN, displayName: 'Ben', role: 'member' },
-  ],
-  ...changes,
-});
+): SpaceSummary =>
+  makeSpaceSummary({
+    name,
+    members: [
+      makeSpaceMember({ userId: ME, displayName: 'Anna', role: 'owner' }),
+      makeSpaceMember({ userId: BEN, displayName: 'Ben', role: 'member' }),
+    ],
+    ...changes,
+  });
 
 let db: LocalDb;
 let http: HttpTestingController;

@@ -3,45 +3,17 @@ import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MatAutocompleteHarness } from '@angular/material/autocomplete/testing';
 import { Router, provideRouter } from '@angular/router';
 import { type Item, type List, type Run, newId } from '@lister/shared/domain';
+import { makeItem, makeList, makeRun } from '@lister/shared/testing';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { SearchField } from './search-field';
 
 const SPACE = newId();
-const meta = {
-  spaceId: SPACE,
-  version: 1,
-  deletedAt: null,
-  createdBy: 'u',
-  updatedBy: 'u',
-  createdAt: 0,
-  updatedAt: 0,
-};
-const list = (title: string, extra: Partial<List> = {}): List => ({
-  ...meta,
-  id: newId(),
-  title,
-  description: '',
-  colour: null,
-  icon: null,
-  ...extra,
-});
-const item = (listId: string, title: string, note = ''): Item => ({
-  ...meta,
-  id: newId(),
-  listId,
-  title,
-  quantity: '',
-  note,
-  position: 'a0',
-});
-const run = (title: string, extra: Partial<Run> = {}): Run => ({
-  ...meta,
-  id: newId(),
-  title,
-  sourceListId: null,
-  finishedAt: null,
-  ...extra,
-});
+const list = (title: string, extra: Partial<List> = {}): List =>
+  makeList({ spaceId: SPACE, title, ...extra });
+const item = (listId: string, title: string, note = ''): Item =>
+  makeItem({ spaceId: SPACE, listId, title, note });
+const run = (title: string, extra: Partial<Run> = {}): Run =>
+  makeRun({ spaceId: SPACE, title, ...extra });
 
 let db: LocalDb;
 

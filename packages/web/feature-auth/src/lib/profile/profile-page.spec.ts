@@ -8,16 +8,10 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { AuthSession, WebAuthnClient } from '@lister/web/data-access-auth';
 import { Notifier } from '@lister/web/util-notify';
+import { makeUser } from '@lister/shared/testing';
 import { ProfilePage } from './profile-page';
 
-const user = {
-  id: 'u1',
-  username: 'anna',
-  displayName: 'Anna',
-  isAdmin: false,
-  mustChangePassword: false,
-  visibleToOthers: false,
-};
+const user = makeUser();
 
 function setup() {
   const current = signal(user);

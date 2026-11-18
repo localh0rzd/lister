@@ -11,6 +11,7 @@ import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import type { CurrentUser } from '@lister/shared/api-contracts';
+import { makeUser } from '@lister/shared/testing';
 import { AuthSession } from '@lister/web/data-access-auth';
 import { Notifier } from '@lister/web/util-notify';
 import { UsersPage } from './users-page';
@@ -19,15 +20,8 @@ const user = (
   id: string,
   username: string,
   changes: Partial<CurrentUser> = {},
-): CurrentUser => ({
-  id,
-  username,
-  displayName: username.toUpperCase(),
-  isAdmin: false,
-  mustChangePassword: false,
-  visibleToOthers: false,
-  ...changes,
-});
+): CurrentUser =>
+  makeUser({ id, username, displayName: username.toUpperCase(), ...changes });
 const boss = user('1', 'boss', { isAdmin: true });
 const anna = user('2', 'anna', { mustChangePassword: true });
 

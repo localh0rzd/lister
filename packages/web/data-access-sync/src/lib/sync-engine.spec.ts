@@ -5,6 +5,7 @@ import {
 } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { newId } from '@lister/shared/domain';
+import { makeItem } from '@lister/shared/testing';
 import {
   MemoryRowStore,
   type MutationInput,
@@ -808,21 +809,9 @@ describe('SyncEngine', () => {
       expect(await db.items.where('listId').equals(id).count()).toBe(2);
       await settle();
       // An item with that id appears on the server first: the server rejects the whole change.
-      server.store.putItem({
-        id: taken,
-        spaceId: SPACE,
-        version: 1,
-        deletedAt: null,
-        createdBy: 'u',
-        updatedBy: 'u',
-        createdAt: 1,
-        updatedAt: 1,
-        listId: newId(),
-        title: 'Other',
-        quantity: '',
-        note: '',
-        position: 'a0',
-      });
+      server.store.putItem(
+        makeItem({ id: taken, spaceId: SPACE, title: 'Other' }),
+      );
       server.answerPushes();
       await settle();
 

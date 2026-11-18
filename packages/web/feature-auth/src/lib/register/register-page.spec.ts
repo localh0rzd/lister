@@ -5,8 +5,8 @@ import {
   provideHttpClientTesting,
 } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
-import type { CurrentUser } from '@lister/shared/api-contracts';
 import { newId } from '@lister/shared/domain';
+import { makeUser } from '@lister/shared/testing';
 import { PageNavigator } from '@lister/web/data-access-auth';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { RegisterPage } from './register-page';
@@ -75,14 +75,7 @@ describe('RegisterPage', () => {
       displayName: 'Anna A',
       password: 'a long password',
     });
-    call.flush({
-      id: newId(),
-      username: 'anna',
-      displayName: 'Anna A',
-      isAdmin: false,
-      mustChangePassword: false,
-      visibleToOthers: false,
-    } satisfies CurrentUser);
+    call.flush(makeUser({ displayName: 'Anna A' }));
 
     await vi.waitFor(() => expect(load).toHaveBeenCalledWith('/'));
   });

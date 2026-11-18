@@ -6,16 +6,10 @@ import {
 } from '@angular/common/http/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import type { CurrentUser } from '@lister/shared/api-contracts';
+import { makeUser } from '@lister/shared/testing';
 import { UserDialog, type UserDialogData } from './user-dialog';
 
-const saved: CurrentUser = {
-  id: 'u1',
-  username: 'anna',
-  displayName: 'Anna',
-  isAdmin: false,
-  mustChangePassword: true,
-  visibleToOthers: false,
-};
+const saved: CurrentUser = makeUser({ id: 'u1', mustChangePassword: true });
 
 async function render(data: UserDialogData) {
   const close = vi.fn();

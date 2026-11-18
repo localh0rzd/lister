@@ -1,30 +1,12 @@
 import type { RunItem } from '@lister/shared/domain';
+import { makeRunItem } from '@lister/shared/testing';
 import { layoutRun, progressText, runTitle } from './run-sections';
 
 const item = (
   id: string,
   sources: string[],
   state: RunItem['state'] = 'unchecked',
-): RunItem => ({
-  id,
-  spaceId: 's',
-  version: 1,
-  deletedAt: null,
-  createdBy: 'u',
-  updatedBy: 'u',
-  createdAt: 0,
-  updatedAt: 0,
-  runId: 'r',
-  title: id,
-  quantity: '',
-  note: '',
-  position: 'a0',
-  sources,
-  state,
-  stateBy: null,
-  stateAt: null,
-  mergedInto: null,
-});
+): RunItem => makeRunItem({ id, runId: 'r', title: id, sources, state });
 const titles: Record<string, string> = { camp: 'Camping', basic: 'Basics' };
 const listTitle = (id: string) => titles[id];
 const shape = (layout: ReturnType<typeof layoutRun>) => ({

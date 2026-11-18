@@ -9,6 +9,7 @@ import {
   type List,
   newId,
 } from '@lister/shared/domain';
+import { makeInclude, makeItem, makeList } from '@lister/shared/testing';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { SyncEngine } from '@lister/web/data-access-sync';
 import { Transfers } from '@lister/web/feature-transfer';
@@ -17,32 +18,9 @@ import { of } from 'rxjs';
 import { ListsPage, copyTitle } from './lists-page';
 
 const SPACE = newId();
-const meta = {
-  spaceId: SPACE,
-  version: 1,
-  deletedAt: null,
-  createdBy: 'u',
-  updatedBy: 'u',
-  createdAt: 0,
-  updatedAt: 0,
-};
-const list = (title: string): List => ({
-  ...meta,
-  id: newId(),
-  title,
-  description: '',
-  colour: null,
-  icon: null,
-});
-const item = (listId: string): Item => ({
-  ...meta,
-  id: newId(),
-  listId,
-  title: 'x',
-  quantity: '',
-  note: '',
-  position: 'a0',
-});
+const list = (title: string): List => makeList({ spaceId: SPACE, title });
+const item = (listId: string): Item =>
+  makeItem({ spaceId: SPACE, listId, title: 'x' });
 
 let db: LocalDb;
 let mutate: ReturnType<typeof vi.fn>;
@@ -169,13 +147,13 @@ describe('ListsPage', () => {
       item(toiletries.id),
       { ...item(toiletries.id), deletedAt: 2 },
     ]);
-    const include = (parent: List, child: List): Include => ({
-      ...meta,
-      id: newId(),
-      parentListId: parent.id,
-      childListId: child.id,
-      position: 'a1',
-    });
+    const include = (parent: List, child: List): Include =>
+      makeInclude({
+        spaceId: SPACE,
+        parentListId: parent.id,
+        childListId: child.id,
+        position: 'a1',
+      });
     await db.includes.bulkPut([
       include(trip, camping),
       include(camping, toiletries), // nested
@@ -247,13 +225,12 @@ describe('ListsPage', () => {
     const basics = list('Basics');
     const tent = { ...item(camping.id), title: 'Tent', position: 'a0' };
     const lamp = { ...item(basics.id), title: 'Lamp', quantity: '2' };
-    const include: Include = {
-      ...meta,
-      id: newId(),
+    const include: Include = makeInclude({
+      spaceId: SPACE,
       parentListId: camping.id,
       childListId: basics.id,
       position: 'a1',
-    };
+    });
     await db.lists.bulkPut([camping, basics]);
     await db.items.bulkPut([tent, lamp]);
     await db.includes.put(include);
@@ -412,13 +389,14 @@ describe('ListsPage', () => {
       deletedAt: 3,
     };
     await db.items.bulkPut([tent, stove, gone]);
-    await db.includes.put({
-      ...meta,
-      id: newId(),
-      parentListId: camping.id,
-      childListId: toiletries.id,
-      position: 'a5',
-    });
+    await db.includes.put(
+      makeInclude({
+        spaceId: SPACE,
+        parentListId: camping.id,
+        childListId: toiletries.id,
+        position: 'a5',
+      }),
+    );
     const { loader, element, fixture } = await render();
     // The copy is made from the loaded composition: wait until the counts show it.
     await vi.waitFor(async () => {

@@ -13,6 +13,7 @@ import {
   newId,
   sortByPosition,
 } from '@lister/shared/domain';
+import { makeInclude, makeItem, makeList } from '@lister/shared/testing';
 import type { MutationRequest } from '@lister/web/data-access-sync';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { SyncEngine } from '@lister/web/data-access-sync';
@@ -24,37 +25,19 @@ import type { ItemDialogData } from '@lister/web/ui';
 import { ListEditorPage } from './list-editor-page';
 
 const SPACE = newId();
-const meta = {
-  spaceId: SPACE,
-  version: 1,
-  deletedAt: null,
-  createdBy: 'u',
-  updatedBy: 'u',
-  createdAt: 0,
-  updatedAt: 0,
-};
-const camping: List = {
-  ...meta,
-  id: newId(),
-  title: 'Camping',
-  description: '',
-  colour: null,
-  icon: null,
-};
+const camping: List = makeList({ spaceId: SPACE, title: 'Camping' });
 const item = (
   title: string,
   position: string,
   extra: Partial<Item> = {},
-): Item => ({
-  ...meta,
-  id: newId(),
-  listId: camping.id,
-  title,
-  quantity: '',
-  note: '',
-  position,
-  ...extra,
-});
+): Item =>
+  makeItem({
+    spaceId: SPACE,
+    listId: camping.id,
+    title,
+    position,
+    ...extra,
+  });
 
 /** The open suggestion list (it lives in the overlay, outside the fixture). */
 const suggestions = () =>
@@ -793,28 +776,21 @@ describe('ListEditorPage', () => {
 });
 
 describe('ListEditorPage — included lists', () => {
-  const list = (title: string, extra: Partial<List> = {}): List => ({
-    ...meta,
-    id: newId(),
-    title,
-    description: '',
-    colour: null,
-    icon: null,
-    ...extra,
-  });
+  const list = (title: string, extra: Partial<List> = {}): List =>
+    makeList({ spaceId: SPACE, title, ...extra });
   const include = (
     parentListId: string,
     childListId: string,
     position: string,
     extra: Partial<Include> = {},
-  ): Include => ({
-    ...meta,
-    id: newId(),
-    parentListId,
-    childListId,
-    position,
-    ...extra,
-  });
+  ): Include =>
+    makeInclude({
+      spaceId: SPACE,
+      parentListId,
+      childListId,
+      position,
+      ...extra,
+    });
   const itemOf = (listId: string, title: string, position: string) =>
     item(title, position, { listId });
   const sectionTitles = (element: HTMLElement) =>

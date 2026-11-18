@@ -13,6 +13,12 @@ import {
   newId,
 } from '@lister/shared/domain';
 import {
+  makeItem,
+  makeList,
+  makeRun,
+  makeRunItem,
+} from '@lister/shared/testing';
+import {
   LOCAL_DB,
   LocalDb,
   type QueryState,
@@ -27,57 +33,25 @@ import { DoneSectionPreference } from './done-section-preference';
 import { RunPage } from './run-page';
 
 const SPACE = newId();
-const meta = {
+const camping: List = makeList({ spaceId: SPACE, title: 'Camping' });
+const basics: List = makeList({ spaceId: SPACE, title: 'Basics' });
+const alps: Run = makeRun({
   spaceId: SPACE,
-  version: 1,
-  deletedAt: null,
-  createdBy: 'u',
-  updatedBy: 'u',
-  createdAt: 0,
-  updatedAt: 0,
-};
-const camping: List = {
-  ...meta,
-  id: newId(),
-  title: 'Camping',
-  description: '',
-  colour: null,
-  icon: null,
-};
-const basics: List = {
-  ...meta,
-  id: newId(),
-  title: 'Basics',
-  description: '',
-  colour: null,
-  icon: null,
-};
-const alps: Run = {
-  ...meta,
-  id: newId(),
   title: 'Alps',
   sourceListId: camping.id,
-  finishedAt: null,
-};
+});
 const runItem = (
   title: string,
   position: string,
   extra: Partial<RunItem> = {},
-): RunItem => ({
-  ...meta,
-  id: newId(),
-  runId: alps.id,
-  title,
-  quantity: '',
-  note: '',
-  position,
-  sources: [],
-  state: 'unchecked',
-  stateBy: null,
-  stateAt: null,
-  mergedInto: null,
-  ...extra,
-});
+): RunItem =>
+  makeRunItem({
+    spaceId: SPACE,
+    runId: alps.id,
+    title,
+    position,
+    ...extra,
+  });
 
 /** The open suggestion list (it lives in the overlay, outside the fixture). */
 const suggestions = () =>
@@ -184,24 +158,14 @@ async function clickAddList(page: Awaited<ReturnType<typeof render>>) {
 describe('RunPage', () => {
   it('suggests item titles from the lists, not those already in the run, and adds a chosen one', async () => {
     await db.items.bulkPut([
-      {
-        ...meta,
-        id: newId(),
+      makeItem({
+        spaceId: SPACE,
         listId: camping.id,
         title: 'Stove',
         quantity: '2',
         note: 'gas',
-        position: 'a0',
-      },
-      {
-        ...meta,
-        id: newId(),
-        listId: basics.id,
-        title: 'Stool',
-        quantity: '',
-        note: '',
-        position: 'a0',
-      },
+      }),
+      makeItem({ spaceId: SPACE, listId: basics.id, title: 'Stool' }),
     ]);
     await db.runItems.put(runItem('stool', 'a0'));
     const page = await render();
@@ -480,15 +444,12 @@ describe('RunPage', () => {
   });
 
   it('adds a whole list, its included lists too, as a new section', async () => {
-    const stove: Item = {
-      ...meta,
-      id: newId(),
+    const stove: Item = makeItem({
+      spaceId: SPACE,
       listId: basics.id,
       title: 'Stove',
       quantity: '2',
-      note: '',
-      position: 'a0',
-    };
+    });
     await db.items.put(stove);
     const page = await render();
     dialogAnswer = basics.id;

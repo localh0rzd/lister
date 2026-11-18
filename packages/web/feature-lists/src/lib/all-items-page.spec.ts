@@ -1,36 +1,14 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { type Item, type List, newId } from '@lister/shared/domain';
+import { makeItem, makeList } from '@lister/shared/testing';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { AllItemsPage } from './all-items-page';
 
 const SPACE = newId();
-const meta = {
-  spaceId: SPACE,
-  version: 1,
-  deletedAt: null,
-  createdBy: 'u',
-  updatedBy: 'u',
-  createdAt: 0,
-  updatedAt: 0,
-};
-const list = (title: string): List => ({
-  ...meta,
-  id: newId(),
-  title,
-  description: '',
-  colour: null,
-  icon: null,
-});
-const item = (listId: string, title: string): Item => ({
-  ...meta,
-  id: newId(),
-  listId,
-  title,
-  quantity: '',
-  note: '',
-  position: 'a0',
-});
+const list = (title: string): List => makeList({ spaceId: SPACE, title });
+const item = (listId: string, title: string): Item =>
+  makeItem({ spaceId: SPACE, listId, title });
 
 let db: LocalDb;
 

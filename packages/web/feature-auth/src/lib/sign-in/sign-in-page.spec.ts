@@ -7,18 +7,12 @@ import {
 import { Router, provideRouter } from '@angular/router';
 import type { CurrentUser } from '@lister/shared/api-contracts';
 import { newId } from '@lister/shared/domain';
+import { makeUser } from '@lister/shared/testing';
 import { PageNavigator, WebAuthnClient } from '@lister/web/data-access-auth';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { SignInPage } from './sign-in-page';
 
-const anna: CurrentUser = {
-  id: newId(),
-  username: 'anna',
-  displayName: 'Anna',
-  isAdmin: false,
-  mustChangePassword: false,
-  visibleToOthers: false,
-};
+const anna: CurrentUser = makeUser();
 
 let db: LocalDb;
 const load = vi.fn();

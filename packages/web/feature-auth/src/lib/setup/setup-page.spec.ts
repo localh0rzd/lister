@@ -7,6 +7,7 @@ import {
 import { provideRouter } from '@angular/router';
 import type { CurrentUser } from '@lister/shared/api-contracts';
 import { newId } from '@lister/shared/domain';
+import { makeUser } from '@lister/shared/testing';
 import { PageNavigator } from '@lister/web/data-access-auth';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { SetupPage } from './setup-page';
@@ -73,14 +74,9 @@ describe('SetupPage', () => {
       displayName: 'Anna A',
       password: 'a long password',
     });
-    call.flush({
-      id: newId(),
-      username: 'anna',
-      displayName: 'Anna A',
-      isAdmin: true,
-      mustChangePassword: false,
-      visibleToOthers: false,
-    } satisfies CurrentUser);
+    call.flush(
+      makeUser({ displayName: 'Anna A', isAdmin: true }) satisfies CurrentUser,
+    );
 
     await vi.waitFor(() => expect(load).toHaveBeenCalledWith('/'));
   });

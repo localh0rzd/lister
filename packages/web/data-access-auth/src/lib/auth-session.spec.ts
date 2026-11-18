@@ -6,6 +6,7 @@ import {
 } from '@angular/common/http/testing';
 import type { CurrentUser } from '@lister/shared/api-contracts';
 import { newId } from '@lister/shared/domain';
+import { makeUser } from '@lister/shared/testing';
 import { Diagnostics } from '@lister/web/util-diagnostics';
 import type { LocalDb as LocalDbType } from '@lister/web/data-access-local-db';
 import {
@@ -16,14 +17,7 @@ import {
 import { PageNavigator } from './page-navigator';
 import { WebAuthnClient } from './webauthn-client';
 
-const anna: CurrentUser = {
-  id: newId(),
-  username: 'anna',
-  displayName: 'Anna',
-  isAdmin: false,
-  mustChangePassword: false,
-  visibleToOthers: false,
-};
+const anna: CurrentUser = makeUser();
 
 const {
   CURRENT_SPACE_KEY,

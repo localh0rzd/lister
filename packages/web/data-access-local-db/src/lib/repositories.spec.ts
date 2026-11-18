@@ -9,6 +9,13 @@ import {
   flatten,
   newId,
 } from '@lister/shared/domain';
+import {
+  makeInclude,
+  makeItem,
+  makeList,
+  makeRun,
+  makeRunItem,
+} from '@lister/shared/testing';
 import { LOCAL_DB, LocalDb } from './local-db';
 import { type QueryState, valueOf } from './live-query-signal';
 import { Repositories, trashedAt, trashedBy } from './repositories';
@@ -16,39 +23,14 @@ import { Repositories, trashedAt, trashedBy } from './repositories';
 const SPACE = newId();
 const OTHER_SPACE = newId();
 
-const meta = (spaceId = SPACE) => ({
-  spaceId,
-  version: 1,
-  deletedAt: null,
-  createdBy: newId(),
-  updatedBy: newId(),
-  createdAt: 0,
-  updatedAt: 0,
-});
-const list = (title: string, extra: Partial<List> = {}): List => ({
-  ...meta(),
-  id: newId(),
-  title,
-  description: '',
-  colour: null,
-  icon: null,
-  ...extra,
-});
+const list = (title: string, extra: Partial<List> = {}): List =>
+  makeList({ spaceId: SPACE, title, ...extra });
 const item = (
   listId: string,
   title: string,
   position: string,
   extra: Partial<Item> = {},
-): Item => ({
-  ...meta(),
-  id: newId(),
-  listId,
-  title,
-  quantity: '',
-  note: '',
-  position,
-  ...extra,
-});
+): Item => makeItem({ spaceId: SPACE, listId, title, position, ...extra });
 
 let db: LocalDb;
 let repositories: Repositories;
@@ -420,14 +402,14 @@ describe('Repositories.compositionOfSpace', () => {
     parentListId: string,
     childListId: string,
     extra: Partial<Include> = {},
-  ): Include => ({
-    ...meta(),
-    id: newId(),
-    parentListId,
-    childListId,
-    position: 'a1',
-    ...extra,
-  });
+  ): Include =>
+    makeInclude({
+      spaceId: SPACE,
+      parentListId,
+      childListId,
+      position: 'a1',
+      ...extra,
+    });
 
   it('flattens through the live data and finds the lists that use a list', async () => {
     const trip = list('Trip');
@@ -594,34 +576,14 @@ describe('Repositories.currentUserId', () => {
   });
 });
 
-const run = (title: string, extra: Partial<Run> = {}): Run => ({
-  ...meta(),
-  id: newId(),
-  title,
-  sourceListId: null,
-  finishedAt: null,
-  ...extra,
-});
+const run = (title: string, extra: Partial<Run> = {}): Run =>
+  makeRun({ spaceId: SPACE, title, ...extra });
 const runItem = (
   runId: string,
   title: string,
   position: string,
   extra: Partial<RunItem> = {},
-): RunItem => ({
-  ...meta(),
-  id: newId(),
-  runId,
-  title,
-  quantity: '',
-  note: '',
-  position,
-  sources: [],
-  state: 'unchecked',
-  stateBy: null,
-  stateAt: null,
-  mergedInto: null,
-  ...extra,
-});
+): RunItem => makeRunItem({ spaceId: SPACE, runId, title, position, ...extra });
 
 describe('Repositories.activeRunsOfSpace', () => {
   it('lists active runs newest first with progress, never finished, deleted or other spaces’ runs', async () => {
@@ -632,7 +594,7 @@ describe('Repositories.activeRunsOfSpace', () => {
       newer,
       run('Finished', { createdAt: 3, finishedAt: 3 }),
       run('Deleted', { createdAt: 4, deletedAt: 4 }),
-      run('Elsewhere', { ...meta(OTHER_SPACE), createdAt: 5 }),
+      run('Elsewhere', { spaceId: OTHER_SPACE, createdAt: 5 }),
     ]);
     await db.runItems.bulkPut([
       runItem(older.id, 'A', 'a0', { state: 'checked' }),

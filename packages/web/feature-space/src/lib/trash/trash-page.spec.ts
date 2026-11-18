@@ -1,6 +1,12 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { type Item, type List, type Run, newId } from '@lister/shared/domain';
+import {
+  makeItem,
+  makeList,
+  makeRun,
+  makeRunItem,
+} from '@lister/shared/testing';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { SyncEngine } from '@lister/web/data-access-sync';
 import { Notifier } from '@lister/web/util-notify';
@@ -9,47 +15,14 @@ import { TrashPage, whenDeleted } from './trash-page';
 const SPACE = newId();
 const ME = newId();
 const BEN = newId();
-const meta = {
-  spaceId: SPACE,
-  version: 1,
-  deletedAt: null as number | null,
-  createdBy: ME,
-  updatedBy: ME,
-  createdAt: 0,
-  updatedAt: 0,
-};
-const list = (title: string, extra: Partial<List> = {}): List => ({
-  ...meta,
-  id: newId(),
-  title,
-  description: '',
-  colour: null,
-  icon: null,
-  ...extra,
-});
-const item = (
-  listId: string,
-  title: string,
-  extra: Partial<Item> = {},
-): Item => ({
-  ...meta,
-  id: newId(),
-  listId,
-  title,
-  quantity: '',
-  note: '',
-  position: 'a0',
-  ...extra,
-});
+const who = { createdBy: ME, updatedBy: ME };
+const list = (title: string, extra: Partial<List> = {}): List =>
+  makeList({ spaceId: SPACE, ...who, title, ...extra });
+const item = (listId: string, title: string, extra: Partial<Item> = {}): Item =>
+  makeItem({ spaceId: SPACE, ...who, listId, title, ...extra });
 
-const run = (title: string, extra: Partial<Run> = {}): Run => ({
-  ...meta,
-  id: newId(),
-  title,
-  sourceListId: null,
-  finishedAt: null,
-  ...extra,
-});
+const run = (title: string, extra: Partial<Run> = {}): Run =>
+  makeRun({ spaceId: SPACE, ...who, title, ...extra });
 
 let db: LocalDb;
 let mutate: ReturnType<typeof vi.fn>;
@@ -155,20 +128,17 @@ describe('TrashPage', () => {
       sourceListId: null,
     });
     await db.runs.bulkPut([alps, run('Active')]);
-    await db.runItems.put({
-      ...meta,
-      id: newId(),
-      runId: alps.id,
-      title: 'Tent',
-      quantity: '',
-      note: '',
-      position: 'a0',
-      sources: [],
-      state: 'checked',
-      stateBy: BEN,
-      stateAt: now - 1000,
-      mergedInto: null,
-    });
+    await db.runItems.put(
+      makeRunItem({
+        spaceId: SPACE,
+        ...who,
+        runId: alps.id,
+        title: 'Tent',
+        state: 'checked',
+        stateBy: BEN,
+        stateAt: now - 1000,
+      }),
+    );
     const page = await render();
     await vi.waitFor(async () => {
       await page.fixture.whenStable();
