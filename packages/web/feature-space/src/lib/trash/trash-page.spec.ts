@@ -4,6 +4,7 @@ import { type Item, type List, type Run, newId } from '@lister/shared/domain';
 import {
   makeItem,
   makeList,
+  makeLocalSpace,
   makeRun,
   makeRunItem,
 } from '@lister/shared/testing';
@@ -30,12 +31,14 @@ let notify: ReturnType<typeof vi.fn>;
 
 beforeEach(async () => {
   db = new LocalDb(`test-${newId()}`);
-  await db.spaces.put({
-    id: SPACE,
-    name: 'Home',
-    version: 1,
-    members: [{ userId: BEN, displayName: 'Ben' }],
-  });
+  await db.spaces.put(
+    makeLocalSpace({
+      id: SPACE,
+      name: 'Home',
+      version: 1,
+      members: [{ userId: BEN, displayName: 'Ben' }],
+    }),
+  );
   await db.meta.put({ key: 'userId', value: ME });
   mutate = vi.fn(async () => ({ ok: true }));
   notify = vi.fn(async () => 'dismissed');

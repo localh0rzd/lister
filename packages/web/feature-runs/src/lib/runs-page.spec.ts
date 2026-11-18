@@ -7,7 +7,12 @@ import {
   type RunItem,
   newId,
 } from '@lister/shared/domain';
-import { makeList, makeRun, makeRunItem } from '@lister/shared/testing';
+import {
+  makeList,
+  makeLocalSpace,
+  makeRun,
+  makeRunItem,
+} from '@lister/shared/testing';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { type MutationRequest, SyncEngine } from '@lister/web/data-access-sync';
 import { Notifier } from '@lister/web/util-notify';
@@ -74,7 +79,7 @@ async function render() {
 }
 
 const withSpace = () =>
-  db.spaces.put({ id: SPACE, name: 'Home', version: 1, members: [] });
+  db.spaces.put(makeLocalSpace({ id: SPACE, name: 'Home', version: 1 }));
 
 describe('RunsPage', () => {
   it('shows the Runs heading', async () => {

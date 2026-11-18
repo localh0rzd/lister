@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { newId } from '@lister/shared/domain';
 import { CURRENT_SPACE_KEY, CurrentSpace } from './current-space';
 import { LOCAL_DB, LocalDb } from './local-db';
+import { makeLocalSpace } from '@lister/shared/testing';
 
 let db: LocalDb;
 let current: CurrentSpace;
@@ -19,12 +20,8 @@ afterEach(async () => {
   await db.delete();
 });
 
-const space = (name: string) => ({
-  id: newId(),
-  name,
-  version: 0,
-  members: [],
-});
+const space = (name: string) =>
+  makeLocalSpace({ id: newId(), name, version: 0 });
 
 describe('CurrentSpace', () => {
   it('has no space before the first welcome', async () => {

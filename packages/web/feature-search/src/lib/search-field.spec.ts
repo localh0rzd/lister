@@ -3,7 +3,12 @@ import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MatAutocompleteHarness } from '@angular/material/autocomplete/testing';
 import { Router, provideRouter } from '@angular/router';
 import { type Item, type List, type Run, newId } from '@lister/shared/domain';
-import { makeItem, makeList, makeRun } from '@lister/shared/testing';
+import {
+  makeItem,
+  makeList,
+  makeLocalSpace,
+  makeRun,
+} from '@lister/shared/testing';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { SearchField } from './search-field';
 
@@ -19,7 +24,7 @@ let db: LocalDb;
 
 async function show() {
   db = new LocalDb(`test-${newId()}`);
-  await db.spaces.put({ id: SPACE, name: 'Home', version: 1, members: [] });
+  await db.spaces.put(makeLocalSpace({ id: SPACE, name: 'Home', version: 1 }));
   TestBed.configureTestingModule({
     providers: [provideRouter([]), { provide: LOCAL_DB, useValue: db }],
   });
@@ -164,7 +169,9 @@ describe('SearchField (D25)', () => {
     const { harness } = await show();
     const other = newId();
     // "Home" comes before "Work" by name, so it is the current space.
-    await db.spaces.put({ id: other, name: 'Work', version: 1, members: [] });
+    await db.spaces.put(
+      makeLocalSpace({ id: other, name: 'Work', version: 1 }),
+    );
     await db.lists.put(list('Home stuff'));
     await db.lists.put(list('Work stuff', { spaceId: other }));
     await harness.enterText('stuff');

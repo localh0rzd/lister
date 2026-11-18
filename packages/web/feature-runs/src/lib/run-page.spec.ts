@@ -15,6 +15,7 @@ import {
 import {
   makeItem,
   makeList,
+  makeLocalSpace,
   makeRun,
   makeRunItem,
 } from '@lister/shared/testing';
@@ -74,7 +75,7 @@ let refuse: boolean;
 
 beforeEach(async () => {
   db = new LocalDb(`test-${newId()}`);
-  await db.spaces.put({ id: SPACE, name: 'Home', version: 1, members: [] });
+  await db.spaces.put(makeLocalSpace({ id: SPACE, name: 'Home', version: 1 }));
   await db.lists.bulkPut([camping, basics]);
   await db.runs.put(alps);
   requests = [];
@@ -307,12 +308,14 @@ describe('RunPage', () => {
   });
 
   it('shows who checked or skipped an item and when', async () => {
-    await db.spaces.put({
-      id: SPACE,
-      name: 'Home',
-      version: 1,
-      members: [{ userId: 'anna', displayName: 'Anna' }],
-    });
+    await db.spaces.put(
+      makeLocalSpace({
+        id: SPACE,
+        name: 'Home',
+        version: 1,
+        members: [{ userId: 'anna', displayName: 'Anna' }],
+      }),
+    );
     const at = Date.now();
     await db.runItems.bulkPut([
       runItem('Tent', 'a0', { state: 'checked', stateBy: 'anna', stateAt: at }),
@@ -336,13 +339,13 @@ describe('RunPage', () => {
   it("names people from the run's own space, also while another space is current", async () => {
     // "Attic" sorts first, so it is the current space; the run belongs to "Home".
     await db.spaces.bulkPut([
-      { id: newId(), name: 'Attic', version: 1, members: [] },
-      {
+      makeLocalSpace({ id: newId(), name: 'Attic', version: 1 }),
+      makeLocalSpace({
         id: SPACE,
         name: 'Home',
         version: 1,
         members: [{ userId: 'anna', displayName: 'Anna' }],
-      },
+      }),
     ]);
     await db.runItems.bulkPut([
       runItem('Tent', 'a0', {
@@ -734,12 +737,14 @@ describe('RunPage', () => {
     const tent = runItem('Tent', 'a0');
     const lamp = runItem('Lamp', 'a1');
     await db.runItems.bulkPut([tent, lamp]);
-    await db.spaces.put({
-      id: SPACE,
-      name: 'Home',
-      version: 1,
-      members: [{ userId: 'ben', displayName: 'Ben' }],
-    });
+    await db.spaces.put(
+      makeLocalSpace({
+        id: SPACE,
+        name: 'Home',
+        version: 1,
+        members: [{ userId: 'ben', displayName: 'Ben' }],
+      }),
+    );
     await db.meta.put({ key: 'userId', value: 'me' });
     const page = await render();
     const closed = new Subject<undefined>();

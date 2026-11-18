@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-066 — Test factory for local space rows
 
 - Milestone: M9 Data and finding things
@@ -44,6 +42,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
     `verify` passes.
 - Notes: Found by the T-065 review (`tmp/reviews/T-065.md`, "Outside this task"). Pure refactor
   of tests; no production code changes.
+
+## Backlog
 
 ## Done
 

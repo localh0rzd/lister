@@ -9,7 +9,12 @@ import {
   type List,
   newId,
 } from '@lister/shared/domain';
-import { makeInclude, makeItem, makeList } from '@lister/shared/testing';
+import {
+  makeInclude,
+  makeItem,
+  makeList,
+  makeLocalSpace,
+} from '@lister/shared/testing';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { SyncEngine } from '@lister/web/data-access-sync';
 import { Transfers } from '@lister/web/feature-transfer';
@@ -37,7 +42,9 @@ beforeEach(() => {
 
 async function render(options: { space?: boolean } = {}) {
   if (options.space !== false) {
-    await db.spaces.put({ id: SPACE, name: 'Home', version: 1, members: [] });
+    await db.spaces.put(
+      makeLocalSpace({ id: SPACE, name: 'Home', version: 1 }),
+    );
   }
   mutate = vi.fn(async () => ({ ok: true }));
   notify = vi.fn(async () => 'dismissed');

@@ -4,7 +4,14 @@ import type {
   SpaceMember,
   SpaceSummary,
 } from '@lister/shared/api-contracts';
-import type { Include, Item, List, Run, RunItem } from '@lister/shared/domain';
+import type {
+  Include,
+  Item,
+  List,
+  Run,
+  RunItem,
+  Space,
+} from '@lister/shared/domain';
 
 /**
  * Test-only factories for the shared object types. Each returns a complete, valid object and
@@ -70,6 +77,28 @@ export function makeSpaceSummary(
     members: [makeSpaceMember({ role })],
     ...overrides,
   };
+}
+
+/**
+ * A space row as the web app stores it (`LocalSpace`: the space plus the members `welcome` sent).
+ * Typed structurally because shared code can't import the web type; it is assignable to it. Members
+ * default to none and carry no role, unlike `makeSpaceSummary`'s.
+ */
+export function makeLocalSpace(
+  overrides: Partial<Space & { members: LocalSpaceMember[] }> = {},
+): Space & { members: LocalSpaceMember[] } {
+  return {
+    id: TEST_SPACE_ID,
+    name: 'Home',
+    version: 1,
+    members: [],
+    ...overrides,
+  };
+}
+
+interface LocalSpaceMember {
+  userId: string;
+  displayName: string;
 }
 
 export function makeList(overrides: Partial<List> = {}): List {

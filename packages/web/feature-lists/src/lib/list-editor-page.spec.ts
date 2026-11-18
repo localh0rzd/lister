@@ -13,7 +13,12 @@ import {
   newId,
   sortByPosition,
 } from '@lister/shared/domain';
-import { makeInclude, makeItem, makeList } from '@lister/shared/testing';
+import {
+  makeInclude,
+  makeItem,
+  makeList,
+  makeLocalSpace,
+} from '@lister/shared/testing';
 import type { MutationRequest } from '@lister/web/data-access-sync';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { SyncEngine } from '@lister/web/data-access-sync';
@@ -60,7 +65,7 @@ let dialogAnswer: unknown;
 beforeEach(async () => {
   localStorage.clear();
   db = new LocalDb(`test-${newId()}`);
-  await db.spaces.put({ id: SPACE, name: 'Home', version: 1, members: [] });
+  await db.spaces.put(makeLocalSpace({ id: SPACE, name: 'Home', version: 1 }));
   await db.lists.put(camping);
   requests = [];
   mutate = vi.fn(async (request: MutationRequest) => {
@@ -333,12 +338,14 @@ describe('ListEditorPage', () => {
     async function editSocks() {
       const socks = item('Socks', 'a0');
       await db.items.put(socks);
-      await db.spaces.put({
-        id: SPACE,
-        name: 'Home',
-        version: 1,
-        members: [{ userId: 'ben', displayName: 'Ben' }],
-      });
+      await db.spaces.put(
+        makeLocalSpace({
+          id: SPACE,
+          name: 'Home',
+          version: 1,
+          members: [{ userId: 'ben', displayName: 'Ben' }],
+        }),
+      );
       await db.meta.put({ key: 'userId', value: 'me' });
       const page = await render();
       const menu = await page.loader.getHarness(

@@ -104,7 +104,8 @@ valid objects with sensible defaults and a partial override. Only spec files and
 (`npm run lint:workspace` checks this).
 
 - `makeUser` (`CurrentUser`), `makeSpaceMember`, `makeSpaceSummary` (members default to one owner
-  matching `role`), `makeList`, `makeItem`, `makeInclude`, `makeRun`, `makeRunItem`.
+  matching `role`), `makeLocalSpace` (the web's `LocalSpace` row: `TEST_SPACE_ID`, `'Home'`, version 1,
+  no members; typed structurally), `makeList`, `makeItem`, `makeInclude`, `makeRun`, `makeRunItem`.
 - Ids are fresh UUIDv7s per call, positions are `'a0'`; synced rows share `TEST_SPACE_ID` and
   `TEST_USER_ID`. Pass an override (`makeItem({ listId, position: 'a1' })`) for anything a test
   depends on, and keep the test's own ids when they must be readable (`'l1'`).

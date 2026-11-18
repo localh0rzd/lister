@@ -5,7 +5,7 @@ import {
 } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { newId } from '@lister/shared/domain';
-import { makeItem } from '@lister/shared/testing';
+import { makeItem, makeLocalSpace } from '@lister/shared/testing';
 import {
   MemoryRowStore,
   type MutationInput,
@@ -135,7 +135,9 @@ class FakeServer {
   welcome() {
     this.fire('welcome', {
       userId: this.userId,
-      spaces: [{ id: SPACE, name: 'Home', version: this.version, members: [] }],
+      spaces: [
+        makeLocalSpace({ id: SPACE, name: 'Home', version: this.version }),
+      ],
     });
   }
 
@@ -145,7 +147,7 @@ class FakeServer {
       this.fire('welcome', {
         userId: this.userId,
         spaces: [
-          { id: SPACE, name: 'Home', version: this.version, members: [] },
+          makeLocalSpace({ id: SPACE, name: 'Home', version: this.version }),
         ],
       });
     } else if (event === 'pull') {
@@ -1667,12 +1669,13 @@ describe('SyncEngine', () => {
       const synced = await createList('Synced');
       await settle();
       const other = newId();
-      await db.spaces.put({
-        id: other,
-        name: 'Other',
-        version: 0,
-        members: [],
-      });
+      await db.spaces.put(
+        makeLocalSpace({
+          id: other,
+          name: 'Other',
+          version: 0,
+        }),
+      );
       await db.lists.put({
         id: newId(),
         spaceId: other,
@@ -1690,7 +1693,7 @@ describe('SyncEngine', () => {
       // The user was removed from SPACE: the next welcome lists only the other space.
       server.fire('welcome', {
         userId: USER,
-        spaces: [{ id: other, name: 'Other', version: 3, members: [] }],
+        spaces: [makeLocalSpace({ id: other, name: 'Other', version: 3 })],
       });
       await settle();
 
@@ -1747,8 +1750,8 @@ describe('SyncEngine', () => {
       server.fire('welcome', {
         userId: USER,
         spaces: [
-          { id: SPACE, name: 'Home', version: 0, members: [] },
-          { id: second, name: 'Trips', version: 0, members: [] },
+          makeLocalSpace({ id: SPACE, name: 'Home', version: 0 }),
+          makeLocalSpace({ id: second, name: 'Trips', version: 0 }),
         ],
       });
       await settle();
@@ -2130,7 +2133,9 @@ describe('SyncEngine', () => {
       engine.start();
       await settle();
       // A space this device knew, which the user has left in the meantime.
-      await db.spaces.put({ id: 'gone', name: 'Old', version: 0, members: [] });
+      await db.spaces.put(
+        makeLocalSpace({ id: 'gone', name: 'Old', version: 0 }),
+      );
       server.drop('transport close');
       server.holdWelcome = true;
       server.socket.connect();

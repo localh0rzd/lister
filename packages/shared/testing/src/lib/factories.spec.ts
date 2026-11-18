@@ -3,6 +3,7 @@ import {
   makeInclude,
   makeItem,
   makeList,
+  makeLocalSpace,
   makeRun,
   makeRunItem,
   makeSpaceMember,
@@ -55,6 +56,15 @@ describe('factories', () => {
     expect(makeInclude().childListId).toMatch(UUID_V7);
     expect(makeRunItem().runId).toMatch(UUID_V7);
     expect(makeItem().position).toBe('a0');
+  });
+
+  it('give a local space the test space id and no members', () => {
+    expect(makeLocalSpace({ name: 'Trips' })).toEqual({
+      id: TEST_SPACE_ID,
+      name: 'Trips',
+      version: 1,
+      members: [],
+    });
   });
 
   it('give a space summary one member with the summary role', () => {

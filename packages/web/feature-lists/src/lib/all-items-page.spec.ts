@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { type Item, type List, newId } from '@lister/shared/domain';
-import { makeItem, makeList } from '@lister/shared/testing';
+import { makeItem, makeList, makeLocalSpace } from '@lister/shared/testing';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { AllItemsPage } from './all-items-page';
 
@@ -15,7 +15,9 @@ let db: LocalDb;
 async function render(options: { space?: boolean } = {}) {
   db = new LocalDb(`test-${newId()}`);
   if (options.space !== false) {
-    await db.spaces.put({ id: SPACE, name: 'Home', version: 1, members: [] });
+    await db.spaces.put(
+      makeLocalSpace({ id: SPACE, name: 'Home', version: 1 }),
+    );
   }
   return db;
 }
