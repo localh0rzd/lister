@@ -10,7 +10,7 @@
 | #   | Topic                       | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | --- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | D1  | Check state                 | Reusable **lists** have no check state; a **run** holds it. A run starts from a list or empty (ad-hoc).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| D2  | Composition                 | Lists include other lists by **live reference**: editing a list changes every list that includes it. Any depth, no cycles; a list reached twice appears once; no per-composition exceptions in v1. A run **copies** the list's items when it starts, so later edits to the list don't change it.                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| D2  | Composition                 | Lists include other lists by **live reference**: editing a list changes every list that includes it. Any depth, no cycles; a list reached twice appears once; an include can leave out items or lists below it (D28). A run **copies** the list's items when it starts, so later edits to the list don't change it.                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | D3  | Users                       | Self-hosted. Admins create, edit and delete accounts and can make other users admins, or hand out one-time registration links (D23); no open self-registration. Sign-in with username and password, or with passkeys that each user adds and removes.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | D4  | Hosting                     | A Docker container behind Traefik. Traefik terminates HTTPS; the app speaks plain HTTP and is told its public URL. The Dockerfile lives in the repo.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | D5  | Conflicts                   | Per field, the change that reaches the server last wins; deletes win; invalid changes are rejected with a notice.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
@@ -36,6 +36,7 @@
 | D25 | Search                      | One search field (app bar on Lists and Runs) over the current space: list titles, item titles and notes, and active runs' titles, ignoring case and accents; results grouped (Lists, Items with the list they are in, Runs), each opening its page; the trash is not searched. (Answers O17, 2026-11-17.)                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | D26 | List colour and icon        | Both optional: a colour from a fixed palette of 12 Material 3 tones that work in light and dark, and an icon from a curated set of about 40 Material Symbols. Shown on the Lists page, in the list header and where the list is included; runs started from a list show its colour and icon too. (Answers O18, 2026-11-17.)                                                                                                                                                                                                                                                                                                                                                                                                          |
 | D27 | Finding users to share with | Each user chooses in their profile whether other users can find them ("Visible to other users", off by default). "Add a member" suggests visible users as you type (username or display name, from 2 characters, at most 10, showing display name and username); anyone else can still be added by typing their exact username. Admins see every user in Settings › Users as before.                                                                                                                                                                                                                                                                                                                                                 |
+| D28 | Leaving out (exceptions)    | An include can **leave out** items or lists anywhere below it ("Camping gear, but without the chair"): a synced `include_exceptions` row on the include edge, naming the target by id. It applies wherever the outer list is included; when paths disagree, leaving out wins. The editor offers "Leave out of <list>" on entries from included lists and shows them in a "N left out" row with Put back (inherited ones say "Left out in <list>"). Runs copy the flattened list, so they never see the exceptions. Details §2.2, §3. (2026-11-18.)                                                                                                                                                                                   |
 
 ### Glossary
 
@@ -53,6 +54,8 @@
 - **Mutation** — a change sent by a client ("set the item's title"), applied locally first and by
   the server later.
 - **Version** — a per-space change counter. Every row stores the version of its last change.
+- **Exception** — "leave out": an include that hides an item or list below it in this
+  composition only (D28). UI words: "Leave out", "Left out", "Put back".
 - **Tombstone** — a soft-deleted row (`deleted_at` set). Deletions sync as tombstones.
 
 ## Open decisions
@@ -155,9 +158,26 @@ uses of the same list, and runs would be hard to add later.
 - **Diamonds:** if _Hostel_ and _Camping_ both include _Toiletries_, it appears **once**.
 - **Same item in two lists:** _Basic_ and _Camping_ both contain "Headlamp". In the lists they stay
   two separate items, each shown under its source list. In a run they are merged into one (D16).
-- **Exceptions:** "camping gear, but without the camping chair". A real need for packing lists, but
-  it adds a whole concept. Deferred (§8); in v1, skip or remove the item in the run, or split the
-  list.
+- **Exceptions (D28):** "camping gear, but without the camping chair". An include can **leave
+  out** items or included lists anywhere below it. The exception belongs to the include edge
+  (_Weekend trip_ → _Camping gear_) and names its target by id, so it covers every place the
+  target appears below that edge (items never change lists). Leaving out a list hides its whole
+  subtree there. Exceptions carry through further includes: _Summer holiday_ including _Weekend
+  trip_ shows it without the chair too. If two paths to the same list disagree (_Summer holiday_
+  also reaches _Camping gear_ through _Beach_, without exceptions), **leaving out wins**, so the
+  result never depends on the order of entries. The source list shows nothing of it.
+  - _Editor:_ entries that come from an included list (items and nested-list rows) get a menu
+    with **Leave out of <viewed list>**; the exception goes on the viewed list's own include on
+    that entry's path. Its own items don't get it (delete them instead). A section's left-out
+    entries leave it and gather in a collapsed **"N left out"** row at its end (also counted in
+    the section header), struck through, each with **Put back**. Exceptions inherited from a
+    list further down read **"Left out in <list>"**, link to it and have no Put back. Leaving out
+    and putting back show the usual notice with Undo.
+  - _Runs_ copy the flattened list (§3), so a left-out entry is simply not copied; a run knows
+    nothing about exceptions. Needed after all? Add it to the run by hand.
+  - _Targets that go away:_ an exception whose include or target is deleted, or whose target is
+    no longer below the edge, stays and does nothing; it applies again if they come back
+    (restore, re-include). Purge removes it with its include or target.
 - **Sections:** a list's entries are an ordered mix of its own items and included lists. Included
   lists therefore act as sections, so v1 needs no separate "categories" feature.
 - **Editing through a composite:** items of included lists appear under a header naming their
@@ -459,13 +479,14 @@ User *──* Space                    Membership: owner | member (D14)
 
 Space ──* List ──* Item            item belongs to exactly one list
   │       └──* Include ──> List    ordered edge parent → child; no cycles
+  │              └──* Exception ··> Item | List   left out below this edge (D28)
   │
   └──* Run ··> List                where it was started from; none for ad-hoc
          └──* RunItem              copied at start, or added to this run only;
                                    unchecked | checked | skipped, by whom, when
 ```
 
-Every synced row (lists, items, includes, runs, run items) has: `id` (UUIDv7, generated on the
+Every synced row (lists, items, includes, include exceptions, runs, run items) has: `id` (UUIDv7, generated on the
 client so it can be created offline), `space_id`, `version` (see §4.2), `deleted_at` (tombstone),
 `created_by`, `updated_by` and timestamps. Accounts, passkeys and sessions stay on the server;
 clients only get the display names of the members of their spaces, plus the username and display
@@ -480,6 +501,7 @@ name of users who made themselves visible (D27) when they search for someone to 
 | `lists`                 | title, description, colour and icon (both optional, D26)                                                                     |
 | `items`                 | list, title, quantity, note, position                                                                                        |
 | `includes`              | parent list, child list, position                                                                                            |
+| `include_exceptions`    | include, target kind (`item` \| `list`), target id (D28)                                                                     |
 | `runs`                  | source list (none for ad-hoc), title, finished at                                                                            |
 | `run_items`             | run, title, quantity, note, position, sources (the lists it came from; the first decides its section), state, changed by, at |
 | `processed_mutations`   | mutation id, client id, result (fast path for retries)                                                                       |
@@ -509,10 +531,26 @@ included lists and to copy a list into a run:
 2. Item → emit it, together with its source list.
 3. Include → recurse into the child list unless it was already visited (this removes diamonds and
    also guards against cycles).
+4. Left out (D28) → before the walk, collect the live exceptions of every live include reachable
+   from the list; an item or list they name is skipped wherever it is met (leaving out wins). The
+   walk reports each skipped entry with the section it would have been in and the list that owns
+   the exception, for the editor's "N left out" row.
 
 `flatten()` returns the items (what a run copies); `flattenEntries()` is the same walk with a
 section entry for every include (what the editor shows): `live` with its entries, `deleted` for a
 list in the trash (the placeholder) or `repeated` for a list already shown above.
+
+**Leaving out (D28):** `include.addException` (client-picked id, include, target kind and id) and
+`include.removeException` (include, target). The server checks that the include and the target
+exist in the space and that the kind matches; it does not check that the target is below the
+include, since offline edits make that a moving target and an exception that does nothing is
+harmless. Adding is a no-op while a live exception for the same include and target exists, so a
+retry or two clients doing it offline leave one in effect; removing tombstones every live row for
+the pair. Undo of a removal adds a new row. Deleting or restoring the include leaves its
+exceptions alone. `list.duplicate` copies the exceptions of the copied list's includes (with new
+ids); the JSON export carries them as an optional `exceptions` field per include (still format
+version 1; on import they follow the id mapping and are dropped when the target isn't in the
+file). The Markdown export and print show the flattened view.
 
 **Starting a run:** the client flattens the source list from its local database and sends one
 mutation that creates the run and its items, so starting works offline. Adding a list to an active
@@ -831,7 +869,6 @@ on top of it.
 Deliberately not in v1. To pick one up, add a task to `TASKS.md`, and update this document first if
 it changes a decision above.
 
-- Per-composition exceptions ("camping gear, but without the chair")
 - Run history ("what did we take last time?") — finished runs are only in the trash for 30 days (D10)
 - Pulling list changes into an active run
 - Presence ("Ben is looking at this list")
