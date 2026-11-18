@@ -128,13 +128,7 @@ export class PurgeService {
       removed += note(
         tx
           .delete(includes)
-          .where(
-            or(
-              lt(includes.deletedAt, cutoff),
-              inArray(includes.parentListId, oldListIds),
-              inArray(includes.childListId, oldListIds),
-            ),
-          )
+          .where(inArray(includes.id, oldIncludeIds))
           .returning({ spaceId: includes.spaceId })
           .all(),
       );
