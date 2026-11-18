@@ -11,8 +11,9 @@ import type { Include, Item, List, Run, RunItem } from '@lister/shared/domain';
  * takes a partial override. When a type gains a required field, give it a default here and no
  * spec needs to change.
  *
- * Only spec files and test helpers import this library. It imports types only, so any
- * library's specs can use it without a dependency cycle.
+ * Only spec files and test helpers import this library (`npm run lint:workspace` checks it). It
+ * imports types from `shared/domain` and `shared/api-contracts`, so those two projects' own specs
+ * can't use it (dependency cycle) and keep local helpers.
  */
 
 /** Space and user that the synced-row factories belong to unless a spec says otherwise. */

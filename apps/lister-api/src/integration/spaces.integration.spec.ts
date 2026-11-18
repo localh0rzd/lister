@@ -42,8 +42,13 @@ describe('spaces and memberships', () => {
           id: expect.any(String),
           name: 'anna display',
           personal: true,
+          role: 'owner',
           members: [
-            makeSpaceMember({ userId: anna.id, displayName: 'anna display' }),
+            makeSpaceMember({
+              userId: anna.id,
+              displayName: 'anna display',
+              role: 'owner',
+            }),
           ],
         }),
       ]);

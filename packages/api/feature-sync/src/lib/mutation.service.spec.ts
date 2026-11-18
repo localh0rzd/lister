@@ -105,12 +105,16 @@ describe('MutationService', () => {
         makeList({
           id,
           spaceId: SPACE,
+          version: 1,
+          deletedAt: null,
           createdBy: ALICE,
           updatedBy: ALICE,
           createdAt: now,
           updatedAt: now,
           title: 'Camping',
           description: 'Summer',
+          colour: null,
+          icon: null,
         }),
       );
       expect(applied.spaceId).toBe(SPACE);

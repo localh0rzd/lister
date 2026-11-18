@@ -11,7 +11,11 @@ import { Notifier } from '@lister/web/util-notify';
 import { makeUser } from '@lister/shared/testing';
 import { ProfilePage } from './profile-page';
 
-const user = makeUser();
+const user = makeUser({
+  username: 'anna',
+  displayName: 'Anna',
+  visibleToOthers: false,
+});
 
 function setup() {
   const current = signal(user);

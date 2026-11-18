@@ -23,26 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-065 — Shared test factories for users, spaces and synced rows
-
-- Milestone: M9 Data and finding things
-- Area: shared, web, api (tests only)
-- Priority: normal
-- Depends on: T-064
-- Decisions: none
-- Done when:
-  - Specs build `CurrentUser`, space summaries/members and the synced row types (list, item,
-    include, run, run item) through factories such as `makeUser({ ... })` with sensible defaults,
-    instead of each spec writing its own full object literal.
-  - Adding a required field to one of these types needs a change in one factory, not in every
-    spec (T-064 had to touch about 12 specs for `visibleToOthers`).
-  - The factories live in a test-only library placed by the `module-boundaries` skill (web specs
-    never import api code and vice versa), and are documented in the `testing` skill.
-  - Existing specs that build these literals use the factories; behaviour and coverage are
-    unchanged; `verify` passes.
-- Notes: Suggested by the T-064 task worker's context analysis (2026-11-18). Pure refactor of
-  tests; no production code changes.
-
 ## Backlog
 
 ## Done

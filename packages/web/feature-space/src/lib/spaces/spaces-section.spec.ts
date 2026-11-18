@@ -28,6 +28,8 @@ const summary = (
 ): SpaceSummary =>
   makeSpaceSummary({
     name,
+    personal: false,
+    role: 'owner',
     members: [
       makeSpaceMember({ userId: ME, displayName: 'Anna', role: 'owner' }),
       makeSpaceMember({ userId: BEN, displayName: 'Ben', role: 'member' }),

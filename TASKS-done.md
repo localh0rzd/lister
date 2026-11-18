@@ -3,6 +3,28 @@
 Tasks closed from [TASKS.md](TASKS.md), newest first. Moved out of TASKS.md on 2026-11-18 so
 the backlog stays short to read.
 
+### T-065 — Shared test factories for users, spaces and synced rows
+
+- Completed: 2026-11-18 — new test-only library `@lister/shared/testing` (`makeUser`, `makeSpaceSummary`, `makeSpaceMember`, `makeList`, `makeItem`, `makeInclude`, `makeRun`, `makeRunItem`) used by ~38 web and api specs; `lint:workspace` keeps it out of production code; documented in the `testing` and `module-boundaries` skills
+- Review: Approve with minor fixes; 4 fixed (1 substantive, 3 trivial), 0 skipped, 0 disagreed; re-review rounds: 0
+- Milestone: M9 Data and finding things
+- Area: shared, web, api (tests only)
+- Priority: normal
+- Depends on: T-064
+- Decisions: none
+- Done when:
+  - Specs build `CurrentUser`, space summaries/members and the synced row types (list, item,
+    include, run, run item) through factories such as `makeUser({ ... })` with sensible defaults,
+    instead of each spec writing its own full object literal.
+  - Adding a required field to one of these types needs a change in one factory, not in every
+    spec (T-064 had to touch about 12 specs for `visibleToOthers`).
+  - The factories live in a test-only library placed by the `module-boundaries` skill (web specs
+    never import api code and vice versa), and are documented in the `testing` skill.
+  - Existing specs that build these literals use the factories; behaviour and coverage are
+    unchanged; `verify` passes.
+- Notes: Suggested by the T-064 task worker's context analysis (2026-11-18). Pure refactor of
+  tests; no production code changes.
+
 ### T-064 — Suggest users when adding a member to a space
 
 - Completed: 2026-11-18 — opt-in "Visible to other users" profile switch (migration 0012) and a rate-limited, member-checked `GET /api/user-search` (`api/feature-auth`), with Material autocomplete suggestions in the new Add member dialog (`web/feature-space`)

@@ -5,7 +5,6 @@ import {
   provideHttpClientTesting,
 } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
-import type { CurrentUser } from '@lister/shared/api-contracts';
 import { newId } from '@lister/shared/domain';
 import { makeUser } from '@lister/shared/testing';
 import { PageNavigator } from '@lister/web/data-access-auth';
@@ -74,9 +73,7 @@ describe('SetupPage', () => {
       displayName: 'Anna A',
       password: 'a long password',
     });
-    call.flush(
-      makeUser({ displayName: 'Anna A', isAdmin: true }) satisfies CurrentUser,
-    );
+    call.flush(makeUser({ displayName: 'Anna A', isAdmin: true }));
 
     await vi.waitFor(() => expect(load).toHaveBeenCalledWith('/'));
   });
