@@ -6,7 +6,7 @@ the backlog stays short to read.
 ### T-065 — Shared test factories for users, spaces and synced rows
 
 - Completed: 2026-11-18 — new test-only library `@lister/shared/testing` (`makeUser`, `makeSpaceSummary`, `makeSpaceMember`, `makeList`, `makeItem`, `makeInclude`, `makeRun`, `makeRunItem`) used by ~38 web and api specs; `lint:workspace` keeps it out of production code; documented in the `testing` and `module-boundaries` skills
-- Review: Approve with minor fixes; 4 fixed (1 substantive, 3 trivial), 0 skipped, 0 disagreed; re-review rounds: 0
+- Review: Approve with minor fixes; 4 fixed (1 substantive, 3 trivial), 0 skipped, 0 disagreed; re-review rounds: 1
 - Milestone: M9 Data and finding things
 - Area: shared, web, api (tests only)
 - Priority: normal
