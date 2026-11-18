@@ -76,9 +76,7 @@ describe('SpacePage', () => {
   /** The Space page of a space holding `lists`, with its export button once it is enabled. */
   async function withLists(lists: { title: string; deletedAt?: number }[]) {
     const spaceId = newId();
-    await db.spaces.put(
-      makeLocalSpace({ id: spaceId, name: 'Home', version: 1 }),
-    );
+    await db.spaces.put(makeLocalSpace({ id: spaceId }));
     await db.lists.bulkPut(lists.map((list) => makeList({ spaceId, ...list })));
     const exportAll = vi
       .spyOn(TestBed.inject(Transfers), 'exportAll')

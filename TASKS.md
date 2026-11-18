@@ -23,26 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-066 — Test factory for local space rows
-
-- Milestone: M9 Data and finding things
-- Area: web (tests only)
-- Priority: low
-- Depends on: T-065
-- Decisions: none
-- Done when:
-  - Web specs build local `Space` rows (`{ id, name, version, members }`) through a factory
-    such as `makeLocalSpace({ ... })` with sensible defaults, instead of each spec writing its
-    own full object literal (about 8 specs: `list-editor-page`, `search-field`,
-    `all-items-page`, `space-page`, `sync-engine`, `local-db`).
-  - The factory lives with the other factories (`@lister/shared/testing`) if the type allows it
-    under the `module-boundaries` skill, otherwise in a web test-only helper, and the `testing`
-    skill lists it.
-  - Values a test relies on stay explicit overrides; behaviour and coverage are unchanged;
-    `verify` passes.
-- Notes: Found by the T-065 review (`tmp/reviews/T-065.md`, "Outside this task"). Pure refactor
-  of tests; no production code changes.
-
 ## Backlog
 
 ## Done

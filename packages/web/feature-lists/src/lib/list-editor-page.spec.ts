@@ -65,7 +65,7 @@ let dialogAnswer: unknown;
 beforeEach(async () => {
   localStorage.clear();
   db = new LocalDb(`test-${newId()}`);
-  await db.spaces.put(makeLocalSpace({ id: SPACE, name: 'Home', version: 1 }));
+  await db.spaces.put(makeLocalSpace({ id: SPACE }));
   await db.lists.put(camping);
   requests = [];
   mutate = vi.fn(async (request: MutationRequest) => {
@@ -341,8 +341,6 @@ describe('ListEditorPage', () => {
       await db.spaces.put(
         makeLocalSpace({
           id: SPACE,
-          name: 'Home',
-          version: 1,
           members: [{ userId: 'ben', displayName: 'Ben' }],
         }),
       );

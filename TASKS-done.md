@@ -3,6 +3,28 @@
 Tasks closed from [TASKS.md](TASKS.md), newest first. Moved out of TASKS.md on 2026-11-18 so
 the backlog stays short to read.
 
+### T-066 — Test factory for local space rows
+
+- Completed: 2026-11-18 — `makeLocalSpace` (web `LocalSpace` row, typed structurally) added to `@lister/shared/testing` and used by 12 web specs instead of hand-written space literals; listed in the `testing` skill
+- Review: Approve with minor fixes; 3 fixed (0 substantive, 3 trivial), 0 skipped, 0 disagreed; re-review rounds: 0
+- Milestone: M9 Data and finding things
+- Area: web (tests only)
+- Priority: low
+- Depends on: T-065
+- Decisions: none
+- Done when:
+  - Web specs build local `Space` rows (`{ id, name, version, members }`) through a factory
+    such as `makeLocalSpace({ ... })` with sensible defaults, instead of each spec writing its
+    own full object literal (about 8 specs: `list-editor-page`, `search-field`,
+    `all-items-page`, `space-page`, `sync-engine`, `local-db`).
+  - The factory lives with the other factories (`@lister/shared/testing`) if the type allows it
+    under the `module-boundaries` skill, otherwise in a web test-only helper, and the `testing`
+    skill lists it.
+  - Values a test relies on stay explicit overrides; behaviour and coverage are unchanged;
+    `verify` passes.
+- Notes: Found by the T-065 review (`tmp/reviews/T-065.md`, "Outside this task"). Pure refactor
+  of tests; no production code changes.
+
 ### T-065 — Shared test factories for users, spaces and synced rows
 
 - Completed: 2026-11-18 — new test-only library `@lister/shared/testing` (`makeUser`, `makeSpaceSummary`, `makeSpaceMember`, `makeList`, `makeItem`, `makeInclude`, `makeRun`, `makeRunItem`) used by ~38 web and api specs; `lint:workspace` keeps it out of production code; documented in the `testing` and `module-boundaries` skills

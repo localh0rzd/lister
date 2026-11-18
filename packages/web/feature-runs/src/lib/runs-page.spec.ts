@@ -78,8 +78,7 @@ async function render() {
   return { fixture, element, settle, navigate };
 }
 
-const withSpace = () =>
-  db.spaces.put(makeLocalSpace({ id: SPACE, name: 'Home', version: 1 }));
+const withSpace = () => db.spaces.put(makeLocalSpace({ id: SPACE }));
 
 describe('RunsPage', () => {
   it('shows the Runs heading', async () => {

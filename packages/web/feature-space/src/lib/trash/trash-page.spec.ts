@@ -34,8 +34,6 @@ beforeEach(async () => {
   await db.spaces.put(
     makeLocalSpace({
       id: SPACE,
-      name: 'Home',
-      version: 1,
       members: [{ userId: BEN, displayName: 'Ben' }],
     }),
   );

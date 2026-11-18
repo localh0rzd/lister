@@ -1,8 +1,8 @@
 import { TestBed } from '@angular/core/testing';
 import { newId } from '@lister/shared/domain';
+import { makeLocalSpace } from '@lister/shared/testing';
 import { CURRENT_SPACE_KEY, CurrentSpace } from './current-space';
 import { LOCAL_DB, LocalDb } from './local-db';
-import { makeLocalSpace } from '@lister/shared/testing';
 
 let db: LocalDb;
 let current: CurrentSpace;

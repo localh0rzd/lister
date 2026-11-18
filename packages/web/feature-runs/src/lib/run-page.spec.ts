@@ -75,7 +75,7 @@ let refuse: boolean;
 
 beforeEach(async () => {
   db = new LocalDb(`test-${newId()}`);
-  await db.spaces.put(makeLocalSpace({ id: SPACE, name: 'Home', version: 1 }));
+  await db.spaces.put(makeLocalSpace({ id: SPACE }));
   await db.lists.bulkPut([camping, basics]);
   await db.runs.put(alps);
   requests = [];
@@ -311,8 +311,6 @@ describe('RunPage', () => {
     await db.spaces.put(
       makeLocalSpace({
         id: SPACE,
-        name: 'Home',
-        version: 1,
         members: [{ userId: 'anna', displayName: 'Anna' }],
       }),
     );
@@ -339,11 +337,10 @@ describe('RunPage', () => {
   it("names people from the run's own space, also while another space is current", async () => {
     // "Attic" sorts first, so it is the current space; the run belongs to "Home".
     await db.spaces.bulkPut([
-      makeLocalSpace({ id: newId(), name: 'Attic', version: 1 }),
+      makeLocalSpace({ id: newId(), name: 'Attic' }),
       makeLocalSpace({
         id: SPACE,
         name: 'Home',
-        version: 1,
         members: [{ userId: 'anna', displayName: 'Anna' }],
       }),
     ]);
@@ -740,8 +737,6 @@ describe('RunPage', () => {
     await db.spaces.put(
       makeLocalSpace({
         id: SPACE,
-        name: 'Home',
-        version: 1,
         members: [{ userId: 'ben', displayName: 'Ben' }],
       }),
     );

@@ -6,7 +6,7 @@ import {
 } from '@angular/common/http/testing';
 import type { CurrentUser } from '@lister/shared/api-contracts';
 import { newId } from '@lister/shared/domain';
-import { makeUser } from '@lister/shared/testing';
+import { makeLocalSpace, makeUser } from '@lister/shared/testing';
 import { Diagnostics } from '@lister/web/util-diagnostics';
 import type { LocalDb as LocalDbType } from '@lister/web/data-access-local-db';
 import {
@@ -164,12 +164,7 @@ describe('AuthSession', () => {
 
     it("wipes another user's data from the device, pending changes included", async () => {
       await db.meta.put({ key: 'userId', value: newId() });
-      await db.spaces.put({
-        id: newId(),
-        name: 'Theirs',
-        version: 1,
-        members: [],
-      });
+      await db.spaces.put(makeLocalSpace({ id: newId(), name: 'Theirs' }));
 
       await signIn(anna);
 
@@ -266,12 +261,7 @@ describe('AuthSession', () => {
 
     it("wipes another user's data from the device like a password sign-in does", async () => {
       await db.meta.put({ key: 'userId', value: newId() });
-      await db.spaces.put({
-        id: newId(),
-        name: 'Theirs',
-        version: 1,
-        members: [],
-      });
+      await db.spaces.put(makeLocalSpace({ id: newId(), name: 'Theirs' }));
       const { result, answer } = start(anna);
       await answer();
       await result;
@@ -444,12 +434,7 @@ describe('AuthSession', () => {
       const first = session.ensure();
       flushMe(anna);
       await first;
-      await db.spaces.put({
-        id: newId(),
-        name: 'Home',
-        version: 1,
-        members: [],
-      });
+      await db.spaces.put(makeLocalSpace({ id: newId() }));
 
       const result = session.signOut();
       http
@@ -465,12 +450,7 @@ describe('AuthSession', () => {
     });
 
     it('keeps the data and the session when the server cannot be reached', async () => {
-      await db.spaces.put({
-        id: newId(),
-        name: 'Home',
-        version: 1,
-        members: [],
-      });
+      await db.spaces.put(makeLocalSpace({ id: newId() }));
 
       const result = session.signOut();
       http.expectOne('/api/auth/logout').error(new ProgressEvent('error'));

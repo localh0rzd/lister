@@ -24,7 +24,7 @@ let db: LocalDb;
 
 async function show() {
   db = new LocalDb(`test-${newId()}`);
-  await db.spaces.put(makeLocalSpace({ id: SPACE, name: 'Home', version: 1 }));
+  await db.spaces.put(makeLocalSpace({ id: SPACE, name: 'Home' }));
   TestBed.configureTestingModule({
     providers: [provideRouter([]), { provide: LOCAL_DB, useValue: db }],
   });
@@ -169,9 +169,7 @@ describe('SearchField (D25)', () => {
     const { harness } = await show();
     const other = newId();
     // "Home" comes before "Work" by name, so it is the current space.
-    await db.spaces.put(
-      makeLocalSpace({ id: other, name: 'Work', version: 1 }),
-    );
+    await db.spaces.put(makeLocalSpace({ id: other, name: 'Work' }));
     await db.lists.put(list('Home stuff'));
     await db.lists.put(list('Work stuff', { spaceId: other }));
     await harness.enterText('stuff');

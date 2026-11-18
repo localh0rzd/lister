@@ -42,9 +42,7 @@ beforeEach(() => {
 
 async function render(options: { space?: boolean } = {}) {
   if (options.space !== false) {
-    await db.spaces.put(
-      makeLocalSpace({ id: SPACE, name: 'Home', version: 1 }),
-    );
+    await db.spaces.put(makeLocalSpace({ id: SPACE }));
   }
   mutate = vi.fn(async () => ({ ok: true }));
   notify = vi.fn(async () => 'dismissed');

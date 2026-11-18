@@ -1,7 +1,7 @@
 import { Dexie } from 'dexie';
 import { newId } from '@lister/shared/domain';
-import { LocalDb } from './local-db';
 import { makeLocalSpace } from '@lister/shared/testing';
+import { LocalDb } from './local-db';
 
 /** The schema as version 3 of the app had it (before includes). */
 function openVersion3(name: string) {
@@ -153,9 +153,7 @@ describe('LocalDb.clearAll', () => {
     const db = new LocalDb(`clear-${newId()}`);
     try {
       const spaceId = newId();
-      await db.spaces.put(
-        makeLocalSpace({ id: spaceId, name: 'Home', version: 1 }),
-      );
+      await db.spaces.put(makeLocalSpace({ id: spaceId }));
       await db.meta.put({ key: 'userId', value: newId() });
       await db.syncState.put({
         spaceId,

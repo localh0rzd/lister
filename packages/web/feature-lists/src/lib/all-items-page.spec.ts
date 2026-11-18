@@ -15,9 +15,7 @@ let db: LocalDb;
 async function render(options: { space?: boolean } = {}) {
   db = new LocalDb(`test-${newId()}`);
   if (options.space !== false) {
-    await db.spaces.put(
-      makeLocalSpace({ id: SPACE, name: 'Home', version: 1 }),
-    );
+    await db.spaces.put(makeLocalSpace({ id: SPACE }));
   }
   return db;
 }
