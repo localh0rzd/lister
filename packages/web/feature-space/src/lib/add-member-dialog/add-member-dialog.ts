@@ -21,10 +21,9 @@ import {
   catchError,
   debounceTime,
   distinctUntilChanged,
-  filter,
   from,
   map,
-  merge,
+  of,
   switchMap,
 } from 'rxjs';
 import {
@@ -84,27 +83,18 @@ export class AddMemberDialog {
    * (offline, rate-limited) keeps what is shown: typing the username still works.
    */
   protected readonly suggestions = toSignal(
-    (() => {
-      const typed$ = toObservable(this.text).pipe(
-        map((text) => text.trim()),
-        debounceTime(SUGGEST_DEBOUNCE_MS),
-        distinctUntilChanged(),
-      );
-      return merge(
-        typed$.pipe(
-          filter((text) => text.length < USER_SEARCH.minLength),
-          map((): UserSuggestion[] => []),
-        ),
-        typed$.pipe(
-          filter((text) => text.length >= USER_SEARCH.minLength),
-          switchMap((text) =>
-            from(this.api.searchUsers(text, this.data.spaceId)).pipe(
+    toObservable(this.text).pipe(
+      map((text) => text.trim()),
+      debounceTime(SUGGEST_DEBOUNCE_MS),
+      distinctUntilChanged(),
+      switchMap((text) =>
+        text.length < USER_SEARCH.minLength
+          ? of<UserSuggestion[]>([])
+          : from(this.api.searchUsers(text, this.data.spaceId)).pipe(
               catchError(() => EMPTY),
             ),
-          ),
-        ),
-      );
-    })(),
+      ),
+    ),
     { initialValue: [] as UserSuggestion[] },
   );
 
