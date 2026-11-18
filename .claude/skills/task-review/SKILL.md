@@ -13,9 +13,11 @@ there are bugs until you've looked, and report only what you can show.
 - **Read-only until the report is written.** The only files you write are the report and
   scratch probes under `tmp/`. Run any checks you like. Tracked files, commits, branches, the
   stash and installed packages stay as you found them.
-- **Scope:** the commit range in your brief (`git log --stat <base>..<head>`,
-  `git diff <base>..<head>`). Read whole changed files, plus the code they call and the code
-  that calls them. Problems that predate the range go under "Outside this task".
+- **Scope:** the commit range in your brief. Start with `git diff --stat <base>..<head>`, then
+  read the diff one file at a time (`git diff <base>..<head> -- <file>`). Read a whole changed
+  file only when it's under ~150 lines; otherwise read ~60 lines around each hunk, and `grep -n`
+  for the code it calls and the code that calls it. Problems that predate the range go under
+  "Outside this task".
 - **Every finding** gives file and line, what's wrong, a concrete scenario where it breaks
   (input, state, steps), a fix, and how sure you are ("unverified" for guesses). Leave out what
   Prettier and lint already enforce, and taste with no reason behind it.
@@ -27,7 +29,8 @@ there are bugs until you've looked, and report only what you can show.
    `testing` and `module-boundaries`, plus `angular-feature`, `nest-feature` or
    `fullstack-feature`.
 2. **Done when:** mark every bullet met, partly met or not met, with evidence (file, test name).
-3. **Checks** on `<head>`; record exactly what passed and what failed:
+3. **Checks** on `<head>`, following the `verify` skill's output rules (filtered output, full
+   runs once, in the background with Monitor); record exactly what passed and what failed:
    - `npm run lint:workspace`
    - `npx nx format:check`
    - `NX_TUI=false npx nx affected -t lint typecheck test build --base=<base> --head=<head> --outputStyle=static`
