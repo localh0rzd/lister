@@ -1565,6 +1565,193 @@ describe('sort items (D17)', () => {
   });
 });
 
+describe('list.duplicate with exceptions (D28)', () => {
+  it('copies the live exceptions of the copied includes with new ids', () => {
+    const store = new MemoryRowStore();
+    const [outer, inner, chair, include, live, dead] = [
+      newId(),
+      newId(),
+      newId(),
+      newId(),
+      newId(),
+      newId(),
+    ];
+    apply(store, 'list.create', { id: outer, title: 'Trip' });
+    apply(store, 'list.create', { id: inner, title: 'Gear' });
+    apply(store, 'item.create', {
+      id: chair,
+      listId: inner,
+      title: 'Chair',
+      position: 'a0',
+    });
+    apply(store, 'include.create', {
+      id: include,
+      parentListId: outer,
+      childListId: inner,
+      position: 'a0',
+    });
+    apply(store, 'include.addException', {
+      id: live,
+      includeId: include,
+      targetKind: 'item',
+      targetId: chair,
+    });
+    apply(
+      store,
+      'include.removeException',
+      { includeId: include, targetId: chair },
+      2,
+    );
+    apply(
+      store,
+      'include.addException',
+      { id: dead, includeId: include, targetKind: 'item', targetId: chair },
+      3,
+    );
+    const gone = newId();
+    apply(
+      store,
+      'include.addException',
+      { id: gone, includeId: include, targetKind: 'list', targetId: inner },
+      3,
+    );
+    apply(
+      store,
+      'include.removeException',
+      { includeId: include, targetId: inner },
+      4,
+    );
+    const [copy, includeCopy, exceptionCopy, tombstoneCopy] = [
+      newId(),
+      newId(),
+      newId(),
+      newId(),
+    ];
+
+    const outcome = apply(store, 'list.duplicate', {
+      id: copy,
+      sourceListId: outer,
+      title: 'Trip 2',
+      items: [],
+      includes: [{ from: include, id: includeCopy }],
+      exceptions: [
+        { from: dead, id: exceptionCopy },
+        { from: live, id: tombstoneCopy },
+        { from: gone, id: newId() },
+      ],
+    });
+
+    expect(outcome).toMatchObject({
+      kind: 'changed',
+      includes: [includeCopy],
+      includeExceptions: [exceptionCopy],
+    });
+    expect(store.getIncludeException(exceptionCopy)).toMatchObject({
+      includeId: includeCopy,
+      targetKind: 'item',
+      targetId: chair,
+      deletedAt: null,
+    });
+  });
+
+  it('refuses a taken exception id and skips exceptions of includes that were not copied', () => {
+    const store = new MemoryRowStore();
+    const [a, b, include, exception, copy] = [
+      newId(),
+      newId(),
+      newId(),
+      newId(),
+      newId(),
+    ];
+    apply(store, 'list.create', { id: a, title: 'A' });
+    apply(store, 'list.create', { id: b, title: 'B' });
+    apply(store, 'include.create', {
+      id: include,
+      parentListId: a,
+      childListId: b,
+      position: 'a0',
+    });
+    apply(store, 'include.addException', {
+      id: exception,
+      includeId: include,
+      targetKind: 'list',
+      targetId: b,
+    });
+
+    expect(
+      apply(store, 'list.duplicate', {
+        id: copy,
+        sourceListId: a,
+        title: 'C',
+        items: [],
+        includes: [],
+        exceptions: [{ from: exception, id: newId() }],
+      }),
+    ).toMatchObject({ kind: 'changed', includeExceptions: [] });
+    expect(
+      apply(store, 'list.duplicate', {
+        id: newId(),
+        sourceListId: a,
+        title: 'D',
+        items: [],
+        includes: [],
+        exceptions: [{ from: exception, id: exception }],
+      }),
+    ).toMatchObject({ kind: 'rejected' });
+  });
+});
+
+describe('list.import with exceptions (D28)', () => {
+  const [outer, inner, chair, include, exception] = [
+    newId(),
+    newId(),
+    newId(),
+    newId(),
+    newId(),
+  ];
+  const lists = (targetId: string, targetKind: 'item' | 'list' = 'item') => [
+    {
+      id: outer,
+      title: 'Trip',
+      entries: [
+        {
+          id: include,
+          listId: inner,
+          exceptions: [{ id: exception, targetKind, targetId }],
+        },
+      ],
+    },
+    { id: inner, title: 'Gear', entries: [{ id: chair, title: 'Chair' }] },
+  ];
+
+  it('creates the exceptions with the include', () => {
+    const store = new MemoryRowStore();
+
+    const outcome = apply(store, 'list.import', { lists: lists(chair) });
+
+    expect(outcome).toMatchObject({
+      kind: 'changed',
+      includeExceptions: [exception],
+    });
+    expect(store.getIncludeException(exception)).toMatchObject({
+      includeId: include,
+      targetId: chair,
+    });
+  });
+
+  it('rejects the whole import for a target that is not in it, or a taken id', () => {
+    const store = new MemoryRowStore();
+
+    expect(
+      apply(store, 'list.import', { lists: lists(newId()) }),
+    ).toMatchObject({ kind: 'rejected' });
+    expect(
+      apply(store, 'list.import', { lists: lists(newId(), 'list') }),
+    ).toMatchObject({ kind: 'rejected' });
+    expect(store.getList(outer)).toBeUndefined();
+  });
+});
+
 describe('list.import', () => {
   const entry = (title: string) => ({ id: newId(), title });
 

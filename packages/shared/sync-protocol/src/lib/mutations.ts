@@ -55,7 +55,23 @@ const importEntry = z.union([
     quantity: z._default(quantitySchema, ''),
     note: z._default(noteSchema, ''),
   }),
-  z.strictObject({ id: idSchema, listId: idSchema }),
+  z.strictObject({
+    id: idSchema,
+    listId: idSchema,
+    /** Left out below this include (D28); targets are ids of this import's own rows. */
+    exceptions: z._default(
+      z
+        .array(
+          z.strictObject({
+            id: idSchema,
+            targetKind: z.enum(['item', 'list']),
+            targetId: idSchema,
+          }),
+        )
+        .check(z.maxLength(MAX_DUPLICATE_ROWS)),
+      [],
+    ),
+  }),
 ]);
 
 /** An item and the key to give it, in a sort (D17). */
@@ -111,6 +127,11 @@ export const mutationArgs = {
     title: titleSchema,
     items: z.array(copyOf).check(z.maxLength(MAX_DUPLICATE_ROWS)),
     includes: z.array(copyOf).check(z.maxLength(MAX_DUPLICATE_ROWS)),
+    /** Exceptions (D28) of the copied includes to copy: `from` is the source exception's id. */
+    exceptions: z._default(
+      z.array(copyOf).check(z.maxLength(MAX_DUPLICATE_ROWS)),
+      [],
+    ),
   }),
   /**
    * Imports a Lister export (D24) as new lists, in one step: every list is new, its entries get

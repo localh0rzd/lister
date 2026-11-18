@@ -23,12 +23,28 @@ export const EXPORT_FORMAT = 'lister-lists';
 export const EXPORT_VERSION = 1;
 
 const exportedItem = z.object({
+  /** Optional: the item's id in the exporting space, so an exception can name it (D28). */
+  id: z.optional(idSchema),
   title: titleSchema,
   quantity: z._default(quantitySchema, ''),
   note: z._default(noteSchema, ''),
 });
 /** An entry of a list: an item, or the (file) id of an included list. */
-const exportedEntry = z.union([z.object({ include: idSchema }), exportedItem]);
+const exportedEntry = z.union([
+  z.object({
+    include: idSchema,
+    /** Optional (D28): what the include leaves out, by the file's item and list ids. */
+    exceptions: z.optional(
+      z.array(
+        z.object({
+          targetKind: z.enum(['item', 'list']),
+          targetId: idSchema,
+        }),
+      ),
+    ),
+  }),
+  exportedItem,
+]);
 
 export const listExportSchema = z.object({
   format: z.literal(EXPORT_FORMAT),
@@ -58,6 +74,16 @@ export const listExportSchema = z.object({
 
 export type ListExport = z.output<typeof listExportSchema>;
 
+/** An include entry; `exceptions` is left out of the file when there are none. */
+function includeEntry(
+  row: Include,
+  exceptions: { targetKind: 'item' | 'list'; targetId: Id }[],
+) {
+  return exceptions.length === 0
+    ? { include: row.childListId }
+    : { include: row.childListId, exceptions };
+}
+
 /**
  * The export of `listIds` (live lists only, in that order) plus every live list they include,
  * directly or not. Each list holds its live items and includes of live lists in position order.
@@ -67,6 +93,10 @@ export function buildListExport(
   source: CompositionSource,
 ): ListExport {
   const lists: ListExport['lists'] = [];
+  const exceptionsOf = (includeId: Id) =>
+    (source.exceptionsOf?.(includeId) ?? [])
+      .filter((row) => row.deletedAt === null)
+      .map(({ targetKind, targetId }) => ({ targetKind, targetId }));
   const seen = new Set<Id>();
   const queue = [...listIds];
   for (let id = queue.shift(); id !== undefined; id = queue.shift()) {
@@ -91,8 +121,13 @@ export function buildListExport(
       icon: list.icon,
       entries: rows.map((row) =>
         'childListId' in row
-          ? { include: row.childListId }
-          : { title: row.title, quantity: row.quantity, note: row.note },
+          ? includeEntry(row, exceptionsOf(row.id))
+          : {
+              id: row.id,
+              title: row.title,
+              quantity: row.quantity,
+              note: row.note,
+            },
       ),
     });
     for (const row of rows)
@@ -111,6 +146,15 @@ export function importArgs(
   makeId: () => Id = newId,
 ): MutationArgs<'list.import'> {
   const ids = new Map(file.lists.map((list) => [list.id, makeId()]));
+  // The new id of every item the file names (D28 exceptions refer to them).
+  const itemIds = new Map<Id, Id>();
+  for (const list of file.lists) {
+    for (const entry of list.entries) {
+      if (!('include' in entry) && entry.id !== undefined)
+        itemIds.set(entry.id, itemIds.get(entry.id) ?? makeId());
+    }
+  }
+  const taken = new Set<Id>();
   return {
     lists: file.lists.map((list) => {
       const included = new Set<Id>();
@@ -118,13 +162,34 @@ export function importArgs(
         [];
       for (const entry of list.entries) {
         if (!('include' in entry)) {
-          entries.push({ id: makeId(), ...entry });
+          // An item id used twice in a file names the first one.
+          const known =
+            entry.id === undefined ? undefined : itemIds.get(entry.id);
+          const id =
+            known !== undefined && !taken.has(known) ? known : makeId();
+          taken.add(id);
+          entries.push({
+            id,
+            title: entry.title,
+            quantity: entry.quantity,
+            note: entry.note,
+          });
           continue;
         }
         const listId = ids.get(entry.include);
         if (listId === undefined || included.has(listId)) continue;
         included.add(listId);
-        entries.push({ id: makeId(), listId });
+        // Exceptions whose target isn't in the file are dropped.
+        const exceptions = (entry.exceptions ?? []).flatMap((exception) => {
+          const targetId =
+            exception.targetKind === 'item'
+              ? itemIds.get(exception.targetId)
+              : ids.get(exception.targetId);
+          return targetId === undefined
+            ? []
+            : [{ id: makeId(), targetKind: exception.targetKind, targetId }];
+        });
+        entries.push({ id: makeId(), listId, exceptions });
       }
       return {
         id: ids.get(list.id) as Id,

@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-069 — Keep exceptions when duplicating, exporting and importing
 
 - Milestone: M10 Leaving out
@@ -41,6 +39,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   - Tests: unit tests for the export schema and import mapping, an integration test for
     `list.duplicate` and `list.import` with exceptions, a Playwright check that a duplicated list
     keeps a left-out item hidden.
+
+## Backlog
 
 ## Done
 

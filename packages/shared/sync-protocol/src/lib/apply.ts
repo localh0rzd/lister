@@ -426,6 +426,10 @@ export function applyMutation(
       for (const { id } of args.includes) {
         if (store.getInclude(id)) return reject('This include already exists');
       }
+      for (const { id } of args.exceptions) {
+        if (store.getIncludeException(id))
+          return reject('This exception already exists');
+      }
       store.putList({
         ...created,
         id: args.id,
@@ -457,7 +461,26 @@ export function applyMutation(
         store.putInclude({ ...include, ...created, id, parentListId: args.id });
         includes.push(id);
       }
-      return changed({ lists: [args.id], items, includes });
+      // Exceptions (D28) follow their include. Their targets lie below the source's includes, in
+      // other lists (never in the source: that would be a loop), so the targets stay as they are.
+      const copiedIncludes = new Map(
+        args.includes.map(({ from, id }) => [from, id]),
+      );
+      const includeExceptions: string[] = [];
+      for (const { from, id } of args.exceptions) {
+        const row = store.getIncludeException(from);
+        const includeId = row && copiedIncludes.get(row.includeId);
+        if (!row || !includeId || row.deletedAt !== null) continue;
+        if (!includes.includes(includeId)) continue;
+        store.putIncludeException({ ...row, ...created, id, includeId });
+        includeExceptions.push(id);
+      }
+      return changed({
+        lists: [args.id],
+        items,
+        includes,
+        includeExceptions,
+      });
     }
     case 'list.import': {
       const { lists } = mutation.args;
@@ -479,6 +502,7 @@ export function applyMutation(
         lists: [] as List[],
         items: [] as Item[],
         includes: [] as Include[],
+        exceptions: [] as IncludeException[],
       };
       const ids = new Set<string>();
       for (const list of lists) {
@@ -501,6 +525,15 @@ export function applyMutation(
               childListId: entry.listId,
               position,
             });
+            for (const exception of entry.exceptions) {
+              rows.exceptions.push({
+                ...created,
+                id: exception.id,
+                includeId: entry.id,
+                targetKind: exception.targetKind,
+                targetId: exception.targetId,
+              });
+            }
           } else {
             rows.items.push({
               ...created,
@@ -549,13 +582,39 @@ export function applyMutation(
         siblings.push(include);
         accepted.set(include.parentListId, siblings);
       }
+      // Exceptions (D28) name rows of this import, once per include and target.
+      const exceptionIds = new Set<string>();
+      const exceptionPairs = new Set<string>();
+      const itemIds = new Set(rows.items.map((item) => item.id));
+      for (const row of rows.exceptions) {
+        const known =
+          row.targetKind === 'item'
+            ? itemIds.has(row.targetId)
+            : titles.has(row.targetId);
+        if (!known) {
+          return reject(
+            row.targetKind === 'item' ? ITEM_MISSING : LIST_MISSING,
+          );
+        }
+        const pair = `${row.includeId} ${row.targetId}`;
+        if (
+          exceptionIds.has(row.id) ||
+          exceptionPairs.has(pair) ||
+          store.getIncludeException(row.id)
+        )
+          return reject('This exception already exists');
+        exceptionIds.add(row.id);
+        exceptionPairs.add(pair);
+      }
       for (const row of rows.lists) store.putList(row);
       for (const row of rows.items) store.putItem(row);
       for (const row of rows.includes) store.putInclude(row);
+      for (const row of rows.exceptions) store.putIncludeException(row);
       return changed({
         lists: rows.lists.map((row) => row.id),
         items: rows.items.map((row) => row.id),
         includes: rows.includes.map((row) => row.id),
+        includeExceptions: rows.exceptions.map((row) => row.id),
       });
     }
     case 'list.update': {

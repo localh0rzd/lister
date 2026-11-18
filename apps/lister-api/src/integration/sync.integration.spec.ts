@@ -2003,6 +2003,111 @@ describe('sync gateway', () => {
       expect(again).toEqual({ mutationId: imported.mutationId, version: 1 });
     });
 
+    it('list.import creates the exceptions of its includes, and refuses a target that is not in the file (D28)', async () => {
+      const anna = await helloed();
+      const ben = await helloed('ben');
+      const pokes = collect(ben.client, 'poke');
+      const [trip, gear, chair, include, exception] = [
+        newId(),
+        newId(),
+        newId(),
+        newId(),
+        newId(),
+      ];
+      const lists = (targetId: string) => [
+        {
+          id: trip,
+          title: 'Trip',
+          entries: [
+            {
+              id: include,
+              listId: gear,
+              exceptions: [
+                { id: exception, targetKind: 'item' as const, targetId },
+              ],
+            },
+          ],
+        },
+        { id: gear, title: 'Gear', entries: [{ id: chair, title: 'Chair' }] },
+      ];
+      const bad = mutation('list.import', { lists: lists(newId()) });
+      const good = mutation('list.import', { lists: lists(chair) });
+
+      const [refused, accepted] = await push(anna.client, bad, good);
+
+      expect(refused).toEqual({
+        mutationId: bad.mutationId,
+        reason: "This item doesn't exist",
+      });
+      expect(accepted).toEqual({ mutationId: good.mutationId, version: 1 });
+      await vi.waitFor(() => expect(pokes).toHaveLength(1));
+      expect(pokes[0].rows.includeExceptions).toEqual([
+        expect.objectContaining({
+          id: exception,
+          includeId: include,
+          targetKind: 'item',
+          targetId: chair,
+        }),
+      ]);
+    });
+
+    it('list.duplicate copies the exceptions of the includes with new ids and pokes them (D28)', async () => {
+      const anna = await helloed();
+      const ben = await helloed('ben');
+      const pokes = collect(ben.client, 'poke');
+      const [trip, gear, chair, include, exception] = [
+        newId(),
+        newId(),
+        newId(),
+        newId(),
+        newId(),
+      ];
+      await push(
+        anna.client,
+        mutation('list.create', { id: trip, title: 'Trip' }),
+        mutation('list.create', {
+          id: gear,
+          title: 'Gear',
+          items: [{ id: chair, title: 'Chair' }],
+        }),
+        mutation('include.create', {
+          id: include,
+          parentListId: trip,
+          childListId: gear,
+          position: 'a0',
+        }),
+        mutation('include.addException', {
+          id: exception,
+          includeId: include,
+          targetKind: 'item',
+          targetId: chair,
+        }),
+      );
+      await vi.waitFor(() => expect(pokes).toHaveLength(4));
+      const [includeCopy, exceptionCopy] = [newId(), newId()];
+      const duplicate = mutation('list.duplicate', {
+        id: newId(),
+        sourceListId: trip,
+        title: 'Trip 2',
+        items: [],
+        includes: [{ from: include, id: includeCopy }],
+        exceptions: [{ from: exception, id: exceptionCopy }],
+      });
+
+      const [answer] = await push(anna.client, duplicate);
+
+      expect(answer).toEqual({ mutationId: duplicate.mutationId, version: 5 });
+      await vi.waitFor(() => expect(pokes).toHaveLength(5));
+      expect(pokes[4].rows.includeExceptions).toEqual([
+        expect.objectContaining({
+          id: exceptionCopy,
+          includeId: includeCopy,
+          targetKind: 'item',
+          targetId: chair,
+        }),
+      ]);
+    });
+
     it('list.import refuses a loop between the imported lists with its reason and creates nothing', async () => {
       const anna = await helloed();
       const [a, b] = [newId(), newId()];

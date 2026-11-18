@@ -1,17 +1,24 @@
 import {
   type CompositionSource,
   type Include,
+  type IncludeException,
   type Item,
   type List,
   newId,
 } from '@lister/shared/domain';
-import { makeInclude, makeItem, makeList } from '@lister/shared/testing';
+import {
+  makeInclude,
+  makeIncludeException,
+  makeItem,
+  makeList,
+} from '@lister/shared/testing';
 
 /** A small in-memory space for the export specs. Positions are the order given. */
 export class FakeSpace implements CompositionSource {
   readonly lists = new Map<string, List>();
   readonly items: Item[] = [];
   readonly includes: Include[] = [];
+  readonly exceptions: IncludeException[] = [];
 
   addList(title: string, description = '', deleted = false): string {
     const id = newId();
@@ -22,9 +29,11 @@ export class FakeSpace implements CompositionSource {
     return id;
   }
 
-  addItem(listId: string, title: string, quantity = '', note = ''): void {
+  addItem(listId: string, title: string, quantity = '', note = ''): string {
+    const id = newId();
     this.items.push(
       makeItem({
+        id,
         listId,
         title,
         quantity,
@@ -32,14 +41,35 @@ export class FakeSpace implements CompositionSource {
         position: this.nextPosition(listId),
       }),
     );
+    return id;
   }
 
-  addInclude(parentListId: string, childListId: string): void {
+  addInclude(parentListId: string, childListId: string): string {
+    const id = newId();
     this.includes.push(
       makeInclude({
+        id,
         parentListId,
         childListId,
         position: this.nextPosition(parentListId),
+      }),
+    );
+    return id;
+  }
+
+  /** Leaves the item or list out of the include (D28). */
+  addException(
+    includeId: string,
+    targetKind: 'item' | 'list',
+    targetId: string,
+    deleted = false,
+  ): void {
+    this.exceptions.push(
+      makeIncludeException({
+        includeId,
+        targetKind,
+        targetId,
+        deletedAt: deleted ? 5 : null,
       }),
     );
   }
@@ -52,6 +82,8 @@ export class FakeSpace implements CompositionSource {
 
   list = (id: string) => this.lists.get(id);
   itemsOf = (listId: string) => this.items.filter((i) => i.listId === listId);
+  exceptionsOf = (includeId: string) =>
+    this.exceptions.filter((e) => e.includeId === includeId);
   includesOf = (listId: string) =>
     this.includes.filter((i) => i.parentListId === listId);
 

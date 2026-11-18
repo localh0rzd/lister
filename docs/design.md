@@ -549,9 +549,12 @@ harmless. Adding is a no-op while a live exception for the same include and targ
 retry or two clients doing it offline leave one in effect; removing tombstones every live row for
 the pair. Undo of a removal adds a new row. Deleting or restoring the include leaves its
 exceptions alone. `list.duplicate` copies the exceptions of the copied list's includes (with new
-ids); the JSON export carries them as an optional `exceptions` field per include (still format
-version 1; on import they follow the id mapping and are dropped when the target isn't in the
-file). The Markdown export and print show the flattened view.
+ids); the client sends their new ids in an optional `exceptions` list (`from`, `id`) like items and
+includes; targets stay, since they lie in other lists. The JSON export carries them as an optional
+`exceptions` field per include (`targetKind`, `targetId`: still format version 1) and gives each
+item an optional `id` so they can name it; on import the client maps them to the new ids, drops
+those whose target isn't in the file, and `list.import` carries them as `exceptions` on the include
+entry (rejected if a target isn't in the import). The Markdown export and print show the flattened view.
 
 **Starting a run:** the client flattens the source list from its local database and sends one
 mutation that creates the run and its items, so starting works offline. Adding a list to an active

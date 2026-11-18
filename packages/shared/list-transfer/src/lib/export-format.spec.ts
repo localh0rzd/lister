@@ -45,10 +45,10 @@ describe('buildListExport', () => {
       colour: null,
       icon: null,
       entries: [
-        { title: 'Tent', quantity: '1', note: '' },
+        { id: expect.any(String), title: 'Tent', quantity: '1', note: '' },
         { include: toiletries },
         { include: shared }, // the list in the trash is left out
-        { title: 'Stove', quantity: '', note: '' },
+        { id: expect.any(String), title: 'Stove', quantity: '', note: '' },
       ],
     });
   });
@@ -272,5 +272,109 @@ describe('exportFileName', () => {
     ['Reisliste für Zürich 🏕️', 'md', 'Reisliste für Zürich 🏕️.md'],
   ])('names %j as a %s file', (title, extension, expected) => {
     expect(exportFileName(title, extension)).toBe(expected);
+  });
+});
+
+describe('exceptions (D28)', () => {
+  function leftOut() {
+    const space = new FakeSpace();
+    const gear = space.addList('Gear');
+    const chair = space.addItem(gear, 'Chair');
+    const tools = space.addList('Tools');
+    const trip = space.addList('Trip');
+    const include = space.addInclude(trip, gear);
+    space.addInclude(trip, tools);
+    space.addException(include, 'item', chair);
+    space.addException(include, 'list', tools, true);
+    return { space, gear, chair, trip };
+  }
+
+  it('exports the live exceptions of each include and the ids they name', () => {
+    const { space, gear, chair, trip } = leftOut();
+
+    const out = buildListExport([trip], space);
+
+    const [tripOut, gearOut] = out.lists;
+    expect(tripOut.entries[0]).toEqual({
+      include: gear,
+      exceptions: [{ targetKind: 'item', targetId: chair }],
+    });
+    expect(tripOut.entries[1]).not.toHaveProperty('exceptions');
+    expect(gearOut.entries[0]).toMatchObject({ id: chair, title: 'Chair' });
+  });
+
+  it('imports them on the new ids and keeps the file valid', () => {
+    const { space, trip } = leftOut();
+    const parsed = parseListExport(
+      JSON.stringify(buildListExport([trip], space)),
+    );
+    if (!parsed.ok) throw new Error(parsed.message);
+
+    const args = importArgs(parsed.file);
+
+    const [tripCopy, gearCopy] = args.lists;
+    const include = tripCopy.entries[0];
+    if (!('listId' in include)) throw new Error('expected an include');
+    expect(include.exceptions).toEqual([
+      {
+        id: expect.any(String),
+        targetKind: 'item',
+        targetId: gearCopy.entries[0].id,
+      },
+    ]);
+    expect(
+      mutationSchema.safeParse({
+        mutationId: newId(),
+        spaceId: newId(),
+        name: 'list.import',
+        args,
+      }).success,
+    ).toBe(true);
+  });
+
+  it('drops exceptions whose target is not in the file, and imports files without the field as before', () => {
+    const [a, b, item] = [newId(), newId(), newId()];
+    const file = listExportSchema.parse({
+      format: 'lister-lists',
+      version: 1,
+      lists: [
+        {
+          id: a,
+          title: 'A',
+          entries: [
+            {
+              include: b,
+              exceptions: [
+                { targetKind: 'item', targetId: newId() },
+                { targetKind: 'list', targetId: newId() },
+                { targetKind: 'item', targetId: item },
+              ],
+            },
+          ],
+        },
+        {
+          id: b,
+          title: 'B',
+          entries: [{ id: item, title: 'Pen' }, { title: 'No id' }],
+        },
+      ],
+    });
+
+    const [first, second] = importArgs(file).lists;
+
+    expect(first.entries[0]).toMatchObject({
+      exceptions: [{ targetKind: 'item', targetId: second.entries[0].id }],
+    });
+    const plain = importArgs(
+      listExportSchema.parse({
+        format: 'lister-lists',
+        version: 1,
+        lists: [
+          { id: a, title: 'A', entries: [{ include: b }] },
+          { id: b, title: 'B', entries: [] },
+        ],
+      }),
+    );
+    expect(plain.lists[0].entries[0]).toMatchObject({ exceptions: [] });
   });
 });
