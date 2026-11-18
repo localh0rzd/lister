@@ -82,7 +82,15 @@ describe('Diagnostics', () => {
     const broken = TestBed.inject(Diagnostics);
     broken.log('app', 'start');
     await broken.flush();
-    expect((await broken.entries()).map((e) => e.event)).toEqual(['start']);
+    expect((await broken.entries()).map((e) => e.event)).toEqual([
+      'start',
+      'store-write-failed',
+    ]);
+    // Once per streak: another failed flush adds nothing.
+    await broken.flush();
+    expect(
+      (await broken.entries()).filter((e) => e.event === 'store-write-failed'),
+    ).toHaveLength(1);
   });
 
   it('clears stored and waiting entries', async () => {

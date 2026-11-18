@@ -65,6 +65,8 @@ export class Diagnostics {
   /** Writes run one after the other, so entries keep their order. */
   private writing: Promise<unknown> = Promise.resolve();
   private readonly states = new Map<string, () => unknown>();
+  /** The last write to IndexedDB failed. */
+  private writeFailing = false;
   /** The failure that repeats now, and how often it has in a row. */
   private repeating?: { signature: string; count: number };
   private probing = false;
@@ -192,9 +194,18 @@ export class Diagnostics {
     this.writing = this.writing.then(async () => {
       try {
         await (await this.openStore()).append(batch);
-      } catch {
+        this.writeFailing = false;
+      } catch (error) {
         // No usable IndexedDB (private mode, blocked): the log stays in memory for this page.
         this.buffer = [...batch, ...this.buffer].slice(-MAX_BUFFER);
+        // Said once per streak, so an export shows that (and why) entries were not persisted.
+        if (!this.writeFailing)
+          this.log('app', 'store-write-failed', {
+            name: error instanceof Error ? error.name : typeof error,
+            message: error instanceof Error ? error.message : undefined,
+            waiting: this.buffer.length,
+          });
+        this.writeFailing = true;
       }
     });
     return this.writing.then(() => undefined);

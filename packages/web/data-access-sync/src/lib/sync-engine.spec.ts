@@ -60,7 +60,10 @@ class FakeServer {
     get connected() {
       return server.connected;
     },
-    id: 'sock-1',
+    // Like Socket.IO, the id is gone by the time `disconnect` is emitted.
+    get id() {
+      return server.connected ? 'sock-1' : undefined;
+    },
     io: {
       engine: {
         id: 'eng-1',
@@ -2542,7 +2545,7 @@ describe('SyncEngine', () => {
         }),
       );
       expect(entries('socket', 'disconnect')).toEqual([
-        expect.objectContaining({ reason: 'ping timeout' }),
+        expect.objectContaining({ reason: 'ping timeout', sid: 'sock-1' }),
       ]);
     });
 

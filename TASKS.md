@@ -23,8 +23,14 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
+## Backlog
+
+## Done
+
 ### T-063 — Diagnostic log for connection problems, exportable from Settings → App
 
+- Completed: 2026-11-18 — always-on, bounded, batched IndexedDB diagnostic log (`web/util-diagnostics`) of everything that decides online/offline, with Settings → App export (Web Share or download) and clear (with Undo)
+- Review: Changes requested; 9 fixed (6 substantive, 3 trivial), 0 skipped, 0 disagreed; re-review rounds: 1
 - Milestone: M9 Data and finding things
 - Area: web
 - Priority: high
@@ -67,10 +73,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   down the cause. Put the logger in its own web library (e.g. `web/util-diagnostics`, `module-boundaries`
   skill) so sync, auth and PWA code can write to it; add it to docs/design.md §5 and describe the
   log in §2.9/§4.4.
-
-## Backlog
-
-## Done
 
 ### T-062 — Print without blank pages
 

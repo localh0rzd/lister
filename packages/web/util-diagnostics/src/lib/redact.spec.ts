@@ -4,9 +4,10 @@ describe('scrub', () => {
   it.each([
     ['“Milk” is already included', '“…” is already included'],
     ['bad "token" here', 'bad “…” here'],
-    ['two “a” and “b”', 'two “…” and “…”'],
+    ['two “a” and “b”', 'two “…”'],
     ['plain reason', 'plain reason'],
     ['line\nbreak', 'line break'],
+    ['“My ” list” is already included', '“…” is already included'],
   ])('turns %j into %j', (input, expected) => {
     expect(scrub(input)).toBe(expected);
   });
@@ -38,6 +39,8 @@ describe('pathOf', () => {
   it.each([
     ['/api/auth/me', '/api/auth/me'],
     ['/api/auth/me?token=secret#x', '/api/auth/me'],
+    ['/api/registration-tokens/s3cr3t-token', '/api/registration-tokens/…'],
+    ['/api/registration-tokens', '/api/registration-tokens'],
     ['https://lister.example.org/api/health?a=1', '/api/health'],
   ])('reduces %s to %s', (url, path) => {
     expect(pathOf(url)).toBe(path);

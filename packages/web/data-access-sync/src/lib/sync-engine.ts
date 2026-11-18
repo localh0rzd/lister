@@ -294,6 +294,8 @@ export class SyncEngine {
   );
 
   private socket?: SyncSocket;
+  /** The id of the current connection: Socket.IO clears `socket.id` before it emits `disconnect`. */
+  private connectedSid?: string;
   private started = false;
   /** Leader-only connection state; mirrored to `meta.status` for every tab. */
   private connection: SyncStatus = OFFLINE;
@@ -610,6 +612,7 @@ export class SyncEngine {
 
     socket.on('connect', () => {
       this.healthy = false;
+      this.connectedSid = socket.id;
       this.diagnostics.endRepeating();
       this.log(
         'connect',
@@ -805,6 +808,7 @@ export class SyncEngine {
     this.log(
       'disconnect',
       {
+        sid: this.connectedSid,
         reason,
         description: describe(description),
         inFlight: this.inFlight.size,
@@ -812,6 +816,7 @@ export class SyncEngine {
       },
       'socket',
     );
+    this.connectedSid = undefined;
     this.inFlight.clear();
     this.pulling.clear();
     this.setStatus(

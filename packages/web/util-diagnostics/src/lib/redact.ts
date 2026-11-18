@@ -4,14 +4,20 @@ const MAX_STRING = 200;
 
 /**
  * Text that may hold what users typed: a quoted title in a refusal (`“Milk” is already included`),
- * and anything between ASCII quotes. Replaced, so a reason keeps its shape but not its words.
+ * and anything between ASCII quotes. Replaced, so a reason keeps its shape but not its words. The
+ * curly quotes are masked from the first opening to the last closing one, as the API's debug log
+ * does (`log-text.ts`), because a title may contain `”` itself.
  */
-const QUOTED = /“[^”]*”|"[^"]*"/g;
+const CURLY_QUOTED = /“.*”/gsu;
+const ASCII_QUOTED = /"[^"]*"/g;
+/** Registration links carry their secret token as a path segment. */
+const REGISTRATION_TOKEN = /(\/registration-tokens\/)[^/]+/;
 
 /** Makes one string safe to store: quoted text removed, control characters dropped, shortened. */
 export function scrub(text: string): string {
   const clean = text
-    .replace(QUOTED, '“…”')
+    .replace(CURLY_QUOTED, '“…”')
+    .replace(ASCII_QUOTED, '“…”')
     // eslint-disable-next-line no-control-regex -- line breaks would break the one-line format
     .replace(/[\u0000-\u001f]+/g, ' ');
   return clean.length > MAX_STRING ? `${clean.slice(0, MAX_STRING)}…` : clean;
@@ -30,10 +36,12 @@ export function scrubData(
   return result;
 }
 
-/** A request path without its query string or fragment (queries can carry tokens). */
+/** A request path without its query string, fragment or registration token (all can carry secrets). */
 export function pathOf(url: string): string {
   const end = url.search(/[?#]/);
   const path = end === -1 ? url : url.slice(0, end);
   // Absolute URLs: keep the path only.
-  return path.replace(/^[a-z][a-z0-9+.-]*:\/\/[^/]+/i, '');
+  return path
+    .replace(/^[a-z][a-z0-9+.-]*:\/\/[^/]+/i, '')
+    .replace(REGISTRATION_TOKEN, '$1…');
 }
