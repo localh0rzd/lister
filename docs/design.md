@@ -553,8 +553,8 @@ ids); the client sends their new ids in an optional `exceptions` list (`from`, `
 includes; targets stay, since they lie in other lists. The JSON export carries them as an optional
 `exceptions` field per include (`targetKind`, `targetId`: still format version 1) and gives each
 item an optional `id` so they can name it; on import the client maps them to the new ids, drops
-those whose target isn't in the file, and `list.import` carries them as `exceptions` on the include
-entry (rejected if a target isn't in the import). The Markdown export and print show the flattened view.
+those whose target isn't in the file or repeats one, and `list.import` carries them as `exceptions` on the include
+entry (rejected if a target isn't in the import or repeats). The Markdown export and print show the flattened view.
 
 **Starting a run:** the client flattens the source list from its local database and sends one
 mutation that creates the run and its items, so starting works offline. Adding a list to an active

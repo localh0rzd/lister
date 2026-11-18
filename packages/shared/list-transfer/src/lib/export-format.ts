@@ -179,15 +179,16 @@ export function importArgs(
         const listId = ids.get(entry.include);
         if (listId === undefined || included.has(listId)) continue;
         included.add(listId);
-        // Exceptions whose target isn't in the file are dropped.
+        // Exceptions whose target isn't in the file, or that repeat one, are dropped.
+        const targets = new Set<Id>();
         const exceptions = (entry.exceptions ?? []).flatMap((exception) => {
           const targetId =
             exception.targetKind === 'item'
               ? itemIds.get(exception.targetId)
               : ids.get(exception.targetId);
-          return targetId === undefined
-            ? []
-            : [{ id: makeId(), targetKind: exception.targetKind, targetId }];
+          if (targetId === undefined || targets.has(targetId)) return [];
+          targets.add(targetId);
+          return [{ id: makeId(), targetKind: exception.targetKind, targetId }];
         });
         entries.push({ id: makeId(), listId, exceptions });
       }

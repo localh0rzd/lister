@@ -332,7 +332,7 @@ describe('exceptions (D28)', () => {
     ).toBe(true);
   });
 
-  it('drops exceptions whose target is not in the file, and imports files without the field as before', () => {
+  it('drops exceptions whose target is not in the file or that repeat one, and imports files without the field as before', () => {
     const [a, b, item] = [newId(), newId(), newId()];
     const file = listExportSchema.parse({
       format: 'lister-lists',
@@ -348,6 +348,8 @@ describe('exceptions (D28)', () => {
                 { targetKind: 'item', targetId: newId() },
                 { targetKind: 'list', targetId: newId() },
                 { targetKind: 'item', targetId: item },
+                // A repeat (a hand-edited file): kept once, so the import isn't refused.
+                { targetKind: 'item', targetId: item },
               ],
             },
           ],
@@ -362,8 +364,16 @@ describe('exceptions (D28)', () => {
 
     const [first, second] = importArgs(file).lists;
 
-    expect(first.entries[0]).toMatchObject({
-      exceptions: [{ targetKind: 'item', targetId: second.entries[0].id }],
+    expect(first.entries[0]).toEqual({
+      id: expect.any(String),
+      listId: second.id,
+      exceptions: [
+        {
+          id: expect.any(String),
+          targetKind: 'item',
+          targetId: second.entries[0].id,
+        },
+      ],
     });
     const plain = importArgs(
       listExportSchema.parse({
