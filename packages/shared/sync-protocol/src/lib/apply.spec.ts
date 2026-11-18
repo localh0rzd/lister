@@ -1750,6 +1750,59 @@ describe('list.import with exceptions (D28)', () => {
     ).toMatchObject({ kind: 'rejected' });
     expect(store.getList(outer)).toBeUndefined();
   });
+
+  it('rejects the whole import for a repeated include and target, or a taken exception id', () => {
+    const store = new MemoryRowStore();
+    const [first] = lists(chair);
+    const repeated = {
+      ...first,
+      entries: [
+        {
+          ...first.entries[0],
+          exceptions: [
+            { id: exception, targetKind: 'item' as const, targetId: chair },
+            { id: newId(), targetKind: 'item' as const, targetId: chair },
+          ],
+        },
+      ],
+    };
+    expect(
+      apply(store, 'list.import', { lists: [repeated, lists(chair)[1]] }),
+    ).toMatchObject({
+      kind: 'rejected',
+      reason: 'This exception already exists',
+    });
+    expect(store.getList(outer)).toBeUndefined();
+
+    expect(apply(store, 'list.import', { lists: lists(chair) })).toMatchObject({
+      kind: 'changed',
+    });
+    const [trip, gear, item] = [newId(), newId(), newId()];
+    expect(
+      apply(store, 'list.import', {
+        lists: [
+          {
+            id: trip,
+            title: 'Trip',
+            entries: [
+              {
+                id: newId(),
+                listId: gear,
+                exceptions: [
+                  { id: exception, targetKind: 'item', targetId: item },
+                ],
+              },
+            ],
+          },
+          { id: gear, title: 'Gear', entries: [{ id: item, title: 'Chair' }] },
+        ],
+      }),
+    ).toMatchObject({
+      kind: 'rejected',
+      reason: 'This exception already exists',
+    });
+    expect(store.getList(trip)).toBeUndefined();
+  });
 });
 
 describe('list.import', () => {

@@ -23,23 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-### T-069 — Keep exceptions when duplicating, exporting and importing
-
-- Milestone: M10 Leaving out
-- Area: shared, api, web
-- Priority: low
-- Depends on: T-067
-- Decisions: D24, D28
-- Done when:
-  - `list.duplicate` copies the exceptions of the copied list's includes, with new ids.
-  - The JSON export carries each include's exceptions as an optional `exceptions` field (format
-    version 1 unchanged); importing maps them to the new ids and drops those whose target isn't
-    in the file; files without the field import as before.
-  - The Markdown export and print show the flattened view (no left-out entries).
-  - Tests: unit tests for the export schema and import mapping, an integration test for
-    `list.duplicate` and `list.import` with exceptions, a Playwright check that a duplicated list
-    keeps a left-out item hidden.
-
 ## Backlog
 
 ## Done

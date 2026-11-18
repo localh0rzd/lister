@@ -3,6 +3,25 @@
 Tasks closed from [TASKS.md](TASKS.md), newest first. Moved out of TASKS.md on 2026-11-18 so
 the backlog stays short to read.
 
+### T-069 — Keep exceptions when duplicating, exporting and importing
+
+- Completed: 2026-11-18 — `list.duplicate` copies include exceptions; JSON export carries per-include `exceptions` and item ids (format v1), import maps them and drops unknown or repeated targets; `list.import` creates them; in `shared-sync-protocol`, `shared-list-transfer`, `web-feature-lists`
+- Review: Approve with minor fixes; 2 fixed (1 substantive, 1 trivial), 0 skipped, 0 disagreed; re-review rounds: 0 (coordinator re-review pending)
+- Milestone: M10 Leaving out
+- Area: shared, api, web
+- Priority: low
+- Depends on: T-067
+- Decisions: D24, D28
+- Done when:
+  - `list.duplicate` copies the exceptions of the copied list's includes, with new ids.
+  - The JSON export carries each include's exceptions as an optional `exceptions` field (format
+    version 1 unchanged); importing maps them to the new ids and drops those whose target isn't
+    in the file; files without the field import as before.
+  - The Markdown export and print show the flattened view (no left-out entries).
+  - Tests: unit tests for the export schema and import mapping, an integration test for
+    `list.duplicate` and `list.import` with exceptions, a Playwright check that a duplicated list
+    keeps a left-out item hidden.
+
 ### T-068 — Leave out in the list editor
 
 - Completed: 2026-11-18 — "Leave out of <list>" in the entry menus and the "N left out" rows (per section and for the list's own includes) with Put back, Undo and focus handling, in `web-feature-lists` (list editor); icon subset updated

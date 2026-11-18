@@ -332,6 +332,39 @@ describe('exceptions (D28)', () => {
     ).toBe(true);
   });
 
+  it('gives an item id used twice in a file to the first item, and its exceptions name that one', () => {
+    const [a, b, pen] = [newId(), newId(), newId()];
+    const file = listExportSchema.parse({
+      format: 'lister-lists',
+      version: 1,
+      lists: [
+        {
+          id: a,
+          title: 'A',
+          entries: [
+            { include: b, exceptions: [{ targetKind: 'item', targetId: pen }] },
+          ],
+        },
+        {
+          id: b,
+          title: 'B',
+          entries: [
+            { id: pen, title: 'Pen' },
+            { id: pen, title: 'Pencil' },
+          ],
+        },
+      ],
+    });
+
+    const [first, second] = importArgs(file).lists;
+
+    const [penCopy, pencilCopy] = second.entries;
+    expect(penCopy.id).not.toBe(pencilCopy.id);
+    expect(first.entries[0]).toMatchObject({
+      exceptions: [{ targetKind: 'item', targetId: penCopy.id }],
+    });
+  });
+
   it('drops exceptions whose target is not in the file or that repeat one, and imports files without the field as before', () => {
     const [a, b, item] = [newId(), newId(), newId()];
     const file = listExportSchema.parse({
