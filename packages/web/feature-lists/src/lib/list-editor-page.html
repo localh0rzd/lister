@@ -189,6 +189,7 @@
               type="button"
               [matMenuTriggerFor]="sectionMenu"
               [attr.data-item-id]="row.id"
+              [attr.data-entry-id]="row.include.childListId"
               [attr.aria-label]="'More for list ' + title"
             >
               <mat-icon>more_vert</mat-icon>
@@ -262,6 +263,7 @@
                       matIconButton
                       type="button"
                       [matMenuTriggerFor]="entryMenu"
+                      [attr.data-entry-id]="entry.item.id"
                       [attr.aria-label]="'More for ' + entry.item.title"
                     >
                       <mat-icon>more_vert</mat-icon>
@@ -302,6 +304,7 @@
                         matIconButton
                         type="button"
                         [matMenuTriggerFor]="nestedMenu"
+                        [attr.data-entry-id]="entry.include.childListId"
                         [attr.aria-label]="
                           'More for list ' + nestedTitle(entry)
                         "
@@ -335,66 +338,15 @@
                 }
               }
               @if (row.leftOut.length > 0) {
-                @let showLeftOut = leftOutOpen().has(row.id);
                 <li class="left-out">
-                  <button
-                    class="left-out-toggle"
-                    type="button"
-                    [attr.aria-expanded]="showLeftOut"
-                    [attr.aria-controls]="'left-out-' + row.id"
-                    (click)="toggleLeftOut(row.id)"
-                  >
-                    <mat-icon aria-hidden="true">{{
-                      showLeftOut ? 'expand_less' : 'expand_more'
-                    }}</mat-icon>
-                    {{ row.leftOut.length }} left out
-                  </button>
-                  @if (showLeftOut) {
-                    <ul
-                      [id]="'left-out-' + row.id"
-                      [attr.aria-label]="'Left out of ' + title"
-                    >
-                      @for (entry of row.leftOut; track entry.exception.id) {
-                        @let inherited = inheritedFrom(entry);
-                        <li
-                          class="nested left-out-entry"
-                          [style.--depth]="entry.depth"
-                        >
-                          <div class="text">
-                            <span class="title struck">{{
-                              leftOutTitle(entry)
-                            }}</span>
-                            @if (leftOutCount(entry) !== undefined) {
-                              <span class="note"
-                                >{{ leftOutCount(entry) }}
-                                {{
-                                  leftOutCount(entry) === 1 ? 'item' : 'items'
-                                }}</span
-                              >
-                            }
-                          </div>
-                          @if (inherited) {
-                            <a
-                              class="inherited"
-                              [routerLink]="['/lists', inherited.id]"
-                              >Left out in {{ inherited.title }}</a
-                            >
-                          } @else {
-                            <button
-                              matButton
-                              type="button"
-                              [attr.aria-label]="
-                                'Put back ' + leftOutTitle(entry)
-                              "
-                              (click)="putBack(entry)"
-                            >
-                              Put back
-                            </button>
-                          }
-                        </li>
-                      }
-                    </ul>
-                  }
+                  <ng-container
+                    [ngTemplateOutlet]="leftOutRow"
+                    [ngTemplateOutletContext]="{
+                      $implicit: row.leftOut,
+                      key: row.id,
+                      label: 'Left out from ' + title,
+                    }"
+                  />
                 </li>
               }
             </ul>
@@ -403,6 +355,69 @@
       }
     }
   </ul>
+  @if (v.leftOut.length > 0) {
+    <div class="left-out list-left-out">
+      <ng-container
+        [ngTemplateOutlet]="leftOutRow"
+        [ngTemplateOutletContext]="{
+          $implicit: v.leftOut,
+          key: v.list.id,
+          label: 'Left out of ' + v.list.title,
+        }"
+      />
+    </div>
+  }
+
+  <!-- A "N left out" toggle and, open, its entries: a section's or the list's own (D28). -->
+  <ng-template #leftOutRow let-entries let-key="key" let-label="label">
+    @let leftOut = asLeftOut(entries);
+    @let showLeftOut = leftOutOpen().has(key);
+    <button
+      class="left-out-toggle"
+      type="button"
+      [attr.data-left-out-toggle]="key"
+      [attr.aria-expanded]="showLeftOut"
+      [attr.aria-controls]="'left-out-' + key"
+      (click)="toggleLeftOut(key)"
+    >
+      <mat-icon aria-hidden="true">{{
+        showLeftOut ? 'expand_less' : 'expand_more'
+      }}</mat-icon>
+      {{ leftOut.length }} left out
+    </button>
+    @if (showLeftOut) {
+      <ul [id]="'left-out-' + key" [attr.aria-label]="label">
+        @for (entry of leftOut; track leftOutId(entry)) {
+          @let inherited = inheritedFrom(entry);
+          @let count = leftOutCount(entry);
+          <li class="nested left-out-entry" [style.--depth]="entry.depth">
+            <div class="text">
+              <span class="title struck">{{ leftOutTitle(entry) }}</span>
+              @if (count !== undefined) {
+                <span class="note"
+                  >{{ count }} {{ count === 1 ? 'item' : 'items' }}</span
+                >
+              }
+            </div>
+            @if (inherited) {
+              <a class="inherited" [routerLink]="['/lists', inherited.id]"
+                >Left out in {{ inherited.title }}</a
+              >
+            } @else {
+              <button
+                matButton
+                type="button"
+                [attr.aria-label]="'Put back ' + leftOutTitle(entry)"
+                (click)="putBack(entry, key)"
+              >
+                Put back
+              </button>
+            }
+          </li>
+        }
+      </ul>
+    }
+  </ng-template>
 
   <form class="add" novalidate (submit)="add($event)">
     <lister-add-item-field

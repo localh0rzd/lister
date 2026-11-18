@@ -11,6 +11,7 @@ import {
   signal,
 } from '@angular/core';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
+import { NgTemplateOutlet } from '@angular/common';
 import { Title } from '@angular/platform-browser';
 import {
   CdkDrag,
@@ -90,6 +91,18 @@ export type EditorRow =
 /** An entry an exception leaves out (D28). */
 export type LeftOutEntry = Extract<FlatEntry, { kind: 'leftOut' }>;
 
+/** The id an exception names: the item, or the list it leaves out. */
+const leftOutId = (entry: LeftOutEntry) =>
+  entry.target.kind === 'item'
+    ? entry.target.item.id
+    : entry.target.include.childListId;
+
+/** Adds a left-out entry once: a list reached by two paths is left out at both. */
+function addLeftOut(entries: LeftOutEntry[], entry: LeftOutEntry) {
+  const id = leftOutId(entry);
+  if (!entries.some((other) => leftOutId(other) === id)) entries.push(entry);
+}
+
 /** Adds `id` to the set held by `state`, or removes it when it is there. */
 function toggleIn(state: WritableSignal<ReadonlySet<string>>, id: string) {
   state.update((set) => {
@@ -147,6 +160,7 @@ function reachableFrom(space: SpaceComposition, root: string): Set<string> {
     MatMenu,
     MatMenuItem,
     MatMenuTrigger,
+    NgTemplateOutlet,
     RouterLink,
   ],
   host: { 'data-printable': '' },
@@ -220,14 +234,16 @@ export class ListEditorPage {
     if (space.status === 'loading') return { kind: 'loading' as const };
     const root = list.value.id;
     const rows: EditorRow[] = [];
+    const leftOut: LeftOutEntry[] = [];
     for (const entry of flattenEntries(root, space.value)) {
       if (entry.depth > 0) {
         const section = rows.at(-1);
         if (section?.kind !== 'section') continue;
-        if (entry.kind === 'leftOut') section.leftOut.push(entry);
+        if (entry.kind === 'leftOut') addLeftOut(section.leftOut, entry);
         else section.entries.push(entry);
       } else if (entry.kind === 'leftOut') {
-        continue; // exceptions only reach below an include
+        // The list's own include of a list that is left out below another one (D28).
+        addLeftOut(leftOut, entry);
       } else if (entry.kind === 'item') {
         const { item } = entry;
         rows.push({ kind: 'item', id: item.id, position: item.position, item });
@@ -250,6 +266,7 @@ export class ListEditorPage {
       kind: 'ready' as const,
       list: list.value,
       rows,
+      leftOut,
       space: space.value,
     };
   });
@@ -331,6 +348,27 @@ export class ListEditorPage {
       );
       if (trigger && trigger.ownerDocument.activeElement !== trigger)
         trigger.focus();
+    });
+    // Leave out / Put back removes the focused control with its entry: move the focus on.
+    afterRenderEffect(() => {
+      const target = this.leaveOutFocus();
+      if (!target) return;
+      const entries = this.leftOutOf(target.key);
+      const isOut = !!entries?.some((e) => leftOutId(e) === target.targetId);
+      // Not changed yet: wait for the render that moves the entry.
+      if (entries && isOut !== target.out) return;
+      // Once only: later renders must not steal the focus.
+      this.leaveOutFocus.set(null);
+      const host = this.host.nativeElement;
+      const toggle = host.querySelector<HTMLElement>(
+        `[data-left-out-toggle="${target.key}"]`,
+      );
+      const entry = target.out
+        ? null
+        : host.querySelector<HTMLElement>(
+            `[data-entry-id="${target.targetId}"]`,
+          );
+      (entry ?? toggle)?.focus();
     });
   }
 
@@ -598,43 +636,52 @@ export class ListEditorPage {
       includeId: row.include.id,
       targetId: target.id,
     };
-    return this.changes.withUndo(
-      {
-        name: 'include.addException',
-        args: { id: newId(), targetKind: target.kind, ...args },
-      },
-      `“${target.title}” left out of ${this.viewedTitle()}`,
-      { name: 'include.removeException', args },
-    );
+    this.focusAfterLeaveOut(row.id, target.id, true);
+    return this.changes
+      .withUndo(
+        {
+          name: 'include.addException',
+          args: { id: newId(), targetKind: target.kind, ...args },
+        },
+        `“${target.title}” left out of ${this.viewedTitle()}`,
+        { name: 'include.removeException', args },
+      )
+      .then((done) => this.forgetFocusUnless(done));
   }
 
   /** "Put back": removes the exception again; Undo leaves it out again. */
-  protected putBack(entry: LeftOutEntry) {
+  protected putBack(entry: LeftOutEntry, key: string) {
     const includeId = entry.exception.includeId;
     const targetId = this.leftOutId(entry);
     const title = this.leftOutTitle(entry);
-    return this.changes.withUndo(
-      {
-        name: 'include.removeException',
-        args: { includeId, targetId },
-      },
-      `“${title}” put back in ${this.viewedTitle()}`,
-      {
-        name: 'include.addException',
-        args: {
-          id: newId(),
-          includeId,
-          targetKind: entry.target.kind,
-          targetId,
+    this.focusAfterLeaveOut(key, targetId, false);
+    return this.changes
+      .withUndo(
+        {
+          name: 'include.removeException',
+          args: { includeId, targetId },
         },
-      },
-    );
+        `“${title}” put back in ${this.viewedTitle()}`,
+        {
+          name: 'include.addException',
+          args: {
+            id: newId(),
+            includeId,
+            targetKind: entry.target.kind,
+            targetId,
+          },
+        },
+      )
+      .then((done) => this.forgetFocusUnless(done));
+  }
+
+  /** Types a left-out row's template context (`ngTemplateOutletContext` is untyped). */
+  protected asLeftOut(entries: unknown): readonly LeftOutEntry[] {
+    return entries as readonly LeftOutEntry[];
   }
 
   protected leftOutId(entry: LeftOutEntry): string {
-    return entry.target.kind === 'item'
-      ? entry.target.item.id
-      : entry.target.include.childListId;
+    return leftOutId(entry);
   }
 
   protected leftOutTitle(entry: LeftOutEntry): string {
@@ -661,11 +708,42 @@ export class ListEditorPage {
     return { id: entry.ownerListId, title: list?.title ?? 'another list' };
   }
 
-  /** Left-out lists the user opened (by include id); they start folded. */
+  /**
+   * The menu button or Put back that started a Leave out / Put back goes away with its entry:
+   * once the entry has moved, the focus goes to the "N left out" toggle (left out) or to the
+   * entry's menu button (put back). `key` is the left-out row: a section's include id, or the
+   * viewed list's id for its own.
+   */
+  private readonly leaveOutFocus = signal<{
+    key: string;
+    targetId: string;
+    out: boolean;
+  } | null>(null);
+
+  private focusAfterLeaveOut(key: string, targetId: string, out: boolean) {
+    this.leaveOutFocus.set({ key, targetId, out });
+  }
+
+  /** Not done (refused): nothing moves, so nothing to focus. */
+  private forgetFocusUnless(done: boolean) {
+    if (!done) this.leaveOutFocus.set(null);
+    return done;
+  }
+
+  /** The left-out entries of row `key` (a section's include id or the viewed list's id). */
+  private leftOutOf(key: string): readonly LeftOutEntry[] | undefined {
+    const view = this.view();
+    if (view.kind !== 'ready') return undefined;
+    if (key === view.list.id) return view.leftOut;
+    const row = view.rows.find((r) => r.id === key);
+    return row?.kind === 'section' ? row.leftOut : undefined;
+  }
+
+  /** Left-out rows the user opened (by key, see `leftOutOf`); they start folded. */
   protected readonly leftOutOpen = signal<ReadonlySet<string>>(new Set());
 
-  protected toggleLeftOut(includeId: string): void {
-    toggleIn(this.leftOutOpen, includeId);
+  protected toggleLeftOut(key: string): void {
+    toggleIn(this.leftOutOpen, key);
   }
 
   protected toggle(includeId: string): void {

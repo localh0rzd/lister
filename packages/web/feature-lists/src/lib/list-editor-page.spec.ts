@@ -1475,6 +1475,158 @@ describe('ListEditorPage — leaving out (D28)', () => {
     );
   });
 
+  /** Applies the exception mutations to the local database, as the sync engine would. */
+  const applyExceptions = () =>
+    mutate.mockImplementation(async (request: MutationRequest) => {
+      requests.push(request);
+      const args = request.args as {
+        id?: string;
+        includeId: string;
+        targetKind?: 'item' | 'list';
+        targetId: string;
+      };
+      if (request.name === 'include.addException') {
+        await db.includeExceptions.put(
+          makeIncludeException({
+            ...(args.id ? { id: args.id } : {}),
+            spaceId: SPACE,
+            includeId: args.includeId,
+            targetKind: args.targetKind ?? 'item',
+            targetId: args.targetId,
+          }),
+        );
+      } else if (request.name === 'include.removeException') {
+        const rows = await db.includeExceptions
+          .where({ includeId: args.includeId })
+          .toArray();
+        await db.includeExceptions.bulkDelete(
+          rows
+            .filter((row) => row.targetId === args.targetId)
+            .map((row) => row.id),
+        );
+      }
+      return { ok: true };
+    });
+
+  it('moves the focus to the "N left out" toggle after Leave out, and back to the entry after Put back', async () => {
+    applyExceptions();
+    const page = await render();
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(page.element.textContent).toContain('Soap');
+    });
+    await (
+      await menuFor(page, 'More for Soap')
+    ).clickItem({ text: /Leave out of Camping/ });
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(document.activeElement).toBe(
+        page.element.querySelector(`[data-left-out-toggle="${own.id}"]`),
+      );
+    });
+
+    (document.activeElement as HTMLButtonElement).click();
+    await page.fixture.whenStable();
+    const putBack = page.element.querySelector(
+      '[aria-label="Put back Soap"]',
+    ) as HTMLButtonElement;
+    putBack.focus();
+    putBack.click();
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(document.activeElement?.getAttribute('aria-label')).toBe(
+        'More for Soap',
+      );
+    });
+  });
+
+  it('lists a list left out by two paths in one section once', async () => {
+    const bag = makeList({ spaceId: SPACE, title: 'Bag' });
+    await db.lists.put(bag);
+    await db.includes.bulkPut([
+      makeInclude({
+        spaceId: SPACE,
+        parentListId: toiletries.id,
+        childListId: bag.id,
+        position: 'a3',
+      }),
+      makeInclude({
+        spaceId: SPACE,
+        parentListId: bag.id,
+        childListId: kitchen.id,
+        position: 'a0',
+      }),
+    ]);
+    await db.includeExceptions.put(
+      makeIncludeException({
+        spaceId: SPACE,
+        includeId: own.id,
+        targetKind: 'list',
+        targetId: kitchen.id,
+      }),
+    );
+    const page = await render();
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(page.element.querySelector('.left-out-toggle')).not.toBeNull();
+    });
+    const toggle = page.element.querySelector(
+      '.left-out-toggle',
+    ) as HTMLButtonElement;
+    expect(toggle.textContent?.trim()).toMatch(/1 left out$/);
+    toggle.click();
+    await page.fixture.whenStable();
+    expect(page.element.querySelectorAll('.left-out-entry')).toHaveLength(1);
+  });
+
+  it("shows the list's own include of a list left out below another one, with Put back", async () => {
+    // Camping includes Kitchen itself too; its include of Toiletries leaves Kitchen out.
+    await db.includes.put(
+      makeInclude({
+        spaceId: SPACE,
+        parentListId: camping.id,
+        childListId: kitchen.id,
+        position: 'a3',
+      }),
+    );
+    await db.includeExceptions.put(
+      makeIncludeException({
+        spaceId: SPACE,
+        includeId: own.id,
+        targetKind: 'list',
+        targetId: kitchen.id,
+      }),
+    );
+    const page = await render();
+    const toggle = () =>
+      page.element.querySelector(
+        `[data-left-out-toggle="${camping.id}"]`,
+      ) as HTMLButtonElement | null;
+    await vi.waitFor(async () => {
+      await page.fixture.whenStable();
+      expect(toggle()).not.toBeNull();
+    });
+    expect(toggle()?.textContent?.trim()).toMatch(/1 left out$/);
+    expect(
+      page.element.querySelector('[aria-label="List Kitchen"]'),
+    ).toBeNull();
+    toggle()?.click();
+    await page.fixture.whenStable();
+    const list = page.element.querySelector(
+      '[aria-label="Left out of Camping"]',
+    ) as HTMLElement;
+    expect(list.textContent).toContain('Kitchen');
+    (
+      list.querySelector('[aria-label="Put back Kitchen"]') as HTMLButtonElement
+    ).click();
+    await vi.waitFor(() =>
+      expect(requests[0]).toMatchObject({
+        name: 'include.removeException',
+        args: { includeId: own.id, targetId: kitchen.id },
+      }),
+    );
+  });
+
   it('shows an exception of a list further down as "Left out in <list>" without Put back', async () => {
     // Toiletries leaves Kitchen out itself; Camping only shows that.
     await db.includeExceptions.put(
