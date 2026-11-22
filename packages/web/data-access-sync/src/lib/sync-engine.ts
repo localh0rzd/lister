@@ -346,7 +346,7 @@ export class SyncEngine {
    * hidden since: if its lock turns out stolen, it takes it straight back, once.
    */
   private cameToFront = false;
-  /** Removes the `pagehide` and `pageshow` listeners. */
+  /** Removes the page lifecycle listeners (`pagehide`, `pageshow`, `visibilitychange`, `resume`). */
   private removePageListeners?: () => void;
 
   constructor() {

@@ -2081,10 +2081,17 @@ describe('SyncEngine', () => {
       const resume = () => document.dispatchEvent(new Event('resume'));
       afterEach(() => vi.restoreAllMocks());
 
+      /** The diagnostic log entries of one lock event. */
+      const logged = (event: string) =>
+        vi
+          .mocked(TestBed.inject(Diagnostics).log)
+          .mock.calls.filter(([area, e]) => area === 'lock' && e === event);
+
       it('takes the lock from a frozen holder when it becomes visible', async () => {
         const locks = new FakeLocks();
         locks.holdElsewhere();
         const { createSocket } = setup({ locks });
+        vi.spyOn(TestBed.inject(Diagnostics), 'log');
         engine.start();
         await settle();
         const signal = locks.requests[0].signal;
@@ -2097,18 +2104,21 @@ describe('SyncEngine', () => {
         expect(locks.requests.map((r) => r.steal)).toEqual([undefined, true]);
         expect(createSocket).toHaveBeenCalledTimes(1);
         expect(server.socket.connected).toBe(true);
+        expect(logged('visible-steal')).toHaveLength(1);
       });
 
       it('takes the lock from a frozen holder when it resumes', async () => {
         const locks = new FakeLocks();
         locks.holdElsewhere();
         const { createSocket } = setup({ locks });
+        vi.spyOn(TestBed.inject(Diagnostics), 'log');
         engine.start();
         await settle();
         resume();
         await settle();
         expect(locks.requests.map((r) => r.steal)).toEqual([undefined, true]);
         expect(createSocket).toHaveBeenCalledTimes(1);
+        expect(logged('resume-steal')).toHaveLength(1);
       });
 
       it('does not steal while it leads', async () => {
@@ -2185,7 +2195,7 @@ describe('SyncEngine', () => {
         it('takes its stolen lock straight back', async () => {
           const locks = new FakeLocks();
           const { createSocket } = setup({ locks });
-          const log = vi.spyOn(TestBed.inject(Diagnostics), 'log');
+          vi.spyOn(TestBed.inject(Diagnostics), 'log');
           engine.start();
           await settle();
           // Thawing runs `visibilitychange` before the queued news of the steal.
@@ -2199,11 +2209,7 @@ describe('SyncEngine', () => {
           ]);
           expect(createSocket).toHaveBeenCalledTimes(2);
           expect(server.socket.connected).toBe(true);
-          expect(
-            log.mock.calls.filter(
-              ([a, e]) => a === 'lock' && e === 'front-steal',
-            ),
-          ).toHaveLength(1);
+          expect(logged('front-steal')).toHaveLength(1);
         });
 
         it('takes it back only once, so two visible pages settle', async () => {

@@ -15,11 +15,10 @@ test('a page the user comes back to takes the sync lock from a frozen page', asy
 
   await test.step('the leading page is frozen in the background (as Android does), still holding the lock', async () => {
     const cdp = await first.context().newCDPSession(first);
-    // Chromium ignores Page.setWebLifecycleState for a headless page that is still "visible",
-    // so stop its JavaScript instead: the lock stays held, nothing runs.
+    // Headless Chromium can't hide a page, and Page.setWebLifecycleState freezes only hidden
+    // pages, so Debugger.pause stands in for the freeze: the lock stays held, no JavaScript runs.
     await cdp.send('Debugger.enable');
     await cdp.send('Debugger.pause');
-    await cdp.send('Page.setWebLifecycleState', { state: 'frozen' });
   });
 
   const title = unique('Written beside a frozen page');

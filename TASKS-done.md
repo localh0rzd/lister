@@ -3,6 +3,37 @@
 Tasks closed from [TASKS.md](TASKS.md), newest first. Moved out of TASKS.md on 2026-11-18 so
 the backlog stays short to read.
 
+### T-070 — A frozen page holding the sync lock no longer blocks sync
+
+- Completed: 2026-11-22 — a page that becomes visible (or resumes visible) while waiting steals the `lister-sync` lock, and a leader that came to the front takes a stolen lock back once (`SyncEngine` in web-data-access-sync, e2e `frozen-leader.spec.ts`, design.md "Several tabs")
+- Review: Changes requested; 5 fixed (2 substantive, 3 trivial), 0 skipped, 0 disagreed; re-review rounds: 0 (coordinator re-review pending)
+
+- Milestone: none (field bug, 2026-11-22)
+- Area: web
+- Priority: high
+- Depends on: —
+- Decisions: —
+- Done when:
+  - With two Lister pages open (e.g. the installed PWA and a browser tab), the page the user is
+    looking at syncs, even when the other page took the `lister-sync` lock and was then frozen or
+    discarded in the background (Android does this): a page that becomes visible or resumes while
+    still waiting for the lock takes it with `steal`. The old leader, when it thaws, finds its lock
+    stolen, steps back and waits again (the existing "stolen" path).
+  - Two pages that are both visible (desktop windows side by side) don't keep stealing the lock
+    from each other: a steal happens only on the transition to visible/resume, never on a timer.
+  - The diagnostic log records the steal with its reason (e.g. `lock.visible-steal`).
+  - docs/design.md "Several tabs" (§ around line 295) describes the new rule.
+  - Tests: unit tests in `data-access-sync` for steal-on-visible, steal-on-resume, no steal while
+    leading or when already holding the lock, and the stepped-back old leader; a Playwright check
+    with two pages where the leading page is frozen (CDP `Page.setWebLifecycleState`) and the
+    other, brought to the front, goes online.
+- Notes: Seen on the phone (Brave, Android) on 2026-11-22: the visible PWA showed Offline with
+  `navigator.locks.query()` reporting the lock held plus one pending request, while the holding
+  tab did not respond (frozen). `checkStuck` in
+  `packages/web/data-access-sync/src/lib/sync-engine.ts` only steals when nobody holds the lock,
+  so it never fires here. Optionally also release the lock on `freeze`, but don't rely on it:
+  frozen or discarded pages can't be trusted to run handlers.
+
 ### T-069 — Keep exceptions when duplicating, exporting and importing
 
 - Completed: 2026-11-18 — `list.duplicate` copies include exceptions; JSON export carries per-include `exceptions` and item ids (format v1), import maps them and drops unknown or repeated targets; `list.import` creates them; in `shared-sync-protocol`, `shared-list-transfer`, `web-feature-lists`
