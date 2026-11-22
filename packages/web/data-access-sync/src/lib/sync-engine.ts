@@ -500,21 +500,30 @@ export class SyncEngine {
     else this.probe();
   }
 
-  /** Answers a ping while this page leads; takes an answer to its own ping. */
+  /**
+   * Answers a ping while this page leads, saying whether it is visible. Takes an answer to its own
+   * ping: a visible leader keeps the lock; a hidden one gives it to this visible page, because a
+   * background page may be frozen any time later, and this page would get no event to probe again.
+   */
   private heard(message: SyncLeaderMessage): void {
     if (message.type === 'ping') {
       if (this.releaseLock)
-        this.leaderChannel?.postMessage({ type: 'pong', id: message.id });
+        this.leaderChannel?.postMessage({
+          type: 'pong',
+          id: message.id,
+          visible: this.document.visibilityState === 'visible',
+        });
     } else if (message.id === this.probeWait?.id) {
-      this.log('probe-answered', {}, 'lock');
       this.cancelProbe();
+      if (message.visible) this.log('probe-answered', {}, 'lock');
+      else this.stealForVisiblePage(true);
     }
   }
 
   /**
    * A visible page that waits for the lock asks the leader whether it is alive. A frozen or gone
-   * leader runs no handlers and stays silent: the page then takes the lock. A leader that answers
-   * keeps it, so live pages never steal from each other. Only on events (load, visible, resume,
+   * leader runs no handlers and stays silent: the page then takes the lock. A visible leader that
+   * answers keeps it, so live visible pages never steal from each other; a hidden one gives it up. Only on events (load, visible, resume,
    * "Sync now"), never on a timer, and never while hidden.
    */
   private probe(): void {
@@ -530,14 +539,19 @@ export class SyncEngine {
     const id = newId();
     const timer = setTimeout(() => {
       this.probeWait = undefined;
-      if (!this.lockWait || this.document.visibilityState !== 'visible') return;
-      this.log('probe-steal', {}, 'lock');
-      this.cancelWait();
-      this.requestLock(true);
+      this.stealForVisiblePage(false);
     }, PROBE_TIMEOUT_MS);
     this.probeWait = { id, timer };
     this.log('probe', {}, 'lock');
     this.leaderChannel.postMessage({ type: 'ping', id });
+  }
+
+  /** Takes the lock for this visible, waiting page from a leader that is silent or hidden. */
+  private stealForVisiblePage(leaderHidden: boolean): void {
+    if (!this.lockWait || this.document.visibilityState !== 'visible') return;
+    this.log('probe-steal', { leaderHidden }, 'lock');
+    this.cancelWait();
+    this.requestLock(true);
   }
 
   private cancelProbe(): void {

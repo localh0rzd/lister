@@ -65,8 +65,12 @@ export const SYNC_LOCKS = new InjectionToken<SyncLocks>('SYNC_LOCKS', {
   },
 });
 
-/** A ping to the page that leads, and its answer (same `id`). */
-export type SyncLeaderMessage = { type: 'ping' | 'pong'; id: string };
+/**
+ * A ping to the page that leads, and its answer (same `id`), which says whether the leader is
+ * visible: a hidden leader gives the lock to the visible page that asked.
+ */
+export type SyncLeaderMessage =
+  { type: 'ping'; id: string } | { type: 'pong'; id: string; visible: boolean };
 
 /** What the engine needs of a `BroadcastChannel`. */
 export interface SyncLeaderChannel {

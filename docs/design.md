@@ -302,10 +302,12 @@ Consequences:
   (its request rejects while it leads) stops leading, closes its socket and waits for the lock again.
   A visible page that waits for the lock checks that the holder is alive, because the holder may be
   a background page that Android froze with the lock still held: it pings on a `BroadcastChannel`
-  (`lister-sync-leader`, with a random id) and the leading page answers at once. A frozen page runs
-  no handlers, so no answer within 2 s means the holder is gone: the page takes the lock with
-  `steal`. An answer means the holder is alive and the page keeps waiting, so two live visible
-  windows never trade the lock. The ping is sent on events only: when the page loads or reloads
+  (`lister-sync-leader`, with a random id) and the leading page answers at once, saying whether it
+  is visible. A frozen page runs no handlers, so no answer within 2 s means the holder is gone: the
+  page takes the lock with `steal`. A visible leader's answer keeps the page waiting, so two live
+  visible windows never trade the lock. A hidden leader's answer makes the page take the lock at
+  once: a background page may be frozen any time later, and the visible page would get no event to
+  ask again (a hidden page never asks, so the lock doesn't come back). The ping is sent on events only: when the page loads or reloads
   visible, becomes visible (`visibilitychange`), resumes (Page Lifecycle `resume`) visible, or the
   user presses "Sync now" while it waits; never while hidden, while it leads, or on a timer. When
   the frozen page thaws it finds the lock stolen and steps back as above. A frozen page that thaws

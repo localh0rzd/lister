@@ -2131,8 +2131,12 @@ describe('SyncEngine', () => {
           vi.spyOn(TestBed.inject(Diagnostics), 'log');
           return { locks, createSocket };
         };
-        const answer = () =>
-          channel.receive({ type: 'pong', id: channel.sent.at(-1)?.id ?? '' });
+        const answer = (visible = true) =>
+          channel.receive({
+            type: 'pong',
+            id: channel.sent.at(-1)?.id ?? '',
+            visible,
+          });
 
         it('takes the lock when a page that loads visible gets no answer', async () => {
           const { locks, createSocket } = await waiting();
@@ -2162,11 +2166,31 @@ describe('SyncEngine', () => {
           expect(logged('probe-steal')).toHaveLength(0);
         });
 
+        it('takes the lock at once when the leader answers from the background', async () => {
+          const { locks, createSocket } = await waiting();
+          engine.start();
+          await flush();
+          answer(false);
+          await flush();
+          expect(stolen(locks)).toEqual([undefined, true]);
+          expect(createSocket).toHaveBeenCalledTimes(1);
+          expect(logged('probe-steal')).toEqual([
+            [
+              'lock',
+              'probe-steal',
+              expect.objectContaining({ leaderHidden: true }),
+            ],
+          ]);
+          expect(logged('probe-answered')).toHaveLength(0);
+          await silence(); // the cancelled timer doesn't steal a second time
+          expect(stolen(locks)).toEqual([undefined, true]);
+        });
+
         it('ignores an answer to another ping', async () => {
           const { locks } = await waiting();
           engine.start();
           await flush();
-          channel.receive({ type: 'pong', id: 'stale' });
+          channel.receive({ type: 'pong', id: 'stale', visible: true });
           await silence();
           expect(stolen(locks)).toEqual([undefined, true]);
         });
@@ -2247,7 +2271,16 @@ describe('SyncEngine', () => {
           await engine.syncNow();
           expect(channel.sent).toHaveLength(0);
           channel.receive({ type: 'ping', id: 'abc' });
-          expect(channel.sent).toEqual([{ type: 'pong', id: 'abc' }]);
+          expect(channel.sent).toEqual([
+            { type: 'pong', id: 'abc', visible: true },
+          ]);
+          show('hidden');
+          channel.receive({ type: 'ping', id: 'def' });
+          expect(channel.sent.at(-1)).toEqual({
+            type: 'pong',
+            id: 'def',
+            visible: false,
+          });
         });
 
         it('does not answer once it is stolen from', async () => {
