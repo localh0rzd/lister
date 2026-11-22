@@ -301,11 +301,15 @@ Consequences:
   request carries no abort `signal`: browsers refuse the two together). A page whose lock is stolen
   (its request rejects while it leads) stops leading, closes its socket and waits for the lock again.
   A page that becomes visible (`visibilitychange` to `visible`) or resumes (Page Lifecycle `resume`)
-  while it is still waiting takes the lock with `steal`, because the holder may be a background page
-  that Android froze with the lock still held; when it thaws it finds the lock stolen and steps back
-  as above. A steal happens only on that transition, never on a timer and never while the page leads,
-  so two visible windows don't keep taking the lock from each other. The diagnostic log records it as
-  `lock.visible-steal` or `lock.resume-steal`.
+  while visible and still waiting takes the lock with `steal`, because the holder may be a background
+  page that Android froze with the lock still held; when it thaws in the background it finds the lock
+  stolen and steps back as above. A frozen page that thaws into the front sees `resume` and
+  `visibilitychange` before the news of the steal, so a leader that came to the front (and hasn't
+  been hidden since) takes a stolen lock straight back, once; otherwise it would wait behind a page
+  that is now in the background and may be frozen next. A steal happens only on these transitions,
+  never on a timer, and a steal-back only once per transition, so two visible windows don't keep
+  taking the lock from each other. The diagnostic log records them as `lock.visible-steal`,
+  `lock.resume-steal` and `lock.front-steal`.
 - **Session expires while offline:** the app keeps working locally, and queued changes are sent
   after signing in again.
 - **Old app, new server:** the service worker may serve a cached older version of the app. The sync

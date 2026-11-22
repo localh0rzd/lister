@@ -2161,6 +2161,106 @@ describe('SyncEngine', () => {
         ]);
       });
 
+      it('does not steal when it resumes still hidden', async () => {
+        const locks = new FakeLocks();
+        locks.holdElsewhere();
+        setup({ locks });
+        engine.start();
+        await settle();
+        vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+        resume();
+        await settle();
+        expect(locks.requests).toHaveLength(1);
+      });
+
+      describe('an old leader that thaws into the front', () => {
+        /** Another page takes the lock with `steal` and keeps it. */
+        const stealElsewhere = (locks: FakeLocks) =>
+          locks
+            .request('lister-sync', () => new Promise<void>(() => undefined), {
+              steal: true,
+            })
+            .catch(() => undefined);
+
+        it('takes its stolen lock straight back', async () => {
+          const locks = new FakeLocks();
+          const { createSocket } = setup({ locks });
+          const log = vi.spyOn(TestBed.inject(Diagnostics), 'log');
+          engine.start();
+          await settle();
+          // Thawing runs `visibilitychange` before the queued news of the steal.
+          show('visible');
+          void stealElsewhere(locks);
+          await settle();
+          expect(locks.requests.map((r) => r.steal)).toEqual([
+            undefined,
+            true,
+            true,
+          ]);
+          expect(createSocket).toHaveBeenCalledTimes(2);
+          expect(server.socket.connected).toBe(true);
+          expect(
+            log.mock.calls.filter(
+              ([a, e]) => a === 'lock' && e === 'front-steal',
+            ),
+          ).toHaveLength(1);
+        });
+
+        it('takes it back only once, so two visible pages settle', async () => {
+          const locks = new FakeLocks();
+          setup({ locks });
+          engine.start();
+          await settle();
+          show('visible');
+          void stealElsewhere(locks);
+          await settle();
+          void stealElsewhere(locks);
+          await settle();
+          expect(locks.requests.map((r) => r.steal)).toEqual([
+            undefined,
+            true,
+            true,
+            true,
+            undefined,
+          ]);
+          expect(server.socket.connected).toBe(false);
+        });
+
+        it('waits when it went back into the background since', async () => {
+          const locks = new FakeLocks();
+          setup({ locks });
+          engine.start();
+          await settle();
+          show('visible');
+          show('hidden');
+          void stealElsewhere(locks);
+          await settle();
+          expect(locks.requests.map((r) => r.steal)).toEqual([
+            undefined,
+            true,
+            undefined,
+          ]);
+        });
+
+        it('waits when it is stolen from while hidden', async () => {
+          const locks = new FakeLocks();
+          setup({ locks });
+          engine.start();
+          await settle();
+          show('visible');
+          vi.spyOn(document, 'visibilityState', 'get').mockReturnValue(
+            'hidden',
+          );
+          void stealElsewhere(locks);
+          await settle();
+          expect(locks.requests.map((r) => r.steal)).toEqual([
+            undefined,
+            true,
+            undefined,
+          ]);
+        });
+      });
+
       it('stops listening when the engine is destroyed', async () => {
         const locks = new FakeLocks();
         locks.holdElsewhere();

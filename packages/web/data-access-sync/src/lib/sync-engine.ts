@@ -341,6 +341,11 @@ export class SyncEngine {
   private releaseLock?: () => void;
   /** The wait looked stuck at the last check (lock pending, held by nobody). */
   private stuckBefore = false;
+  /**
+   * The page came to the front (visible, or resumed while visible) while it led, and hasn't been
+   * hidden since: if its lock turns out stolen, it takes it straight back, once.
+   */
+  private cameToFront = false;
   /** Removes the `pagehide` and `pageshow` listeners. */
   private removePageListeners?: () => void;
 
@@ -402,8 +407,13 @@ export class SyncEngine {
     const shown = () => {
       if (this.document.visibilityState === 'visible')
         this.stealForVisiblePage('visible-steal');
+      else this.cameToFront = false;
     };
-    const resumed = () => this.stealForVisiblePage('resume-steal');
+    // A page resumed in the background stays behind: the visible page may be leading.
+    const resumed = () => {
+      if (this.document.visibilityState === 'visible')
+        this.stealForVisiblePage('resume-steal');
+    };
     this.window?.addEventListener('pagehide', leave);
     this.window?.addEventListener('pageshow', comeBack);
     this.document.addEventListener('visibilitychange', shown);
@@ -449,9 +459,15 @@ export class SyncEngine {
           // Stolen: another page leads now. Step back and wait behind it.
           if (this.releaseLock !== granted) return;
           this.log('stolen', { name: errorName(error) }, 'lock');
+          // A page that thaws into the front runs `resume` and `visibilitychange` before the
+          // queued news of its stolen lock, so it takes the lock back here, once: otherwise it
+          // would wait behind a page that is now in the background and may be frozen next.
+          const takeBack =
+            this.cameToFront && this.document.visibilityState === 'visible';
           this.stepBack();
           granted();
-          this.requestLock();
+          if (takeBack) this.log('front-steal', {}, 'lock');
+          this.requestLock(takeBack);
         } else if (!abort.signal.aborted) {
           // Refused (unexpected): report it, so a page that never leads doesn't fail silently.
           this.log('refused', errorData(error), 'lock');
@@ -461,8 +477,12 @@ export class SyncEngine {
       });
   }
 
-  /** Takes the lock for a page that just became visible or resumed while still waiting for it. */
+  /**
+   * Takes the lock for a page that just became visible or resumed visible while still waiting for
+   * it. A page that leads instead remembers it came to the front (see `cameToFront`).
+   */
   private stealForVisiblePage(reason: 'visible-steal' | 'resume-steal'): void {
+    if (this.releaseLock) this.cameToFront = true;
     if (this.stopped || !this.lockWait || this.releaseLock) return;
     this.log(reason, {}, 'lock');
     this.cancelWait();
@@ -510,6 +530,7 @@ export class SyncEngine {
   /** Stops leading: closes the socket and watchers and forgets the lock. */
   private stepBack(): void {
     this.diagnostics.leader = false;
+    this.cameToFront = false;
     this.teardown?.();
     this.teardown = undefined;
     this.releaseLock = undefined;
