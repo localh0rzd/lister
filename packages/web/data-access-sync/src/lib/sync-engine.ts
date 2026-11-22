@@ -433,7 +433,6 @@ export class SyncEngine {
     if (this.leaderChannel)
       this.leaderChannel.onmessage = (event) => this.heard(event.data);
     this.removePageListeners = () => {
-      this.cancelProbe();
       this.leaderChannel?.close();
       this.leaderChannel = undefined;
       this.window?.removeEventListener('pagehide', leave);
