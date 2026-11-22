@@ -39,3 +39,23 @@ test('a page the user comes back to takes the sync lock from a frozen page', asy
     await synced(second);
   });
 });
+
+test('a page that loads visible while the leader is frozen takes the sync lock', async ({
+  page: first,
+  browserName,
+}) => {
+  test.skip(browserName !== 'chromium', 'Page lifecycle needs Chromium CDP');
+  await first.goto('/lists');
+  await synced(first);
+
+  const cdp = await first.context().newCDPSession(first);
+  await cdp.send('Debugger.enable');
+  await cdp.send('Debugger.pause');
+
+  // Loaded (or reloaded) while visible: no visibility change follows. The frozen leader can't
+  // answer the ping, so the new page takes the lock by itself.
+  const second = await first.context().newPage();
+  await second.goto('/lists');
+  await expect(second.getByRole('main')).toBeVisible();
+  await synced(second);
+});

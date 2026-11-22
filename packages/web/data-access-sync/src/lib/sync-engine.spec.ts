@@ -17,10 +17,18 @@ import {
 import { USER_STORAGE_KEY } from '@lister/web/data-access-auth';
 import { LOCAL_DB, LocalDb } from '@lister/web/data-access-local-db';
 import { Diagnostics, REPEAT_EVERY } from '@lister/web/util-diagnostics';
-import { ERROR_LOG_SIZE, LOCK_CHECK_MS, SyncEngine } from './sync-engine';
+import {
+  ERROR_LOG_SIZE,
+  LOCK_CHECK_MS,
+  PROBE_TIMEOUT_MS,
+  SyncEngine,
+} from './sync-engine';
 import {
   SYNC_CLOCK,
+  SYNC_LEADER_CHANNEL,
   SYNC_LOCKS,
+  type SyncLeaderChannel,
+  type SyncLeaderMessage,
   type SyncLockOptions,
   type SyncLocks,
   SYNC_SOCKET_FACTORY,
@@ -329,6 +337,24 @@ class FakeLocks implements SyncLocks {
   }
 }
 
+/** The leader channel of the page under test: records its pings, delivers what others send. */
+class FakeChannel implements SyncLeaderChannel {
+  readonly sent: SyncLeaderMessage[] = [];
+  onmessage: ((event: MessageEvent<SyncLeaderMessage>) => void) | null = null;
+  closed = false;
+  postMessage(message: SyncLeaderMessage) {
+    this.sent.push(message);
+  }
+  close() {
+    this.closed = true;
+  }
+  /** Another page sends this one a message. */
+  receive(data: SyncLeaderMessage) {
+    this.onmessage?.(new MessageEvent('message', { data }));
+  }
+}
+
+let channel: FakeChannel;
 let db: LocalDb;
 let server: FakeServer;
 let engine: SyncEngine;
@@ -345,9 +371,11 @@ function setup(
 ) {
   db = options.database ?? new LocalDb(`test-${newId()}`);
   server = new FakeServer();
+  channel = new FakeChannel();
   const createSocket = vi.fn(() => server.socket);
   TestBed.configureTestingModule({
     providers: [
+      { provide: SYNC_LEADER_CHANNEL, useValue: () => channel },
       { provide: LOCAL_DB, useValue: db },
       { provide: SYNC_SOCKET_FACTORY, useValue: createSocket },
       {
@@ -2087,100 +2115,193 @@ describe('SyncEngine', () => {
           .mocked(TestBed.inject(Diagnostics).log)
           .mock.calls.filter(([area, e]) => area === 'lock' && e === event);
 
-      it('takes the lock from a frozen holder when it becomes visible', async () => {
-        const locks = new FakeLocks();
-        locks.holdElsewhere();
-        const { createSocket } = setup({ locks });
-        vi.spyOn(TestBed.inject(Diagnostics), 'log');
-        engine.start();
-        await settle();
-        const signal = locks.requests[0].signal;
-        show('hidden');
-        await settle();
-        expect(locks.requests).toHaveLength(1); // hiding steals nothing
-        show('visible');
-        await settle();
-        expect(signal?.aborted).toBe(true);
-        expect(locks.requests.map((r) => r.steal)).toEqual([undefined, true]);
-        expect(createSocket).toHaveBeenCalledTimes(1);
-        expect(server.socket.connected).toBe(true);
-        expect(logged('visible-steal')).toHaveLength(1);
-      });
+      describe('probing the holder', () => {
+        beforeEach(() =>
+          vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] }),
+        );
+        afterEach(() => vi.useRealTimers());
+        const flush = () => vi.advanceTimersByTimeAsync(0);
+        const silence = () => vi.advanceTimersByTimeAsync(PROBE_TIMEOUT_MS);
+        const stolen = (locks: FakeLocks) => locks.requests.map((r) => r.steal);
+        /** A page that waits behind a holder, probing once as it starts. */
+        const waiting = async () => {
+          const locks = new FakeLocks();
+          locks.holdElsewhere();
+          const { createSocket } = setup({ locks });
+          vi.spyOn(TestBed.inject(Diagnostics), 'log');
+          return { locks, createSocket };
+        };
+        const answer = () =>
+          channel.receive({ type: 'pong', id: channel.sent.at(-1)?.id ?? '' });
 
-      it('takes the lock from a frozen holder when it resumes', async () => {
-        const locks = new FakeLocks();
-        locks.holdElsewhere();
-        const { createSocket } = setup({ locks });
-        vi.spyOn(TestBed.inject(Diagnostics), 'log');
-        engine.start();
-        await settle();
-        resume();
-        await settle();
-        expect(locks.requests.map((r) => r.steal)).toEqual([undefined, true]);
-        expect(createSocket).toHaveBeenCalledTimes(1);
-        expect(logged('resume-steal')).toHaveLength(1);
-      });
+        it('takes the lock when a page that loads visible gets no answer', async () => {
+          const { locks, createSocket } = await waiting();
+          engine.start();
+          await flush();
+          expect(channel.sent).toEqual([
+            { type: 'ping', id: expect.any(String) },
+          ]);
+          expect(logged('probe')).toHaveLength(1);
+          await vi.advanceTimersByTimeAsync(PROBE_TIMEOUT_MS - 1);
+          expect(stolen(locks)).toEqual([undefined]);
+          await vi.advanceTimersByTimeAsync(1);
+          expect(locks.requests[0].signal?.aborted).toBe(true);
+          expect(stolen(locks)).toEqual([undefined, true]);
+          expect(createSocket).toHaveBeenCalledTimes(1);
+          expect(logged('probe-steal')).toHaveLength(1);
+        });
 
-      it('does not steal while it leads', async () => {
-        const locks = new FakeLocks();
-        setup({ locks });
-        engine.start();
-        await settle();
-        show('visible');
-        resume();
-        await settle();
-        expect(locks.requests).toHaveLength(1);
-        expect(server.socket.connected).toBe(true);
-      });
+        it('keeps waiting when the leader answers', async () => {
+          const { locks } = await waiting();
+          engine.start();
+          await flush();
+          answer();
+          await silence();
+          expect(stolen(locks)).toEqual([undefined]);
+          expect(logged('probe-answered')).toHaveLength(1);
+          expect(logged('probe-steal')).toHaveLength(0);
+        });
 
-      it('does not steal again once it has stolen the lock', async () => {
-        const locks = new FakeLocks();
-        locks.holdElsewhere();
-        setup({ locks });
-        engine.start();
-        await settle();
-        show('visible');
-        await settle();
-        show('visible');
-        resume();
-        await settle();
-        expect(locks.requests).toHaveLength(2);
-      });
+        it('ignores an answer to another ping', async () => {
+          const { locks } = await waiting();
+          engine.start();
+          await flush();
+          channel.receive({ type: 'pong', id: 'stale' });
+          await silence();
+          expect(stolen(locks)).toEqual([undefined, true]);
+        });
 
-      it('steps the old leader back to waiting when it is stolen from', async () => {
-        const locks = new FakeLocks();
-        setup({ locks });
-        engine.start();
-        await settle();
-        locks
-          .request('lister-sync', () => new Promise<void>(() => undefined), {
-            steal: true,
-          })
-          .catch(() => undefined); // stolen back below
-        await settle();
-        expect(server.socket.connected).toBe(false);
-        expect(locks.requests).toHaveLength(3);
-        // Waiting again; becoming visible now steals it back.
-        show('visible');
-        await settle();
-        expect(locks.requests.map((r) => r.steal)).toEqual([
-          undefined,
-          true,
-          undefined,
-          true,
-        ]);
-      });
+        it('probes when it becomes visible, and when it resumes', async () => {
+          const { locks } = await waiting();
+          engine.start();
+          await flush();
+          answer();
+          show('hidden');
+          show('visible');
+          await silence();
+          expect(channel.sent).toHaveLength(2);
+          expect(stolen(locks)).toEqual([undefined, true]);
+        });
 
-      it('does not steal when it resumes still hidden', async () => {
-        const locks = new FakeLocks();
-        locks.holdElsewhere();
-        setup({ locks });
-        engine.start();
-        await settle();
-        vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
-        resume();
-        await settle();
-        expect(locks.requests).toHaveLength(1);
+        it('probes when it resumes visible', async () => {
+          const { locks } = await waiting();
+          engine.start();
+          await flush();
+          answer();
+          resume();
+          expect(channel.sent).toHaveLength(2);
+          await silence();
+          expect(stolen(locks)).toEqual([undefined, true]);
+        });
+
+        it('probes on "Sync now" while it waits', async () => {
+          const { locks } = await waiting();
+          engine.start();
+          await flush();
+          answer();
+          await engine.syncNow();
+          expect(channel.sent).toHaveLength(2);
+          await silence();
+          expect(stolen(locks)).toEqual([undefined, true]);
+        });
+
+        it('sends one ping at a time', async () => {
+          await waiting();
+          engine.start();
+          await flush();
+          show('visible');
+          resume();
+          await engine.syncNow();
+          expect(channel.sent).toHaveLength(1);
+        });
+
+        it('never probes while hidden', async () => {
+          const { locks } = await waiting();
+          vi.spyOn(document, 'visibilityState', 'get').mockReturnValue(
+            'hidden',
+          );
+          engine.start();
+          resume();
+          await engine.syncNow();
+          await silence();
+          expect(channel.sent).toHaveLength(0);
+          expect(stolen(locks)).toEqual([undefined]);
+        });
+
+        it('does not steal when it was hidden while it waited for the answer', async () => {
+          const { locks } = await waiting();
+          engine.start();
+          await flush();
+          show('hidden');
+          await silence();
+          expect(stolen(locks)).toEqual([undefined]);
+        });
+
+        it('does not probe while it leads, and answers a ping', async () => {
+          const locks = new FakeLocks();
+          setup({ locks });
+          engine.start();
+          await flush();
+          show('visible');
+          resume();
+          await engine.syncNow();
+          expect(channel.sent).toHaveLength(0);
+          channel.receive({ type: 'ping', id: 'abc' });
+          expect(channel.sent).toEqual([{ type: 'pong', id: 'abc' }]);
+        });
+
+        it('does not answer once it is stolen from', async () => {
+          const locks = new FakeLocks();
+          setup({ locks });
+          engine.start();
+          await flush();
+          void locks
+            .request('lister-sync', () => new Promise<void>(() => undefined), {
+              steal: true,
+            })
+            .catch(() => undefined);
+          await flush();
+          channel.receive({ type: 'ping', id: 'abc' });
+          expect(channel.sent.filter((m) => m.type === 'pong')).toEqual([]);
+        });
+
+        it('does not steal again once it has stolen the lock', async () => {
+          const { locks } = await waiting();
+          engine.start();
+          await silence();
+          show('visible');
+          resume();
+          await silence();
+          expect(stolen(locks)).toEqual([undefined, true]);
+        });
+
+        it('lets the old leader that was stolen from probe again, then steal back', async () => {
+          const locks = new FakeLocks();
+          setup({ locks });
+          engine.start();
+          await flush();
+          void locks
+            .request('lister-sync', () => new Promise<void>(() => undefined), {
+              steal: true,
+            })
+            .catch(() => undefined); // frozen from now on: never answers
+          await flush();
+          expect(stolen(locks)).toEqual([undefined, true, undefined]);
+          show('visible');
+          expect(channel.sent).toHaveLength(1);
+          await silence();
+          expect(stolen(locks)).toEqual([undefined, true, undefined, true]);
+        });
+
+        it('stops probing when the engine is stopped', async () => {
+          const { locks } = await waiting();
+          engine.start();
+          await flush();
+          await engine.stop();
+          expect(channel.closed).toBe(true);
+          await silence();
+          expect(stolen(locks)).toEqual([undefined]);
+        });
       });
 
       describe('an old leader that thaws into the front', () => {

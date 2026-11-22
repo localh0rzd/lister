@@ -65,6 +65,30 @@ export const SYNC_LOCKS = new InjectionToken<SyncLocks>('SYNC_LOCKS', {
   },
 });
 
+/** A ping to the page that leads, and its answer (same `id`). */
+export type SyncLeaderMessage = { type: 'ping' | 'pong'; id: string };
+
+/** What the engine needs of a `BroadcastChannel`. */
+export interface SyncLeaderChannel {
+  postMessage(message: SyncLeaderMessage): void;
+  onmessage: ((event: MessageEvent<SyncLeaderMessage>) => void) | null;
+  close(): void;
+}
+
+/**
+ * Opens the channel on which a page that waits for the sync lock asks whether the leader is
+ * alive. Returns nothing without `BroadcastChannel`: such a page never probes.
+ */
+export const SYNC_LEADER_CHANNEL = new InjectionToken<
+  () => SyncLeaderChannel | undefined
+>('SYNC_LEADER_CHANNEL', {
+  providedIn: 'root',
+  factory: () => () =>
+    typeof BroadcastChannel === 'undefined'
+      ? undefined
+      : new BroadcastChannel('lister-sync-leader'),
+});
+
 /** Current time in epoch milliseconds; replaced in tests. */
 export const SYNC_CLOCK = new InjectionToken<() => number>('SYNC_CLOCK', {
   providedIn: 'root',

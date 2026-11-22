@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-071 — A visible page takes the sync lock from a holder that doesn't answer
 
 - Milestone: none (field bug, 2026-11-22)
@@ -56,6 +54,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   only steals on a change to visible. A frozen page runs no handlers, so it can't answer the
   ping; that silence is the signal. Keep the `steal` and `stolen` paths from T-070
   (`SyncEngine` in `packages/web/data-access-sync/src/lib/sync-engine.ts`).
+
+## Backlog
 
 ## Done
 

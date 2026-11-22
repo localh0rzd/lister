@@ -52,8 +52,11 @@ import { mutationBytes, nextPushBatch } from './push-batch';
 import type { ZodMiniType } from 'zod/mini';
 import {
   SYNC_CLOCK,
+  SYNC_LEADER_CHANNEL,
   SYNC_LOCKS,
   SYNC_SOCKET_FACTORY,
+  type SyncLeaderChannel,
+  type SyncLeaderMessage,
   type SyncSocket,
 } from './tokens';
 
@@ -215,6 +218,8 @@ const TOO_BIG = 'This change is too big to sync. Make it in smaller steps.';
 const LOCK_NAME = 'lister-sync';
 /** How often a page that waits for the sync lock checks that the lock is not stuck. */
 export const LOCK_CHECK_MS = 3000;
+/** How long a visible page waits for the leader to answer a ping before it takes the lock. */
+export const PROBE_TIMEOUT_MS = 2000;
 const FIRST_RECONNECT_DELAY_MS = 1000;
 const MAX_RECONNECT_DELAY_MS = 30_000;
 /** How many shown errors the error log keeps. */
@@ -247,6 +252,7 @@ export class SyncEngine {
   private readonly db: LocalDb = inject(LOCAL_DB);
   private readonly createSocket = inject(SYNC_SOCKET_FACTORY);
   private readonly locks = inject(SYNC_LOCKS);
+  private readonly openLeaderChannel = inject(SYNC_LEADER_CHANNEL);
   private readonly now = inject(SYNC_CLOCK);
   private readonly errorHandler = inject(ErrorHandler);
   private readonly destroyRef = inject(DestroyRef);
@@ -346,6 +352,10 @@ export class SyncEngine {
    * hidden since: if its lock turns out stolen, it takes it straight back, once.
    */
   private cameToFront = false;
+  /** Where the leader answers pings and a waiting page sends them (absent without support). */
+  private leaderChannel?: SyncLeaderChannel;
+  /** The ping this page sent and still waits an answer for. */
+  private probeWait?: { id: string; timer: ReturnType<typeof setTimeout> };
   /** Removes the page lifecycle listeners (`pagehide`, `pageshow`, `visibilitychange`, `resume`). */
   private removePageListeners?: () => void;
 
@@ -402,29 +412,37 @@ export class SyncEngine {
       this.log('pageshow', { persisted: event.persisted }, 'lock');
       if (event.persisted) this.requestLock();
     };
-    // A page the user comes back to, still waiting for the lock, takes it from a holder that
-    // is frozen in the background (Android). Only on the transition, never on a timer.
+    // A visible page that waits for the lock checks the leader is alive (see `probe`); a page
+    // that leads remembers it came to the front (see `cameToFront`).
     const shown = () => {
-      if (this.document.visibilityState === 'visible')
-        this.stealForVisiblePage('visible-steal');
-      else this.cameToFront = false;
+      if (this.document.visibilityState === 'visible') this.cameForward();
+      else {
+        this.cameToFront = false;
+        this.cancelProbe();
+      }
     };
     // A page resumed in the background stays behind: the visible page may be leading.
     const resumed = () => {
-      if (this.document.visibilityState === 'visible')
-        this.stealForVisiblePage('resume-steal');
+      if (this.document.visibilityState === 'visible') this.cameForward();
     };
     this.window?.addEventListener('pagehide', leave);
     this.window?.addEventListener('pageshow', comeBack);
     this.document.addEventListener('visibilitychange', shown);
     this.document.addEventListener('resume', resumed);
+    this.leaderChannel = this.openLeaderChannel();
+    if (this.leaderChannel)
+      this.leaderChannel.onmessage = (event) => this.heard(event.data);
     this.removePageListeners = () => {
+      this.cancelProbe();
+      this.leaderChannel?.close();
+      this.leaderChannel = undefined;
       this.window?.removeEventListener('pagehide', leave);
       this.window?.removeEventListener('pageshow', comeBack);
       this.document.removeEventListener('visibilitychange', shown);
       this.document.removeEventListener('resume', resumed);
     };
     this.requestLock();
+    this.probe(); // a page that loads visible gets no `visibilitychange`
   }
 
   /** Asks for the sync lock; while it waits, a lock that is pending but held by nobody is stolen. */
@@ -477,21 +495,61 @@ export class SyncEngine {
       });
   }
 
-  /**
-   * Takes the lock for a page that just became visible or resumed visible while still waiting for
-   * it. A page that leads instead remembers it came to the front (see `cameToFront`).
-   */
-  private stealForVisiblePage(reason: 'visible-steal' | 'resume-steal'): void {
+  /** The page is visible now: a leader remembers it, a waiting page probes the leader. */
+  private cameForward(): void {
     if (this.releaseLock) this.cameToFront = true;
-    if (this.stopped || !this.lockWait || this.releaseLock) return;
-    this.log(reason, {}, 'lock');
-    this.cancelWait();
-    this.requestLock(true);
+    else this.probe();
+  }
+
+  /** Answers a ping while this page leads; takes an answer to its own ping. */
+  private heard(message: SyncLeaderMessage): void {
+    if (message.type === 'ping') {
+      if (this.releaseLock)
+        this.leaderChannel?.postMessage({ type: 'pong', id: message.id });
+    } else if (message.id === this.probeWait?.id) {
+      this.log('probe-answered', {}, 'lock');
+      this.cancelProbe();
+    }
+  }
+
+  /**
+   * A visible page that waits for the lock asks the leader whether it is alive. A frozen or gone
+   * leader runs no handlers and stays silent: the page then takes the lock. A leader that answers
+   * keeps it, so live pages never steal from each other. Only on events (load, visible, resume,
+   * "Sync now"), never on a timer, and never while hidden.
+   */
+  private probe(): void {
+    if (
+      this.stopped ||
+      !this.lockWait ||
+      this.releaseLock ||
+      this.probeWait ||
+      !this.leaderChannel ||
+      this.document.visibilityState !== 'visible'
+    )
+      return;
+    const id = newId();
+    const timer = setTimeout(() => {
+      this.probeWait = undefined;
+      if (!this.lockWait || this.document.visibilityState !== 'visible') return;
+      this.log('probe-steal', {}, 'lock');
+      this.cancelWait();
+      this.requestLock(true);
+    }, PROBE_TIMEOUT_MS);
+    this.probeWait = { id, timer };
+    this.log('probe', {}, 'lock');
+    this.leaderChannel.postMessage({ type: 'ping', id });
+  }
+
+  private cancelProbe(): void {
+    if (this.probeWait) clearTimeout(this.probeWait.timer);
+    this.probeWait = undefined;
   }
 
   private cancelWait(): void {
     if (!this.lockWait) return;
     clearInterval(this.lockWait.check);
+    this.cancelProbe();
     this.lockWait.abort.abort();
     this.lockWait = undefined;
   }
@@ -633,6 +691,7 @@ export class SyncEngine {
   async syncNow(): Promise<void> {
     // A fresh value every time, so every request is a change.
     this.log('sync-now-requested');
+    this.probe();
     await this.db.meta.put({ key: SYNC_NOW_KEY, value: newId() });
   }
 
