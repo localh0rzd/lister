@@ -300,6 +300,12 @@ Consequences:
   when the lock is pending but held by nobody on two checks in a row, takes it with `steal` (a steal
   request carries no abort `signal`: browsers refuse the two together). A page whose lock is stolen
   (its request rejects while it leads) stops leading, closes its socket and waits for the lock again.
+  A page that becomes visible (`visibilitychange` to `visible`) or resumes (Page Lifecycle `resume`)
+  while it is still waiting takes the lock with `steal`, because the holder may be a background page
+  that Android froze with the lock still held; when it thaws it finds the lock stolen and steps back
+  as above. A steal happens only on that transition, never on a timer and never while the page leads,
+  so two visible windows don't keep taking the lock from each other. The diagnostic log records it as
+  `lock.visible-steal` or `lock.resume-steal`.
 - **Session expires while offline:** the app keeps working locally, and queued changes are sent
   after signing in again.
 - **Old app, new server:** the service worker may serve a cached older version of the app. The sync

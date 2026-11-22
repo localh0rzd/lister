@@ -2073,6 +2073,107 @@ describe('SyncEngine', () => {
       expect(server.socket.connected).toBe(true);
     });
 
+    describe('a page the user comes back to', () => {
+      const show = (state: DocumentVisibilityState) => {
+        vi.spyOn(document, 'visibilityState', 'get').mockReturnValue(state);
+        document.dispatchEvent(new Event('visibilitychange'));
+      };
+      const resume = () => document.dispatchEvent(new Event('resume'));
+      afterEach(() => vi.restoreAllMocks());
+
+      it('takes the lock from a frozen holder when it becomes visible', async () => {
+        const locks = new FakeLocks();
+        locks.holdElsewhere();
+        const { createSocket } = setup({ locks });
+        engine.start();
+        await settle();
+        const signal = locks.requests[0].signal;
+        show('hidden');
+        await settle();
+        expect(locks.requests).toHaveLength(1); // hiding steals nothing
+        show('visible');
+        await settle();
+        expect(signal?.aborted).toBe(true);
+        expect(locks.requests.map((r) => r.steal)).toEqual([undefined, true]);
+        expect(createSocket).toHaveBeenCalledTimes(1);
+        expect(server.socket.connected).toBe(true);
+      });
+
+      it('takes the lock from a frozen holder when it resumes', async () => {
+        const locks = new FakeLocks();
+        locks.holdElsewhere();
+        const { createSocket } = setup({ locks });
+        engine.start();
+        await settle();
+        resume();
+        await settle();
+        expect(locks.requests.map((r) => r.steal)).toEqual([undefined, true]);
+        expect(createSocket).toHaveBeenCalledTimes(1);
+      });
+
+      it('does not steal while it leads', async () => {
+        const locks = new FakeLocks();
+        setup({ locks });
+        engine.start();
+        await settle();
+        show('visible');
+        resume();
+        await settle();
+        expect(locks.requests).toHaveLength(1);
+        expect(server.socket.connected).toBe(true);
+      });
+
+      it('does not steal again once it has stolen the lock', async () => {
+        const locks = new FakeLocks();
+        locks.holdElsewhere();
+        setup({ locks });
+        engine.start();
+        await settle();
+        show('visible');
+        await settle();
+        show('visible');
+        resume();
+        await settle();
+        expect(locks.requests).toHaveLength(2);
+      });
+
+      it('steps the old leader back to waiting when it is stolen from', async () => {
+        const locks = new FakeLocks();
+        setup({ locks });
+        engine.start();
+        await settle();
+        locks
+          .request('lister-sync', () => new Promise<void>(() => undefined), {
+            steal: true,
+          })
+          .catch(() => undefined); // stolen back below
+        await settle();
+        expect(server.socket.connected).toBe(false);
+        expect(locks.requests).toHaveLength(3);
+        // Waiting again; becoming visible now steals it back.
+        show('visible');
+        await settle();
+        expect(locks.requests.map((r) => r.steal)).toEqual([
+          undefined,
+          true,
+          undefined,
+          true,
+        ]);
+      });
+
+      it('stops listening when the engine is destroyed', async () => {
+        const locks = new FakeLocks();
+        locks.holdElsewhere();
+        setup({ locks });
+        engine.start();
+        await settle();
+        await engine.stop();
+        show('visible');
+        resume();
+        expect(locks.requests).toHaveLength(1);
+      });
+    });
+
     describe('waiting for the lock', () => {
       beforeEach(() =>
         vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] }),

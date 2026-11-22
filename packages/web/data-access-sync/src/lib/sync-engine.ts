@@ -250,7 +250,8 @@ export class SyncEngine {
   private readonly now = inject(SYNC_CLOCK);
   private readonly errorHandler = inject(ErrorHandler);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly window = inject(DOCUMENT).defaultView;
+  private readonly document = inject(DOCUMENT);
+  private readonly window = this.document.defaultView;
   private readonly diagnostics = inject(Diagnostics);
 
   private readonly status = liveQuerySignal(() => async () => {
@@ -396,11 +397,22 @@ export class SyncEngine {
       this.log('pageshow', { persisted: event.persisted }, 'lock');
       if (event.persisted) this.requestLock();
     };
+    // A page the user comes back to, still waiting for the lock, takes it from a holder that
+    // is frozen in the background (Android). Only on the transition, never on a timer.
+    const shown = () => {
+      if (this.document.visibilityState === 'visible')
+        this.stealForVisiblePage('visible-steal');
+    };
+    const resumed = () => this.stealForVisiblePage('resume-steal');
     this.window?.addEventListener('pagehide', leave);
     this.window?.addEventListener('pageshow', comeBack);
+    this.document.addEventListener('visibilitychange', shown);
+    this.document.addEventListener('resume', resumed);
     this.removePageListeners = () => {
       this.window?.removeEventListener('pagehide', leave);
       this.window?.removeEventListener('pageshow', comeBack);
+      this.document.removeEventListener('visibilitychange', shown);
+      this.document.removeEventListener('resume', resumed);
     };
     this.requestLock();
   }
@@ -447,6 +459,14 @@ export class SyncEngine {
           this.cancelWait();
         } else this.log('wait-aborted', {}, 'lock');
       });
+  }
+
+  /** Takes the lock for a page that just became visible or resumed while still waiting for it. */
+  private stealForVisiblePage(reason: 'visible-steal' | 'resume-steal'): void {
+    if (this.stopped || !this.lockWait || this.releaseLock) return;
+    this.log(reason, {}, 'lock');
+    this.cancelWait();
+    this.requestLock(true);
   }
 
   private cancelWait(): void {

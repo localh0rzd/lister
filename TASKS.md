@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-070 — A frozen page holding the sync lock no longer blocks sync
 
 - Milestone: none (field bug, 2026-11-22)
@@ -52,6 +50,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
   `packages/web/data-access-sync/src/lib/sync-engine.ts` only steals when nobody holds the lock,
   so it never fires here. Optionally also release the lock on `freeze`, but don't rely on it:
   frozen or discarded pages can't be trusted to run handlers.
+
+## Backlog
 
 ## Done
 
