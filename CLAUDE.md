@@ -82,3 +82,17 @@ Every project has exactly one `scope:*` and one `type:*` tag. Web code never imp
 6. If the change departs from `docs/design.md`, the doc is updated in the same change.
 
 Use the `verify` skill to run the checks. For Nx questions use the `nx-workspace` and `nx-generate` skills; never guess CLI flags.
+
+## Agent skills
+
+### Issue tracker
+
+Work items are T-NNN tasks in `TASKS.md` (done ones in `TASKS-done.md`), not GitHub Issues. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five roles (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`) as a task's `Status:` line. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context; `docs/design.md` (Glossary, Decisions table) is the source of truth, `CONTEXT.md`/`docs/adr/` only supplements. See `docs/agents/domain.md`.
