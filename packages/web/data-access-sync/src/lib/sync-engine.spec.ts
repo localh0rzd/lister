@@ -315,6 +315,12 @@ class FakeLocks implements SyncLocks {
     this.held = { resolve: () => undefined, reject: () => undefined };
   }
 
+  /** The other page lets go of the lock it held. */
+  releaseElsewhere() {
+    this.held = undefined;
+    this.process();
+  }
+
   /** A pending request nobody will ever grant. */
   addGhost() {
     this.queue.push({ resolve: () => undefined, reject: () => undefined });
@@ -2195,7 +2201,7 @@ describe('SyncEngine', () => {
           expect(stolen(locks)).toEqual([undefined, true]);
         });
 
-        it('probes when it becomes visible, and when it resumes', async () => {
+        it('probes when it becomes visible', async () => {
           const { locks } = await waiting();
           engine.start();
           await flush();
@@ -2227,6 +2233,42 @@ describe('SyncEngine', () => {
           expect(channel.sent).toHaveLength(2);
           await silence();
           expect(stolen(locks)).toEqual([undefined, true]);
+        });
+
+        it('probes when it comes back from the back/forward cache', async () => {
+          const { locks } = await waiting();
+          engine.start();
+          await flush();
+          answer();
+          pagehide();
+          pageshow(true);
+          expect(channel.sent).toHaveLength(2);
+          await silence();
+          expect(stolen(locks)).toEqual([undefined, undefined, true]);
+        });
+
+        it('stops probing when it gets the lock while its ping is out', async () => {
+          const { locks, createSocket } = await waiting();
+          engine.start();
+          await flush();
+          locks.releaseElsewhere();
+          await flush();
+          expect(createSocket).toHaveBeenCalledTimes(1);
+          await silence();
+          expect(stolen(locks)).toEqual([undefined]);
+          expect(logged('probe-steal')).toHaveLength(0);
+        });
+
+        it('takes the lock even when the answer comes after the timeout', async () => {
+          const { locks } = await waiting();
+          engine.start();
+          await flush();
+          const { id } = channel.sent[0];
+          await silence();
+          channel.receive({ type: 'pong', id, visible: true });
+          await flush();
+          expect(stolen(locks)).toEqual([undefined, true]);
+          expect(logged('probe-answered')).toHaveLength(0);
         });
 
         it('sends one ping at a time', async () => {

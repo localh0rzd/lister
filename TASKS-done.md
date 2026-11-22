@@ -3,6 +3,41 @@
 Tasks closed from [TASKS.md](TASKS.md), newest first. Moved out of TASKS.md on 2026-11-18 so
 the backlog stays short to read.
 
+### T-071 — A visible page takes the sync lock from a holder that doesn't answer
+
+- Completed: 2026-11-22 — a visible page waiting for the `lister-sync` lock pings the leader on a `BroadcastChannel` (load, visible, resume, bfcache restore, Sync now) and steals the lock when nobody answers within 2 s or the leader answers that it is hidden (`SyncEngine` in `web-data-access-sync`, `frozen-leader.spec.ts`)
+- Review: Changes requested; 5 fixed (1 substantive, 4 trivial), 0 skipped, 0 disagreed; re-review rounds: 0
+
+- Milestone: none (field bug, 2026-11-22)
+- Area: web
+- Priority: high
+- Depends on: T-070
+- Decisions: —
+- Done when:
+  - A visible page waiting for the `lister-sync` lock checks whether the holder is alive: it sends
+    a ping on a `BroadcastChannel` (e.g. `lister-sync-leader`) and the leading page answers at once.
+    No answer within ~2 s means the holder is frozen or gone, and the page takes the lock with
+    `steal`. This covers a page that loads or reloads already visible, "Sync now" pressed while
+    waiting, and coming to the front (it can replace or back up the T-070 transition steals).
+  - Live pages never steal from each other: a leader that answers keeps the lock, so two visible
+    desktop windows don't trade it back and forth. A hidden page never probes.
+  - Probing stops once the page leads, and only repeats on events (load, visible, resume,
+    Sync now), not on a timer while hidden.
+  - The diagnostic log records the probe and its outcome (e.g. `lock.probe`, `lock.probe-answered`,
+    `lock.probe-steal`).
+  - docs/design.md "Several tabs" (§ around line 295) describes the probe and drops the "only on
+    the transition" wording.
+  - Tests: unit tests in `data-access-sync` for steal when the probe gets no answer (on start
+    visible, on Sync now, on visible), no steal when the leader answers, no probe while hidden or
+    leading, and the stepped-back old leader; extend `frozen-leader.spec.ts` so a page that
+    _loads_ visible while the leader is frozen goes online.
+- Notes: Seen on the phone (Brave, Android) on 2026-11-22 with the T-070 build live: the visible
+  tab had reloaded (log `app.start` with `navigation: reload`, `visibility: visible`) and waited
+  behind a frozen Lister tab holding the lock, with no `lock.visible-steal` logged, because T-070
+  only steals on a change to visible. A frozen page runs no handlers, so it can't answer the
+  ping; that silence is the signal. Keep the `steal` and `stolen` paths from T-070
+  (`SyncEngine` in `packages/web/data-access-sync/src/lib/sync-engine.ts`).
+
 ### T-070 — A frozen page holding the sync lock no longer blocks sync
 
 - Completed: 2026-11-22 — a page that becomes visible (or resumes visible) while waiting steals the `lister-sync` lock, and a leader that came to the front takes a stolen lock back once (`SyncEngine` in web-data-access-sync, e2e `frozen-leader.spec.ts`, design.md "Several tabs")

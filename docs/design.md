@@ -431,7 +431,7 @@ None of these change the architecture; the table says what goes into v1.
   nothing older than 7 days, written in batches so it never slows the app. Entries are one line
   each (time, tab id, `*` when the tab leads sync, `area.event`, JSON data) and cover browser
   `online`/`offline`, page lifecycle (visibility, focus, `pagehide`/`pageshow` with `persisted`,
-  freeze/resume), the `lister-sync` Web Lock (requested, acquired, released, stolen, stuck steal),
+  freeze/resume), the `lister-sync` Web Lock (requested, acquired, released, stolen, stuck steal, probe and its outcome),
   every Socket.IO step (open, `connect`, `connect_error` with message, type and description,
   `disconnect` with its reason, reconnect attempts, close; a failure that repeats while Socket.IO
   retries is logged the first three times and then every 20th, with its count, so hours of

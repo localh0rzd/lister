@@ -410,7 +410,10 @@ export class SyncEngine {
     const leave = () => this.leave('pagehide');
     const comeBack = (event: PageTransitionEvent) => {
       this.log('pageshow', { persisted: event.persisted }, 'lock');
-      if (event.persisted) this.requestLock();
+      if (!event.persisted) return;
+      this.requestLock();
+      // Its `visibilitychange` came before the lock request, so it probes here.
+      this.probe();
     };
     // A visible page that waits for the lock checks the leader is alive (see `probe`); a page
     // that leads remembers it came to the front (see `cameToFront`).
