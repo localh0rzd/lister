@@ -110,6 +110,29 @@ describe('SpaceButton', () => {
       .toContain('Home');
   });
 
+  it('follows a space being added or removed without a reload', async () => {
+    const { fixture, el, rows } = await render('Family', 'Work');
+    await db.spaces.put(space('Attic'));
+    await expect
+      .poll(async () => {
+        await fixture.whenStable();
+        return trigger(el)?.textContent;
+      })
+      .toContain('Attic');
+
+    await db.spaces.bulkDelete(
+      (await db.spaces.toArray())
+        .filter((s) => s.id !== rows[1].id)
+        .map((s) => s.id),
+    );
+    await expect
+      .poll(async () => {
+        await fixture.whenStable();
+        return trigger(el)?.textContent;
+      })
+      .toContain('Work');
+  });
+
   it('gives the name the truncation tooltip, for a long name', async () => {
     const { fixture, el } = await render('A very long space name '.repeat(8));
     expect(
