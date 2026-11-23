@@ -119,8 +119,9 @@ test('the page does not jump when the search field arrives', async ({
   const tops = await page.evaluate(
     () => (window as unknown as { tops: number[] }).tops,
   );
-  // Space has no search bar, Lists has: one move, no step in between.
+  // The app bar (space button) is on every page, so the content does not move when the search
+  // field arrives.
   expect(tops.filter((top, i) => i === 0 || top !== tops[i - 1])).toHaveLength(
-    2,
+    1,
   );
 });

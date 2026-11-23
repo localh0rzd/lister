@@ -1,0 +1,31 @@
+@if (space(); as current) {
+  <button
+    matButton="text"
+    type="button"
+    class="trigger"
+    [matMenuTriggerFor]="menu"
+    [listerTruncatedTooltip]="name"
+    [attr.aria-label]="'Space: ' + current.name + ', switch space'"
+  >
+    <span class="name" #name>{{ current.name }}</span>
+    <mat-icon iconPositionEnd>arrow_drop_down</mat-icon>
+  </button>
+  <mat-menu #menu="matMenu" class="space-menu">
+    @for (s of spaces(); track s.id) {
+      <button
+        mat-menu-item
+        type="button"
+        role="menuitemradio"
+        [attr.aria-checked]="s.id === currentId()"
+        (click)="select(s.id)"
+      >
+        <mat-icon>{{ s.id === currentId() ? 'check' : '' }}</mat-icon>
+        <span>{{ s.name }}</span>
+      </button>
+    }
+    <a mat-menu-item routerLink="/space">
+      <mat-icon>group</mat-icon>
+      <span>Spaces…</span>
+    </a>
+  </mat-menu>
+}

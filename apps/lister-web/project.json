@@ -87,7 +87,10 @@
       "executor": "@angular/build:unit-test",
       "options": {
         "watch": false,
-        "setupFiles": ["apps/lister-web/src/testing/web-storage.ts"]
+        "setupFiles": [
+          "apps/lister-web/src/testing/web-storage.ts",
+          "apps/lister-web/src/testing/indexeddb.ts"
+        ]
       }
     }
   }

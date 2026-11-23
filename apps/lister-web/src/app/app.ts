@@ -14,6 +14,7 @@ import { SearchField } from '@lister/web/feature-search';
 import { NavigationBar, NavigationRail } from '@lister/web/ui';
 import { filter, map } from 'rxjs';
 import { DESTINATIONS } from './destinations';
+import { SpaceButton } from './space-button/space-button';
 import { SyncIndicator } from './sync-indicator';
 
 /** From this width the navigation rail replaces the top app bar and bottom navigation bar. */
@@ -29,6 +30,7 @@ const SEARCH_PATHS = ['/lists', '/runs'];
     NavigationBar,
     NavigationRail,
     SearchField,
+    SpaceButton,
     SyncIndicator,
   ],
   templateUrl: './app.html',

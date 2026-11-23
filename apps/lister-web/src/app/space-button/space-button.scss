@@ -1,0 +1,17 @@
+:host {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.trigger {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}

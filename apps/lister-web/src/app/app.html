@@ -7,21 +7,31 @@
         <lister-sync-indicator [compact]="true" />
       }
     </lister-navigation-rail>
-    @if (searchable()) {
-      <!-- Not a <header>: there is no page banner on wide screens. -->
-      <div class="top-bar">
+    <!-- Not a <header>: there is no page banner on wide screens. -->
+    <div class="top-bar">
+      @defer (on idle) {
+        <lister-space-button />
+      } @placeholder {
+        <div class="space-placeholder"></div>
+      }
+      @if (searchable()) {
         @defer (on idle) {
           <lister-search-field />
         } @placeholder {
           <!-- The field's height, so the page does not jump when it arrives. -->
           <div class="search-placeholder"></div>
         }
-      </div>
-    }
+      }
+    </div>
   } @else {
     <header class="top-bar">
       <mat-toolbar>
         <span class="brand">{{ title() }}</span>
+        @defer (on idle) {
+          <lister-space-button class="space" />
+        } @placeholder {
+          <span class="space-placeholder"></span>
+        }
         @if (searchable()) {
           @defer (on idle) {
             <lister-search-field class="search" />

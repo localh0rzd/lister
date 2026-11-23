@@ -23,8 +23,6 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 
 ## In progress
 
-## Backlog
-
 ### T-072 — Show the current space in the app bar
 
 - Milestone: none (user request, 2026-11-23)
@@ -50,6 +48,8 @@ Milestones: **M1** Foundations · **M2** Sync walking skeleton · **M3** Composi
 - Notes: Reuse the switching logic of `spaces-section.ts` / `CurrentSpace` instead of copying it;
   the component likely belongs in `web-feature-space` and is placed by `apps/lister-web/src/app/app.html`.
   Run the `ui-review` skill.
+
+## Backlog
 
 ## Done
 

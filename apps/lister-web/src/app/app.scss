@@ -19,6 +19,9 @@
 
 .shell.wide .top-bar {
   display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 56px;
   padding: 8px 24px 0;
   padding-right: max(24px, env(safe-area-inset-right));
 }
@@ -36,6 +39,18 @@
 
 .brand {
   font: var(--mat-sys-title-large);
+}
+
+// Phones: the space button gives way before the search field and the sync badge do.
+.space {
+  flex: 0 1 auto;
+  max-width: 8rem;
+  margin-left: 4px;
+}
+
+// The button's height, so the bar does not jump when it arrives.
+.space-placeholder {
+  height: 40px;
 }
 
 .search {

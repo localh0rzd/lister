@@ -71,12 +71,13 @@ describe('App shell', () => {
     ['/space', false],
     ['/settings', false],
   ])(
-    'on %s the wide layout has an app bar for search: %s',
+    'on %s the wide layout has the search field in its app bar: %s',
     async (url, shown) => {
       setup(true);
       const el = await render(url);
 
-      expect(el.querySelector('.top-bar') !== null).toBe(shown);
+      // The app bar is on every page: it holds the space button (D29).
+      expect(el.querySelector('.top-bar') !== null).toBe(true);
       expect(el.querySelector('.top-bar .search-placeholder') !== null).toBe(
         shown,
       );
