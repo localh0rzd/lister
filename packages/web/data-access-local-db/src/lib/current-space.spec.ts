@@ -58,6 +58,29 @@ describe('CurrentSpace', () => {
     expect(localStorage.getItem(CURRENT_SPACE_KEY)).toBe(work.id);
   });
 
+  it('follows a space picked in another tab', async () => {
+    const home = space('Home');
+    const work = space('Work');
+    await db.spaces.bulkPut([home, work]);
+    await vi.waitFor(() => expect(current.id()).toBe(home.id));
+
+    // The other tab writes the key; this tab only hears the storage event.
+    localStorage.setItem(CURRENT_SPACE_KEY, work.id);
+    window.dispatchEvent(
+      new StorageEvent('storage', {
+        key: CURRENT_SPACE_KEY,
+        newValue: work.id,
+      }),
+    );
+    expect(current.id()).toBe(work.id);
+
+    localStorage.setItem('lister.other', 'x');
+    localStorage.removeItem(CURRENT_SPACE_KEY);
+    window.dispatchEvent(new StorageEvent('storage', { key: 'lister.other' }));
+    expect(current.id()).toBe(work.id);
+    localStorage.removeItem('lister.other');
+  });
+
   it('starts in the remembered space, and falls back when it is gone', async () => {
     const home = space('Home');
     const work = space('Work');

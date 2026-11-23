@@ -41,11 +41,18 @@
   font: var(--mat-sys-title-large);
 }
 
-// Phones: the space button gives way before the search field and the sync badge do.
+// The space button's slot (D29): a fixed width from the first frame, so the search field beside it
+// does not move when the button arrives; it gives way before the search field and the sync badge
+// do, and a longer name is cut off inside it.
 .space {
-  flex: 0 1 auto;
-  max-width: 8rem;
+  flex: 0 1 8rem;
+  min-width: 0;
   margin-left: 4px;
+}
+
+.shell.wide .space {
+  flex-basis: 16rem;
+  margin-left: 0;
 }
 
 // The button's height, so the bar does not jump when it arrives.
@@ -60,6 +67,12 @@
 // As tall as the search field (48 px, see search-field.scss).
 .search-placeholder {
   height: 48px;
+}
+
+// As wide as the search field, too, so the bar does not reflow when it arrives.
+.shell.wide .search-placeholder {
+  flex: 1 1 0;
+  max-width: 28rem;
 }
 
 .spacer {

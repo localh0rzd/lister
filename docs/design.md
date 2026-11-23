@@ -364,8 +364,9 @@ Consequences:
 - **Space button (D29):** the current space's name is a button with a dropdown icon in the top app bar on
   phones (between the title and the search field) and at the top of the content area from 600 px (before
   the search field, which is only on Lists and Runs). It opens a menu of the user's spaces (current one
-  marked) and a "Spaces…" link to the Space page. A long name is cut off with an ellipsis and a tooltip,
-  and gives way before the search field and the sync badge do.
+  marked) and a "Spaces…" link to the Space page. It sits in a slot of fixed width (8 rem on phones, 16 rem
+  from 600 px), so the search field next to it never moves while the page loads; a longer name is cut off
+  with an ellipsis and a tooltip, and the slot gives way before the search field and the sync badge do.
 - Light and dark theme following the system, plus a manual toggle. Both are generated from the
   deep teal seed colour `#00796B` (D11) with Angular Material's `theme-color` schematic.
 - **Self-host fonts and icons** (Roboto, Material Symbols, from npm). Material's `ng-add` loads them

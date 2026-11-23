@@ -1,5 +1,12 @@
 import { DOCUMENT } from '@angular/common';
-import { Service, type Signal, computed, inject, signal } from '@angular/core';
+import {
+  DestroyRef,
+  Service,
+  type Signal,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { LOCAL_DB, type LocalSpace } from './local-db';
 import { type QueryState, liveQuerySignal, valueOf } from './live-query-signal';
 
@@ -39,6 +46,18 @@ export class CurrentSpace {
   readonly id: Signal<string | undefined> = computed(
     () => valueOf(this.state())?.id,
   );
+
+  constructor() {
+    // A space picked in another tab or window of the app applies here too.
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== CURRENT_SPACE_KEY && event.key !== null) return;
+      this.picked.set(this.readPicked());
+    };
+    this.window?.addEventListener('storage', onStorage);
+    inject(DestroyRef).onDestroy(() =>
+      this.window?.removeEventListener('storage', onStorage),
+    );
+  }
 
   /**
    * The display name of a member of the space `spaceId` (the space of the row being shown, which

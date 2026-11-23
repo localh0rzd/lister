@@ -9,10 +9,11 @@
     </lister-navigation-rail>
     <!-- Not a <header>: there is no page banner on wide screens. -->
     <div class="top-bar">
+      <!-- The space's slot has its width from the first frame, so the search field never moves. -->
       @defer (on idle) {
-        <lister-space-button />
+        <lister-space-button class="space" />
       } @placeholder {
-        <div class="space-placeholder"></div>
+        <div class="space space-placeholder"></div>
       }
       @if (searchable()) {
         @defer (on idle) {
@@ -30,13 +31,13 @@
         @defer (on idle) {
           <lister-space-button class="space" />
         } @placeholder {
-          <span class="space-placeholder"></span>
+          <span class="space space-placeholder"></span>
         }
         @if (searchable()) {
           @defer (on idle) {
             <lister-search-field class="search" />
           } @placeholder {
-            <span class="spacer search-placeholder"></span>
+            <span class="search spacer search-placeholder"></span>
           }
         } @else {
           <span class="spacer"></span>

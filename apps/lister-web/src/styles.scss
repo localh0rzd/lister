@@ -88,3 +88,10 @@ body {
     display: none !important;
   }
 }
+
+// The space button (D29): MatButton's label lives in MatButton's own template, so only a global
+// rule can let it shrink and cut off a long space name with an ellipsis.
+.lister-space-trigger .mdc-button__label {
+  min-width: 0;
+  overflow: hidden;
+}

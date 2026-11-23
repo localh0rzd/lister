@@ -86,13 +86,73 @@ for (const [name, viewport] of layouts) {
         await page.goto('/lists');
         const trigger = anyButton;
         await expect(trigger).toContainText('LLLL');
-        const box = (await trigger.boundingBox())!;
-        expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
-        await expect(
-          page.getByRole('combobox', { name: 'Search' }),
-        ).toBeInViewport();
+        const search = page.getByRole('combobox', { name: 'Search' });
+        await expect(search).toBeInViewport();
+        // The text itself is cut off inside the button, not painted over its neighbours.
+        const name = trigger.locator('.name');
+        expect(
+          await name.evaluate((el) => el.scrollWidth > el.clientWidth),
+        ).toBe(true);
+        const nameBox = (await name.boundingBox())!;
+        const triggerBox = (await trigger.boundingBox())!;
+        const searchBox = (await search.boundingBox())!;
+        expect(nameBox.x).toBeGreaterThanOrEqual(triggerBox.x);
+        expect(nameBox.x + nameBox.width).toBeLessThanOrEqual(
+          triggerBox.x + triggerBox.width,
+        );
+        expect(triggerBox.x + triggerBox.width).toBeLessThanOrEqual(
+          searchBox.x,
+        );
+        await trigger.hover();
+        await expect(page.locator('.mat-mdc-tooltip-show')).toHaveText(long);
         await expectAccessible(page);
+      });
+
+      await test.step('a switch in another tab shows here too', async () => {
+        const other = await page.context().newPage();
+        await other.goto('/lists');
+        await other
+          .getByRole('button', { name: /^Space: .*, switch space$/ })
+          .click();
+        await other.getByRole('menuitemradio', { name: home }).click();
+        await expect(button(home)).toBeVisible();
+        await expect(page.getByRole('link', { name: homeList })).toBeVisible();
+        await other.close();
       });
     });
   });
 }
+
+test('the search field does not move when the space button arrives', async ({
+  page,
+}) => {
+  // Record the search slot's left edge on every frame, from the start of each page load.
+  await page.addInitScript(() => {
+    const w = window as unknown as { lefts: number[] };
+    w.lefts = [];
+    const tick = () => {
+      const slot = document.querySelector(
+        'lister-search-field, .search-placeholder',
+      );
+      if (slot) w.lefts.push(Math.round(slot.getBoundingClientRect().left));
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+  for (const viewport of layouts.map(([, size]) => size)) {
+    await page.setViewportSize(viewport);
+    await page.goto('/lists');
+    await expect(page.getByRole('combobox', { name: 'Search' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: /^Space: .*, switch space$/ }),
+    ).toBeVisible();
+    const lefts = await page.evaluate(
+      () => (window as unknown as { lefts: number[] }).lefts,
+    );
+    expect(lefts.length).toBeGreaterThan(0);
+    expect(
+      new Set(lefts).size,
+      `left edges: ${[...new Set(lefts)].join(', ')}`,
+    ).toBe(1);
+  }
+});
